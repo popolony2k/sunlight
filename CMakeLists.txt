@@ -114,7 +114,7 @@ target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::Lib
 
 # --  Installation
 
-target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:./>)
+target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:/src/include>)
 
 #configure_file("sunlightConfig.cmake.in" "sunlightConfig.cmake" @ONLY)
 
