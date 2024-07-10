@@ -94,7 +94,9 @@ endif()
 #
 add_definitions(-DDEFAULT_ENGINE=1)
 
-add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
+#add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
+
+add_library(sunlight ${LIBRARY_SOURCES})
 
 #
 # ZLIB
@@ -128,7 +130,7 @@ include(GNUInstallDirs)
 #         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 #         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 #         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES ${LIBRARY_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sunlight)
+install(FILES ${LIBRARY_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # install(EXPORT sunlight_exports
 #         FILE "sunlightExports.cmake"
