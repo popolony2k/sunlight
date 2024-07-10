@@ -1,0 +1,24 @@
+The files below are required for compiling sunlight engine
+
+On Windows use vcpkg https://github.com/microsoft/vcpkg to integrate C/C++ libraries using Visual Studio 
+(this could be done for Linux or even MacOSX - needs confirmation).
+
+After installing vcpkg, the following libraries are required to install using vcpkg.
+
+=================
+LibIconv (Iconv)
+=================
+
+.\vcpkg\vcpkg install libiconv:x64-windows
+
+=================
+ZLib
+=================
+
+.\vcpkg\vcpkg install zlib:x64-windows
+
+=================
+LibXML2
+=================
+
+.\vcpkg\vcpkg install libxml2:x64-windows
