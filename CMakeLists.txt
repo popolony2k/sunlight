@@ -119,4 +119,10 @@ find_package(ZLIB REQUIRED)
 include(FindLibXml2)
 find_package(LibXml2 REQUIRED)
 
+install(TARGETS ${TARGETS_TO_INSTALL}
+        EXPORT SunLightTargets
+)
+
+install(DIRECTORY include/ TYPE INCLUDE)
+
 #target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
