@@ -34,27 +34,26 @@ FetchContent_MakeAvailable(raylib)
 ###################################################################
 
 # Add all include files
-include_directories("src/include")
-include_directories("src/include/base")
-include_directories("src/include/input")
-include_directories("src/include/canvas")
-include_directories("src/include/sprite")
-include_directories("src/include/collision")
-include_directories("src/include/renderer")
-include_directories("src/include/tilemap")
-include_directories("src/include/scripting")
-include_directories("src/include/engines")
-include_directories("src/include/sound")
-include_directories("src/include/concurrent")
-
+include_directories("src/")
+include_directories("src/base")
+include_directories("src/input")
+include_directories("src/canvas")
+include_directories("src/sprite")
+include_directories("src/collision")
+include_directories("src/renderer")
+include_directories("src/tilemap")
+include_directories("src/scripting")
+include_directories("src/engines")
+include_directories("src/sound")
+include_directories("src/concurrent")
 
 # Add all source files
-file( GLOB_RECURSE APPLICATION_SOURCES "src/source" *.cpp )
-file( GLOB APPLICATION_HEADERS src/include/*.h )
+file( GLOB_RECURSE LIBRARY_SOURCES "src/" *.cpp )
+file( GLOB LIBRARY_HEADERS "src/" *.h )
 
 file(GLOB_RECURSE REMOVE_CMAKE_FILES CMakeFiles/*)
 file(GLOB_RECURSE REMOVE_BUILD_FILES build/*)
-#list(REMOVE_ITEM APPLICATION_SOURCES ${REMOVE_BUILD_FILES} ${REMOVE_CMAKE_FILES})
+#list(REMOVE_ITEM LIBRARY_SOURCES ${REMOVE_BUILD_FILES} ${REMOVE_CMAKE_FILES})
 
 
 if(APPLE)
@@ -95,7 +94,7 @@ endif()
 #
 add_definitions(-DDEFAULT_ENGINE=1)
 
-add_library(sunlight ${APPLICATION_SOURCES} ${APPLICATION_HEADERS})
+add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 
 #
 # ZLIB
@@ -112,3 +111,13 @@ include(FindLibXml2)
 find_package(LibXml2 REQUIRED)
 
 target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
+
+# --  Installation
+
+target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:include>)
+
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
+
+install(FILES "${CMAKE_BINARY_DIR}/sunlightConfig.cmake" "${CMAKE_BINARY_DIR}/sunlightConfigVersion.cmake"
+        DESTINATION "lib/cmake/sunlight")
