@@ -128,9 +128,7 @@ include(GNUInstallDirs)
 #         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 #         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 #         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-set(HEADERS "/src/include/sprite/sprite.h")
-
-install(FILES ${HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${LIBRARY_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sunlight)
 
 # install(EXPORT sunlight_exports
 #         FILE "sunlightExports.cmake"
