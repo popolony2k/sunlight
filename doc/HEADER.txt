@@ -18,24 +18,3 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "drawcanvas.h"
-#include <cstring>
-
-
-namespace SunLight {
-    namespace Canvas  {
-        /**
-         * Constructor. Initialize all class data.
-         */
-        DrawCanvas :: DrawCanvas( void ) {
-
-        }
-
-        /**
-         * Destructor. Finalize all class data.
-         */
-        DrawCanvas :: ~DrawCanvas( void )  {
-
-        }
-    }
-}

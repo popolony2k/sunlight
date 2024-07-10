@@ -30,3 +30,48 @@
 *.exe
 *.out
 *.app
+
+# VSCode stuff
+.vscode
+
+# Make/CMake stuff
+Makefile
+CMakeCache.txt
+compile_commands.json
+CMakeSettings.json
+CMakeFiles
+
+# Visual studio stuff
+*.suo
+*.tlog
+*.log
+*.pdb
+*.ilk
+*.exp
+*.idb
+*.obj
+*.pch
+*.ipch
+*.db
+*.opendb
+*.user
+*.cproject
+*.project
+*.directory
+*.settings
+*.maintenance
+*.cmake
+*.vcxproj
+*.filters
+*.sln
+*.a
+*.vs
+
+# Build directories (Mac, Linux and Windows)
+Debug
+Release
+GeneratedFiles
+Build
+build
+out
+_deps
