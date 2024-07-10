@@ -114,7 +114,7 @@ target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::Lib
 
 # --  Installation
 
-target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:include>)
+target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:./>)
 
 #configure_file("sunlightConfig.cmake.in" "sunlightConfig.cmake" @ONLY)
 
@@ -123,15 +123,15 @@ include(CMakePackageConfigHelpers)
 
 include(GNUInstallDirs)
 
-install(TARGETS tmx
-        EXPORT sunlight_exports
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+# install(TARGETS sunlight
+#         EXPORT sunlight_exports
+#         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES ${LIBRARY_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(EXPORT sunlight_exports
-        FILE "sunlightExports.cmake"
-        DESTINATION "lib/cmake/sunlight")
+# install(EXPORT sunlight_exports
+#         FILE "sunlightExports.cmake"
+#         DESTINATION "lib/cmake/sunlight")
 install(FILES "${CMAKE_BINARY_DIR}/sunlightConfig.cmake" "${CMAKE_BINARY_DIR}/sunlightConfigVersion.cmake"
         DESTINATION "lib/cmake/sunlight")
