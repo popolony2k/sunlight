@@ -34,28 +34,34 @@ FetchContent_MakeAvailable(raylib)
 ###################################################################
 
 # Add all include files
-include_directories("src/include")
-include_directories("src/include/base")
-include_directories("src/include/input")
-include_directories("src/include/canvas")
-include_directories("src/include/sprite")
-include_directories("src/include/collision")
-include_directories("src/include/renderer")
-include_directories("src/include/tilemap")
-include_directories("src/include/scripting")
-include_directories("src/include/engines")
-include_directories("src/include/sound")
-include_directories("src/include/concurrent")
-
+# include_directories("src/include")
+# include_directories("src/include/base")
+# include_directories("src/include/input")
+# include_directories("src/include/canvas")
+# include_directories("src/include/sprite")
+# include_directories("src/include/collision")
+# include_directories("src/include/renderer")
+# include_directories("src/include/tilemap")
+# include_directories("src/include/scripting")
+# include_directories("src/include/engines")
+# include_directories("src/include/sound")
+# include_directories("src/include/concurrent")
 
 # Add all source files
-file( GLOB_RECURSE APPLICATION_SOURCES "src/source" *.cpp )
-file( GLOB APPLICATION_HEADERS src/include/*.h )
+# file( GLOB_RECURSE APPLICATION_SOURCES "src/source" *.cpp )
+# file( GLOB APPLICATION_HEADERS src/include/*.h )
 
 file(GLOB_RECURSE REMOVE_CMAKE_FILES CMakeFiles/*)
 file(GLOB_RECURSE REMOVE_BUILD_FILES build/*)
 #list(REMOVE_ITEM APPLICATION_SOURCES ${REMOVE_BUILD_FILES} ${REMOVE_CMAKE_FILES})
 
+set(TARGETS_TO_INSTALL sunlight sunlight_include)
+add_library(sunlight_include INTERFACE)
+
+target_include_directories(sunlight_include INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 if(APPLE)
   #
@@ -95,7 +101,9 @@ endif()
 #
 add_definitions(-DDEFAULT_ENGINE=1)
 
-add_library(sunlight ${APPLICATION_SOURCES} ${APPLICATION_HEADERS})
+#add_library(sunlight ${APPLICATION_SOURCES} ${APPLICATION_HEADERS})
+add_library(sunlight INTERFACE)
+
 
 #
 # ZLIB
@@ -111,4 +119,4 @@ find_package(ZLIB REQUIRED)
 include(FindLibXml2)
 find_package(LibXml2 REQUIRED)
 
-target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
+#target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
