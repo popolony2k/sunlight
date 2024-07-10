@@ -1,0 +1,7 @@
+This is a TODO list with improvements and new features;
+
+* Add support to object properties management like was made in Layers (Opacity, Visible, Position);
+* Add sprite order drawing on layer, respecting it's layer order; 
+* Add support to individual layer camera moving to enable effects like scroll parallax;
+* Isometric support to renderer;
+* Hexagonal support to renderer;
