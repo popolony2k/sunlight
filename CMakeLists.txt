@@ -123,6 +123,6 @@ install(TARGETS ${TARGETS_TO_INSTALL}
         EXPORT SunLightTargets
 )
 
-install(DIRECTORY include/ TYPE INCLUDE)
+install(DIRECTORY src/include/ TYPE INCLUDE)
 
 #target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
