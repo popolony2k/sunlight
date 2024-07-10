@@ -94,9 +94,7 @@ endif()
 #
 add_definitions(-DDEFAULT_ENGINE=1)
 
-#add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
-
-add_library(sunlight ${LIBRARY_SOURCES})
+add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 
 #
 # ZLIB
@@ -116,7 +114,7 @@ target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::Lib
 
 # --  Installation
 
-target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:include>)
+target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src/source> $<INSTALL_INTERFACE:include>)
 
 #configure_file("sunlightConfig.cmake.in" "sunlightConfig.cmake" @ONLY)
 
