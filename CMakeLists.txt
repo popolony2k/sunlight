@@ -49,7 +49,7 @@ include_directories("src/include/concurrent")
 
 # Add all source files
 file( GLOB_RECURSE LIBRARY_SOURCES "src/source" *.cpp )
-file( GLOB LIBRARY_HEADERS src/include/*.h )
+file( GLOB LIBRARY_HEADERS "src/include/" *.h )
 
 file(GLOB_RECURSE REMOVE_CMAKE_FILES CMakeFiles/*)
 file(GLOB_RECURSE REMOVE_BUILD_FILES build/*)
@@ -114,7 +114,7 @@ target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::Lib
 
 # --  Installation
 
-target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:/src/include>)
+target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:include>)
 
 #configure_file("sunlightConfig.cmake.in" "sunlightConfig.cmake" @ONLY)
 
@@ -128,7 +128,9 @@ include(GNUInstallDirs)
 #         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 #         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 #         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES ${LIBRARY_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+set(HEADERS ${CMAKE_CURRENT_LIST_DIR}/src/include/)
+
+install(DIRECTORY ${HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # install(EXPORT sunlight_exports
 #         FILE "sunlightExports.cmake"
