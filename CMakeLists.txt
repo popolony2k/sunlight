@@ -13,6 +13,10 @@ if(NOT USE_LOCAL_LIBXML2)
   ####################################################################
   # LibXml2 (TMX dependency)
   ####################################################################
+  if(APPLE)
+    add_definitions(-DHAVE_SYS_RANDOM_H=1)
+   endif()
+
   FetchContent_Declare(LibXml2 OVERRIDE_FIND_PACKAGE
                       GIT_REPOSITORY https://github.com/GNOME/libxml2.git
                       GIT_TAG master)
