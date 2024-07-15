@@ -21,4 +21,8 @@ ZLib
 LibXML2
 =================
 
+* Windows through vcpkg 
 .\vcpkg\vcpkg install libxml2:x64-windows
+
+* All platforms through command line 
+cmake -DUSE_LOCAL_LIBXML2 

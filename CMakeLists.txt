@@ -3,11 +3,21 @@
 # Copyright (c) since 2021 by PopolonY2k
 #
 
-cmake_minimum_required (VERSION 3.14)
+cmake_minimum_required (VERSION 3.24)
 
 project (sunlight)
 
 include(FetchContent)
+
+if(NOT USE_LOCAL_LIBXML2)
+  ####################################################################
+  # LibXml2 (TMX dependency)
+  ####################################################################
+  FetchContent_Declare(LibXml2 OVERRIDE_FIND_PACKAGE
+                      GIT_REPOSITORY https://github.com/GNOME/libxml2.git
+                      GIT_TAG master)
+  FetchContent_MakeAvailable(LibXml2)
+endif()
 
 ####################################################################
 # TMX
