@@ -13,6 +13,12 @@ include(FetchContent)
 
 option(SUNLIGHT_DEBUG_SYMBOLS_UNIX "Build SunLight with debug symbols on Unixes (Mac and Linux)" ON)
 
+#
+# Setup default engine (DEFAULT_ENGINE preprocessor)
+# 1 - RAYLIB
+#
+set(SUNLIGHT_DEFAULT_BACKEND_ENGINE 1)
+
 if(NOT USE_LOCAL_LIBXML2)
   ####################################################################
   # LibXml2 (TMX dependency)
@@ -114,11 +120,7 @@ if(UNIX) # AND NOT APPLE)
   	endif()
 endif()
 
-#
-# Setup default engine (DEFAULT_ENGINE preprocessor)
-# 1 - RAYLIB
-#
-add_definitions(-DDEFAULT_ENGINE=1)
+add_definitions(-DDEFAULT_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_ENGINE})
 
 add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 
