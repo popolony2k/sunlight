@@ -17,6 +17,8 @@ if(NOT USE_LOCAL_LIBXML2)
     add_definitions(-DHAVE_SYS_RANDOM_H=1)
   endif()
 
+  set(LIBXML2_WITH_PYTHON OFF) # Turn off Python bind build dependency
+
   FetchContent_Declare(LibXml2 OVERRIDE_FIND_PACKAGE
                       GIT_REPOSITORY https://github.com/GNOME/libxml2.git
                       GIT_TAG master)
