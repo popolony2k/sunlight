@@ -1,3 +1,7 @@
+=================
+Windows setup
+=================
+
 The files below are required for compiling sunlight engine
 
 On Windows use vcpkg https://github.com/microsoft/vcpkg to integrate C/C++ libraries using Visual Studio 
@@ -21,4 +25,8 @@ ZLib
 LibXML2
 =================
 
+* Windows through vcpkg (if using local LibXml2 through -DUSE_LOCAL_LIBXML2) 
 .\vcpkg\vcpkg install libxml2:x64-windows
+
+* All platforms through command line 
+cmake -DUSE_LOCAL_LIBXML2 

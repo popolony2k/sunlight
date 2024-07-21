@@ -3,11 +3,37 @@
 # Copyright (c) since 2021 by PopolonY2k
 #
 
-cmake_minimum_required (VERSION 3.14)
+cmake_minimum_required (VERSION 3.24)
 
 project (sunlight)
 
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
 include(FetchContent)
+
+option(SUNLIGHT_DEBUG_SYMBOLS_UNIX "Build SunLight with debug symbols on Unixes (Mac and Linux)" ON)
+
+#
+# Setup default engine (DEFAULT_ENGINE preprocessor)
+# 1 - RAYLIB
+#
+set(SUNLIGHT_DEFAULT_BACKEND_ENGINE 1)
+
+if(NOT USE_LOCAL_LIBXML2)
+  ####################################################################
+  # LibXml2 (TMX dependency)
+  ####################################################################
+  if(APPLE)
+    add_definitions(-DHAVE_SYS_RANDOM_H=1)
+  endif()
+
+  set(LIBXML2_WITH_PYTHON OFF) # Turn off Python bind build dependency
+
+  FetchContent_Declare(libxml2 OVERRIDE_FIND_PACKAGE
+                      GIT_REPOSITORY https://github.com/GNOME/libxml2.git
+                      GIT_TAG master)
+  FetchContent_MakeAvailable(libxml2)
+endif()
 
 ####################################################################
 # TMX
@@ -56,6 +82,10 @@ file(GLOB_RECURSE REMOVE_BUILD_FILES build/*)
 #list(REMOVE_ITEM LIBRARY_SOURCES ${REMOVE_BUILD_FILES} ${REMOVE_CMAKE_FILES})
 
 
+if(WIN32)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+
 if(APPLE)
   #
   # Setup CLang to C++17 (minimum for working with some raylib defines when using APPLE)
@@ -65,10 +95,12 @@ endif()
 
 if(UNIX) # AND NOT APPLE)
     #
-    # Debug information (comment to turn off)
+    # Debug symbol information on Unixes
     #
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g2")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g2")
+    if(SUNLIGHT_DEBUG_SYMBOLS)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g2")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g2")
+    endif()
 
     #
     # pthread support
@@ -88,11 +120,7 @@ if(UNIX) # AND NOT APPLE)
   	endif()
 endif()
 
-#
-# Setup default engine (DEFAULT_ENGINE preprocessor)
-# 1 - RAYLIB
-#
-add_definitions(-DDEFAULT_ENGINE=1)
+add_definitions(-DDEFAULT_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_ENGINE})
 
 add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 
@@ -112,12 +140,9 @@ find_package(LibXml2 REQUIRED)
 
 target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
 
-# --  Installation
+# Installation
 
 target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:include>)
-
-include(CMakePackageConfigHelpers)
-include(GNUInstallDirs)
 
 install(FILES "${CMAKE_BINARY_DIR}/sunlightConfig.cmake" "${CMAKE_BINARY_DIR}/sunlightConfigVersion.cmake"
         DESTINATION "lib/cmake/sunlight")
