@@ -7,6 +7,7 @@ cmake_minimum_required (VERSION 3.24)
 
 project (sunlight)
 
+include(GNUInstallDirs)
 include(FetchContent)
 
 option(SUNLIGHT_DEBUG_SYMBOLS_UNIX "Build SunLight with debug symbols on Unixes (Mac and Linux)" ON)
