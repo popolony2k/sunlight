@@ -7,6 +7,7 @@ cmake_minimum_required (VERSION 3.24)
 
 project (sunlight)
 
+include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 include(FetchContent)
 
@@ -140,9 +141,6 @@ target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::Lib
 # Installation
 
 target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:include>)
-
-include(CMakePackageConfigHelpers)
-include(GNUInstallDirs)
 
 install(FILES "${CMAKE_BINARY_DIR}/sunlightConfig.cmake" "${CMAKE_BINARY_DIR}/sunlightConfigVersion.cmake"
         DESTINATION "lib/cmake/sunlight")
