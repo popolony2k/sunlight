@@ -9,6 +9,8 @@ project (sunlight)
 
 include(FetchContent)
 
+option(SUNLIGHT_DEBUG_SYMBOLS_UNIX "Build SunLight with debug symbols on Unixes (Mac and Linux)" ON)
+
 if(NOT USE_LOCAL_LIBXML2)
   ####################################################################
   # LibXml2 (TMX dependency)
@@ -72,6 +74,10 @@ file(GLOB_RECURSE REMOVE_BUILD_FILES build/*)
 #list(REMOVE_ITEM LIBRARY_SOURCES ${REMOVE_BUILD_FILES} ${REMOVE_CMAKE_FILES})
 
 
+if(WIN32)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+
 if(APPLE)
   #
   # Setup CLang to C++17 (minimum for working with some raylib defines when using APPLE)
@@ -81,10 +87,12 @@ endif()
 
 if(UNIX) # AND NOT APPLE)
     #
-    # Debug information (comment to turn off)
+    # Debug symbol information on Unixes
     #
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g2")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g2")
+    if(SUNLIGHT_DEBUG_SYMBOLS)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g2")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g2")
+    endif()
 
     #
     # pthread support
@@ -128,7 +136,7 @@ find_package(LibXml2 REQUIRED)
 
 target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
 
-# --  Installation
+# Installation
 
 target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src> $<INSTALL_INTERFACE:include>)
 
