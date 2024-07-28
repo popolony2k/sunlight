@@ -27,19 +27,11 @@ include(FetchContent)
 include(CTest)
 
 if(APPLE)
-  #
-  # Setup CLang to C++17 (minimum for working with some raylib defines when using APPLE)
-  #
-  set(CMAKE_CXX_STANDARD 17)
+    #
+    # Setup CLang to C++17 (minimum for working with some raylib defines when using APPLE)
+    #
+    set(CMAKE_CXX_STANDARD 17)
 endif()
-
-# target_include_directories(JSONUtils
-#     PUBLIC 
-#         $<INSTALL_INTERFACE:include>    
-#         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#     PRIVATE
-#         ${CMAKE_CURRENT_SOURCE_DIR}/src
-# )
 
 file(GLOB_RECURSE TEST_APP_SOURCES ./*.cpp)
 file(GLOB TEST_APP_HEADERS ./*.h)

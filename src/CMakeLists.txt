@@ -16,9 +16,6 @@
 #  misrepresented as being the original software.
 #  3. This notice may not be removed or altered from any source distribution.
 
-
-# CMake file for building sunlight game engine library.
-
 cmake_minimum_required (VERSION 3.24)
 
 project (sunlight)
@@ -36,19 +33,19 @@ option(SUNLIGHT_DEBUG_SYMBOLS_UNIX "Build SunLight with debug symbols on Unixes 
 set(SUNLIGHT_DEFAULT_BACKEND_ENGINE 1)
 
 if(NOT USE_LOCAL_LIBXML2)
-  ####################################################################
-  # LibXml2 (TMX dependency)
-  ####################################################################
-  if(APPLE)
-    add_definitions(-DHAVE_SYS_RANDOM_H=1)
-  endif()
+    ####################################################################
+    # LibXml2 (TMX dependency)
+    ####################################################################
+    if(APPLE)
+        add_definitions(-DHAVE_SYS_RANDOM_H=1)
+    endif()
 
-  set(LIBXML2_WITH_PYTHON OFF) # Turn off Python bind build dependency
+    set(LIBXML2_WITH_PYTHON OFF) # Turn off Python bind build dependency
 
-  FetchContent_Declare(libxml2 OVERRIDE_FIND_PACKAGE
-                      GIT_REPOSITORY https://github.com/GNOME/libxml2.git
-                      GIT_TAG master)
-  FetchContent_MakeAvailable(libxml2)
+    FetchContent_Declare(libxml2 OVERRIDE_FIND_PACKAGE
+                        GIT_REPOSITORY https://github.com/GNOME/libxml2.git
+                        GIT_TAG master)
+    FetchContent_MakeAvailable(libxml2)
 endif()
 
 ####################################################################
@@ -99,7 +96,7 @@ file(GLOB_RECURSE REMOVE_BUILD_FILES build/*)
 
 
 if(WIN32)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
 if(APPLE)
@@ -114,8 +111,8 @@ if(UNIX) # AND NOT APPLE)
     # Debug symbol information on Unixes
     #
     if(SUNLIGHT_DEBUG_SYMBOLS)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g2")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g2")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g2")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g2")
     endif()
 
     #
