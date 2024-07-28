@@ -23,6 +23,8 @@ cmake_minimum_required (VERSION 3.24)
 
 project (sunlight_all)
 
+# Library
 add_subdirectory(src)
-# All Sunlight samples
-#add_subdirectory(samples/maprenderer)
+
+# Samples
+add_subdirectory(samples/maprenderer)
