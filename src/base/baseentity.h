@@ -31,7 +31,7 @@ namespace SunLight  {
 
             SunLight :: TileMap :: stDimension2D    *m_pDimension;
             SunLight :: TileMap :: stDimension2D    m_Dimension;
-            bool                                  m_bVisible;
+            bool                                    m_bVisible;
 
 
             public:
