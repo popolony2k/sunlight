@@ -22,7 +22,6 @@
 #include "renderer/maprenderer.h"
 
 int main( int argc, char **argv ) {
-
     SunLight :: Renderer :: MapRenderer      renderer( DISPLAY_W,
                                                        DISPLAY_H,
                                                        GAME_NAME,
