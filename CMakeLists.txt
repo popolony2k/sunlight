@@ -16,15 +16,16 @@
 #  misrepresented as being the original software.
 #  3. This notice may not be removed or altered from any source distribution.
 
-
-# CMake file for building sunlight game engine library.
-
 cmake_minimum_required (VERSION 3.24)
 
 project (sunlight_all)
 
-# Library
+option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" OFF)
+
+# Core library
 add_subdirectory(src)
 
 # Samples
-add_subdirectory(samples/maprenderer)
+if(BUILD_LIBRARY_SAMPLES)
+    add_subdirectory(samples/maprenderer)
+endif(BUILD_LIBRARY_SAMPLES)
