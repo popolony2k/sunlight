@@ -18,14 +18,24 @@
 
 cmake_minimum_required (VERSION 3.24)
 
-project (sunlight_all)
+project (maprenderer_test)
 
-option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" OFF)
+include(CMakePackageConfigHelpers)
+include(CMakeDependentOption)
+include(GNUInstallDirs)
+include(FetchContent)
+include(CTest)
 
-# Core library
-add_subdirectory(src)
+if(APPLE)
+    #
+    # Setup CLang to C++17 (minimum for working with some raylib defines when using APPLE)
+    #
+    set(CMAKE_CXX_STANDARD 17)
+endif()
 
-# Samples
-if(BUILD_LIBRARY_SAMPLES)
-    add_subdirectory(samples/maprenderer)
-endif(BUILD_LIBRARY_SAMPLES)
+file(GLOB_RECURSE TEST_APP_SOURCES ./*.cpp)
+file(GLOB TEST_APP_HEADERS ./*.h)
+
+add_executable(maprenderer_test ${TEST_APP_SOURCES} ${TEST_APP_HEADERS})
+add_dependencies(maprenderer_test sunlight)
+target_link_libraries(maprenderer_test PRIVATE sunlight)

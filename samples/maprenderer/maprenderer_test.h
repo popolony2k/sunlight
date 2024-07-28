@@ -18,35 +18,19 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef __BASEENTITY_H__
-#define __BASEENTITY_H__
+#ifndef __MAPRENDERER_TEST_H__
+#define __MAPRENDERER_TEST_H__
 
-#include "tilemap/tilemapdefs.h"
-#include "base/object.h"
+#define DISPLAY_W                 1260
+#define DISPLAY_H                 920
+#define FRAMES_PER_SECOND         60
+#define H_SCROLL_STEP_SIZE        1
+#define W_SCROLL_STEP_SIZE        1
+#define VIEWPORT_POS_X            10
+#define VIEWPORT_POS_Y            10
+#define VIEWPORT_WIDTH            1250
+#define VIEWPORT_HEIGHT           910
+#define DEFAULT_ZOOM_SCALE_POS    60
+#define GAME_NAME                 "Map renderer test"
 
-
-namespace SunLight  {
-    namespace Base  {
-        class BaseEntity : public SunLight :: Base :: Object  {
-
-            SunLight :: TileMap :: stDimension2D    *m_pDimension;
-            SunLight :: TileMap :: stDimension2D    m_Dimension;
-            bool                                    m_bVisible;
-
-
-            public:
-
-            BaseEntity( void );
-            virtual ~BaseEntity( void );
-
-            virtual void SetVisible( bool bVisible );
-            virtual bool GetVisible( void );
-
-            virtual void SetDimension2DPtr( SunLight :: TileMap :: stDimension2D* pDimension );
-            void SetDimension2D( SunLight :: TileMap :: stDimension2D dimension );
-            SunLight :: TileMap :: stDimension2D& GetDimension2D( void );
-        };
-    }
-}
-
-#endif /* __BASEENTITY_H__ */
+#endif /* __MAIN_H__ */
