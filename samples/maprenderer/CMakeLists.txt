@@ -20,5 +20,30 @@ cmake_minimum_required (VERSION 3.24)
 
 project (maprenderer_test)
 
+include(CMakePackageConfigHelpers)
+include(CMakeDependentOption)
+include(GNUInstallDirs)
+include(FetchContent)
+include(CTest)
 
-add_executable(maprenderer_test)
+if(APPLE)
+  #
+  # Setup CLang to C++17 (minimum for working with some raylib defines when using APPLE)
+  #
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
+# target_include_directories(JSONUtils
+#     PUBLIC 
+#         $<INSTALL_INTERFACE:include>    
+#         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#     PRIVATE
+#         ${CMAKE_CURRENT_SOURCE_DIR}/src
+# )
+
+file(GLOB_RECURSE TEST_APP_SOURCES ./*.cpp)
+file(GLOB TEST_APP_HEADERS ./*.h)
+
+add_executable(maprenderer_test ${TEST_APP_SOURCES} ${TEST_APP_HEADERS})
+add_dependencies(maprenderer_test sunlight)
+target_link_libraries(maprenderer_test PRIVATE sunlight)
