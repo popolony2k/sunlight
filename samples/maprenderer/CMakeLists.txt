@@ -39,3 +39,13 @@ file(GLOB TEST_APP_HEADERS ./*.h)
 add_executable(maprenderer_test ${TEST_APP_SOURCES} ${TEST_APP_HEADERS})
 add_dependencies(maprenderer_test sunlight)
 target_link_libraries(maprenderer_test PRIVATE sunlight)
+
+add_custom_target(maprenderer_test_copy_binaries
+COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/
+COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:LibXml2> ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/
+COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/
+COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:tmx> ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/
+COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:sunlight> ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/
+COMMENT "Copying Maprenderer test sample dependency binaries" VERBATIM)
+add_dependencies(maprenderer_test maprenderer_test_copy_binaries)
+
