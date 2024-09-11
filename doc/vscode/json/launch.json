@@ -16,7 +16,19 @@
             "console": "externalTerminal"
         },
         {
-            "name": "(gdb) Launch",
+            "name": "(lldb-Mac) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/samples/maprenderer/${fileBasenameNoExtension}",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb"
+        },
+        {
+            "name": "(gdb-Linux) Launch",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/games/caravellius/caravellius",
@@ -38,18 +50,6 @@
                     "ignoreFailures": true
                 }
             ]
-        },
-        {
-            "name": "(lldb) Launch",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/games/caravellius/caravellius",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${fileDirname}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb"
         }
     ]
 }
