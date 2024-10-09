@@ -1509,7 +1509,7 @@ namespace SunLight {
                 */
                 SetScrollStepSize( ( m_nScrollStepWidth < 0 ? m_pTmxMap -> tile_width :
                                                             m_nScrollStepWidth ),
-                                ( m_nScrollStepHeight < 0 ? m_pTmxMap -> tile_height :
+                                   ( m_nScrollStepHeight < 0 ? m_pTmxMap -> tile_height :
                                                             m_nScrollStepHeight ) );
 
                 return true;
