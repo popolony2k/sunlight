@@ -301,7 +301,7 @@ namespace SunLight {
                                           Color color ) {
 
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
-            SunLight :: TileMap :: stDimension2D&    vp = GetViewport().GetDimension2D();
+            SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
 
             fOffset_x = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
             fOffset_y = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
@@ -366,7 +366,7 @@ namespace SunLight {
                                            double fHeight,
                                            Color color )  {
 
-            SunLight :: TileMap :: stDimension2D&    vp          = GetViewport().GetDimension2D();
+            SunLight :: TileMap :: stDimension2D&  vp          = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
             double                                 fViewStartX = ( ( fOffset_x + m_CameraPos.x ) *
                                                                    zp.fZoomFactor ) + vp.pos.x;
@@ -419,7 +419,7 @@ namespace SunLight {
                                          double fHeight,
                                          Color color )  {
 
-            SunLight :: TileMap :: stDimension2D&    vp = GetViewport().GetDimension2D();
+            SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
 
             fWidth-=( fWidth / 2.0 );
@@ -1413,7 +1413,7 @@ namespace SunLight {
                                                  SunLight :: TileMap :: stMatrixPosition& pos )  {
 
             if( m_pTmxMap )  {
-                SunLight :: TileMap :: stDimension2D&    vp      = GetViewport().GetDimension2D();
+                SunLight :: TileMap :: stDimension2D&  vp      = GetViewport().GetDimension2D();
                 SunLight :: Base :: stZoomProperties&  zp      = GetViewport().GetZoomProperties();
                 int                                    nCoordX = ( int ) ( coord.x / zp.fZoomFactor );
                 int                                    nCoordY = ( int ) ( coord.y / zp.fZoomFactor );
