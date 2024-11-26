@@ -1,0 +1,1 @@
+The files from json folder are samples for using on VSCode IDE. Make your specific changes if neededs.
