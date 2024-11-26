@@ -31,7 +31,7 @@
             "name": "(gdb-Linux) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/games/caravellius/caravellius",
+            "program": "${workspaceFolder}/build/samples/maprenderer/${fileBasenameNoExtension}",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
