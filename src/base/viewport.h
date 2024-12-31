@@ -22,7 +22,7 @@
 #define __VIEWPORT_H__
 
 #include <vector>
-#include "base/baseentity.h"
+#include "base/graphicobject.h"
 
 
 namespace SunLight  {
@@ -41,7 +41,7 @@ namespace SunLight  {
          * Abstract class used to manage zoom engine for all
          * interface graphic components.
          */
-        class Viewport : public SunLight :: Base :: BaseEntity {
+        class Viewport : public SunLight :: Base :: GraphicObject {
 
             typedef std :: vector<float> ZoomFactorList;
             typedef std :: pair<unsigned, unsigned> ZoomBorderLimits;
@@ -70,7 +70,7 @@ namespace SunLight  {
             stZoomProperties& GetZoomProperties( void );
 
             virtual bool GetClippedRect( SunLight :: TileMap :: stDimension2D src,
-                                        SunLight :: TileMap :: stDimension2D& dst );
+                                         SunLight :: TileMap :: stDimension2D& dst );
 
             protected:
 

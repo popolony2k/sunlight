@@ -21,7 +21,7 @@
 #ifndef __BASECANVAS_H__
 #define __BASECANVAS_H__
 
-#include "base/baseentity.h"
+#include "base/graphicobject.h"
 #include "base/viewport.h"
 
 
@@ -31,7 +31,7 @@ namespace SunLight {
          * @brief Base canvas implementation.
          * 
          */
-        class BaseCanvas : public SunLight :: Base :: BaseEntity  {
+        class BaseCanvas : public SunLight :: Base :: GraphicObject  {
 
             BaseCanvas                    *m_pParent;
             SunLight :: Base :: Viewport  *m_pViewport;

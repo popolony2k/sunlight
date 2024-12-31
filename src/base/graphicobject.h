@@ -18,8 +18,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef __BASEENTITY_H__
-#define __BASEENTITY_H__
+#ifndef __GRAPHICOBJECT_H__
+#define __GRAPHICOBJECT_H__
 
 #include "tilemap/tilemapdefs.h"
 #include "base/object.h"
@@ -27,7 +27,7 @@
 
 namespace SunLight  {
     namespace Base  {
-        class BaseEntity : public SunLight :: Base :: Object  {
+        class GraphicObject : public SunLight :: Base :: Object  {
 
             SunLight :: TileMap :: stDimension2D    *m_pDimension;
             SunLight :: TileMap :: stDimension2D    m_Dimension;
@@ -36,8 +36,8 @@ namespace SunLight  {
 
             public:
 
-            BaseEntity( void );
-            virtual ~BaseEntity( void );
+            GraphicObject( void );
+            virtual ~GraphicObject( void );
 
             virtual void SetVisible( bool bVisible );
             virtual bool GetVisible( void );
@@ -49,4 +49,4 @@ namespace SunLight  {
     }
 }
 
-#endif /* __BASEENTITY_H__ */
+#endif /* __GRAPHICOBJECT_H__ */

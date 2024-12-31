@@ -63,7 +63,7 @@ namespace SunLight {
          */
         void BaseCanvas :: SetVisible( bool bVisible )  {
 
-            BaseEntity :: SetVisible( bVisible );
+            GraphicObject :: SetVisible( bVisible );
         }
 
         /**
@@ -72,9 +72,9 @@ namespace SunLight {
         bool BaseCanvas :: GetVisible( void )  {
 
             if( m_pParent )
-                return ( m_pParent -> GetVisible() ? BaseEntity :: GetVisible() : false );
+                return ( m_pParent -> GetVisible() ? GraphicObject :: GetVisible() : false );
 
-            return BaseEntity :: GetVisible();
+            return GraphicObject :: GetVisible();
         }
 
         /**

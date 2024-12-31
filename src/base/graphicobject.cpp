@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "baseentity.h"
+#include "graphicobject.h"
 #include <cstring>
 
 
@@ -28,7 +28,7 @@ namespace SunLight  {
         /**
          * Constructor. Initialize all class data.
          */
-        BaseEntity :: BaseEntity( void )  {
+        GraphicObject :: GraphicObject( void )  {
 
             m_bVisible   = false;
             m_pDimension = &m_Dimension;
@@ -38,7 +38,7 @@ namespace SunLight  {
         /**
          * Destructor. Finalize all class data.
          */
-        BaseEntity :: ~BaseEntity( void )  {
+        GraphicObject :: ~GraphicObject( void )  {
 
         }
 
@@ -46,7 +46,7 @@ namespace SunLight  {
          * Set the visible status of this entity.
          * @param bVisible The new visible status;
          */
-        void BaseEntity :: SetVisible( bool bVisible )  {
+        void GraphicObject :: SetVisible( bool bVisible )  {
 
             m_bVisible = bVisible;
         }
@@ -54,7 +54,7 @@ namespace SunLight  {
         /**
          * Get the visible status.
          */
-        bool BaseEntity :: GetVisible( void )  {
+        bool GraphicObject :: GetVisible( void )  {
 
             return m_bVisible;
         }
@@ -64,7 +64,7 @@ namespace SunLight  {
          * @param pDimension Pointer to the new @link stDimension2D object
          * that will be used by this entity;
          */
-        void BaseEntity :: SetDimension2DPtr( SunLight :: TileMap :: stDimension2D* pDimension )  {
+        void GraphicObject :: SetDimension2DPtr( SunLight :: TileMap :: stDimension2D* pDimension )  {
 
             m_pDimension = pDimension;
         }
@@ -73,7 +73,7 @@ namespace SunLight  {
          * Set the dimension of this entity.
          * @param dimension The new dimension of this entity;
          */
-        void BaseEntity :: SetDimension2D( SunLight :: TileMap :: stDimension2D dimension )  {
+        void GraphicObject :: SetDimension2D( SunLight :: TileMap :: stDimension2D dimension )  {
 
             *m_pDimension = dimension;
         }
@@ -81,7 +81,7 @@ namespace SunLight  {
         /**
          * Get the reference of this entity object.
          */
-        SunLight :: TileMap :: stDimension2D& BaseEntity :: GetDimension2D( void )  {
+        SunLight :: TileMap :: stDimension2D& GraphicObject :: GetDimension2D( void )  {
 
             return *m_pDimension;
         }
