@@ -47,11 +47,11 @@ namespace SunLight {
          * animation sequence;
          */
         void Sprite :: AddTextureSequence( int nSequence,
-                                        SunLight :: Canvas :: TextureCanvas *pTexture,
-                                        int64_t nDelayMilli ) {
+                                           SunLight :: Canvas :: TextureCanvas *pTexture,
+                                           int64_t nDelayMilli ) {
 
-            TextureSequenceList :: iterator       itItem = m_Sequences.find( nSequence );
-            SunLight :: TileMap :: stDimension2D&   spritePos = GetDimension2D();
+            TextureSequenceList :: iterator       itItem    = m_Sequences.find( nSequence );
+            SunLight :: TileMap :: stDimension2D& spritePos = GetDimension2D();
             BaseCanvas                            *pParent  = GetParent();
 
             if( !pParent )
@@ -141,7 +141,7 @@ namespace SunLight {
 
             TextureSequenceList :: iterator itItem;
 
-            DrawCanvas :: SetVisible( bVisible );
+            Canvas :: SetVisible( bVisible );
 
             for( itItem = m_Sequences.begin(); itItem != m_Sequences.end(); itItem++ )  {
                 if( itItem -> second -> First() )  {

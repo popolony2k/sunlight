@@ -23,7 +23,7 @@
 
 #include <raylib.h>
 #include <string>
-#include "canvas/drawcanvas.h"
+#include "canvas/canvas.h"
 
 
 namespace SunLight {
@@ -45,7 +45,7 @@ namespace SunLight {
          * @brief Texture canvas class implementation.
          * 
          */
-        class TextureCanvas : public SunLight :: Canvas :: DrawCanvas  {
+        class TextureCanvas : public SunLight :: Canvas :: Canvas  {
 
             Texture2D                   m_Texture;
             unsigned int                m_nTileSize;

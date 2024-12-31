@@ -22,18 +22,15 @@
 #include "renderer/maprenderer.h"
 
 int main( int argc, char **argv ) {
+    SunLight :: TileMap :: stDimension2D     viewport;
     SunLight :: Renderer :: MapRenderer      renderer( DISPLAY_W,
                                                        DISPLAY_H,
                                                        GAME_NAME,
                                                        FRAMES_PER_SECOND,
                                                        false );
-    //Caravellius :: World :: WorldEngine      worldEngine( &renderer );
-    SunLight :: TileMap :: stDimension2D       viewport;
-
 
     renderer.SetScrollStepSize( W_SCROLL_STEP_SIZE, H_SCROLL_STEP_SIZE );
     renderer.SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
-    //renderer.AddTileMapListener( &worldEngine );
 
     viewport.pos.x = VIEWPORT_POS_X;
     viewport.pos.y = VIEWPORT_POS_Y;

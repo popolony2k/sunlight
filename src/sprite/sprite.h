@@ -32,7 +32,7 @@ namespace SunLight {
          * @brief Sunlight sprite management class implementation.
          * 
          */
-        class Sprite : public SunLight :: Canvas :: DrawCanvas  {
+        class Sprite : public SunLight :: Canvas :: Canvas  {
 
             /**
              * @brief Texture sequence list definition.
@@ -50,8 +50,8 @@ namespace SunLight {
             virtual ~Sprite( void );
 
             void AddTextureSequence( int nSequence,
-                                    SunLight :: Canvas :: TextureCanvas* pTexture,
-                                    int64_t nDelayMilli = -1 );
+                                     SunLight :: Canvas :: TextureCanvas* pTexture,
+                                     int64_t nDelayMilli = -1 );
             bool SetActiveTextureSequence( int nSequence );
             int GetActiveTextureSequence( void );
             SunLight :: Canvas :: TextureCanvas* GetActiveTexture( void );

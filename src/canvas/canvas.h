@@ -50,6 +50,12 @@ namespace SunLight {
             SunLight :: Base :: stColor& GetColor( void );
 
             SunLight :: Collision :: Collider& GetCollider( void );
+
+            /**
+             * Must be implemented by children objects to provide
+             * it's own draw behavior.
+             */
+            virtual void Update( void )  {};
         };
     }
 }
