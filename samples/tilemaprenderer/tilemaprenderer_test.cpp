@@ -18,12 +18,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "maprenderer_test.h"
-#include "renderer/maprenderer.h"
+#include "tilemaprenderer_test.h"
+#include "renderer/tilemaprenderer.h"
 
 int main( int argc, char **argv ) {
     SunLight :: TileMap :: stDimension2D     viewport;
-    SunLight :: Renderer :: MapRenderer      renderer( DISPLAY_W,
+    SunLight :: Renderer :: TileMapRenderer  renderer( DISPLAY_W,
                                                        DISPLAY_H,
                                                        GAME_NAME,
                                                        FRAMES_PER_SECOND,

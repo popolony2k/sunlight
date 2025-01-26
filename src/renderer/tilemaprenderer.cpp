@@ -35,7 +35,7 @@
 #endif
 
 #include "input/inputhandlerfactory.h"
-#include "maprenderer.h"
+#include "tilemaprenderer.h"
 #include <memory.h>
 #include <cstring>
 #include <chrono>
@@ -74,14 +74,14 @@ namespace SunLight {
         /*
          * Static class initialization.
          */
-        bool MapRenderer :: m_bInitialized = false;
+        bool TileMapRenderer :: m_bInitialized = false;
 
 
         /**
          * TxmLib texture loader callback implementation.
          * @param szFileName Texture file name;
          */
-        void* MapRenderer :: TextureLoaderCallback( const char *szFileName )  {
+        void* TileMapRenderer :: TextureLoaderCallback( const char *szFileName )  {
 
             Texture2D *pTexture = new Texture2D;
 
@@ -94,7 +94,7 @@ namespace SunLight {
          * TxmLib texture deallocation callback implementation.
          * @param pTexture Pointer to the texture that will be deallocated;
          */
-        void MapRenderer :: TextureFreeCallback( void *pTexture )  {
+        void TileMapRenderer :: TextureFreeCallback( void *pTexture )  {
 
             Texture2D    *pTexture2D = ( Texture2D * ) pTexture;
 
@@ -107,7 +107,7 @@ namespace SunLight {
          * Get a pointer to a loaded layer based on it's Id.
          * @param nLayerId The Layer Id to retrieve the layer;
          */
-        tmx_layer* MapRenderer :: GetLayer( int nLayerId )  {
+        tmx_layer* TileMapRenderer :: GetLayer( int nLayerId )  {
 
             return ::tmx_find_layer_by_id( m_pTmxMap, nLayerId );
         }
@@ -117,7 +117,7 @@ namespace SunLight {
          * @param szLayerName The Layer name used to retrieve the layer. If the layer
          * name is NULL parameter nLayerId will be used for searching layer;
          */
-        tmx_layer* MapRenderer :: GetLayer( const char *szLayerName )  {
+        tmx_layer* TileMapRenderer :: GetLayer( const char *szLayerName )  {
 
             return ::tmx_find_layer_by_name( m_pTmxMap, szLayerName );
         }
@@ -125,7 +125,7 @@ namespace SunLight {
         /**
          * Convert integer color representation to @link Color object;
          */
-        Color MapRenderer :: IntToColor( uint32_t color ) {
+        Color TileMapRenderer :: IntToColor( uint32_t color ) {
 
             tmx_col_bytes res = ::tmx_col_to_bytes( color );
 
@@ -138,7 +138,7 @@ namespace SunLight {
          * @param nCoordY The Y coordinate to plot pixel;
          * @param color Color of pixel;
          */
-        void MapRenderer :: SetPixel( int nCoordX, int nCoordY, Color color )  {
+        void TileMapRenderer :: SetPixel( int nCoordX, int nCoordY, Color color )  {
 
             SunLight :: TileMap :: stDimension2D& vp = GetViewport().GetDimension2D();
 
@@ -157,11 +157,11 @@ namespace SunLight {
          * @param fRadiusX Y radius;
          * @param color Ellipse color;
          */
-        void MapRenderer :: MidPointEllipse( double fCoordX,
-                                             double fCoordY,
-                                             double fRadiusX,
-                                             double fRadiusY,
-                                             Color color ) {
+        void TileMapRenderer :: MidPointEllipse( double fCoordX,
+                                                 double fCoordY,
+                                                 double fRadiusX,
+                                                 double fRadiusY,
+                                                 Color color ) {
 
             double          dx, dy;
             double          d1, d2;
@@ -253,11 +253,11 @@ namespace SunLight {
          * @param nY1 Final Y line coordinate;
          * @param color line color;
          */
-        void MapRenderer :: LineBresenham( int nX0,
-                                           int nY0,
-                                           int nX1,
-                                           int nY1,
-                                           Color color )  {
+        void TileMapRenderer :: LineBresenham( int nX0,
+                                               int nY0,
+                                               int nX1,
+                                               int nY1,
+                                               Color color )  {
 
             int             nE2; /* error value e_xy */
             int             nDx  = std :: abs( nX1 - nX0 );
@@ -294,11 +294,11 @@ namespace SunLight {
          * @param points array of points for this polygon;
          * @param points_count Number of items of points array;
          */
-        void MapRenderer :: DrawPolyline( double fOffset_x,
-                                          double fOffset_y,
-                                          double **fPoints,
-                                          int nPointsCount,
-                                          Color color ) {
+        void TileMapRenderer :: DrawPolyline( double fOffset_x,
+                                              double fOffset_y,
+                                              double **fPoints,
+                                              int nPointsCount,
+                                              Color color ) {
 
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
             SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
@@ -322,7 +322,7 @@ namespace SunLight {
          * @param points array of points for this polygon;
          * @param points_count Number of items of points array;
          */
-        void MapRenderer :: DrawPolygon( double fOffset_x,
+        void TileMapRenderer :: DrawPolygon( double fOffset_x,
                                          double fOffset_y,
                                          double **fPoints,
                                          int nPointsCount,
@@ -360,11 +360,11 @@ namespace SunLight {
          * @param fHeight The square height;
          * @param color Rectangle color;
          */
-        void MapRenderer :: DrawRectangle( double fOffset_x,
-                                           double fOffset_y,
-                                           double fWidth,
-                                           double fHeight,
-                                           Color color )  {
+        void TileMapRenderer :: DrawRectangle( double fOffset_x,
+                                               double fOffset_y,
+                                               double fWidth,
+                                               double fHeight,
+                                               Color color )  {
 
             SunLight :: TileMap :: stDimension2D&  vp          = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
@@ -413,11 +413,11 @@ namespace SunLight {
          * @param fHeight The ellipse height;
          * @param color ellipse color;
          */
-        void MapRenderer :: DrawEllipse( double fOffset_x,
-                                         double fOffset_y,
-                                         double fWidth,
-                                         double fHeight,
-                                         Color color )  {
+        void TileMapRenderer :: DrawEllipse( double fOffset_x,
+                                             double fOffset_y,
+                                             double fWidth,
+                                             double fHeight,
+                                             Color color )  {
 
             SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
@@ -447,14 +447,14 @@ namespace SunLight {
          * @param uDestY destination Y coordinate on texture;
          * @param opacity opacity level to be applied on texture;
          */
-        void MapRenderer :: DrawTile( void *pImage,
-                                      int32_t nSourceX,
-                                      int32_t nSourceY,
-                                      int32_t nSourceW,
-                                      int32_t nSourceH,
-                                      int32_t nDestX,
-                                      int32_t nDestY,
-                                      float fOpacity ) {
+        void TileMapRenderer :: DrawTile( void *pImage,
+                                          int32_t nSourceX,
+                                          int32_t nSourceY,
+                                          int32_t nSourceW,
+                                          int32_t nSourceH,
+                                          int32_t nDestX,
+                                          int32_t nDestY,
+                                          float fOpacity ) {
 
             SunLight :: TileMap :: stDimension2D  clip;
             SunLight :: Base :: Viewport&         vp        = GetViewport();
@@ -497,7 +497,7 @@ namespace SunLight {
          * Draw objects on canvas;
          * @param pLayer Pointer to layer containing object group to draw;
          */
-        void MapRenderer :: DrawObjects( tmx_layer *pLayer ) {
+        void TileMapRenderer :: DrawObjects( tmx_layer *pLayer ) {
 
             tmx_object *head = pLayer ->  content.objgr -> head;
             Color      color = IntToColor( pLayer ->  content.objgr -> color );
@@ -563,7 +563,7 @@ namespace SunLight {
          * Draw image layer on canvas;
          * @param pImage Pointer to layer containing image to draw;
          */
-        void MapRenderer :: DrawImageLayer( tmx_layer *pLayer ) {
+        void TileMapRenderer :: DrawImageLayer( tmx_layer *pLayer ) {
 
             Texture2D *pTexture = ( Texture2D * ) pLayer -> content.image -> resource_image;
 
@@ -575,7 +575,7 @@ namespace SunLight {
          * @param pMap Pointer to layer map;
          * @param pLayer Pointer to layer with objects to draw;
          */
-        void MapRenderer :: DrawLayer( tmx_map *pMap, tmx_layer *pLayer ) {
+        void TileMapRenderer :: DrawLayer( tmx_map *pMap, tmx_layer *pLayer ) {
 
             float         fOpacity = ( float ) pLayer -> opacity;
 
@@ -664,7 +664,7 @@ namespace SunLight {
          * @param pMap Pointer to layers map;
          * @param pLayer Array of layer objects to draw;
          */
-        void MapRenderer :: DrawAllLayers( tmx_map *pMap, tmx_layer *pLayer ) {
+        void TileMapRenderer :: DrawAllLayers( tmx_map *pMap, tmx_layer *pLayer ) {
 
             while( pLayer ) {
                 if( pLayer -> visible ) {
@@ -694,7 +694,7 @@ namespace SunLight {
         /**
          * Render all map objects.
          */
-        void MapRenderer :: RenderMap( void ) {
+        void TileMapRenderer :: RenderMap( void ) {
 
             if( m_bClearBackground )
                 ClearBackground( IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor ) );
@@ -709,27 +709,27 @@ namespace SunLight {
         /**
          * Initialize default input event handlers.
          */
-        void MapRenderer :: InitalizeDefaultUserInputHandlers( void )  {
+        void TileMapRenderer :: InitalizeDefaultUserInputHandlers( void )  {
 
             // Default Keyboard handlers 
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_UP, std :: bind( &MapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_DOWN, std :: bind( &MapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_LEFT, std :: bind( &MapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_RIGHT, std :: bind( &MapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &MapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &MapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &MapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_END, std :: bind( &MapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserKeyEventHandler( SunLight :: Input :: KEY_UP, std :: bind( &TileMapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserKeyEventHandler( SunLight :: Input :: KEY_DOWN, std :: bind( &TileMapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserKeyEventHandler( SunLight :: Input :: KEY_LEFT, std :: bind( &TileMapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserKeyEventHandler( SunLight :: Input :: KEY_RIGHT, std :: bind( &TileMapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &TileMapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &TileMapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &TileMapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserKeyEventHandler( SunLight :: Input :: KEY_END, std :: bind( &TileMapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
 
             // Default GamePad handlers
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_UP, std :: bind( &MapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_DOWN, std :: bind( &MapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_LEFT, std :: bind( &MapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT, std :: bind( &MapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_UP, std :: bind( &MapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN, std :: bind( &MapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT, std :: bind( &MapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT, std :: bind( &MapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_UP, std :: bind( &TileMapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_DOWN, std :: bind( &TileMapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_LEFT, std :: bind( &TileMapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT, std :: bind( &TileMapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_UP, std :: bind( &TileMapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN, std :: bind( &TileMapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT, std :: bind( &TileMapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
+            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT, std :: bind( &TileMapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
         }
 
         /**
@@ -738,7 +738,7 @@ namespace SunLight {
          * @param type The controller that is triggering this event;
          * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
          */
-        void MapRenderer :: InputKeyUp( SunLight :: Input :: ControllerType type, int nId )  {
+        void TileMapRenderer :: InputKeyUp( SunLight :: Input :: ControllerType type, int nId )  {
 
             MoveCameraUp();
         }
@@ -749,7 +749,7 @@ namespace SunLight {
          * @param type The controller that is triggering this event;
          * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
          */
-        void MapRenderer :: InputKeyDown( SunLight :: Input :: ControllerType type, int nId )  {
+        void TileMapRenderer :: InputKeyDown( SunLight :: Input :: ControllerType type, int nId )  {
 
             MoveCameraDown();
         }
@@ -760,7 +760,7 @@ namespace SunLight {
          * @param type The controller that is triggering this event;
          * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
          */
-        void MapRenderer :: InputKeyLeft( SunLight :: Input :: ControllerType type, int nId )  {
+        void TileMapRenderer :: InputKeyLeft( SunLight :: Input :: ControllerType type, int nId )  {
 
             MoveCameraLeft();
         }
@@ -771,7 +771,7 @@ namespace SunLight {
          * @param type The controller that is triggering this event;
          * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
          */
-        void MapRenderer :: InputKeyRight( SunLight :: Input :: ControllerType type, int nId )  {
+        void TileMapRenderer :: InputKeyRight( SunLight :: Input :: ControllerType type, int nId )  {
 
             MoveCameraRight();
         }
@@ -782,7 +782,7 @@ namespace SunLight {
          * @param type The controller that is triggering this event;
          * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
          */
-        void MapRenderer :: InputKeyPageUp( SunLight :: Input :: ControllerType type, int nId )  {
+        void TileMapRenderer :: InputKeyPageUp( SunLight :: Input :: ControllerType type, int nId )  {
 
             ZoomIn();
         }
@@ -793,7 +793,7 @@ namespace SunLight {
          * @param type The controller that is triggering this event;
          * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
          */
-        void MapRenderer :: InputKeyPageDown( SunLight :: Input :: ControllerType type, int nId )  {
+        void TileMapRenderer :: InputKeyPageDown( SunLight :: Input :: ControllerType type, int nId )  {
 
             ZoomOut();
         }
@@ -804,7 +804,7 @@ namespace SunLight {
          * @param type The controller that is triggering this event;
          * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
          */
-        void MapRenderer :: InputKeyHome( SunLight :: Input :: ControllerType type, int nId )  {
+        void TileMapRenderer :: InputKeyHome( SunLight :: Input :: ControllerType type, int nId )  {
 
             ResetZoom();
         }
@@ -815,7 +815,7 @@ namespace SunLight {
          * @param type The controller that is triggering this event;
          * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
          */
-        void MapRenderer :: InputKeyEnd( SunLight :: Input :: ControllerType type, int nId )  {
+        void TileMapRenderer :: InputKeyEnd( SunLight :: Input :: ControllerType type, int nId )  {
 
             ResetCamera();
         }
@@ -824,7 +824,7 @@ namespace SunLight {
          * @brief Handle user keyboard events.
          * @param evt The event to be handled;
          */
-        void MapRenderer :: HandleKeyEvent( SunLight :: Input :: KeyboardKey evt )  {
+        void TileMapRenderer :: HandleKeyEvent( SunLight :: Input :: KeyboardKey evt )  {
 
             for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
                 if( ( *itItem ) -> nEvent == evt )
@@ -836,7 +836,7 @@ namespace SunLight {
          * Check user input selected previously by user (mouse,
          * joystick, keyboard, etc...)
          */
-        void MapRenderer :: HandleUserInput( void )  {
+        void TileMapRenderer :: HandleUserInput( void )  {
 
             bool    bEventHandled = false;
 
@@ -920,7 +920,7 @@ namespace SunLight {
         /**
          * Handle user updates from user listeners;
          */
-        void MapRenderer :: HandleUserUpdate( void )  {
+        void TileMapRenderer :: HandleUserUpdate( void )  {
 
             for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
                 pListener -> OnUpdate( *this );
@@ -935,7 +935,7 @@ namespace SunLight {
         /**
          * Handle user collisions;
          */
-        void MapRenderer :: HandleUserCollisions( void )  {
+        void TileMapRenderer :: HandleUserCollisions( void )  {
 
             m_CollisionManager.Update();
         }
@@ -945,7 +945,7 @@ namespace SunLight {
          * @param pTmxLayer Pointer to Tmx that data will be copied to;
          * @param layer User struct whose layer data will be copied from;
          */
-        void MapRenderer :: CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
+        void TileMapRenderer :: CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
 
             pTmxLayer -> opacity = ( __MAX_OPACITY_LEVEL - layer.nOpacity );
             pTmxLayer -> offsetx = layer.offset.x;
@@ -959,7 +959,7 @@ namespace SunLight {
          * @param pTmxLayer Reference to user layer that data will be copied to;
          * @param layer Pointer whose tmx layer data will be copied from;
          */
-        void MapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer *pTmxLayer )  {
+        void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer *pTmxLayer )  {
 
             layer.nOpacity = ( int ) ( pTmxLayer -> opacity + __MAX_OPACITY_LEVEL );
             layer.offset.x = pTmxLayer -> offsetx;
@@ -978,12 +978,12 @@ namespace SunLight {
          * camera handler will be used (at the end this parameter will be remove
          * when user interaction be a little bit more clear.
          */
-        MapRenderer :: MapRenderer( float fWidth,
-                                    float fHeight,
-                                    const char *szTitle,
-                                    int nTargetFps,
-                                    bool bUseDefaultKeyHandler) :
-                                    m_CollisionManager( this )  {
+        TileMapRenderer :: TileMapRenderer( float fWidth,
+                                            float fHeight,
+                                            const char *szTitle,
+                                            int nTargetFps,
+                                            bool bUseDefaultKeyHandler) :
+                                            m_CollisionManager( this )  {
 
             GetDimension2D().size.nWidth  = ( int ) fWidth;
             GetDimension2D().size.nHeight = ( int ) fHeight;
@@ -1032,7 +1032,7 @@ namespace SunLight {
         /**
          * Destructor. Finalize all class data.
          */
-        MapRenderer :: ~MapRenderer( void )  {
+        TileMapRenderer :: ~TileMapRenderer( void )  {
 
             UnloadMap();
             m_TileMapListenerList.clear();
@@ -1056,7 +1056,7 @@ namespace SunLight {
          * All listeners will be called for each update step;
          * @param pListener Pointer to the @ITileMapListener object to add;
          */
-        void MapRenderer :: AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
+        void TileMapRenderer :: AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
 
             TileMapListenerList :: iterator itItem = std :: find( m_TileMapListenerList.begin(),
                                                                   m_TileMapListenerList.end(),
@@ -1070,7 +1070,7 @@ namespace SunLight {
          * Remove a TileMap listener from internal listener list renderer.
          * @param pListener Pointer to the @ITileMapListener object to remove;
          */
-        void MapRenderer :: RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
+        void TileMapRenderer :: RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
 
             TileMapListenerList :: iterator itItem = std :: find( m_TileMapListenerList.begin(),
                                                                   m_TileMapListenerList.end(),
@@ -1086,7 +1086,7 @@ namespace SunLight {
          * KeyboardKey enum);
          * The default exit is ESC Key;
          */
-        void MapRenderer :: SetExitKey( KeyboardKey key )  {
+        void TileMapRenderer :: SetExitKey( KeyboardKey key )  {
 
             ::SetExitKey( key );
         }
@@ -1095,7 +1095,7 @@ namespace SunLight {
          * Set window resizeable status.
          * @param bResizeable The new resizeable status for window;
          */
-        void MapRenderer :: SetWindowResizeable( bool bResizeable )  {
+        void TileMapRenderer :: SetWindowResizeable( bool bResizeable )  {
 
             m_bWindowResizeable = bResizeable;
         }
@@ -1105,7 +1105,7 @@ namespace SunLight {
          * when there's no map loaded.
          * @param nWindowBackgroundColor The background color to set;
          */
-        void MapRenderer :: SetWindowBackgroundColor( uint32_t nWindowBackgroundColor )  {
+        void TileMapRenderer :: SetWindowBackgroundColor( uint32_t nWindowBackgroundColor )  {
 
             m_nWindowBackgroundColor = nWindowBackgroundColor;
         }
@@ -1115,7 +1115,7 @@ namespace SunLight {
          * rendering cycle;
          * @param bStatus The new background clear status settings;
          */
-        void MapRenderer :: SetClearBackground( bool bStatus )  {
+        void TileMapRenderer :: SetClearBackground( bool bStatus )  {
 
             m_bClearBackground = bStatus;
         }
@@ -1124,7 +1124,7 @@ namespace SunLight {
          * Enable/disable draw FPS information on top left corner of screen
          * @param bDrawFPS The new draw FPS status;
          */
-        void MapRenderer :: SetDrawFPS( bool bDrawFPS )  {
+        void TileMapRenderer :: SetDrawFPS( bool bDrawFPS )  {
 
             m_bDrawFPS = bDrawFPS;
         }
@@ -1136,7 +1136,7 @@ namespace SunLight {
          * Reactive, the view port reacts only for each key pressing;
          * @param mode The new view control mode;
          */
-        void MapRenderer :: SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode )  {
+        void TileMapRenderer :: SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode )  {
 
             m_ViewControlMode = mode;
         }
@@ -1148,7 +1148,7 @@ namespace SunLight {
          * @param nStepHeight The new scroll step size Height
          * (-1 uses the map tile size height);
          */
-        void MapRenderer :: SetScrollStepSize( int nStepWidth, int nStepHeight )  {
+        void TileMapRenderer :: SetScrollStepSize( int nStepWidth, int nStepHeight )  {
 
             m_nScrollStepWidth  = nStepWidth;
             m_nScrollStepHeight = nStepHeight;
@@ -1160,7 +1160,7 @@ namespace SunLight {
          * @param nIndex The GamePad device index to set GamePadId;  
          * @param nGamePadId The gme pad id to set;
          */
-        void MapRenderer :: AddGamePad( int nGamePadId )  {
+        void TileMapRenderer :: AddGamePad( int nGamePadId )  {
 
             m_GamePadList.push_back( nGamePadId );
         }
@@ -1171,7 +1171,8 @@ namespace SunLight {
          * @param evt The event code to call related routine;
          * @param handler The callback routine that will be called for key event;
          */
-        void MapRenderer :: SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt, SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
+        void TileMapRenderer :: SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt, 
+                                                        SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
             if( evt != SunLight :: Input :: KeyboardKey :: KEY_NULL )  {
                 __stInputEventData *pEvtData = new __stInputEventData;
@@ -1191,7 +1192,8 @@ namespace SunLight {
           * @param evt The event code to call related routine;
           * @param handler The callback routine that will be called for key event;
           */
-        void MapRenderer :: SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
+        void TileMapRenderer :: SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, 
+                                                            SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
             __stInputEventData *pEvtData = new __stInputEventData;
 
@@ -1205,7 +1207,7 @@ namespace SunLight {
          * 
          * @return S\The reference to IInputHandler object;
          */
-        SunLight :: Input :: IInputHandler& MapRenderer :: GetInputHandler( void )  {
+        SunLight :: Input :: IInputHandler& TileMapRenderer :: GetInputHandler( void )  {
 
             return *m_pInputHandler;
         }
@@ -1213,7 +1215,7 @@ namespace SunLight {
         /**
          * Reset zoom to it's default state.
          */
-        void MapRenderer :: ResetZoom( void ) {
+        void TileMapRenderer :: ResetZoom( void ) {
 
             GetViewport().ResetZoom();
         }
@@ -1221,7 +1223,7 @@ namespace SunLight {
         /**
          * Performs Zoom In effect.
          */
-        void MapRenderer :: ZoomIn( void ) {
+        void TileMapRenderer :: ZoomIn( void ) {
 
             GetViewport().ZoomIn();
         }
@@ -1229,7 +1231,7 @@ namespace SunLight {
         /**
          * Performs Zoom Out effect.
          */
-        void MapRenderer :: ZoomOut( void ) {
+        void TileMapRenderer :: ZoomOut( void ) {
 
             GetViewport().ZoomOut();
         }
@@ -1237,7 +1239,7 @@ namespace SunLight {
         /**
          * Reset the camera position.
          */
-        void MapRenderer :: ResetCamera( void )  {
+        void TileMapRenderer :: ResetCamera( void )  {
 
             m_CameraPos.x = 0;
             m_CameraPos.y = 0;
@@ -1246,7 +1248,7 @@ namespace SunLight {
         /**
          * Move view camera up.
          */
-        void MapRenderer :: MoveCameraUp( void )  {
+        void TileMapRenderer :: MoveCameraUp( void )  {
 
             SunLight :: Base :: Viewport&  vp = GetViewport();
             int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.y - 
@@ -1262,7 +1264,7 @@ namespace SunLight {
         /**
          * Move view camera down.
          */
-        void MapRenderer :: MoveCameraDown( void )  {
+        void TileMapRenderer :: MoveCameraDown( void )  {
 
             int    nMapBoundary = ( int ) ( m_CameraPos.y + m_nScrollStepHeight );
 
@@ -1273,7 +1275,7 @@ namespace SunLight {
         /**
          * Move view camera left.
          */
-        void MapRenderer :: MoveCameraLeft( void )  {
+        void TileMapRenderer :: MoveCameraLeft( void )  {
 
             SunLight :: Base :: Viewport&  vp = GetViewport();
             int                  nErrorFix    = ( m_pTmxMap -> tile_width / std :: round( vp.GetZoomProperties().fZoomFactor ) );
@@ -1290,7 +1292,7 @@ namespace SunLight {
         /**
          * Move view camera right.
          */
-        void MapRenderer :: MoveCameraRight( void )  {
+        void TileMapRenderer :: MoveCameraRight( void )  {
 
             int nMapBoundary = ( int ) ( m_CameraPos.x + m_nScrollStepWidth );
 
@@ -1303,7 +1305,7 @@ namespace SunLight {
          * @param nLayerId The layer id to set layer parameters;
          * @param layer reference to layer parameters structure to set;
          */
-        bool MapRenderer :: SetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: SetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer )  {
 
             tmx_layer *pTmxLayer = GetLayer( nLayerId );
 
@@ -1320,7 +1322,7 @@ namespace SunLight {
          * @param szLayerName The layer name to set layer parameters;
          * @param layer reference to layer parameters structure to set;
          */
-        bool MapRenderer :: SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer )  {
 
             tmx_layer *pTmxLayer = GetLayer( szLayerName );
 
@@ -1337,7 +1339,7 @@ namespace SunLight {
          * @param nLayerId The layer id to get layer parameters;
          * @param layer reference to layer parameters structure to get;
          */
-        bool MapRenderer :: GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer )  {
 
             tmx_layer *pTmxLayer = GetLayer( nLayerId );
 
@@ -1354,7 +1356,7 @@ namespace SunLight {
          * @param szLayerName The layer name to get layer parameters;
          * @param layer reference to layer parameters structure to get;
          */
-        bool MapRenderer :: GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer )  {
 
             tmx_layer *pTmxLayer = GetLayer( szLayerName );
 
@@ -1374,9 +1376,9 @@ namespace SunLight {
          * @param tile reference to @link stTile object to receive
          * tile information;
          */
-        bool MapRenderer :: GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
-                                     const SunLight :: TileMap :: stLayer& layer,
-                                     SunLight :: TileMap :: stTile& tile ) {
+        bool TileMapRenderer :: GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                         const SunLight :: TileMap :: stLayer& layer,
+                                         SunLight :: TileMap :: stTile& tile ) {
 
             tile.nGID = layer.pLayer -> content.gids[( pos.nTileRow *
                                                     m_pTmxMap -> width ) +
@@ -1409,8 +1411,8 @@ namespace SunLight {
          * @param pos Reference to struct @link stMatrixPosition to receive the
          * tile matrix position based on world coordinate passed as parameter;
          */
-        bool MapRenderer :: TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
-                                                 SunLight :: TileMap :: stMatrixPosition& pos )  {
+        bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+                                                     SunLight :: TileMap :: stMatrixPosition& pos )  {
 
             if( m_pTmxMap )  {
                 SunLight :: TileMap :: stDimension2D&  vp      = GetViewport().GetDimension2D();
@@ -1438,7 +1440,7 @@ namespace SunLight {
          * @param szTmxMapFile Renderer map file;
          * @param alignment Map alignment according @link MapAlignment enumerator;
          */
-        bool MapRenderer :: LoadMap( const char *szTmxMapFile, MapAlignment alignment )  {
+        bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, MapAlignment alignment )  {
 
             if( m_bIsStarted )  {
                 m_pTmxMap = ::tmx_load( szTmxMapFile );
@@ -1521,7 +1523,7 @@ namespace SunLight {
         /**
          * Unload a previously loaded map and it's related data (animations, etc...);
          */
-        bool MapRenderer :: UnloadMap( void )  {
+        bool TileMapRenderer :: UnloadMap( void )  {
 
             if( m_pTmxMap )  {
 
@@ -1556,7 +1558,7 @@ namespace SunLight {
          * @param mapInfo Reference to the struct @link stMapInfo that will
          * receive the map information.
          */
-        bool MapRenderer :: GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo )  {
+        bool TileMapRenderer :: GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo )  {
 
             if( m_pTmxMap )  {
                 mapInfo.mapSize.nWidth   = m_pTmxMap -> width;
@@ -1574,7 +1576,7 @@ namespace SunLight {
         /**
          * Return the reference to internal renderer collision manager.
          */
-        SunLight :: Collision :: ICollisionManager& MapRenderer :: GetCollisionManager( void )  {
+        SunLight :: Collision :: ICollisionManager& TileMapRenderer :: GetCollisionManager( void )  {
 
             return m_CollisionManager;
         }
@@ -1584,7 +1586,7 @@ namespace SunLight {
          * @param nLayerId Id of an existing Layer on tiled map whose sprite will be added;
          * @param sprite Reference to the sprite that will be added;
          */
-        bool MapRenderer :: AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
+        bool TileMapRenderer :: AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
             if( m_bIsStarted && GetLayer( nLayerId ) )  {
                 SpriteList :: iterator itItem = std :: find( m_SpriteList.begin(),
@@ -1608,7 +1610,7 @@ namespace SunLight {
          * @see AddSprite and now will be removed;
          * @param sprite Reference to the sprite that will be removed;
          */
-        bool MapRenderer :: RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
+        bool TileMapRenderer :: RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
             if( m_bIsStarted )  {
                 SpriteList :: iterator itItem = std :: find( m_SpriteList.begin(),
@@ -1629,7 +1631,7 @@ namespace SunLight {
         /**
          * Start engine renderer.
          */
-        bool MapRenderer :: Start( void )  {
+        bool TileMapRenderer :: Start( void )  {
 
             if( m_bWindowResizeable )
                 SetConfigFlags( FLAG_WINDOW_RESIZABLE );
@@ -1653,7 +1655,7 @@ namespace SunLight {
         /**
          * Stop renderer freeing all allocated resources.
          */
-        void MapRenderer :: Stop( void )  {
+        void TileMapRenderer :: Stop( void )  {
 
             for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
                 pListener -> OnStop();
@@ -1669,7 +1671,7 @@ namespace SunLight {
         /**
          * Run renderer.
          */
-        bool MapRenderer :: Run( void )  {
+        bool TileMapRenderer :: Run( void )  {
 
             if( m_bIsStarted )  {
                 while ( !WindowShouldClose() ) {

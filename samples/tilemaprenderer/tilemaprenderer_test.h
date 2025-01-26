@@ -18,8 +18,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef __MAPRENDERER_TEST_H__
-#define __MAPRENDERER_TEST_H__
+#ifndef __TILEMAPRENDERER_TEST_H__
+#define __TILEMAPRENDERER_TEST_H__
 
 #define DISPLAY_W                 1260
 #define DISPLAY_H                 920
@@ -31,6 +31,6 @@
 #define VIEWPORT_WIDTH            1250
 #define VIEWPORT_HEIGHT           910
 #define DEFAULT_ZOOM_SCALE_POS    60
-#define GAME_NAME                 "Map renderer test"
+#define GAME_NAME                 "TileMap renderer test"
 
-#endif /* __MAIN_H__ */
+#endif /* __TILEMAPRENDERER_TEST_H__ */

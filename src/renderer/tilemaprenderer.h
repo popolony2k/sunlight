@@ -18,8 +18,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef __MAPRENDERER_H__
-#define __MAPRENDERER_H__
+#ifndef __TILEMAPRENDERER_H__
+#define __TILEMAPRENDERER_H__
 
 #include <string>
 #include <queue>
@@ -51,7 +51,7 @@ namespace SunLight {
         /**
          * @brief World renderer implementation to render TMX based maps.
          */
-        class MapRenderer : public SunLight :: TileMap :: ITileMap  {
+        class TileMapRenderer : public SunLight :: TileMap :: ITileMap  {
 
             /**
              * Tile animation information.
@@ -191,12 +191,12 @@ namespace SunLight {
 
             public:
 
-            MapRenderer( float fWidth,
-                         float fHeight,
-                         const char* szTitle,
-                         int nTargetFps = -1,
-                         bool bUseDefaultKeyHandler = true );
-            virtual ~MapRenderer( void );
+            TileMapRenderer( float fWidth,
+                             float fHeight,
+                             const char* szTitle,
+                             int nTargetFps = -1,
+                             bool bUseDefaultKeyHandler = true );
+            virtual ~TileMapRenderer( void );
 
             // World user listener interaction
             void AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener );
@@ -269,4 +269,4 @@ namespace SunLight {
     }
 }
 
-#endif /* __MAPRENDERER_H__ */
+#endif /* __TILEMAPRENDERER_H__ */
