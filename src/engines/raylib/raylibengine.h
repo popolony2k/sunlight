@@ -42,6 +42,7 @@ namespace SunLight  {
                                               float rotation, 
                                               float scale, 
                                               Color tint);
+                static void SetPixel( int nPosX, int nPosY, Color color );
             };
         }
     }

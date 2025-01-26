@@ -43,7 +43,7 @@ namespace SunLight  {
                                                    Vector2 origin, 
                                                    float rotation, 
                                                    float scale, 
-                                                   Color tint )  {
+                                                    Color tint )  {
                                     
                 if ((texture.id <= 0) || (scale <= 0.0f)) return;  // Wanna see a infinite loop?!...just delete this line!
                 if ((source.width == 0) || (source.height == 0)) return;
@@ -213,6 +213,16 @@ namespace SunLight  {
                         }
                     }
                 }
+            }
+
+            /**
+             * Draw  pixel according the specified position.
+             * @param nPosX The X coordinate to plot pixel;
+             * @param nPosY The Y coordinate to plot pixel;
+             * @param color Color of pixel;
+             */
+            void RaylibEngine :: SetPixel( int nPosX, int nPosY, Color color )  {
+                ::DrawPixel( nPosX, nPosY, color );
             }
         }
     }

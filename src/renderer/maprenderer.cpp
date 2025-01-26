@@ -144,7 +144,7 @@ namespace SunLight {
 
             if( ( nCoordX > vp.pos.x ) && ( nCoordX < vp.size. nWidth) &&
                 ( nCoordY  > vp.pos. y ) && ( nCoordY < vp.size.nHeight ) ) {
-                ::DrawPixel( nCoordX, nCoordY, color );
+                __DEFAULT_ENGINE :: SetPixel( nCoordX, nCoordY, color );
             }
         }
 
@@ -208,8 +208,8 @@ namespace SunLight {
 
             // Decision parameter of region 2
             d2 = ( ( fRadiusY * fRadiusY ) * ( ( x + 0.5 ) * ( x + 0.5 ) ) ) +
-                ( ( fRadiusX * fRadiusX ) * ( ( y - 1 ) * ( y - 1 ) ) ) -
-                ( fRadiusX * fRadiusX * fRadiusY * fRadiusY );
+                 ( ( fRadiusX * fRadiusX ) * ( ( y - 1 ) * ( y - 1 ) ) ) -
+                 ( fRadiusX * fRadiusX * fRadiusY * fRadiusY );
 
             // Plotting points of region 2
             while( y >= 0 ) {
