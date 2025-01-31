@@ -1,5 +1,7 @@
 # sunlight
 
+![sunlight logo (sunny)](/resources/sunny.png)
+
 ## Table of Contents
 * [Overview](#overview)
 * [Dependencies](#dependencies)
