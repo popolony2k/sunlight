@@ -2,10 +2,10 @@
 
 If you want use VSCode to configure and launch project samples, there's some JSON samples ready for using inside VSCode IDE.
 
-* [IDE configuration JSON files](#ide)
-* [Using a specific settings.json for your operating system](#using)
-* [VS Code Settings for Mac Windows and Linux extension](#VS)
-- [Launching samples executables](#launching)
+* [IDE configuration JSON files](#ide-configuration-json-files)
+* [Using a specific settings.json for your operating system](#using-a-specific-settingsjson-for-your-operating-system)
+* [VS Code Settings for Mac Windows and Linux extension](#vs-code-settings-for-mac-windows-and-linux-extension)
+- [Launching samples executables](#launching-samples-executables)
 
 
 ## IDE configuration JSON files
@@ -47,7 +47,7 @@ cp settings.linux.json settings.json
 
 The other way is by installing [VS Code Settings for Mac Windows and Linux](https://marketplace.visualstudio.com/items?itemName=franmastromarino.vs-code-settings-os) VSCode extension.
 
-If you prefer using this extension instead manual configuration described previsously, just follow the previous section [IDE configuration JSON files](#ide), install this extension and restart VSCode.
+If you prefer using this extension instead manual configuration described previsously, just follow the previous section [IDE configuration JSON files](#ide-configuration-json-files), install this extension and restart VSCode.
 After this, each modification made on your specific JSON settings (eg. **settings.linux.json**), will be reflected automatically on main settings.json.  
 
 
