@@ -1,0 +1,5 @@
+# Compiled Dynamic libraries
+*.so.*
+
+# Samples executables (Linux)
+*_test
