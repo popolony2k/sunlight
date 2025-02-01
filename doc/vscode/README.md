@@ -32,9 +32,9 @@ The previous copy operation copies several settings with specific OS configurati
 
 There's 3 settings ready for using on your preferred system.
 
-    - settings.linux.json Specific settings for Linux;
-    - settings.macos.json Specific settings for MacOs;
-    - settings.windows.json Specific settings for Windows (with vckpg configuration)
+* settings.linux.json Specific settings for Linux;
+* settings.macos.json Specific settings for MacOs;
+* settings.windows.json Specific settings for Windows (with vckpg configuration)
 
 For example, consider you're developing on Linux platform, so you could use this ready made **settings.linux.json** by copying it to the **settings.json** file of your **.vscode** folder present on root path of your `sunlight` project copy.
 
