@@ -1,6 +1,6 @@
 {
     "cmake.configureOnOpen": true,
     "cmake.configureSettings": {
-        "BUILD_LIBRARY_SAMPLES": true
-    }
+            "BUILD_LIBRARY_SAMPLES": true
+        }
 }

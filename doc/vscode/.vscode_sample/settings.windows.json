@@ -1,0 +1,9 @@
+{
+    "cmake.configureOnOpen": true,
+    "cmake.configureSettings": {
+            "BUILD_LIBRARY_SAMPLES": true,
+            "CMAKE_PREFIX_PATH": "C:/dev/vcpkg/installed/x64-windows",
+            "CMAKE_TOOLCHAIN_FILE":
+                "C:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        }
+}
