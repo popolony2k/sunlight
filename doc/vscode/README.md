@@ -55,4 +55,4 @@ After this, each modification made on your specific JSON settings (eg. **setting
 
 The **launch.json** was written to execute the compiled binary based on opened source code document.
 
-For example, if in your VSCode the **tilemaprenderer_test.h** or **tilemaprenderer_test.cpp** is open on the active tab this launch will try to start its related executable (**tilemaprenderer_test.exe** on Windows or **tilemaprenderer_test** on Linux or Mac), if this sample was already compiled previously, of course.
+For example, if in your VSCode the **tilemaprenderer_test.h** or **tilemaprenderer_test.cpp** is open on the active tab the VSCode launcher will try to start its related executable (**tilemaprenderer_test.exe** on Windows or **tilemaprenderer_test** on Linux or Mac), if this sample was already compiled previously, of course.
