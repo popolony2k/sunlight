@@ -20,7 +20,7 @@ cp doc/vscode/.vscode_sample/* ./vscode
 
 The launch.json file has configurations for all supported `sunlight` operating systems (Mac, Windows and Linux).
 
-## Launching samples
+## Launching samples executables
 
 The launch.json was written to execute the compiled binary based on opened source code document.
 
