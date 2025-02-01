@@ -1,4 +1,4 @@
-# VSCode IDE configuration instructions
+# VSCode IDE configuration
 
 If you want use VSCode to configure and launch project samples, there's some JSON samples ready for using inside VSCode IDE.
 
