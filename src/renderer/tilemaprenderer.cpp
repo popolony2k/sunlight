@@ -835,6 +835,15 @@ namespace SunLight {
          * joystick, keyboard, etc...)
          */
         void TileMapRenderer :: HandleUserInput( void )  {
+            /*
+             *  Controller Axis dead zones
+             */
+            const float ctfLeftStickDeadzoneX  = 0.1f;
+            const float ctfLeftStickDeadzoneY  = 0.1f;
+            const float ctfRightStickDeadzoneX = 0.1f;
+            const float ctfRightStickDeadzoneY = 0.1f;
+            const float ctLeftTriggerDeadzone  = -0.9f;
+            const float ctRightTriggerDeadzone = -0.9f;
 
             bool    bEventHandled = false;
 
@@ -845,6 +854,18 @@ namespace SunLight {
                                                                             SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
                 float    fPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, 
                                                                             SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_Y );
+
+                // Calculate deadzones
+                if( ( fPosX > -ctfLeftStickDeadzoneX ) && ( fPosX < ctfLeftStickDeadzoneX ) ) 
+                    fPosX = 0.0f;
+                if( ( fPosY > -ctfRightStickDeadzoneY ) && ( fPosY < ctfRightStickDeadzoneY ) ) 
+                    fPosY = 0.0f;
+
+                // TODO: Code sample for future use when add support to Right stick and trigger handling  
+                // if (rightStickX > -ctfRightStickDeadzoneX && rightStickX < ctfRightStickDeadzoneX) rightStickX = 0.0f;
+                // if (rightStickY > -rightStickDeadzoneY && rightStickY < rightStickDeadzoneY) rightStickY = 0.0f;
+                // if (leftTrigger < leftTriggerDeadzone) leftTrigger = -1.0f;
+                // if (rightTrigger < rightTriggerDeadzone) rightTrigger = -1.0f;
 
                 // Handle Analog GamePad control stick
                 if( fPosX > 0.0 )  {
