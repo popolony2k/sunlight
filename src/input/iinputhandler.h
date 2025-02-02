@@ -22,11 +22,17 @@
 #define __IINPUTHANDLER_H__
 
 #include <functional>
+#include <array>
 
 /**
  * @brief Default input Ids
  */
 #define KEYBOARD_ID             -1
+
+/**
+ * @brief Maximum gamepads count.
+ */
+#define MAX_GAMEPAD_COUNT       10
 
 
 namespace SunLight {
@@ -203,6 +209,15 @@ namespace SunLight {
         };
 
         /**
+         * @brief Struct with calibrated X and Y axis to normalize 
+         * values returned by @see GetGamepadAxisMovement function. 
+         */
+        struct stGamePadCalibration  {
+            float   fBaseAxisX;
+            float   fBaseAxisY;
+        };
+
+        /**
          * @brief Key event handler callback definition.
          *
          * Parameters accepted:
@@ -215,6 +230,10 @@ namespace SunLight {
          * @brief Keyboard handler generic interface.
          */
         class IInputHandler  {
+
+            protected:
+
+            std :: array<stGamePadCalibration, MAX_GAMEPAD_COUNT>   m_GamePadCalibration;
             
             public:
 
@@ -318,6 +337,18 @@ namespace SunLight {
              * @return float The returned position for requested gamepad and axis; 
              */
             virtual float GetGamepadAxisMovement( int nGamePadId, SunLight :: Input :: GamepadAxis axis ) = 0;
+
+            /**
+             * @brief Store the base X and Y axis to the internal calibration array;
+             * @param nGamePadId The id of game pad to calibrate;
+             */
+            virtual void Calibrate( int nGamePadId ) = 0;
+
+            /**
+             * Get the calibration struct previously clibrated by @see Calibrate.
+             * @param nGamePadId The id of game pad to retrieve;
+             */
+            virtual stGamePadCalibration& GetGamePadCalibration( int nGamePadId ) = 0;
         };
     }
 }

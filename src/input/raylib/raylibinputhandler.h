@@ -24,7 +24,6 @@
 #include "iinputhandler.h"
 #include "base/object.h"
 
-
 namespace SunLight {
     namespace Input  {
         namespace RayLib  {
@@ -55,6 +54,8 @@ namespace SunLight {
                 int GetGamepadButtonPressed( void );
                 int GetGamepadAxisCount( int nGamePadId );
                 float GetGamepadAxisMovement( int nGamePadId, SunLight :: Input :: GamepadAxis axis );
+                void Calibrate( int nGamePadId );
+                stGamePadCalibration& GetGamePadCalibration( int nGamePadId );
             };
         }
     }

@@ -55,8 +55,6 @@
 #define __DEFAULT_VIEW_CONTROL_MODE     VIEW_CONTROL_MODE_ACTIVE
 #define __DEFAULT_EXIT_KEY              KEY_ESCAPE
 #define __DEFAULT_WINDOW_BK_COLOR       0xFF000000
-#define __ANALOG_PAD_RANGE_POSITIVE     0.0
-#define __ANALOG_PAD_RANGE_NEGATIVE     0.0
 
 
 /*
@@ -707,6 +705,27 @@ namespace SunLight {
         }
 
         /**
+         * @brief Calibrate all registered GamePads through @see AddGamePad.
+         */
+        void TileMapRenderer :: CalibrateGamePads( void )  {
+
+            /*
+             * The Calibrate process only will work after calling BeginDrawing() and EndDrawing(),
+             * for any obscure reason on RayLib 5.5 and mayne higher.
+             * The builtin Raylib function GetGamepadAxisMovement(...) only return valid data after
+             * these calls.
+             */
+            BeginDrawing();
+            EndDrawing();
+
+            for( int nGamePadId : m_GamePadList )  {
+                m_pInputHandler -> Calibrate( nGamePadId );
+            }
+
+            m_bCalibrateGamePads = false;
+        }
+
+        /**
          * Initialize default input event handlers.
          */
         void TileMapRenderer :: InitalizeDefaultUserInputHandlers( void )  {
@@ -840,19 +859,20 @@ namespace SunLight {
 
             bool    bEventHandled = false;
 
-
             for( int nGamePadId : m_GamePadList )  {
-                float         fPos          = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
-                SunLight :: Input :: GamepadButton button[] = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN, 
-                                                                SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN };
+                SunLight :: Input :: stGamePadCalibration& cal = m_pInputHandler -> GetGamePadCalibration( nGamePadId );
+                SunLight :: Input :: GamepadButton button[]    = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN, 
+                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN };
+                float    fPos = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, 
+                                                                           SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
 
                 // Handle Analog GamePad control stick
-                if( fPos > __ANALOG_PAD_RANGE_POSITIVE )  {
+                if( fPos > cal.fBaseAxisX )  {
                     button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT;
                     bEventHandled = true;
                 }
                 else  {
-                    if( fPos < __ANALOG_PAD_RANGE_NEGATIVE )  {
+                    if( fPos < cal.fBaseAxisX )  {
                         button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_LEFT;
                         bEventHandled = true;
                     }
@@ -860,12 +880,12 @@ namespace SunLight {
 
                 fPos = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_Y );
 
-                if( fPos > __ANALOG_PAD_RANGE_POSITIVE )  {
+                if( fPos > cal.fBaseAxisY )  {
                     button[1] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_DOWN;
                     bEventHandled = true;
                 }
                 else  {
-                    if( fPos < __ANALOG_PAD_RANGE_NEGATIVE )  {
+                    if( fPos < cal.fBaseAxisY )  {
                         button[1] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_UP;
                         bEventHandled = true;
                     }
@@ -995,6 +1015,7 @@ namespace SunLight {
             m_strTitle                    = szTitle;
             m_pTmxMap                     = NULL;
             m_bIsStarted                  = false;
+            m_bCalibrateGamePads          = true;
             m_bWindowResizeable           = __DEFAULT_RESIZEABLE_STATUS;
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
             m_bDrawFPS                    = __DEFAULT_DRAW_FPS_STATUS;
@@ -1675,6 +1696,10 @@ namespace SunLight {
 
             if( m_bIsStarted )  {
                 while ( !WindowShouldClose() ) {
+                    if( m_bCalibrateGamePads )  {
+                        CalibrateGamePads();
+                    }
+
                     BeginDrawing();
                     if( GetVisible() )  {
                         RenderMap();

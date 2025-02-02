@@ -170,6 +170,28 @@ namespace SunLight  {
 
                 return ::GetGamepadAxisMovement( nGamePadId, axis );
             }
+
+            /**
+             * @brief Store the base X and Y axis to the internal calibration array;
+             * @param nGamePadId The id of game pad to calibrate;
+             */
+            void RayLibInputHandler :: Calibrate( int nGamePadId )  {
+
+                stGamePadCalibration  calibration;
+                
+                calibration.fBaseAxisX = ::GetGamepadAxisMovement( nGamePadId, SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
+                calibration.fBaseAxisY = ::GetGamepadAxisMovement( nGamePadId, SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_Y );
+                 m_GamePadCalibration[nGamePadId] = calibration;
+            }
+
+            /**
+             * Get the calibration struct previously clibrated by @see Calibrate.
+             * @param nGamePadId The id of game pad to retrieve;
+             */
+            stGamePadCalibration& RayLibInputHandler :: GetGamePadCalibration( int nGamePadId )  {
+                
+                return m_GamePadCalibration[nGamePadId];
+            }
         }
     }
 }
