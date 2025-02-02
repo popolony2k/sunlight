@@ -54,7 +54,7 @@ namespace SunLight {
                 int GetGamepadButtonPressed( void );
                 int GetGamepadAxisCount( int nGamePadId );
                 float GetGamepadAxisMovement( int nGamePadId, SunLight :: Input :: GamepadAxis axis );
-                void Calibrate( int nGamePadId );
+                void Calibrate( int nGamePadId, float fAxisX, float fAxisY );
                 stGamePadCalibration& GetGamePadCalibration( int nGamePadId );
             };
         }

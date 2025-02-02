@@ -705,18 +705,6 @@ namespace SunLight {
         }
 
         /**
-         * @brief Calibrate all registered GamePads through @see AddGamePad.
-         */
-        void TileMapRenderer :: CalibrateGamePads( void )  {
-
-            for( int nGamePadId : m_GamePadList )  {
-                m_pInputHandler -> Calibrate( nGamePadId );
-            }
-
-            m_bCalibrateGamePads = false;
-        }
-
-        /**
          * Initialize default input event handlers.
          */
         void TileMapRenderer :: InitalizeDefaultUserInputHandlers( void )  {
@@ -854,33 +842,36 @@ namespace SunLight {
                 SunLight :: Input :: stGamePadCalibration& cal = m_pInputHandler -> GetGamePadCalibration( nGamePadId );
                 SunLight :: Input :: GamepadButton button[]    = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN, 
                                                                    SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN };
-                float    fPos = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, 
-                                                                           SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
+                float    fPosX = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, 
+                                                                            SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
+                float    fPosY;
 
                 // Handle Analog GamePad control stick
-                if( fPos > cal.fBaseAxisX )  {
+                if( fPosX > cal.fBaseAxisX )  {
                     button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT;
                     bEventHandled = true;
                 }
                 else  {
-                    if( fPos < cal.fBaseAxisX )  {
+                    if( fPosX < cal.fBaseAxisX )  {
                         button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_LEFT;
                         bEventHandled = true;
                     }
                 }
 
-                fPos = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_Y );
+                fPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_Y );
 
-                if( fPos > cal.fBaseAxisY )  {
+                if( fPosY > cal.fBaseAxisY )  {
                     button[1] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_DOWN;
                     bEventHandled = true;
                 }
                 else  {
-                    if( fPos < cal.fBaseAxisY )  {
+                    if( fPosY < cal.fBaseAxisY )  {
                         button[1] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_UP;
                         bEventHandled = true;
                     }
                 }
+
+                m_pInputHandler -> Calibrate( nGamePadId, fPosX, fPosY );
 
                 // Handle DPad control stick
                 for( InputEventHandlerList :: iterator itItem = m_GPadInputEventHandlerList.begin(); itItem != m_GPadInputEventHandlerList.end(); itItem++ )  {
@@ -1006,7 +997,6 @@ namespace SunLight {
             m_strTitle                    = szTitle;
             m_pTmxMap                     = NULL;
             m_bIsStarted                  = false;
-            m_bCalibrateGamePads          = true;
             m_bWindowResizeable           = __DEFAULT_RESIZEABLE_STATUS;
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
             m_bDrawFPS                    = __DEFAULT_DRAW_FPS_STATUS;
@@ -1695,10 +1685,6 @@ namespace SunLight {
                         HandleUserCollisions();
                     }
                     EndDrawing();
-
-                    if( m_bCalibrateGamePads )  {
-                        CalibrateGamePads();
-                    }
                 }
 
                 return true;

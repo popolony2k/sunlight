@@ -101,7 +101,6 @@ namespace SunLight {
             bool                                       m_bIsStarted;
             bool                                       m_bWindowResizeable;
             bool                                       m_bDrawFPS;
-            bool                                       m_bCalibrateGamePads;
             static bool                                m_bInitialized;
 
             // TmxLib overrides
@@ -216,7 +215,6 @@ namespace SunLight {
 
             // GamePad handling
             void AddGamePad( int nGamePadId );
-            void CalibrateGamePads( void );
 
             // User input handling           
             void SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt, SunLight :: Input :: INPUT_EVENT_HANDLER handler );

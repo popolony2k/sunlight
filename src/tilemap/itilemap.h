@@ -63,11 +63,6 @@ namespace SunLight {
             virtual void AddGamePad( int nGamePadId ) = 0;
 
             /**
-             * @brief Calibrate all registered GamePads through @see AddGamePad.
-             */
-            virtual void CalibrateGamePads( void ) = 0;
-
-            /**
              * @brief Set the User Key Event Handler callback routine.
              * 
              * @param evt The event code to call related routine;

@@ -341,8 +341,10 @@ namespace SunLight {
             /**
              * @brief Store the base X and Y axis to the internal calibration array;
              * @param nGamePadId The id of game pad to calibrate;
+             * @param fAxisX The new base value for axis X;
+             * @param fAxisY The new base value for axis Y;
              */
-            virtual void Calibrate( int nGamePadId ) = 0;
+            virtual void Calibrate( int nGamePadId, float fAxisX, float fAxisY ) = 0;
 
             /**
              * Get the calibration struct previously clibrated by @see Calibrate.
