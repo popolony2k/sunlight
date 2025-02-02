@@ -709,15 +709,6 @@ namespace SunLight {
          */
         void TileMapRenderer :: CalibrateGamePads( void )  {
 
-            /*
-             * The Calibrate process only will work after calling BeginDrawing() and EndDrawing(),
-             * for any obscure reason on RayLib 5.5 and mayne higher.
-             * The builtin Raylib function GetGamepadAxisMovement(...) only return valid data after
-             * these calls.
-             */
-            BeginDrawing();
-            EndDrawing();
-
             for( int nGamePadId : m_GamePadList )  {
                 m_pInputHandler -> Calibrate( nGamePadId );
             }
@@ -1696,10 +1687,6 @@ namespace SunLight {
 
             if( m_bIsStarted )  {
                 while ( !WindowShouldClose() ) {
-                    if( m_bCalibrateGamePads )  {
-                        CalibrateGamePads();
-                    }
-
                     BeginDrawing();
                     if( GetVisible() )  {
                         RenderMap();
@@ -1708,6 +1695,10 @@ namespace SunLight {
                         HandleUserCollisions();
                     }
                     EndDrawing();
+
+                    if( m_bCalibrateGamePads )  {
+                        CalibrateGamePads();
+                    }
                 }
 
                 return true;
