@@ -209,15 +209,6 @@ namespace SunLight {
         };
 
         /**
-         * @brief Struct with calibrated X and Y axis to normalize 
-         * values returned by @see GetGamepadAxisMovement function. 
-         */
-        struct stGamePadCalibration  {
-            float   fBaseAxisX;
-            float   fBaseAxisY;
-        };
-
-        /**
          * @brief Key event handler callback definition.
          *
          * Parameters accepted:
@@ -230,11 +221,7 @@ namespace SunLight {
          * @brief Keyboard handler generic interface.
          */
         class IInputHandler  {
-
-            protected:
-
-            std :: array<stGamePadCalibration, MAX_GAMEPAD_COUNT>   m_GamePadCalibration;
-            
+  
             public:
 
             virtual ~IInputHandler( void )  {}
@@ -337,20 +324,6 @@ namespace SunLight {
              * @return float The returned position for requested gamepad and axis; 
              */
             virtual float GetGamepadAxisMovement( int nGamePadId, SunLight :: Input :: GamepadAxis axis ) = 0;
-
-            /**
-             * @brief Store the base X and Y axis to the internal calibration array;
-             * @param nGamePadId The id of game pad to calibrate;
-             * @param fAxisX The new base value for axis X;
-             * @param fAxisY The new base value for axis Y;
-             */
-            virtual void Calibrate( int nGamePadId, float fAxisX, float fAxisY ) = 0;
-
-            /**
-             * Get the calibration struct previously clibrated by @see Calibrate.
-             * @param nGamePadId The id of game pad to retrieve;
-             */
-            virtual stGamePadCalibration& GetGamePadCalibration( int nGamePadId ) = 0;
         };
     }
 }
