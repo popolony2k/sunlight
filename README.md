@@ -1,8 +1,6 @@
 # sunlight
 
-<div align="center">
-![sunlight logo (sunny)](/resources/sunny.png)
-</div>
+<img src="https://github.com/Nikkochocho/sunlight/blob/main/resources/sunny.png" alt="sunlight logo" title="sunny" align="center">
 
 `sunlight` is an open source library written in C++ to make 2D games. Overall, its present main features include a manager that can deal with map, collision, sprites and graphic primitives.
 
