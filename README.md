@@ -86,14 +86,14 @@ In order to make it compile with samples, it is necessary to open the CMakeLists
 option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" ON)
 ```
 
+>[!NOTE]
+>You may also use the following command line on your system's shell:
+>```shell
+>cmake -DBUILD_LIBRARY_SAMPLES=ON
+>```
+
 ### Configuring VsCode
 
 If you intend to use VsCode as your IDE, follow the instructions shown [here](https://github.com/Nikkochocho/sunlight/tree/main/doc/vscode).
-
->[!NOTE]
->You may also use the following command line on your system's shell:
->```console
->cmake -DBUILD_LIBRARY_SAMPLES=ON
->```
 
 ## Samples :sunny:
