@@ -1,5 +1,4 @@
 {
-    "workbench.colorTheme": "Default Dark+",
     "cmake.configureOnOpen": true,
     "cmake.configureSettings": {
             "BUILD_LIBRARY_SAMPLES": true,

@@ -22,11 +22,17 @@
 #define __IINPUTHANDLER_H__
 
 #include <functional>
+#include <array>
 
 /**
  * @brief Default input Ids
  */
 #define KEYBOARD_ID             -1
+
+/**
+ * @brief Maximum gamepads count.
+ */
+#define MAX_GAMEPAD_COUNT       10
 
 
 namespace SunLight {
@@ -215,7 +221,7 @@ namespace SunLight {
          * @brief Keyboard handler generic interface.
          */
         class IInputHandler  {
-            
+  
             public:
 
             virtual ~IInputHandler( void )  {}
