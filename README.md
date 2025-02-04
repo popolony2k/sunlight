@@ -40,7 +40,7 @@ You may install the package on its official [page](https://cmake.org/). Higher v
 
 ### vcpkg (Windows only)
 
-    Use [vcpkg](https://github.com/microsoft/vcpkg) to integrate C/C++ libraries using Visual Studio.
+Use [vcpkg](https://github.com/microsoft/vcpkg) to integrate C/C++ libraries using Visual Studio.
 
 ### LibXML2
 
