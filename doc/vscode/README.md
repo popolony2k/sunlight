@@ -28,7 +28,7 @@ The **launch.json** file has configurations for all supported `sunlight` operati
 
 ## Using a specific settings.json for your operating system
 
-The previous copy operation copies several settings with specific OS configuration. For example on our case it configures CMake to build all samples by default when using VSCode IDE.
+The previous copy operation copies several settings with specific OS configuration. For example in our case it configures CMake to build all samples by default when using VSCode IDE.
 
 There's 3 settings ready for using on your preferred system.
 
