@@ -2,20 +2,22 @@
 
 <div align="center">
 <img src="https://github.com/Nikkochocho/sunlight/blob/main/resources/sunny.png" alt="sunlight logo" title="sunny">
-</div>
 
 `sunlight` is an open source library written in C++ to make 2D games. Overall, its present main features include a manager that can deal with map, collision, sprites and graphic primitives.
 
 [raylib](https://www.raylib.com/) was used for graphic backend, but the project aims to be extended to SDL and many others.
+</div>
 
 ## Table of Contents :pushpin:
 * [Requirements](#requirements-memo)
     - [CMake 3.24](#cmake-324)
+    - [vcpkg](#vcpkg-windows-only)
     - [LibXML2](#libxml2)
     - [zlib](#zlib)
     - [raylib on linux](#raylib-dependencies-on-linux)
 * [HowTo](#howto-bulb)
-    - [Compiling the library using the samples](#compiling-the-library-using-the-samples)
+    - [Using samples](#using-samples)
+    - [Configuring VsCode](#configuring-vscode)
 * [Samples](#samples-sunny)
 
 ## Requirements :memo:
@@ -36,11 +38,9 @@ You may install the package on its official [page](https://cmake.org/). Higher v
 
     Mac users may obtain the package through [MacPorts](https://www.macports.org/) or [Homebrew](https://brew.sh/).
 
-- **WINDOWS ONLY**
+### vcpkg (Windows only)
 
     Use [vcpkg](https://github.com/microsoft/vcpkg) to integrate C/C++ libraries using Visual Studio.
-
-    (this could be done for Linux or even MacOSX - needs confirmation).
 
 ### LibXML2
 
@@ -77,7 +77,7 @@ You may find the detailed instructions by clicking [here](https://github.com/ray
 
 ## HowTo :bulb:
 
-### Compiling the library using the samples
+### Using samples
 
 By default, `sunlight` doesn't build the projects' samples. 
 
@@ -85,6 +85,10 @@ In order to make it compile with samples, it is necessary to open the CMakeLists
 ```
 option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" ON)
 ```
+
+### Configuring VsCode
+
+If you intend to use VsCode as your IDE, follow the instructions shown [here](https://github.com/Nikkochocho/sunlight/tree/main/doc/vscode).
 
 >[!NOTE]
 >You may also use the following command line on your system's shell:
