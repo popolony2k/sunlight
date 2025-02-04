@@ -16,13 +16,13 @@ LibIconv (Iconv)
 .\vcpkg\vcpkg install libiconv:x64-windows
 
 =================
-ZLib
+ZLib (ok)
 =================
 
 .\vcpkg\vcpkg install zlib:x64-windows
 
 =================
-LibXML2
+LibXML2 (ok)
 =================
 
 * Windows through vcpkg (if using local LibXml2 through -DUSE_LOCAL_LIBXML2) 
