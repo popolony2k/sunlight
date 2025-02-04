@@ -45,7 +45,7 @@ You may install the package on its official [page](https://cmake.org/). Higher v
 ### LibXML2
 
 By default, the project's CMakeLists will automatically search LibXML and its dependencies (LibIconv). For those who might want to use the library installed on your system, the following parameter should be used to call CMake:
-```
+```shell
 cmake -DUSE_LOCAL_LIBXML2
 ```
 
@@ -57,13 +57,13 @@ The installation steps for which OS are listed below.
 
 - **Ubuntu/Debian family**
 
-```console
+```shell
 apt-get install zlib1g-dev
 ```
 
 - **Windows** (vcpkg)
 
-```console
+```bat
 .\vcpkg\vcpkg install zlib:x64-windows
 ```
 
@@ -82,7 +82,7 @@ You may find the detailed instructions by clicking [here](https://github.com/ray
 By default, `sunlight` doesn't build the projects' samples. 
 
 In order to make it compile with samples, it is necessary to open the CMakeLists on the project's root to change the option from **OFF** to **ON**, as shown below:
-```
+```cmake
 option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" ON)
 ```
 
