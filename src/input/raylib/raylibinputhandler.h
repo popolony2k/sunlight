@@ -24,7 +24,6 @@
 #include "iinputhandler.h"
 #include "base/object.h"
 
-
 namespace SunLight {
     namespace Input  {
         namespace RayLib  {
