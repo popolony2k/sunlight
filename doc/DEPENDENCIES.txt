@@ -10,7 +10,7 @@ On Windows use vcpkg https://github.com/microsoft/vcpkg to integrate C/C++ libra
 After installing vcpkg, the following libraries are required to install using vcpkg.
 
 =================
-LibIconv (Iconv)
+LibIconv (Iconv)  -- (check if is needed)
 =================
 
 .\vcpkg\vcpkg install libiconv:x64-windows
