@@ -250,7 +250,7 @@ namespace SunLight {
                                       SunLight :: TileMap :: stMatrixPosition& pos );
 
             // Map management
-            bool LoadMap( const char *szTxMapFile, MapAlignment alignment = MAP_ALIGNMENT_CENTER );
+            bool LoadMap( const char *szTxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment = MAP_ALIGNMENT_CENTER );
             bool UnloadMap( void );
             bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo );
 

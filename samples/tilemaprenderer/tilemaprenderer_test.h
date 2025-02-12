@@ -28,9 +28,11 @@
 #define W_SCROLL_STEP_SIZE        1
 #define VIEWPORT_POS_X            10
 #define VIEWPORT_POS_Y            10
-#define VIEWPORT_WIDTH            1250
-#define VIEWPORT_HEIGHT           910
+#define VIEWPORT_WIDTH            900
+#define VIEWPORT_HEIGHT           800
 #define DEFAULT_ZOOM_SCALE_POS    60
+#define ENABLE_FPS_SHOW_LABEL     true
+#define DEFAULT_MAP_ALIGNMENT     SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER
 #define GAME_NAME                 "TileMap renderer test"
 
 #endif /* __TILEMAPRENDERER_TEST_H__ */

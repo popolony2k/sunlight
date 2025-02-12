@@ -1459,7 +1459,7 @@ namespace SunLight {
          * @param szTmxMapFile Renderer map file;
          * @param alignment Map alignment according @link MapAlignment enumerator;
          */
-        bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, MapAlignment alignment )  {
+        bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
 
             if( m_bIsStarted )  {
                 m_pTmxMap = ::tmx_load( szTmxMapFile );
