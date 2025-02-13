@@ -20,6 +20,7 @@
 
 #include "tilemaprenderer_test.h"
 #include "renderer/tilemaprenderer.h"
+#include <string>
 
 // FIXME: temporario
 SunLight :: Renderer :: TileMapRenderer  *pRenderer = NULL;
@@ -53,6 +54,8 @@ void ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 }
 
 int main( int argc, char **argv ) {
+    std :: string                            strBasePath;
+    std :: string                            strMapFile;
     SunLight :: TileMap :: stDimension2D     viewport;
     SunLight :: Renderer :: TileMapRenderer  renderer( DISPLAY_W,
                                                        DISPLAY_H,
@@ -60,6 +63,13 @@ int main( int argc, char **argv ) {
                                                        FRAMES_PER_SECOND,
                                                        false );
 
+    // Check command line arguments
+    if( argc < 2 )  {
+        perror( "Invalid command line arguments" );
+        return EXIT_FAILURE;
+    }
+
+    strBasePath = argv[1];  
     pRenderer = &renderer;
     renderer.SetScrollStepSize( W_SCROLL_STEP_SIZE, H_SCROLL_STEP_SIZE );
     renderer.SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
@@ -90,8 +100,10 @@ int main( int argc, char **argv ) {
     renderer.SetDrawFPS( ENABLE_FPS_SHOW_LABEL );
     renderer.Start();
 
-    if( !renderer.LoadMap( "/home/lara/Projects/C_CPP/sunlight/samples/resources/map/cloud_map.tmx", DEFAULT_MAP_ALIGNMENT ) )  {
-        printf("Error loading map\n" );
+    strMapFile = strBasePath + TMX_MAP_FILE;
+
+    if( !renderer.LoadMap( strMapFile.c_str(), DEFAULT_MAP_ALIGNMENT ) )  {
+        perror("Error loading map\n" );
         return EXIT_FAILURE;
     } 
 

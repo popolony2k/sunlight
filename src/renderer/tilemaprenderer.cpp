@@ -1174,7 +1174,7 @@ namespace SunLight {
         }
 
         /**
-         * @brief Set the Game Pad Id that will be handked by this renderer;
+         * @brief Set the Game Pad Id that will be handled by this renderer;
          * 
          * @param nIndex The GamePad device index to set GamePadId;  
          * @param nGamePadId The gme pad id to set;
