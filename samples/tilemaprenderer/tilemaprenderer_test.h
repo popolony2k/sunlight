@@ -33,6 +33,7 @@
 #define DEFAULT_ZOOM_SCALE_POS    60
 #define ENABLE_FPS_SHOW_LABEL     true
 #define DEFAULT_MAP_ALIGNMENT     SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER
+#define TMX_MAP_FILE              "/map/cloud_map.tmx"
 #define GAME_NAME                 "TileMap renderer test"
 
 #endif /* __TILEMAPRENDERER_TEST_H__ */

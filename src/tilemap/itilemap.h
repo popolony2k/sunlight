@@ -56,7 +56,7 @@ namespace SunLight {
             virtual ~ITileMap( void ) {};
 
             /**
-             * @brief Set the Game Pad Id that will be handked by this renderer;
+             * @brief Set the Game Pad Id that will be handled by this renderer;
              * 
              * @param nGamePadId The gme pad id to set;
              */
