@@ -90,7 +90,7 @@ int main( int argc, char **argv ) {
     renderer.SetDrawFPS( ENABLE_FPS_SHOW_LABEL );
     renderer.Start();
 
-    if( !renderer.LoadMap( "/home/lara/Projects/C_CPP/sunlight/samples/resources/map/Cloud_Map.tmx", DEFAULT_MAP_ALIGNMENT ) )  {
+    if( !renderer.LoadMap( "/home/lara/Projects/C_CPP/sunlight/samples/resources/map/cloud_map.tmx", DEFAULT_MAP_ALIGNMENT ) )  {
         printf("Error loading map\n" );
         return EXIT_FAILURE;
     } 
