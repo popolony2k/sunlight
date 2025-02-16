@@ -1,7 +1,7 @@
 # sunlight
 
 <div align="center">
-<img src="https://github.com/Nikkochocho/sunlight/blob/main/resources/sunny.png" alt="sunlight logo" title="sunny">
+<img src="/resources/sunny.png" alt="sunlight logo" title="sunny">
 
 `sunlight` is an open source library written in C++ to make 2D games. Overall, its present main features include a manager that can deal with map, collision, sprites and graphic primitives.
 
@@ -94,6 +94,6 @@ option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" ON)
 
 ### Configuring VsCode
 
-If you intend to use VsCode as your IDE, follow the instructions shown [here](https://github.com/Nikkochocho/sunlight/tree/main/doc/vscode).
+If you intend to use VsCode as your IDE, follow the instructions shown [here](/doc/vscode/README.md).
 
 ## Samples :sunny:
