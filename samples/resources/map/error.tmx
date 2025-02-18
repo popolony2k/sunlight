@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.8" tiledversion="1.8.2" orientation="orthogonal" renderorder="right-down" width="2" height="2" tilewidth="32" tileheight="32" infinite="0" nextlayerid="5" nextobjectid="1">
+ <tileset firstgid="1" source="Tileset_House.tsx"/>
+ <layer id="4" name="Tile Layer 3" width="2" height="2">
+  <data encoding="csv">
+0,10,
+0,0
+</data>
+ </layer>
+ <layer id="3" name="Tile Layer 2" width="2" height="2" opacity="0.4">
+  <data encoding="csv">
+7,7,
+0,7
+</data>
+ </layer>
+ <layer id="1" name="Tile Layer 1" width="2" height="2">
+  <data encoding="csv">
+4,1073741833,
+9,2147483657
+</data>
+ </layer>
+</map>

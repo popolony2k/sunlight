@@ -18,22 +18,33 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef __TILEMAPRENDERER_TEST_H__
-#define __TILEMAPRENDERER_TEST_H__
+ #ifndef __WORLD_H__
+ #define __WORLD_H__
 
-#define DISPLAY_W                 1260
-#define DISPLAY_H                 920
-#define FRAMES_PER_SECOND         60
-#define H_SCROLL_STEP_SIZE        1
-#define W_SCROLL_STEP_SIZE        1
-#define VIEWPORT_POS_X            10
-#define VIEWPORT_POS_Y            10
-#define VIEWPORT_WIDTH            900
-#define VIEWPORT_HEIGHT           800
-#define DEFAULT_ZOOM_SCALE_POS    60
-#define ENABLE_FPS_SHOW_LABEL     true
-#define DEFAULT_MAP_ALIGNMENT     SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER
-#define TMX_MAP_FILE              "/map/cloud_map.tmx"
-#define GAME_NAME                 "TileMap renderer test"
+ #include "renderer/tilemaprenderer.h"
+ #include <string>
 
-#endif /* __TILEMAPRENDERER_TEST_H__ */
+
+class World {
+
+    SunLight :: Renderer :: TileMapRenderer  *m_pRenderer = NULL;
+    std :: string m_strBasePath;
+
+    void MoveCameraUp( SunLight :: Input :: ControllerType type, int nId );    
+    void MoveCameraDown( SunLight :: Input :: ControllerType type, int nId );
+    void MoveCameraLeft( SunLight :: Input :: ControllerType type, int nId );
+    void MoveCameraRight( SunLight :: Input :: ControllerType type, int nId );
+    void ZoomIn( SunLight :: Input :: ControllerType type, int nId );
+    void ZoomOut( SunLight :: Input :: ControllerType type, int nId );
+    void ResetZoom( SunLight :: Input :: ControllerType type, int nId );
+
+    public :
+
+    World( std :: string strBasePath );
+    ~World( void );
+
+    bool Run( void );
+};
+
+ #endif // __WORLD_H__
+
