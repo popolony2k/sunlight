@@ -26,7 +26,7 @@ namespace SunLight  {
 
             /**
              * @brief Draw part of a texture (defined by a rectangle) with rotation and scale tiled into dest 
-             * This routines is planned to be removed after rayli 4.2.0 and was moved to a samples project directory
+             * This routines is planned to be removed after raylib 4.2.0 and was moved to a samples project directory
              * found at https://github.com/raysan5/raylib/blob/master/examples/textures/textures_draw_tiled.c
              * 
              * @param texture 
@@ -43,7 +43,7 @@ namespace SunLight  {
                                                    Vector2 origin, 
                                                    float rotation, 
                                                    float scale, 
-                                                    Color tint )  {
+                                                   Color tint )  {
                                     
                 if ((texture.id <= 0) || (scale <= 0.0f)) return;  // Wanna see a infinite loop?!...just delete this line!
                 if ((source.width == 0) || (source.height == 0)) return;

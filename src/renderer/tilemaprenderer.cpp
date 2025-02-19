@@ -487,7 +487,7 @@ namespace SunLight {
                                                       Vector2  { 0, 0 },
                                                       0.0f,
                                                       fZoomFactor,
-                                                      Color  { op, op, op, op } );
+                                                      Color  { 0xFF, 0xFF, 0xFF, op } );
             }
         }
 
