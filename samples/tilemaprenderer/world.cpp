@@ -36,19 +36,38 @@
 #define __GAME_NAME                 "TileMap renderer test"
 
 
- 
+/**
+ * @brief Moves camera upward.
+ * @param type Controller type described by SunLight :: Input :: ControllerType.
+ * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler.
+ */ 
 void World :: MoveCameraUp( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> MoveCameraUp();
 }
 
+/**
+ * @brief Moves camera downward.
+ * @param type Controller type described by SunLight :: Input :: ControllerType.
+ * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler.
+ */ 
 void World :: MoveCameraDown( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> MoveCameraDown();
 }
 
+/**
+ * @brief Moves camera to the left.
+ * @param type Controller type described by SunLight :: Input :: ControllerType.
+ * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler.
+ */ 
 void World :: MoveCameraLeft( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> MoveCameraLeft();
 }
 
+/**
+ * @brief Moves camera to the right.
+ * @param type Controller type described by SunLight :: Input :: ControllerType.
+ * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler.
+ */ 
 void World :: MoveCameraRight( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> MoveCameraRight();
 }
@@ -65,6 +84,11 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> ResetZoom();
 }
 
+/**
+ * @brief Constructor. Initializes class data by reading base path.
+ * 
+ * @param strBasePath base path needed.
+ */
 World :: World( std :: string strBasePath )  {
 
     m_strBasePath = strBasePath;
@@ -75,10 +99,16 @@ World :: World( std :: string strBasePath )  {
                                                                false );
 }
 
+/**
+ * @brief Deconstructor. Finalizes all class data.
+ */
 World :: ~World( void )  {
     delete m_pRenderer;
 }
 
+/**
+ * @brief Run World configuration. 
+ */
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
@@ -88,16 +118,19 @@ bool World :: Run( void )  {
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
 
     // Setup keyboard controller
+    //AWSD keys configuration
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_S, std :: bind( &World :: MoveCameraUp, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_W, std :: bind( &World :: MoveCameraDown, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_D, std :: bind( &World :: MoveCameraLeft, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_A, std :: bind( &World :: MoveCameraRight, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
 
+    //arrow keys configuration
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_DOWN, std :: bind( &World :: MoveCameraUp, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_UP, std :: bind( &World :: MoveCameraDown, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_RIGHT, std :: bind( &World :: MoveCameraLeft, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_LEFT, std :: bind( &World :: MoveCameraRight, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
 
+    //zoom configuration
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &World :: ZoomOut, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &World :: ZoomIn, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &World :: ResetZoom, this, std :: placeholders::_1, std :: placeholders :: _2 ) );

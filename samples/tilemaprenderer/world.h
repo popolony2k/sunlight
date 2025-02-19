@@ -25,6 +25,9 @@
  #include <string>
 
 
+ /**
+ * @brief World class implementation.
+ */
 class World {
 
     SunLight :: Renderer :: TileMapRenderer  *m_pRenderer = NULL;
