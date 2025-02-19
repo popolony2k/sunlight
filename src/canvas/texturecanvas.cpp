@@ -19,8 +19,23 @@
  */
 
 #include "texturecanvas.h"
-#include "engines/raylib/raylibengine.h"
 #include <cstring>
+
+#ifndef DEFAULT_ENGINE
+    #error "Unexpected value of DEFAULT_ENGINE"
+#endif
+
+/*
+ * In the future a better abstract way to handle raylib will be
+ * implemented and the method below will be changed.
+ */
+#if DEFAULT_ENGINE == 1    /* USES RAYLIB */
+    #include "engines/raylib/raylibengine.h"
+    
+    #define __DEFAULT_ENGINE         RaylibEngine
+#else
+    #error "Unknown value of DEFAULT_ENGINE"
+#endif
 
 using namespace SunLight :: Engines :: Raylib;
 
@@ -281,24 +296,24 @@ namespace SunLight {
                             break;
                     }
 
-                    RaylibEngine :: DrawTextureTiled( m_Texture,
-                                                      Rectangle { ( float ) m_nCurrentTile + nClipX,
-                                                                  ( float ) nClipY,
-                                                                  ( float ) ( m_nTileSize > 0 ?
-                                                                              m_nTileSize :
-                                                                              m_Texture.width ),
-                                                                  ( float ) m_Texture.height },
-                                                      Rectangle { ( float ) clip.pos.x,
-                                                                  ( float ) clip.pos.y,
-                                                                  ( float ) clip.size.nWidth,
-                                                                  ( float ) clip.size.nHeight },
-                                                      Vector2   { 0.0, 0.0 },
-                                                      0.0, // TODO: Rotation
-                                                      fZoomFactor,
-                                                      Color      { color.nRed,
-                                                                   color.nGreen,
-                                                                   color.nBlue,
-                                                                   color.nAlpha } );
+                    __DEFAULT_ENGINE :: DrawTextureTiled( m_Texture,
+                                                          Rectangle { ( float ) m_nCurrentTile + nClipX,
+                                                                      ( float ) nClipY,
+                                                                      ( float ) ( m_nTileSize > 0 ?
+                                                                                  m_nTileSize :
+                                                                                  m_Texture.width ),
+                                                                      ( float ) m_Texture.height },
+                                                          Rectangle { ( float ) clip.pos.x,
+                                                                      ( float ) clip.pos.y,
+                                                                      ( float ) clip.size.nWidth,
+                                                                      ( float ) clip.size.nHeight },
+                                                          Vector2   { 0.0, 0.0 },
+                                                          0.0, // TODO: Rotation
+                                                          fZoomFactor,
+                                                          Color      { color.nRed,
+                                                                       color.nGreen,
+                                                                       color.nBlue,
+                                                                       color.nAlpha } );
                 }
             }
 
