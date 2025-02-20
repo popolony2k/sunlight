@@ -97,3 +97,5 @@ option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" ON)
 If you intend to use VsCode as your IDE, follow the instructions shown [here](/doc/vscode/README.md).
 
 ## Samples :sunny:
+
+In order to get proper info on the samples usage, you may find more on [here](/samples/tilemaprenderer/docs/README.md).
