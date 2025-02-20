@@ -25,7 +25,7 @@ namespace SunLight  {
     namespace Base  {
 
         /**
-         * @brief Constructor. INitialize all class data.
+         * @brief Constructor. Initialize all class data.
          * 
          */
         Object :: Object( void )  {

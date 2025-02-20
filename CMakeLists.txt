@@ -27,5 +27,5 @@ add_subdirectory(src)
 
 # Samples
 if(BUILD_LIBRARY_SAMPLES)
-    add_subdirectory(samples/tilemaprenderer)
+    add_subdirectory(samples/tilemaprenderer_test)
 endif(BUILD_LIBRARY_SAMPLES)
