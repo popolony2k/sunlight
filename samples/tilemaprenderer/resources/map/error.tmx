@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.8" tiledversion="1.8.2" orientation="orthogonal" renderorder="right-down" width="2" height="2" tilewidth="32" tileheight="32" infinite="0" nextlayerid="4" nextobjectid="1">
+ <tileset firstgid="1" source="tileset_house_var1.tsx"/>
+ <tileset firstgid="11" source="tileset_house.tsx"/>
+ <layer id="1" name="monke_smoke" width="2" height="2" visible="0" locked="1">
+  <data encoding="csv">
+4,14,
+0,0
+</data>
+ </layer>
+ <layer id="2" name="smoke" width="2" height="2">
+  <data encoding="csv">
+0,0,
+14,0
+</data>
+ </layer>
+ <layer id="3" name="monke" width="2" height="2">
+  <data encoding="csv">
+0,0,
+0,4
+</data>
+ </layer>
+</map>
