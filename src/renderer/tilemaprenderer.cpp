@@ -102,6 +102,20 @@ namespace SunLight {
         }
 
         /**
+         * Retrieve which tmx_tileset_list contains the @see tmx_tileset passed as parameter;
+         * @param pTilesetSearch The tmx_tileset to retrieve the tmx_tileset_list;
+         */
+        tmx_tileset_list* TileMapRenderer :: GetTilesetList( tmx_tileset *pTilesetSearch )  {
+            for( tmx_tileset_list *pItem = m_pTmxMap -> ts_head; pItem != NULL; pItem = m_pTmxMap -> ts_head -> next )  {
+                if( pItem -> tileset == pTilesetSearch )  {
+                    return pItem;           
+                }
+            }
+
+            return nullptr;
+        }
+
+        /**
          * Get a pointer to a loaded layer based on it's Id.
          * @param nLayerId The Layer Id to retrieve the layer;
          */
@@ -570,16 +584,15 @@ namespace SunLight {
 
         /**
          * Draw layer on screen canvas;
-         * @param pMap Pointer to layer map;
          * @param pLayer Pointer to layer with objects to draw;
          */
-        void TileMapRenderer :: DrawLayer( tmx_map *pMap, tmx_layer *pLayer ) {
+        void TileMapRenderer :: DrawLayer( tmx_layer *pLayer ) {
 
             float         fOpacity = ( float ) pLayer -> opacity;
 
 
-            for( unsigned long i = 0; i < pMap -> height; i++ ) {
-                for( unsigned long j = 0; j < pMap -> width; j++ ) {
+            for( unsigned long i = 0; i < m_pTmxMap -> height; i++ ) {
+                for( unsigned long j = 0; j < m_pTmxMap -> width; j++ ) {
                     SunLight :: TileMap :: stTile            tile;
                     SunLight :: TileMap :: stMatrixPosition  pos   = { ( int ) i, ( int ) j };
                     SunLight :: TileMap :: stLayer           layer = { false, 0, {0, 0}, pLayer };
@@ -597,6 +610,7 @@ namespace SunLight {
                             steady_clock :: time_point now     = steady_clock :: now();
                             int64_t                    nMillis = duration_cast<milliseconds>( now.time_since_epoch() ).count();
                             __stTileAnimInfo           *pAnimInfo = ( __stTileAnimInfo * ) pTile -> user_data.pointer;
+                            tmx_tileset_list           *pTilesetList;
 
                             if( !pAnimInfo )  {
                                 pAnimInfo = new __stTileAnimInfo;
@@ -619,16 +633,19 @@ namespace SunLight {
                                     pAnimInfo -> nCounter = 0;
                                     pTmxAnimFrm = &pTile -> animation[0];
                                 }
+                              
+                                pTilesetList = GetTilesetList( pTile -> tileset );
+                                pTile = nullptr;
 
-                                nNextFrmGID = ( pMap -> ts_head -> firstgid +
-                                                pTmxAnimFrm -> tile_id );
-                                pAnimInfo -> pNextTile = pMap -> tiles[nNextFrmGID];
-                                pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration +
-                                                        nMillis );
-                                pTile = pAnimInfo -> pNextTile;
+                                if( pTilesetList )  {
+                                    nNextFrmGID = ( pTilesetList -> firstgid + pTmxAnimFrm -> tile_id );
+                                    pAnimInfo -> pNextTile = m_pTmxMap -> tiles[nNextFrmGID];
+                                    pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration + nMillis );
+                                    pTile = pAnimInfo -> pNextTile;
+                                }
 
                                 if( !pTile )
-                                    pTile = pMap -> tiles[tile.nGID];
+                                    pTile = m_pTmxMap -> tiles[tile.nGID];
                             }
                             else  {
                                 pTile = ( ( __stTileAnimInfo * ) pTile -> user_data.pointer ) -> pNextTile;
@@ -659,16 +676,15 @@ namespace SunLight {
 
         /**
          * Draw all layers on screen canvas;
-         * @param pMap Pointer to layers map;
          * @param pLayer Array of layer objects to draw;
          */
-        void TileMapRenderer :: DrawAllLayers( tmx_map *pMap, tmx_layer *pLayer ) {
+        void TileMapRenderer :: DrawAllLayers( tmx_layer *pLayer ) {
 
             while( pLayer ) {
                 if( pLayer -> visible ) {
                     switch( pLayer -> type )  {
                         case L_GROUP :
-                            DrawAllLayers( pMap, pLayer -> content.group_head ); // recursive call
+                            DrawAllLayers( pLayer -> content.group_head ); // recursive call
                             break;
                         case L_OBJGR :
                             DrawObjects( pLayer );
@@ -677,7 +693,7 @@ namespace SunLight {
                             DrawImageLayer( pLayer );
                             break;
                         case L_LAYER :
-                            DrawLayer( pMap, pLayer );
+                            DrawLayer( pLayer );
                             break;
                         case L_NONE :
                             // TODO: FINISH HIM !!!
@@ -698,7 +714,7 @@ namespace SunLight {
                 ClearBackground( IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor ) );
 
             if( m_pTmxMap )
-                DrawAllLayers( m_pTmxMap, m_pTmxMap -> ly_head );
+                DrawAllLayers( m_pTmxMap -> ly_head );
 
             if( m_bDrawFPS )
                 DrawFPS( 0, 0 );
@@ -1400,8 +1416,8 @@ namespace SunLight {
                                          SunLight :: TileMap :: stTile& tile ) {
 
             tile.nGID = layer.pLayer -> content.gids[( pos.nTileRow *
-                                                    m_pTmxMap -> width ) +
-                                                    pos.nTileCol] &
+                                                     m_pTmxMap -> width ) +
+                                                     pos.nTileCol] &
                                                     TMX_FLIP_BITS_REMOVAL;
             tile.pTile = ( m_pTmxMap -> tiles ? m_pTmxMap -> tiles[tile.nGID] : NULL );
 
