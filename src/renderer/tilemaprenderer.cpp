@@ -106,7 +106,7 @@ namespace SunLight {
          * @param pTilesetSearch The tmx_tileset to retrieve the tmx_tileset_list;
          */
         tmx_tileset_list* TileMapRenderer :: GetTilesetList( tmx_tileset *pTilesetSearch )  {
-            for( tmx_tileset_list *pItem = m_pTmxMap -> ts_head; pItem != NULL; pItem = m_pTmxMap -> ts_head -> next )  {
+            for( tmx_tileset_list *pItem = m_pTmxMap -> ts_head; pItem != NULL; pItem = pItem -> next )  {
                 if( pItem -> tileset == pTilesetSearch )  {
                     return pItem;           
                 }
