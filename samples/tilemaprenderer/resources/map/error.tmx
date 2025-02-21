@@ -1,23 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.11" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="2" height="2" tilewidth="32" tileheight="32" infinite="0" nextlayerid="4" nextobjectid="1">
- <tileset firstgid="1" source="tileset_house_var1.tsx"/>
- <tileset firstgid="11" source="tileset_house.tsx"/>
- <layer id="1" name="monke_smoke" width="2" height="2" locked="1">
+<map version="1.8" tiledversion="1.8.2" orientation="orthogonal" renderorder="right-down" width="4" height="2" tilewidth="32" tileheight="32" infinite="0" nextlayerid="4" nextobjectid="1">
+ <tileset firstgid="1" source="tileset_monke_variants.tsx"/>
+ <tileset firstgid="17" source="tileset_house_var1.tsx"/>
+ <tileset firstgid="27" source="tileset_house.tsx"/>
+ <layer id="1" name="monke" width="4" height="2">
   <data encoding="csv">
-4,14,
-0,0
+1,3,0,0,
+9,11,0,0
 </data>
  </layer>
- <layer id="2" name="smoke" width="2" height="2">
+ <layer id="2" name="brib" width="4" height="2">
   <data encoding="csv">
-0,0,
-14,0
+0,0,20,25,
+0,0,0,0
 </data>
  </layer>
- <layer id="3" name="monke" width="2" height="2">
+ <layer id="3" name="smoke" width="4" height="2">
   <data encoding="csv">
-0,0,
-0,4
+0,0,0,0,
+0,0,30,0
 </data>
  </layer>
 </map>
