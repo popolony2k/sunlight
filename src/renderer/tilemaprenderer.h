@@ -108,7 +108,7 @@ namespace SunLight {
             static void TextureFreeCallback( void *pTexture );
 
             // TmxLib miscellaneous
-            tmx_tileset_list* GetTilesetList( tmx_map *pMap, tmx_tileset *pTilesetSearch );
+            tmx_tileset_list* GetTilesetList( tmx_tileset *pTilesetSearch );
             tmx_layer* GetLayer( int nLayerId );
             tmx_layer* GetLayer( const char *szLayerName );
 
@@ -161,8 +161,8 @@ namespace SunLight {
             // High level primitive map handlers
             void DrawObjects( tmx_layer *pLayer );
             void DrawImageLayer( tmx_layer *pLayer );
-            void DrawLayer( tmx_map *pMap, tmx_layer *pLayer );
-            void DrawAllLayers( tmx_map *pMap, tmx_layer *pLayer );
+            void DrawLayer( tmx_layer *pLayer );
+            void DrawAllLayers( tmx_layer *pLayer );
             void RenderMap( void );
 
             // General engine handlers
