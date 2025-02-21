@@ -1,4 +1,4 @@
-# SunLight
+# sunlight
 
 <div align="center">
 <img src="/resources/sunny.png" alt="sunlight logo" title="sunny">
