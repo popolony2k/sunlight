@@ -102,6 +102,21 @@ namespace SunLight {
         }
 
         /**
+         * Retrieve which tmx_tileset_list contains the @see tmx_tileset passed as parameter;
+         * @param pMap The map to search the tmx_tileset;
+         * @param pTilesetSearch The tmx_tileset to retrieve the tmx_tileset_list;
+         */
+        tmx_tileset_list* TileMapRenderer :: GetTilesetList( tmx_map *pMap, tmx_tileset *pTilesetSearch )  {
+            for( tmx_tileset_list *pItem = pMap -> ts_head; pItem != NULL; pItem = pMap -> ts_head -> next )  {
+                if( pItem -> tileset == pTilesetSearch )  {
+                    return pItem;           
+                }
+            }
+
+            return nullptr;
+        }
+
+        /**
          * Get a pointer to a loaded layer based on it's Id.
          * @param nLayerId The Layer Id to retrieve the layer;
          */
@@ -597,6 +612,7 @@ namespace SunLight {
                             steady_clock :: time_point now     = steady_clock :: now();
                             int64_t                    nMillis = duration_cast<milliseconds>( now.time_since_epoch() ).count();
                             __stTileAnimInfo           *pAnimInfo = ( __stTileAnimInfo * ) pTile -> user_data.pointer;
+                            tmx_tileset_list           *pTilesetList;
 
                             if( !pAnimInfo )  {
                                 pAnimInfo = new __stTileAnimInfo;
@@ -619,13 +635,16 @@ namespace SunLight {
                                     pAnimInfo -> nCounter = 0;
                                     pTmxAnimFrm = &pTile -> animation[0];
                                 }
+                              
+                                pTilesetList = GetTilesetList( pMap, pTile -> tileset );
+                                pTile = nullptr;
 
-                                nNextFrmGID = ( pMap -> ts_head -> firstgid +
-                                                pTmxAnimFrm -> tile_id );
-                                pAnimInfo -> pNextTile = pMap -> tiles[nNextFrmGID];
-                                pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration +
-                                                        nMillis );
-                                pTile = pAnimInfo -> pNextTile;
+                                if( pTilesetList )  {
+                                    nNextFrmGID = ( pTilesetList -> firstgid + pTmxAnimFrm -> tile_id );
+                                    pAnimInfo -> pNextTile = pMap -> tiles[nNextFrmGID];
+                                    pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration + nMillis );
+                                    pTile = pAnimInfo -> pNextTile;
+                                }
 
                                 if( !pTile )
                                     pTile = pMap -> tiles[tile.nGID];
@@ -1400,8 +1419,8 @@ namespace SunLight {
                                          SunLight :: TileMap :: stTile& tile ) {
 
             tile.nGID = layer.pLayer -> content.gids[( pos.nTileRow *
-                                                    m_pTmxMap -> width ) +
-                                                    pos.nTileCol] &
+                                                     m_pTmxMap -> width ) +
+                                                     pos.nTileCol] &
                                                     TMX_FLIP_BITS_REMOVAL;
             tile.pTile = ( m_pTmxMap -> tiles ? m_pTmxMap -> tiles[tile.nGID] : NULL );
 

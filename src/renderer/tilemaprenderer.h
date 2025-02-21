@@ -108,6 +108,7 @@ namespace SunLight {
             static void TextureFreeCallback( void *pTexture );
 
             // TmxLib miscellaneous
+            tmx_tileset_list* GetTilesetList( tmx_map *pMap, tmx_tileset *pTilesetSearch );
             tmx_layer* GetLayer( int nLayerId );
             tmx_layer* GetLayer( const char *szLayerName );
 
