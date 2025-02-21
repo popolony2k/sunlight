@@ -3,10 +3,14 @@
  <image source="images/house_var1.png" width="160" height="64"/>
  <tile id="3">
   <animation>
-   <frame tileid="3" duration="200"/>
-   <frame tileid="4" duration="200"/>
-   <frame tileid="9" duration="200"/>
+   <frame tileid="3" duration="1000"/>
+   <frame tileid="4" duration="1000"/>
+  </animation>
+ </tile>
+ <tile id="8">
+  <animation>
    <frame tileid="8" duration="200"/>
+   <frame tileid="9" duration="200"/>
   </animation>
  </tile>
 </tileset>
