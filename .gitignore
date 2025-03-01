@@ -39,7 +39,7 @@ Makefile
 CMakeCache.txt
 compile_commands.json
 CMakeSettings.json
-CMakeFiles
+**/CMakeFiles/
 DartConfiguration.tcl
 
 # Visual studio stuff
@@ -69,10 +69,12 @@ DartConfiguration.tcl
 *.vs
 
 # Build directories (Mac, Linux and Windows)
-Debug
-Release
-GeneratedFiles
-Build
-build
-out
-_deps
+**/Debug/
+**/debug/
+**/Release/
+**/relelase/
+**/GeneratedFiles/
+**/Build/
+**/build/
+**/out/
+**/_deps/
