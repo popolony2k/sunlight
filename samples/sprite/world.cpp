@@ -33,7 +33,7 @@
 #define __ENABLE_FPS_SHOW_LABEL     true
 #define __DEFAULT_MAP_ALIGNMENT     SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER
 #define __TMX_MAP_FILE              "resources/map/test.tmx"
-#define __GAME_NAME                 "TileMap renderer test"
+#define __GAME_NAME                 "Sprite test"
 
 
 /**
