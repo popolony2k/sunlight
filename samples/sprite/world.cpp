@@ -33,6 +33,8 @@
 #define __ENABLE_FPS_SHOW_LABEL     true
 #define __DEFAULT_MAP_ALIGNMENT     SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER
 #define __TMX_MAP_FILE              "resources/map/test.tmx"
+#define __SUNNY_SPRITE_IDLE         "resources/sprites/sunny_idle_down.png"
+#define __SUNNY_SPRITE_IDLE_DELAY   100
 #define __GAME_NAME                 "Sprite test"
 
 
@@ -99,6 +101,21 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> ResetZoom();
 }
 
+bool World :: LoadSprite( void ) {
+    if ( m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IDLE ) ) {
+        SunLight :: TileMap :: stCoordinate2D   pos;
+
+        pos.x = 100;
+        pos.y = 100;
+        m_pSpriteSunny -> AddTextureSequence( 0, m_pCanvasSunny, __SUNNY_SPRITE_IDLE_DELAY );
+        m_pSpriteSunny -> SetActiveTextureSequence( 0 );
+        m_pSpriteSunny -> Move(pos); 
+        
+        return true;
+    }
+    return false;
+}
+
 /**
  * @brief Constructor. Initializes class data by reading base path.
  * 
@@ -112,6 +129,8 @@ World :: World( std :: string strBasePath )  {
                                                                __GAME_NAME,
                                                                __FRAMES_PER_SECOND,
                                                                false );
+    m_pSpriteSunny = new SunLight :: Sprite :: Sprite();
+    m_pCanvasSunny = new SunLight :: Canvas :: TextureCanvas();
 }
 
 /**
@@ -119,6 +138,8 @@ World :: World( std :: string strBasePath )  {
  */
 World :: ~World( void )  {
     delete m_pRenderer;
+    delete m_pSpriteSunny;
+    delete m_pCanvasSunny;
 }
 
 /**
@@ -167,6 +188,10 @@ bool World :: Run( void )  {
         perror("Error loading map\n" );
         return false;
     } 
+
+    LoadSprite();
+
+    m_pRenderer -> AddSprite( 8, *m_pSpriteSunny );
 
     m_pRenderer -> Run();
     m_pRenderer -> Stop();

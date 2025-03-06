@@ -22,6 +22,7 @@
  #define __WORLD_H__
 
  #include "renderer/tilemaprenderer.h"
+ #include "sprite/sprite.h"
  #include <string>
 
 
@@ -31,6 +32,8 @@
 class World {
 
     SunLight :: Renderer :: TileMapRenderer  *m_pRenderer = NULL;
+    SunLight :: Sprite :: Sprite             *m_pSpriteSunny = NULL;
+    SunLight :: Canvas :: TextureCanvas      *m_pCanvasSunny = NULL;
     std :: string m_strBasePath;
 
     void MoveCameraUp( SunLight :: Input :: ControllerType type, int nId );    
@@ -40,6 +43,8 @@ class World {
     void ZoomIn( SunLight :: Input :: ControllerType type, int nId );
     void ZoomOut( SunLight :: Input :: ControllerType type, int nId );
     void ResetZoom( SunLight :: Input :: ControllerType type, int nId );
+
+    bool LoadSprite( void );
 
     public :
 
