@@ -101,7 +101,7 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> ResetZoom();
 }
 
-bool World :: LoadSprite( void ) {
+bool World :: LoadSprites( void ) {
     if ( m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IDLE ) ) {
         SunLight :: TileMap :: stCoordinate2D   pos;
 
@@ -109,7 +109,8 @@ bool World :: LoadSprite( void ) {
         pos.y = 100;
         m_pSpriteSunny -> AddTextureSequence( 0, m_pCanvasSunny, __SUNNY_SPRITE_IDLE_DELAY );
         m_pSpriteSunny -> SetActiveTextureSequence( 0 );
-        m_pSpriteSunny -> Move(pos); 
+        m_pSpriteSunny -> Move(pos);
+        m_pSpriteSunny -> SetVisible( true );
         
         return true;
     }
@@ -189,7 +190,10 @@ bool World :: Run( void )  {
         return false;
     } 
 
-    LoadSprite();
+    if( !LoadSprites() )  {
+        perror("Error loading sprites\n" );
+        return false;
+    }
 
     m_pRenderer -> AddSprite( 8, *m_pSpriteSunny );
 
