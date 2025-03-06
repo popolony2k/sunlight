@@ -44,7 +44,7 @@ class World {
     void ZoomOut( SunLight :: Input :: ControllerType type, int nId );
     void ResetZoom( SunLight :: Input :: ControllerType type, int nId );
 
-    bool LoadSprite( void );
+    bool LoadSprites( void );
 
     public :
 
