@@ -960,6 +960,11 @@ namespace SunLight {
             for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
                 pListener -> OnUpdate( *this );
             }
+
+            // Update all sprites owned by this renderer
+            for( SunLight :: Sprite :: Sprite* pSprite : m_SpriteList )  {
+                pSprite -> Update();
+            }           
         }
 
         /**
