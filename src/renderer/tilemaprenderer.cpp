@@ -135,6 +135,21 @@ namespace SunLight {
         }
 
         /**
+         * Unload all sprites from map and release all allocated data.
+         */
+        void TileMapRenderer :: UnloadSprites( void )  {
+            for( std :: pair<int, SpriteList*> spriteListPair : m_SpriteMap )  {
+                for( SunLight :: Sprite :: Sprite* pSprite : *spriteListPair.second )  {
+                    pSprite -> Unload();
+                }
+                spriteListPair.second -> clear();
+                delete spriteListPair.second;
+            }
+
+            m_SpriteMap.clear();
+        }
+
+        /**
          * Convert integer color representation to @link Color object;
          */
         Color TileMapRenderer :: IntToColor( uint32_t color ) {
@@ -588,8 +603,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: DrawLayer( tmx_layer *pLayer ) {
 
-            float         fOpacity = ( float ) pLayer -> opacity;
-
+            float      fOpacity = ( float ) pLayer -> opacity;
 
             for( unsigned long i = 0; i < m_pTmxMap -> height; i++ ) {
                 for( unsigned long j = 0; j < m_pTmxMap -> width; j++ ) {
@@ -672,6 +686,8 @@ namespace SunLight {
                     }
                 }
             }
+
+            HandleSpriteUpdate( pLayer -> id );
         }
 
         /**
@@ -960,22 +976,6 @@ namespace SunLight {
             for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
                 pListener -> OnUpdate( *this );
             }
-
-            // Update all sprites owned by this renderer
-            for( SunLight :: Sprite :: Sprite* pSprite : m_SpriteList )  {
-                pSprite -> Update();
-            }           
-        }
-
-        /**
-         * Handle sprites updates.
-         */
-        void TileMapRenderer :: HandleSpriteUpdate( void )  {
-
-            // Update all sprites owned by this renderer
-            for( SunLight :: Sprite :: Sprite* pSprite : m_SpriteList )  {
-                pSprite -> Update();
-            }           
         }
 
         /**
@@ -984,6 +984,22 @@ namespace SunLight {
         void TileMapRenderer :: HandleUserCollisions( void )  {
 
             m_CollisionManager.Update();
+        }
+
+        /**
+         * Handle sprites updates.
+         * @param nLayerId The LayerId to update sprites;
+         */
+        void TileMapRenderer :: HandleSpriteUpdate( int nLayerId )  {
+
+            SpriteMap :: iterator  itSpriteMap = m_SpriteMap.find( nLayerId ); 
+
+            // Handle sprite animation
+            if( itSpriteMap != m_SpriteMap.end() )  {
+                for( SunLight :: Sprite :: Sprite* pSprite : *itSpriteMap -> second )  {
+                        pSprite -> Update();
+                }   
+            }
         }
 
         /**
@@ -1053,7 +1069,7 @@ namespace SunLight {
             m_TileMapListenerList.clear();
             m_KeyInputEventHandlerList.clear();
             m_GPadInputEventHandlerList.clear();
-            m_SpriteList.clear();
+            m_SpriteMap.clear();
             m_GamePadList.clear();
 
             memset( &m_CameraPos, 0, sizeof( m_CameraPos ) );
@@ -1567,16 +1583,12 @@ namespace SunLight {
         }
 
         /**
-         * Unload a previously loaded map and it's related data (animations, etc...);
+         * Unload a previously loaded map and it's related data (animations, sprites, etc...);
          */
         bool TileMapRenderer :: UnloadMap( void )  {
 
             if( m_pTmxMap )  {
-
-                for( SunLight :: Sprite :: Sprite* pSprite : m_SpriteList )  {
-                    pSprite -> Unload();
-                }
-
+                UnloadSprites();
                 ::tmx_map_free( m_pTmxMap );
 
                 /*
@@ -1628,23 +1640,31 @@ namespace SunLight {
         }
 
         /**
-         * Add a sprite to world.
+         * Add a sprite to world on top of specified layer.
          * @param nLayerId Id of an existing Layer on tiled map whose sprite will be added;
          * @param sprite Reference to the sprite that will be added;
          */
         bool TileMapRenderer :: AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
             if( m_bIsStarted && GetLayer( nLayerId ) )  {
-                SpriteList :: iterator itItem = std :: find( m_SpriteList.begin(),
-                                                            m_SpriteList.end(),
-                                                            &sprite );
+                SpriteMap :: iterator itItemLayer = m_SpriteMap.find( nLayerId );
 
-                if( itItem == m_SpriteList.end() )  {
-                    sprite.SetParent( this );
-                    m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() );
-                    m_SpriteList.push_back( &sprite );
-                    return true;
+                if( itItemLayer == m_SpriteMap.end() )  {
+                    itItemLayer = m_SpriteMap.insert( m_SpriteMap.end(), std :: make_pair( nLayerId, new SpriteList ) );
                 }
+
+                if( itItemLayer != m_SpriteMap.end() )  {
+                    SpriteList :: iterator itItem = std :: find( itItemLayer -> second -> begin(),
+                                                                 itItemLayer -> second -> end(),
+                                                                 &sprite );
+
+                    if( itItem == itItemLayer -> second -> end() )  {
+                        sprite.SetParent( this );
+                        m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() );
+                        itItemLayer -> second -> push_back( &sprite );
+                        return true;
+                    }
+                }  
             }
 
             return false;
@@ -1659,15 +1679,19 @@ namespace SunLight {
         bool TileMapRenderer :: RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
             if( m_bIsStarted )  {
-                SpriteList :: iterator itItem = std :: find( m_SpriteList.begin(),
-                                                            m_SpriteList.end(),
-                                                            &sprite );
+                SpriteMap :: iterator itItemLayer = m_SpriteMap.find( nLayerId );
 
-                if( itItem != m_SpriteList.end() )  {
-                    m_CollisionManager.RemoveCollider( nLayerId, &sprite.GetCollider() );
-                    m_SpriteList.erase( itItem );
+                if( itItemLayer != m_SpriteMap.end() )  {
+                    SpriteList :: iterator itItem = std :: find( itItemLayer -> second -> begin(),
+                                                                 itItemLayer -> second -> end(),
+                                                                 &sprite );
 
-                    return true;
+                    if( itItem != itItemLayer -> second -> end() )  {
+                        m_CollisionManager.RemoveCollider( nLayerId, &sprite.GetCollider() );
+                        itItemLayer -> second -> erase( itItem );
+
+                        return true;
+                    }
                 }
             }
 
@@ -1726,7 +1750,6 @@ namespace SunLight {
                         RenderMap();
                         HandleUserInput();
                         HandleUserUpdate();
-                        HandleSpriteUpdate();
                         HandleUserCollisions();
                     }
                     EndDrawing();

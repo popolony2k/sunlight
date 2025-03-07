@@ -50,24 +50,21 @@ namespace SunLight {
                                            SunLight :: Canvas :: TextureCanvas *pTexture,
                                            int64_t nDelayMilli ) {
 
-            TextureSequenceList :: iterator       itItem    = m_Sequences.find( nSequence );
-            SunLight :: TileMap :: stDimension2D& spritePos = GetDimension2D();
-            BaseCanvas                            *pParent  = GetParent();
+            TextureSequenceList :: iterator       itItem     = m_Sequences.find( nSequence );
+            SunLight :: TileMap :: stDimension2D& spritePos  = GetDimension2D();
+            SunLight :: TileMap :: stDimension2D  texturePos = pTexture -> GetDimension2D();
+            BaseCanvas                            *pParent   = GetParent();
 
             if( !pParent )
                 pParent = this;
 
             if( ( spritePos.size.nWidth == 0 ) &&
                 ( spritePos.size.nHeight == 0 ) )  {
-                SunLight :: TileMap :: stDimension2D   texturePos = pTexture -> GetDimension2D();
-
                 spritePos.size.nWidth  = texturePos.size.nWidth;
                 spritePos.size.nHeight = texturePos.size.nHeight;
             }
 
             if( ( spritePos.pos.x == 0 ) && ( spritePos.pos.y == 0 ) )  {
-                SunLight :: TileMap :: stDimension2D   texturePos = pTexture -> GetDimension2D();
-
                 spritePos.pos.x = texturePos.pos.x;
                 spritePos.pos.y = texturePos.pos.y;
             }
