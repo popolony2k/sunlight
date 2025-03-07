@@ -25,6 +25,7 @@
 #include <queue>
 #include <vector>
 #include <array>
+#include <map>
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "input/iinputhandler.h"
@@ -74,11 +75,12 @@ namespace SunLight {
             typedef std :: deque<SunLight :: TileMap :: ITileMapListener*> TileMapListenerList;
             typedef std :: deque<__stInputEventData*> InputEventHandlerList;
             typedef std :: deque<SunLight :: Sprite :: Sprite*> SpriteList;
+            typedef std :: map<int, SpriteList*>                SpriteMap;
             typedef std :: deque<int> GamePadList;
 
             SunLight :: Input :: IInputHandler         *m_pInputHandler;
             GamePadList                                m_GamePadList;
-            SpriteList                                 m_SpriteList;
+            SpriteMap                                  m_SpriteMap;
             TileMapListenerList                        m_TileMapListenerList;
             InputEventHandlerList                      m_KeyInputEventHandlerList;
             InputEventHandlerList                      m_GPadInputEventHandlerList;
@@ -111,6 +113,9 @@ namespace SunLight {
             tmx_tileset_list* GetTilesetList( tmx_tileset *pTilesetSearch );
             tmx_layer* GetLayer( int nLayerId );
             tmx_layer* GetLayer( const char *szLayerName );
+
+            // Sprites miscelaneous
+            void UnloadSprites( void );
 
             // Color control
             Color IntToColor( uint32_t color );
@@ -183,8 +188,8 @@ namespace SunLight {
             inline void HandleGamePadEvent( SunLight :: Input :: GamepadButton key );
             inline void HandleUserInput( void );
             inline void HandleUserUpdate( void );
-            inline void HandleSpriteUpdate( void );
             inline void HandleUserCollisions( void );
+            inline void HandleSpriteUpdate( int nLayerId );
 
             // Internal layer handlers
             void CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer );

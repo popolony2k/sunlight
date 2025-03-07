@@ -35,6 +35,7 @@
 #define __TMX_MAP_FILE              "resources/map/test.tmx"
 #define __SUNNY_SPRITE_IDLE         "resources/sprites/sunny_idle_down.png"
 #define __SUNNY_SPRITE_IDLE_DELAY   100
+#define __SUNNY_LAYER_ID            4
 #define __GAME_NAME                 "Sprite test"
 
 
@@ -118,7 +119,7 @@ bool World :: LoadSprites( void ) {
         m_pSpriteSunny -> SetActiveTextureSequence( 0 );
         m_pSpriteSunny -> SetVisible( true );
 
-        m_pRenderer -> AddSprite( 8, *m_pSpriteSunny );
+        m_pRenderer -> AddSprite( __SUNNY_LAYER_ID, *m_pSpriteSunny );
         
         return true;
     }
