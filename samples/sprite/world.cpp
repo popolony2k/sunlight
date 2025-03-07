@@ -102,15 +102,23 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 }
 
 bool World :: LoadSprites( void ) {
-    if ( m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IDLE ) ) {
-        SunLight :: TileMap :: stCoordinate2D   pos;
 
-        pos.x = 100;
-        pos.y = 100;
+    if( ( m_pRenderer != NULL ) && m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IDLE ) ) {
+        SunLight :: TileMap :: stDimension2D    dim;
+
+        dim.pos.x = 100;
+        dim.pos.y = 100;
+        dim.size.nWidth  = 32;
+        dim.size.nHeight = 32;
+
+        m_pCanvasSunny -> SetTileSize( 32 );
+        m_pCanvasSunny -> SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
+        m_pCanvasSunny -> SetDimension2D( dim );
         m_pSpriteSunny -> AddTextureSequence( 0, m_pCanvasSunny, __SUNNY_SPRITE_IDLE_DELAY );
         m_pSpriteSunny -> SetActiveTextureSequence( 0 );
-        m_pSpriteSunny -> Move(pos);
         m_pSpriteSunny -> SetVisible( true );
+
+        m_pRenderer -> AddSprite( 8, *m_pSpriteSunny );
         
         return true;
     }
@@ -194,8 +202,6 @@ bool World :: Run( void )  {
         perror("Error loading sprites\n" );
         return false;
     }
-
-    m_pRenderer -> AddSprite( 8, *m_pSpriteSunny );
 
     m_pRenderer -> Run();
     m_pRenderer -> Stop();

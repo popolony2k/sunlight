@@ -65,6 +65,13 @@ namespace SunLight {
                 spritePos.size.nHeight = texturePos.size.nHeight;
             }
 
+            if( ( spritePos.pos.x == 0 ) && ( spritePos.pos.y == 0 ) )  {
+                SunLight :: TileMap :: stDimension2D   texturePos = pTexture -> GetDimension2D();
+
+                spritePos.pos.x = texturePos.pos.x;
+                spritePos.pos.y = texturePos.pos.y;
+            }
+
             pTexture -> SetVisible( GetVisible() );
             pTexture -> SetParent( pParent );
             pTexture -> SetDimension2DPtr( &spritePos );

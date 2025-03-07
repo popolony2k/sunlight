@@ -968,6 +968,17 @@ namespace SunLight {
         }
 
         /**
+         * Handle sprites updates.
+         */
+        void TileMapRenderer :: HandleSpriteUpdate( void )  {
+
+            // Update all sprites owned by this renderer
+            for( SunLight :: Sprite :: Sprite* pSprite : m_SpriteList )  {
+                pSprite -> Update();
+            }           
+        }
+
+        /**
          * Handle user collisions;
          */
         void TileMapRenderer :: HandleUserCollisions( void )  {
@@ -1715,6 +1726,7 @@ namespace SunLight {
                         RenderMap();
                         HandleUserInput();
                         HandleUserUpdate();
+                        HandleSpriteUpdate();
                         HandleUserCollisions();
                     }
                     EndDrawing();
