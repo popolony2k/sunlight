@@ -183,6 +183,7 @@ namespace SunLight {
             inline void HandleGamePadEvent( SunLight :: Input :: GamepadButton key );
             inline void HandleUserInput( void );
             inline void HandleUserUpdate( void );
+            inline void HandleSpriteUpdate( void );
             inline void HandleUserCollisions( void );
 
             // Internal layer handlers

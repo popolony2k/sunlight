@@ -960,6 +960,12 @@ namespace SunLight {
             for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
                 pListener -> OnUpdate( *this );
             }
+        }
+
+        /**
+         * Handle sprites updates.
+         */
+        void TileMapRenderer :: HandleSpriteUpdate( void )  {
 
             // Update all sprites owned by this renderer
             for( SunLight :: Sprite :: Sprite* pSprite : m_SpriteList )  {
@@ -1715,6 +1721,7 @@ namespace SunLight {
                         RenderMap();
                         HandleUserInput();
                         HandleUserUpdate();
+                        HandleSpriteUpdate();
                         HandleUserCollisions();
                     }
                     EndDrawing();
