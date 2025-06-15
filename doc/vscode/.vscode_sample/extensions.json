@@ -5,9 +5,9 @@
 	// List of extensions which should be recommended for users of this workspace.
 	"recommendations": [
 		"ms-vscode.cpptools",
-        "ms-vscode.cpptools-extension-pack",
-        "ms-vscode.cpptools-themes",
-		    "ms-vscode.cmake-tools",
-		    "franmastromarino.vs-code-settings-os"
+		"ms-vscode.cpptools-extension-pack",
+		"ms-vscode.cpptools-themes",
+		"ms-vscode.cmake-tools",
+		"franmastromarino.vs-code-settings-os"
 	]
 }
