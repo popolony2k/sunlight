@@ -7,7 +7,6 @@
 		"ms-vscode.cpptools",
         "ms-vscode.cpptools-extension-pack",
         "ms-vscode.cpptools-themes",
-        "twxs.cmake",
 		"ms-vscode.cmake-tools",
 		"franmastromarino.vs-code-settings-os"
 	]
