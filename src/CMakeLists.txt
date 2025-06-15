@@ -41,6 +41,7 @@ if(NOT USE_LOCAL_LIBXML2)
     endif()
 
     set(LIBXML2_WITH_PYTHON OFF) # Turn off Python bind build dependency
+    set(LIBXML2_WITH_TESTS OFF)  # Turn off tests build dependency
 
     FetchContent_Declare(libxml2 OVERRIDE_FIND_PACKAGE
                          GIT_REPOSITORY https://github.com/GNOME/libxml2.git
