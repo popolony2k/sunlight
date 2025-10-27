@@ -86,6 +86,7 @@ include_directories("scripting")
 include_directories("engines")
 include_directories("sound")
 include_directories("concurrent")
+include_directories("general")
 
 # Add all source files
 file( GLOB_RECURSE LIBRARY_SOURCES "./" *.cpp )
