@@ -188,7 +188,6 @@ namespace SunLight {
 
             // User interaction handlers
             inline void HandleKeyEvent( SunLight :: Input :: KeyboardKey key );
-            inline void HandleGamePadEvent( SunLight :: Input :: GamepadButton key );
             inline void HandleUserInput( void );
             inline void HandleUserUpdate( void );
             inline void HandleUserCollisions( void );
