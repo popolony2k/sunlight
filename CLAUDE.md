@@ -28,7 +28,15 @@ This builds `sprite_test` and `tilemaprenderer_test` and copies the raylib/tmx/L
 ./build/samples/tilemaprenderer/tilemaprenderer_test samples/tilemaprenderer/
 ```
 
-There is no test suite (`CTest` is included by the sample `CMakeLists.txt` but no tests are registered), and no linter/formatter config in the repo.
+Unit tests are opt-in too (`OFF` by default), using [doctest](https://github.com/doctest/doctest) fetched via `FetchContent`:
+
+```shell
+cmake -B build -S . -DBUILD_LIBRARY_TESTS=ON
+cmake --build build --target sunlight_tests -j 4
+./build/tests/sunlight_tests        # or: ctest --test-dir build
+```
+
+Tests only cover logic that doesn't need a window/display (`Viewport` zoom/clipping, `Collider` AABB overlap, `Helper::Random`, `base/primitives.h`) — anything touching `IEngine`/raylib directly isn't unit-testable this way. There is no linter/formatter config in the repo.
 
 For a debug build: `cmake -B build -S . -DCMAKE_C_FLAGS="-g2" -DCMAKE_CXX_FLAGS="-g2"` (or the `SUNLIGHT_DEBUG_SYMBOLS_UNIX` option, on by default on Mac/Linux).
 
@@ -61,6 +69,14 @@ Every raylib-touching subsystem follows the same shape: an interface at the modu
 
 `base/primitives.h` defines `stRectangle`/`stVector2D` (float x/y/width/height — sub-pixel precision for zoom/scale math) and `TextureHandle` (`typedef void*`: an opaque handle owned by whichever `IEngine` loaded it, cast back to the concrete texture type only inside that engine's own `.cpp`). Prefer these over raylib's `Rectangle`/`Vector2`/`Texture2D` in any new backend-agnostic code.
 
+### Pointer ownership convention
+
+Internal containers/members that exclusively own heap-allocated data (e.g. `Sprite::m_Sequences`, `CollisionManager`'s rule lists, `SoundManager::m_SoundMap`, `TileMapRenderer::m_pInputHandler`/`m_AnimInfoList`/event handler lists) use `std::unique_ptr`, not raw `new`/`delete` pairs. Raw pointers remain only for genuinely non-owning references — back-pointers (`BaseCanvas::m_pParent`), externally-owned objects registered into a container (`Collider*` inside `CollisionManager`, `Sprite*`/`TextureCanvas*` handed to a manager by its caller), self-referential struct members (`GraphicObject::m_pDimension` can point to its own `m_Dimension`), and handles crossing a C API boundary (tmx callbacks, `TextureHandle`). When adding a new owning member, prefer `unique_ptr` over raw `new`/`delete` to match this convention — several real bugs (leaks, dangling pointers from `Clear()`-style methods that deleted contents without clearing the container) were found and fixed by this exact conversion.
+
 ## Known issues (tracked in `doc/`)
 - `doc/FIXME.txt`: access violation when map scroll goes past viewport boundaries.
 - `doc/TODO.txt`: no isometric/hexagonal map support; missing some gamepad face-button bindings; per-layer parallax scrolling and per-object property management (opacity/visible/position) not implemented; sprite/layer draw-order still being finished.
+
+## Git workflow
+
+`main` is protected on GitHub: direct pushes are rejected ("Changes must be made through a pull request") and merging requires at least one approving review. Push a feature branch, open a PR with `gh pr create`, and either wait for a human review or merge with `gh pr merge --squash --delete-branch --admin` (GitHub blocks self-approval of your own PR via `gh pr review --approve`, so the admin override is the only way a solo maintainer can merge without a second reviewer). The `gh` CLI is installed and authenticated on this machine.

@@ -17,6 +17,7 @@
     - [raylib on linux](#raylib-dependencies-on-linux)
 * [HowTo](#howto-bulb)
     - [Using samples](#using-samples)
+    - [Running tests](#running-tests)
     - [Configuring VsCode](#configuring-vscode)
 * [Samples](#samples-sunny)
 
@@ -90,6 +91,21 @@ option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" ON)
 >You may also use the following command line on your system's shell:
 >```shell
 >cmake -DBUILD_LIBRARY_SAMPLES=ON
+>```
+
+### Running tests
+
+Unit tests are also opt-in, using [doctest](https://github.com/doctest/doctest) fetched automatically via CMake:
+```shell
+cmake -DBUILD_LIBRARY_TESTS=ON
+cmake --build build --target sunlight_tests
+./build/tests/sunlight_tests
+```
+
+>[!NOTE]
+>You may also run the tests through CTest:
+>```shell
+>ctest --test-dir build
 >```
 
 ### Configuring VsCode
