@@ -61,7 +61,7 @@ namespace SunLight {
             m_pParent = pParent;
 
             for( int nCount = 0; nCount < m_ColliderLayerList.size(); nCount++)  {
-                m_ColliderLayerList[nCount] = new ColliderList();
+                m_ColliderLayerList[nCount] = std :: make_unique<ColliderList>();
             }
         }
 
@@ -100,7 +100,7 @@ namespace SunLight {
                                                  SunLight :: Collision :: Collider *pCollider )  {
 
             if( nColliderLayerId < m_ColliderLayerList.size() )  {
-                ColliderList   *pColliderList = m_ColliderLayerList[nColliderLayerId];
+                ColliderList   *pColliderList = m_ColliderLayerList[nColliderLayerId].get();
                 ColliderList :: iterator itItem = std :: find( pColliderList -> begin(),
                                                             pColliderList -> end(),
                                                             pCollider );
@@ -123,7 +123,7 @@ namespace SunLight {
 
             if( nColliderLayerId < m_ColliderLayerList.size() )  {
                 if( nColliderLayerId < 0 )  {
-                    for( ColliderList *pColliderList : m_ColliderLayerList )  {
+                    for( auto& pColliderList : m_ColliderLayerList )  {
                         pColliderList -> clear();
                     }
                 }
@@ -143,16 +143,11 @@ namespace SunLight {
         void CollisionManager :: Clear( void )  {
 
             for( int nCount = 0; nCount < m_ColliderLayerList.size(); nCount++)  {
-                delete m_ColliderLayerList[nCount];
+                m_ColliderLayerList[nCount].reset();
             }
 
-            for( ColliderPair *pPair : m_ColliderToColliderRuleList )  {
-                delete pPair;
-            }
-
-            for( ColliderTileLayerPair *pPair : m_ColliderToTileLayerRuleList )  {
-                delete pPair;
-            }
+            m_ColliderToColliderRuleList.clear();
+            m_ColliderToTileLayerRuleList.clear();
         }
 
         /**
@@ -168,14 +163,14 @@ namespace SunLight {
                                                             int nSecondColliderLayerId )  {
 
             ColliderLayerList& colliderLayerListRef = m_ColliderLayerList;
-            ColliderToColliderRuleList :: iterator itItem = std :: find_if( m_ColliderToColliderRuleList.begin(), 
-                                                                            m_ColliderToColliderRuleList.end(), 
-                                                                            [nFirstColliderLayerId, 
-                                                                             nSecondColliderLayerId, 
-                                                                             colliderLayerListRef]( const ColliderPair* pPair ) {
-                                
-                                ColliderList *pFirst  = colliderLayerListRef[nFirstColliderLayerId];
-                                ColliderList *pSecond = colliderLayerListRef[nSecondColliderLayerId];
+            ColliderToColliderRuleList :: iterator itItem = std :: find_if( m_ColliderToColliderRuleList.begin(),
+                                                                            m_ColliderToColliderRuleList.end(),
+                                                                            [nFirstColliderLayerId,
+                                                                             nSecondColliderLayerId,
+                                                                             &colliderLayerListRef]( const std :: unique_ptr<ColliderPair>& pPair ) {
+
+                                ColliderList *pFirst  = colliderLayerListRef[nFirstColliderLayerId].get();
+                                ColliderList *pSecond = colliderLayerListRef[nSecondColliderLayerId].get();
 
                                 return ( ( pPair -> first == pFirst ) && ( pPair -> second == pSecond ) );
                             } );
@@ -184,12 +179,12 @@ namespace SunLight {
                 ( nFirstColliderLayerId < m_ColliderLayerList.size() ) &&
                 ( nFirstColliderLayerId < m_ColliderLayerList.size() ) )  {
 
-                ColliderPair  *pPair = new ColliderPair();
+                std :: unique_ptr<ColliderPair>  pPair = std :: make_unique<ColliderPair>();
 
-                pPair -> first  = m_ColliderLayerList[nFirstColliderLayerId];
-                pPair -> second = m_ColliderLayerList[nSecondColliderLayerId];
+                pPair -> first  = m_ColliderLayerList[nFirstColliderLayerId].get();
+                pPair -> second = m_ColliderLayerList[nSecondColliderLayerId].get();
 
-                m_ColliderToColliderRuleList.push_back( pPair );
+                m_ColliderToColliderRuleList.push_back( std :: move( pPair ) );
 
                 return true;
             }
@@ -213,12 +208,12 @@ namespace SunLight {
             if( ( nColliderLayerId < m_ColliderLayerList.size() ) &&
                 m_pParent -> GetLayer( nTileLayerId, layer ) )  {
 
-                ColliderTileLayerPair  *pPair = new ColliderTileLayerPair();
+                std :: unique_ptr<ColliderTileLayerPair>  pPair = std :: make_unique<ColliderTileLayerPair>();
 
-                pPair -> first  = m_ColliderLayerList[nColliderLayerId];
+                pPair -> first  = m_ColliderLayerList[nColliderLayerId].get();
                 pPair -> second = nTileLayerId;
 
-                m_ColliderToTileLayerRuleList.push_back( pPair );
+                m_ColliderToTileLayerRuleList.push_back( std :: move( pPair ) );
 
                 return true;
             }
@@ -246,7 +241,7 @@ namespace SunLight {
             /*
             * Check collisions between colliders only.
             */
-            for( ColliderPair *pPair : m_ColliderToColliderRuleList )  {
+            for( auto& pPair : m_ColliderToColliderRuleList )  {
                 for( Collider *pFirst : *pPair -> first )  {
                     for( Collider *pSecond : *pPair -> second )  {
                         if( pFirst -> Hit( pSecond -> GetDimension2D() ) )  {
@@ -260,7 +255,7 @@ namespace SunLight {
             * Check collisions between colliders against static
             * layer objects defined as collision on layer map.
             */
-            for( ColliderTileLayerPair *pPair : m_ColliderToTileLayerRuleList )  {
+            for( auto& pPair : m_ColliderToTileLayerRuleList )  {
                 for( Collider *pFirst : *pPair -> first )  {
                     SunLight :: TileMap :: stTile      tile;
                     SunLight :: TileMap :: stLayer     layer;

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) since 2021 by PopolonY2k and Leidson Campos A. Ferreira
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -18,36 +18,27 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
- #ifndef __WORLD_H__
- #define __WORLD_H__
+#include <doctest/doctest.h>
+#include "general/helper.h"
 
- #include "renderer/tilemaprenderer.h"
- #include <memory>
- #include <string>
+using namespace SunLight :: General;
 
+TEST_SUITE( "general/Helper" )  {
 
- /**
- * @brief World class implementation.
- */
-class World {
+    TEST_CASE( "Random stays within the requested inclusive range" )  {
 
-    std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
-    std :: string m_strBasePath;
+        for( int nCount = 0; nCount < 1000; nCount++ )  {
+            int nValue = Helper :: Random( 1, 10 );
 
-    void MoveCameraUp( SunLight :: Input :: ControllerType type, int nId );    
-    void MoveCameraDown( SunLight :: Input :: ControllerType type, int nId );
-    void MoveCameraLeft( SunLight :: Input :: ControllerType type, int nId );
-    void MoveCameraRight( SunLight :: Input :: ControllerType type, int nId );
-    void ZoomIn( SunLight :: Input :: ControllerType type, int nId );
-    void ZoomOut( SunLight :: Input :: ControllerType type, int nId );
-    void ResetZoom( SunLight :: Input :: ControllerType type, int nId );
+            CHECK( nValue >= 1 );
+            CHECK( nValue <= 10 );
+        }
+    }
 
-    public :
+    TEST_CASE( "Random with equal bounds always returns that value" )  {
 
-    World( std :: string strBasePath );
-
-    bool Run( void );
-};
-
- #endif // __WORLD_H__
-
+        for( int nCount = 0; nCount < 20; nCount++ )  {
+            CHECK( Helper :: Random( 5, 5 ) == 5 );
+        }
+    }
+}

@@ -21,6 +21,7 @@ cmake_minimum_required (VERSION 3.24)
 project (sunlight_all)
 
 option(BUILD_LIBRARY_SAMPLES "Build SunLight library samples" OFF)
+option(BUILD_LIBRARY_TESTS "Build SunLight library unit tests" OFF)
 
 # Core library
 add_subdirectory(src)
@@ -30,3 +31,9 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/tilemaprenderer)
     add_subdirectory(samples/sprite)
 endif(BUILD_LIBRARY_SAMPLES)
+
+# Unit tests
+if(BUILD_LIBRARY_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif(BUILD_LIBRARY_TESTS)

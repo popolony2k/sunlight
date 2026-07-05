@@ -18,24 +18,11 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef DEFAULT_ENGINE
-    #error "Unexpected value of DEFAULT_ENGINE"
-#endif
-
-/*
- * In the future a better abstract way to handle raylib will be
- * implemented and the method below will be changed.
- */
-#if DEFAULT_ENGINE == 1    /* USES RAYLIB */
-    #include "engines/raylib/raylibengine.h"
-    
-    #define __DEFAULT_ENGINE         RaylibEngine
-#else
-    #error "Unknown value of DEFAULT_ENGINE"
-#endif
-
+#include "engines/enginefactory.h"
+#include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
 #include "tilemaprenderer.h"
+#include <raylib.h>
 #include <memory.h>
 #include <cstring>
 #include <chrono>
@@ -53,7 +40,7 @@
 #define __DEFAULT_RESIZEABLE_STATUS     false
 #define __DEFAULT_DRAW_FPS_STATUS       false
 #define __DEFAULT_VIEW_CONTROL_MODE     VIEW_CONTROL_MODE_ACTIVE
-#define __DEFAULT_EXIT_KEY              KEY_ESCAPE
+#define __DEFAULT_EXIT_KEY              SunLight :: Input :: KEY_ESCAPE
 #define __DEFAULT_WINDOW_BK_COLOR       0xFF000000
 
 
@@ -63,7 +50,6 @@
 #define __MAX_OPACITY_LEVEL            0xFF
 
 using namespace std :: chrono;
-using namespace SunLight :: Engines :: Raylib;
 
 
 namespace SunLight {
@@ -81,11 +67,9 @@ namespace SunLight {
          */
         void* TileMapRenderer :: TextureLoaderCallback( const char *szFileName )  {
 
-            Texture2D *pTexture = new Texture2D;
+            int nWidth, nHeight;
 
-            *pTexture = ::LoadTexture( szFileName );
-
-            return pTexture;
+            return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( szFileName, nWidth, nHeight );
         }
 
         /**
@@ -94,11 +78,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: TextureFreeCallback( void *pTexture )  {
 
-            Texture2D    *pTexture2D = ( Texture2D * ) pTexture;
-
-            ::UnloadTexture( *pTexture2D );
-
-            delete pTexture2D;
+            SunLight :: Engines :: EngineFactory :: GetEngine().UnloadTexture( pTexture );
         }
 
         /**
@@ -152,11 +132,11 @@ namespace SunLight {
         /**
          * Convert integer color representation to @link Color object;
          */
-        Color TileMapRenderer :: IntToColor( uint32_t color ) {
+        SunLight :: Base :: stColor TileMapRenderer :: IntToColor( uint32_t color ) {
 
             tmx_col_bytes res = ::tmx_col_to_bytes( color );
 
-            return *( ( Color * ) &res );
+            return *( ( SunLight :: Base :: stColor * ) &res );
         }
 
         /**
@@ -165,13 +145,13 @@ namespace SunLight {
          * @param nCoordY The Y coordinate to plot pixel;
          * @param color Color of pixel;
          */
-        void TileMapRenderer :: SetPixel( int nCoordX, int nCoordY, Color color )  {
+        void TileMapRenderer :: SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color )  {
 
             SunLight :: TileMap :: stDimension2D& vp = GetViewport().GetDimension2D();
 
             if( ( nCoordX > vp.pos.x ) && ( nCoordX < vp.size. nWidth) &&
                 ( nCoordY  > vp.pos. y ) && ( nCoordY < vp.size.nHeight ) ) {
-                __DEFAULT_ENGINE :: SetPixel( nCoordX, nCoordY, color );
+                SunLight :: Engines :: EngineFactory :: GetEngine().SetPixel( nCoordX, nCoordY, color );
             }
         }
 
@@ -188,7 +168,7 @@ namespace SunLight {
                                                  double fCoordY,
                                                  double fRadiusX,
                                                  double fRadiusY,
-                                                 Color color ) {
+                                                 SunLight :: Base :: stColor color ) {
 
             double          dx, dy;
             double          d1, d2;
@@ -284,7 +264,7 @@ namespace SunLight {
                                                int nY0,
                                                int nX1,
                                                int nY1,
-                                               Color color )  {
+                                               SunLight :: Base :: stColor color )  {
 
             int             nE2; /* error value e_xy */
             int             nDx  = std :: abs( nX1 - nX0 );
@@ -325,7 +305,7 @@ namespace SunLight {
                                               double fOffset_y,
                                               double **fPoints,
                                               int nPointsCount,
-                                              Color color ) {
+                                              SunLight :: Base :: stColor color ) {
 
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
             SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
@@ -353,7 +333,7 @@ namespace SunLight {
                                          double fOffset_y,
                                          double **fPoints,
                                          int nPointsCount,
-                                         Color color ) {
+                                         SunLight :: Base :: stColor color ) {
 
             SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
 
@@ -391,7 +371,7 @@ namespace SunLight {
                                                double fOffset_y,
                                                double fWidth,
                                                double fHeight,
-                                               Color color )  {
+                                               SunLight :: Base :: stColor color )  {
 
             SunLight :: TileMap :: stDimension2D&  vp          = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
@@ -444,7 +424,7 @@ namespace SunLight {
                                              double fOffset_y,
                                              double fWidth,
                                              double fHeight,
-                                             Color color )  {
+                                             SunLight :: Base :: stColor color )  {
 
             SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
@@ -474,7 +454,7 @@ namespace SunLight {
          * @param uDestY destination Y coordinate on texture;
          * @param opacity opacity level to be applied on texture;
          */
-        void TileMapRenderer :: DrawTile( void *pImage,
+        void TileMapRenderer :: DrawTile( SunLight :: Base :: TextureHandle pImage,
                                           int32_t nSourceX,
                                           int32_t nSourceY,
                                           int32_t nSourceW,
@@ -485,7 +465,6 @@ namespace SunLight {
 
             SunLight :: TileMap :: stDimension2D  clip;
             SunLight :: Base :: Viewport&         vp        = GetViewport();
-            Texture2D                             *pTexture = ( Texture2D * ) pImage;
             unsigned char                         op        = ( uint8_t ) ( 0xFF * fOpacity );
             SunLight :: TileMap :: stDimension2D  dm        =  { { ( int ) ( nDestX + m_CameraPos.x ),
                                                                  ( int ) ( nDestY + m_CameraPos.y ) },
@@ -504,19 +483,19 @@ namespace SunLight {
                                                                                                 fZoomFactor ) -
                                                                                   dm.size.nHeight ) : nSourceY );
 
-                __DEFAULT_ENGINE :: DrawTextureTiled( *pTexture,
-                                                      Rectangle  { ( float ) nClipX,
+                SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
+                                                      SunLight :: Base :: stRectangle  { ( float ) nClipX,
                                                                    ( float ) nClipY,
                                                                    ( float ) nSourceW,
                                                                    ( float ) nSourceH },
-                                                      Rectangle  { ( float ) clip.pos.x,
+                                                      SunLight :: Base :: stRectangle  { ( float ) clip.pos.x,
                                                                    ( float ) clip.pos.y,
                                                                    ( float ) clip.size.nWidth,
                                                                    ( float ) clip.size.nHeight },
-                                                      Vector2  { 0, 0 },
+                                                      SunLight :: Base :: stVector2D  { 0, 0 },
                                                       0.0f,
                                                       fZoomFactor,
-                                                      Color  { 0xFF, 0xFF, 0xFF, op } );
+                                                      SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, op } );
             }
         }
 
@@ -527,7 +506,7 @@ namespace SunLight {
         void TileMapRenderer :: DrawObjects( tmx_layer *pLayer ) {
 
             tmx_object *head = pLayer ->  content.objgr -> head;
-            Color      color = IntToColor( pLayer ->  content.objgr -> color );
+            SunLight :: Base :: stColor  color = IntToColor( pLayer ->  content.objgr -> color );
 
             while( head ) {
                 if( head -> visible ) {
@@ -592,9 +571,12 @@ namespace SunLight {
          */
         void TileMapRenderer :: DrawImageLayer( tmx_layer *pLayer ) {
 
-            Texture2D *pTexture = ( Texture2D * ) pLayer -> content.image -> resource_image;
+            void *pImage = pLayer -> content.image -> resource_image;
 
-            DrawTexture( *pTexture, 0, 0, WHITE );
+            SunLight :: Engines :: EngineFactory :: GetEngine().DrawTexture( pImage,
+                                                                              0,
+                                                                              0,
+                                                                              SunLight :: Base :: stColor { 0xFF, 0xFF, 0xFF, 0xFF } );
         }
 
         /**
@@ -627,12 +609,14 @@ namespace SunLight {
                             tmx_tileset_list           *pTilesetList;
 
                             if( !pAnimInfo )  {
-                                pAnimInfo = new __stTileAnimInfo;
-                                memset( pAnimInfo, 0, sizeof( __stTileAnimInfo ) );
-                                pAnimInfo -> nMillis   = nMillis;
-                                pAnimInfo -> pNextTile = pTile;
+                                std :: unique_ptr<__stTileAnimInfo>  pOwnedAnimInfo = std :: make_unique<__stTileAnimInfo>();
+
+                                memset( pOwnedAnimInfo.get(), 0, sizeof( __stTileAnimInfo ) );
+                                pOwnedAnimInfo -> nMillis   = nMillis;
+                                pOwnedAnimInfo -> pNextTile = pTile;
+                                pAnimInfo = pOwnedAnimInfo.get();
                                 pTile -> user_data.pointer = pAnimInfo;
-                                m_AnimInfoList.push_back( pAnimInfo );
+                                m_AnimInfoList.push_back( std :: move( pOwnedAnimInfo ) );
                             }
 
                             if( pAnimInfo -> nMillis <= nMillis )  {
@@ -726,8 +710,11 @@ namespace SunLight {
          */
         void TileMapRenderer :: RenderMap( void ) {
 
-            if( m_bClearBackground )
-                ClearBackground( IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor ) );
+            if( m_bClearBackground )  {
+                SunLight :: Base :: stColor  bkColor = IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor );
+
+                ClearBackground( Color { bkColor.nRed, bkColor.nGreen, bkColor.nBlue, bkColor.nAlpha } );
+            }
 
             if( m_pTmxMap )
                 DrawAllLayers( m_pTmxMap -> ly_head );
@@ -1098,19 +1085,8 @@ namespace SunLight {
 
             UnloadMap();
             m_TileMapListenerList.clear();
-
-            for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
-                delete  ( * itItem );
-            }
-
-            for( InputEventHandlerList :: iterator itItem = m_GPadInputEventHandlerList.begin(); itItem != m_GPadInputEventHandlerList.end(); itItem++ )  {
-                delete  ( * itItem );
-            }
-
             m_KeyInputEventHandlerList.clear();
             m_GPadInputEventHandlerList.clear();
-
-            delete m_pInputHandler;
         }
 
         /**
@@ -1148,9 +1124,9 @@ namespace SunLight {
          * KeyboardKey enum);
          * The default exit is ESC Key;
          */
-        void TileMapRenderer :: SetExitKey( KeyboardKey key )  {
+        void TileMapRenderer :: SetExitKey( SunLight :: Input :: KeyboardKey key )  {
 
-            ::SetExitKey( key );
+            ::SetExitKey( ( KeyboardKey ) key );
         }
 
         /**
@@ -1237,11 +1213,11 @@ namespace SunLight {
                                                         SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
             if( evt != SunLight :: Input :: KeyboardKey :: KEY_NULL )  {
-                __stInputEventData *pEvtData = new __stInputEventData;
+                std :: unique_ptr<__stInputEventData>  pEvtData = std :: make_unique<__stInputEventData>();
 
                 pEvtData -> nEvent   = evt;
                 pEvtData -> pHandler = handler;
-                m_KeyInputEventHandlerList.push_back( pEvtData );
+                m_KeyInputEventHandlerList.push_back( std :: move( pEvtData ) );
             }
             else  {
                 m_pNullInputEventHandler = handler;
@@ -1257,11 +1233,11 @@ namespace SunLight {
         void TileMapRenderer :: SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, 
                                                             SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
-            __stInputEventData *pEvtData = new __stInputEventData;
+            std :: unique_ptr<__stInputEventData>  pEvtData = std :: make_unique<__stInputEventData>();
 
             pEvtData -> nEvent   = evt;
             pEvtData -> pHandler = handler;
-            m_GPadInputEventHandlerList.push_back( pEvtData );
+            m_GPadInputEventHandlerList.push_back( std :: move( pEvtData ) );
         }
 
         /**
@@ -1594,12 +1570,7 @@ namespace SunLight {
                 /*
                 * Release all allocated animations data structure.
                 */
-                __AnimInfoList :: iterator itItem = m_AnimInfoList.begin();
-
-                while( itItem != m_AnimInfoList.end() )  {
-                    delete *itItem;
-                    itItem = m_AnimInfoList.erase( itItem );
-                }
+                m_AnimInfoList.clear();
 
                 m_pTmxMap    = NULL;
                 m_nMapWidth  = 0;

@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include <cstdio>
 
 #define __DISPLAY_W                 1260
 #define __DISPLAY_H                 920
@@ -107,18 +108,11 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 World :: World( std :: string strBasePath )  {
 
     m_strBasePath = strBasePath;
-    m_pRenderer = new SunLight :: Renderer :: TileMapRenderer( __DISPLAY_W,
-                                                               __DISPLAY_H,
-                                                               __GAME_NAME,
-                                                               __FRAMES_PER_SECOND,
-                                                               false );
-}
-
-/**
- * @brief Deconstructor. Finalizes all class data.
- */
-World :: ~World( void )  {
-    delete m_pRenderer;
+    m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
+                                                                               __DISPLAY_H,
+                                                                               __GAME_NAME,
+                                                                               __FRAMES_PER_SECOND,
+                                                                               false );
 }
 
 /**
@@ -164,7 +158,7 @@ bool World :: Run( void )  {
     strMapFile = m_strBasePath + __TMX_MAP_FILE;
 
     if( !m_pRenderer -> LoadMap( strMapFile.c_str(), __DEFAULT_MAP_ALIGNMENT ) )  {
-        perror("Error loading map\n" );
+        fprintf( stderr, "Error loading map\n" );
         return false;
     } 
 

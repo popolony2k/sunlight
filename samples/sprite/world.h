@@ -23,6 +23,7 @@
 
  #include "renderer/tilemaprenderer.h"
  #include "sprite/sprite.h"
+ #include <memory>
  #include <string>
 
 
@@ -31,9 +32,9 @@
  */
 class World {
 
-    SunLight :: Renderer :: TileMapRenderer  *m_pRenderer = NULL;
-    SunLight :: Sprite :: Sprite             *m_pSpriteSunny = NULL;
-    SunLight :: Canvas :: TextureCanvas      *m_pCanvasSunny = NULL;
+    std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
+    std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteSunny;
+    std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasSunny;
     std :: string m_strBasePath;
 
     void MoveCameraUp( SunLight :: Input :: ControllerType type, int nId );    
@@ -49,7 +50,6 @@ class World {
     public :
 
     World( std :: string strBasePath );
-    ~World( void );
 
     bool Run( void );
 };

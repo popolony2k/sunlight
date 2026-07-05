@@ -26,9 +26,12 @@
 #include <vector>
 #include <array>
 #include <map>
+#include <memory>
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "input/iinputhandler.h"
+#include "base/color.h"
+#include "base/primitives.h"
 
 
 namespace SunLight {
@@ -37,7 +40,7 @@ namespace SunLight {
         /**
          * Primitive structures definition.
          */
-        typedef Vector2    stVector;
+        typedef SunLight :: Base :: stVector2D    stVector;
 
         /**
          * View port control mode (active and reactive)
@@ -71,14 +74,14 @@ namespace SunLight {
                 SunLight :: Input :: INPUT_EVENT_HANDLER  pHandler;
             };
 
-            typedef std :: deque<__stTileAnimInfo*> __AnimInfoList;
+            typedef std :: deque<std :: unique_ptr<__stTileAnimInfo>> __AnimInfoList;
             typedef std :: deque<SunLight :: TileMap :: ITileMapListener*> TileMapListenerList;
-            typedef std :: deque<__stInputEventData*> InputEventHandlerList;
+            typedef std :: deque<std :: unique_ptr<__stInputEventData>> InputEventHandlerList;
             typedef std :: deque<SunLight :: Sprite :: Sprite*> SpriteList;
             typedef std :: map<int, SpriteList*>                SpriteMap;
             typedef std :: deque<int> GamePadList;
 
-            SunLight :: Input :: IInputHandler         *m_pInputHandler;
+            std :: unique_ptr<SunLight :: Input :: IInputHandler>  m_pInputHandler;
             GamePadList                                m_GamePadList;
             SpriteMap                                  m_SpriteMap;
             TileMapListenerList                        m_TileMapListenerList;
@@ -118,43 +121,43 @@ namespace SunLight {
             void UnloadSprites( void );
 
             // Color control
-            Color IntToColor( uint32_t color );
+            SunLight :: Base :: stColor IntToColor( uint32_t color );
 
             // Graphics primitives miscellaneous
-            void SetPixel( int nCoordX, int nCoordY, Color color );
+            void SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color );
             void MidPointEllipse( double fCoordX,
                                   double fCoordY,
                                   double fRadiusX,
                                   double fRadiusY,
-                                  Color color );
+                                  SunLight :: Base :: stColor color );
             void LineBresenham( int nX0,
                                 int nY0,
                                 int nX1,
                                 int nY1,
-                                Color color );
+                                SunLight :: Base :: stColor color );
 
             // Engine primitives
             void DrawPolyline( double fOffset_x,
                                double fOffset_y,
                                double **fPoints,
                                int nPointsCount,
-                               Color color );
+                               SunLight :: Base :: stColor color );
             void DrawPolygon( double fOffset_x,
                               double fOffset_y,
                               double **fPoints,
                               int nPointsCount,
-                              Color color );
+                              SunLight :: Base :: stColor color );
             void DrawRectangle( double offset_x,
                                 double offset_y,
                                 double width,
                                 double height,
-                                Color color );
+                                SunLight :: Base :: stColor color );
             void DrawEllipse( double offset_x,
                               double offset_y,
                               double width,
                               double height,
-                              Color color );
-            void DrawTile( void *pImage,
+                              SunLight :: Base :: stColor color );
+            void DrawTile( SunLight :: Base :: TextureHandle pImage,
                            int32_t nSourceX,
                            int32_t nSourceY,
                            int32_t nSourceW,
@@ -210,7 +213,7 @@ namespace SunLight {
             void RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener );
 
             // Window behavior
-            void SetExitKey( KeyboardKey key );
+            void SetExitKey( SunLight :: Input :: KeyboardKey key );
             void SetWindowResizeable( bool bResizeable );
             void SetWindowBackgroundColor( uint32_t nWindowBkColor );
             void SetClearBackground( bool bStatus );

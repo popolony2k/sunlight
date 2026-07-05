@@ -23,6 +23,7 @@
 
 #include <queue>
 #include <array>
+#include <memory>
 #include "collision/icollisionmanager.h"
 #include "tilemap/itilemap.h"
 
@@ -39,12 +40,12 @@ namespace SunLight {
         class CollisionManager : public SunLight :: Base :: Object, public ICollisionManager  {
 
             typedef std :: deque<Collider*>  ColliderList;
-            typedef std :: array<ColliderList*, MAX_COLLIDER_LAYERS> ColliderLayerList;
+            typedef std :: array<std :: unique_ptr<ColliderList>, MAX_COLLIDER_LAYERS> ColliderLayerList;
             typedef std :: deque<ICollisionListener*> CollisionListenerList;
             typedef std :: pair<ColliderList*, ColliderList*> ColliderPair;
-            typedef std :: deque<ColliderPair*> ColliderToColliderRuleList;
+            typedef std :: deque<std :: unique_ptr<ColliderPair>> ColliderToColliderRuleList;
             typedef std :: pair<ColliderList*, int> ColliderTileLayerPair;
-            typedef std :: deque<ColliderTileLayerPair*> ColliderToTileLayerRuleList;
+            typedef std :: deque<std :: unique_ptr<ColliderTileLayerPair>> ColliderToTileLayerRuleList;
 
             SunLight :: TileMap :: ITileMap   *m_pParent;
             ColliderLayerList                 m_ColliderLayerList;

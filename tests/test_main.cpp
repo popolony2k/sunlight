@@ -1,6 +1,6 @@
 /*
  * Copyright (c) since 2021 by PopolonY2k and Leidson Campos A. Ferreira
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -18,41 +18,5 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef __SOUNDMANAGER_H__
-#define __SOUNDMANAGER_H__
-
-#include <string>
-#include <map>
-#include <memory>
-#include "isound.h"
-
-
-namespace SunLight {
-    namespace Sound  {
-
-        /**
-         * @brief Sound manager class implementation.
-         *
-         */
-        class SoundManager  {
-
-            std :: map<int, std :: unique_ptr<ISound>>   m_SoundMap;
-
-            public:
-
-            SoundManager( void );
-            virtual ~SoundManager( void );
-
-            bool Load( int nSoundId, std :: string strFileName );
-            bool Unload( int nSoundId );
-
-            bool Play( int nSoundId );
-            bool Stop( int nSoudId );
-            bool Pause( int nSoundId );
-            bool Resume( int nSoundId );
-            bool IsPlaying( int nSoundId );
-        };
-    }
-}
-
-#endif /* __SOUNDMANAGER_H__ */
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest/doctest.h>

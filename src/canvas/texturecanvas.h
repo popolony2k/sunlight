@@ -21,9 +21,9 @@
 #ifndef __TEXTURECANVAS_H__
 #define __TEXTURECANVAS_H__
 
-#include <raylib.h>
 #include <string>
 #include "canvas/canvas.h"
+#include "base/primitives.h"
 
 
 namespace SunLight {
@@ -47,7 +47,9 @@ namespace SunLight {
          */
         class TextureCanvas : public SunLight :: Canvas :: Canvas  {
 
-            Texture2D                   m_Texture;
+            SunLight :: Base :: TextureHandle m_hTexture;
+            int                         m_nTextureWidth;
+            int                         m_nTextureHeight;
             unsigned int                m_nTileSize;
             unsigned int                m_nActiveTileIndex;
             unsigned int                m_nCenterTileIndex;

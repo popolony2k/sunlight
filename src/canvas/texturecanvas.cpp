@@ -20,24 +20,8 @@
 
 #include "texturecanvas.h"
 #include <cstring>
-
-#ifndef DEFAULT_ENGINE
-    #error "Unexpected value of DEFAULT_ENGINE"
-#endif
-
-/*
- * In the future a better abstract way to handle raylib will be
- * implemented and the method below will be changed.
- */
-#if DEFAULT_ENGINE == 1    /* USES RAYLIB */
-    #include "engines/raylib/raylibengine.h"
-    
-    #define __DEFAULT_ENGINE         RaylibEngine
-#else
-    #error "Unknown value of DEFAULT_ENGINE"
-#endif
-
-using namespace SunLight :: Engines :: Raylib;
+#include "engines/enginefactory.h"
+#include "base/primitives.h"
 
 
 namespace SunLight {
@@ -50,7 +34,9 @@ namespace SunLight {
             m_nTileSize        = 0;
             m_nCenterTileIndex = 0;
             m_AnimationMode    = TEXTURE_ANIMATION_MODE_MANUAL;
-            std :: memset( &m_Texture, 0, sizeof( m_Texture ) );
+            m_hTexture         = nullptr;
+            m_nTextureWidth    = 0;
+            m_nTextureHeight   = 0;
             SetColor( WHITE_COLOR );
             Reset();
             m_bIsResetting = false;
@@ -72,13 +58,15 @@ namespace SunLight {
 
             SunLight :: TileMap :: stDimension2D& dimension = GetDimension2D();
 
-            m_Texture = ::LoadTexture( strTextureFile.c_str() );
+            m_hTexture = SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strTextureFile.c_str(),
+                                                                                          m_nTextureWidth,
+                                                                                          m_nTextureHeight );
 
-            if( m_Texture.id > 0 )  {
+            if( m_hTexture != nullptr )  {
                 if( ( dimension.size.nHeight == 0 ) &&
                     ( dimension.size.nHeight == 0 )  ) {
-                    dimension.size.nHeight = m_Texture.height;
-                    dimension.size.nWidth  = m_Texture.width;
+                    dimension.size.nHeight = m_nTextureHeight;
+                    dimension.size.nWidth  = m_nTextureWidth;
                 }
 
                 return true;
@@ -92,9 +80,9 @@ namespace SunLight {
          */
         bool TextureCanvas :: Unload( void )  {
 
-            if( m_Texture.id > 0 )  {
-                ::UnloadTexture( m_Texture );
-                m_Texture.id = 0;
+            if( m_hTexture != nullptr )  {
+                SunLight :: Engines :: EngineFactory :: GetEngine().UnloadTexture( m_hTexture );
+                m_hTexture = nullptr;
                 return true;
             }
 
@@ -138,7 +126,7 @@ namespace SunLight {
          */
         void TextureCanvas :: SetActiveTileIndex( unsigned int nActiveTileIndex )  {
 
-            if( m_Texture.width >= ( int ) ( m_nTileSize * nActiveTileIndex ) )
+            if( m_nTextureWidth >= ( int ) ( m_nTileSize * nActiveTileIndex ) )
                 m_nActiveTileIndex = nActiveTileIndex;
         }
 
@@ -159,7 +147,7 @@ namespace SunLight {
          */
         void TextureCanvas :: SetCenterTileIndex( unsigned int nTileIndex )  {
 
-            if( m_Texture.width >= ( int ) ( m_nTileSize * nTileIndex ) )
+            if( m_nTextureWidth >= ( int ) ( m_nTileSize * nTileIndex ) )
                 m_nCenterTileIndex = nTileIndex;
         }
 
@@ -227,13 +215,13 @@ namespace SunLight {
 
                     switch( m_AnimationMode )  {
                         case TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR :
-                            m_nCurrentTile = ( m_nCurrentTile >= m_Texture.width ? 0 :
+                            m_nCurrentTile = ( m_nCurrentTile >= m_nTextureWidth ? 0 :
                                             m_nCurrentTile + m_nTileSize );
                             break;
                         case TEXTURE_ANIMATION_MODE_AUTOMATIC_RIGHT_LEFT :
                             if( m_nTileSize != 0 )  {
                                 if( m_bAnimationRight )  {
-                                    if( m_nActiveTileIndex < ( m_Texture.width / m_nTileSize ) )  {
+                                    if( m_nActiveTileIndex < ( m_nTextureWidth / m_nTileSize ) )  {
                                         m_nCurrentTile = ( m_nTileSize * m_nActiveTileIndex );
                                         m_nActiveTileIndex++;
                                     }
@@ -262,7 +250,7 @@ namespace SunLight {
                         break;
                         case TEXTURE_ANIMATION_MODE_ANIMATE_RIGHT:
                             if( m_nTileSize != 0 )  {
-                                if( m_nActiveTileIndex < ( m_Texture.width / m_nTileSize ) )  {
+                                if( m_nActiveTileIndex < ( m_nTextureWidth / m_nTileSize ) )  {
                                     m_nCurrentTile = ( m_nTileSize * m_nActiveTileIndex );
                                     m_nActiveTileIndex++;
                                 }
@@ -296,24 +284,22 @@ namespace SunLight {
                             break;
                     }
 
-                    __DEFAULT_ENGINE :: DrawTextureTiled( m_Texture,
-                                                          Rectangle { ( float ) m_nCurrentTile + nClipX,
+                    SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled(
+                                                          m_hTexture,
+                                                          SunLight :: Base :: stRectangle { ( float ) m_nCurrentTile + nClipX,
                                                                       ( float ) nClipY,
                                                                       ( float ) ( m_nTileSize > 0 ?
                                                                                   m_nTileSize :
-                                                                                  m_Texture.width ),
-                                                                      ( float ) m_Texture.height },
-                                                          Rectangle { ( float ) clip.pos.x,
+                                                                                  m_nTextureWidth ),
+                                                                      ( float ) m_nTextureHeight },
+                                                          SunLight :: Base :: stRectangle { ( float ) clip.pos.x,
                                                                       ( float ) clip.pos.y,
                                                                       ( float ) clip.size.nWidth,
                                                                       ( float ) clip.size.nHeight },
-                                                          Vector2   { 0.0, 0.0 },
+                                                          SunLight :: Base :: stVector2D { 0.0, 0.0 },
                                                           0.0, // TODO: Rotation
                                                           fZoomFactor,
-                                                          Color      { color.nRed,
-                                                                       color.nGreen,
-                                                                       color.nBlue,
-                                                                       color.nAlpha } );
+                                                          color );
                 }
             }
 

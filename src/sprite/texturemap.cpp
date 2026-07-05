@@ -38,9 +38,6 @@ namespace SunLight {
          */
         TextureMap :: ~TextureMap( void )  {
 
-            for( stTextureData *pTexture : m_TextureList )  {
-                delete pTexture;
-            }
         }
 
         /**
@@ -52,15 +49,15 @@ namespace SunLight {
         void TextureMap :: AddTexture( SunLight :: Canvas :: TextureCanvas *pTexture,
                                        int64_t nDelayMilli )  {
 
-            stTextureData              *pData = new stTextureData;
-            steady_clock :: time_point now    = steady_clock :: now();
+            std :: unique_ptr<stTextureData>  pData = std :: make_unique<stTextureData>();
+            steady_clock :: time_point        now   = steady_clock :: now();
 
             pData -> pTexture    = pTexture;
             pData -> nDelayMilli = nDelayMilli;
             pData -> nNextTime   = duration_cast<milliseconds>( now.time_since_epoch() ).count();
             pData -> nNextTime+=nDelayMilli;
 
-            m_TextureList.push_back( pData );
+            m_TextureList.push_back( std :: move( pData ) );
 
             if( m_TextureList.size() == 1 )
                 First();

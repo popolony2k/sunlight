@@ -5,7 +5,7 @@
 
 `sunlight` is an open source library written in C++ to make 2D games. Overall, its present main features include a manager that can deal with map, collision, sprites and graphic primitives.
 
-[raylib](https://www.raylib.com/) was used for graphic backend, but the project aims to be extended to SDL and many others.
+[raylib](https://www.raylib.com/) was used for graphic backend, but the project aims to be extended to SDL and many others. Rendering is exposed through an `IEngine` interface (`src/engines/`) so a new backend only needs its own implementation plus one line in the engine factory, without touching the rest of the codebase.
 </div>
 
 ## Table of Contents :pushpin:

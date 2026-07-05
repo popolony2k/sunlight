@@ -53,8 +53,9 @@ namespace SunLight  {
 
             SetPreferredZoom( __DEFAULT_PREFERRED_ZOOM_POS );
 
-            m_pProps -> bEnabledUserZoom = __DEFAULT_USER_ZOOM_STATUS;
-            m_pProps -> fZoomFactor      = m_vZoomFactorList[m_pProps -> nPreferredZoomPos];
+            m_pProps -> bEnabledUserZoom  = __DEFAULT_USER_ZOOM_STATUS;
+            m_pProps -> nCurrentZoomPos   = m_pProps -> nPreferredZoomPos;
+            m_pProps -> fZoomFactor       = m_vZoomFactorList[m_pProps -> nPreferredZoomPos];
         }
 
         /**

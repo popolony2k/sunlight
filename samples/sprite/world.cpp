@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include <cstdio>
 
 #define __DISPLAY_W                 1260
 #define __DISPLAY_H                 920
@@ -104,7 +105,7 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 
 bool World :: LoadSprites( void ) {
 
-    if( ( m_pRenderer != NULL ) && m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IDLE ) ) {
+    if( m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IDLE ) ) {
         SunLight :: TileMap :: stDimension2D    dim;
 
         dim.pos.x = 100;
@@ -115,7 +116,7 @@ bool World :: LoadSprites( void ) {
         m_pCanvasSunny -> SetTileSize( 32 );
         m_pCanvasSunny -> SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
         m_pCanvasSunny -> SetDimension2D( dim );
-        m_pSpriteSunny -> AddTextureSequence( 0, m_pCanvasSunny, __SUNNY_SPRITE_IDLE_DELAY );
+        m_pSpriteSunny -> AddTextureSequence( 0, m_pCanvasSunny.get(), __SUNNY_SPRITE_IDLE_DELAY );
         m_pSpriteSunny -> SetActiveTextureSequence( 0 );
         m_pSpriteSunny -> SetVisible( true );
 
@@ -134,22 +135,13 @@ bool World :: LoadSprites( void ) {
 World :: World( std :: string strBasePath )  {
 
     m_strBasePath = strBasePath;
-    m_pRenderer = new SunLight :: Renderer :: TileMapRenderer( __DISPLAY_W,
-                                                               __DISPLAY_H,
-                                                               __GAME_NAME,
-                                                               __FRAMES_PER_SECOND,
-                                                               false );
-    m_pSpriteSunny = new SunLight :: Sprite :: Sprite();
-    m_pCanvasSunny = new SunLight :: Canvas :: TextureCanvas();
-}
-
-/**
- * @brief Deconstructor. Finalizes all class data.
- */
-World :: ~World( void )  {
-    delete m_pRenderer;
-    delete m_pSpriteSunny;
-    delete m_pCanvasSunny;
+    m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
+                                                                               __DISPLAY_H,
+                                                                               __GAME_NAME,
+                                                                               __FRAMES_PER_SECOND,
+                                                                               false );
+    m_pSpriteSunny = std :: make_unique<SunLight :: Sprite :: Sprite>();
+    m_pCanvasSunny = std :: make_unique<SunLight :: Canvas :: TextureCanvas>();
 }
 
 /**
@@ -195,12 +187,12 @@ bool World :: Run( void )  {
     strMapFile = m_strBasePath + __TMX_MAP_FILE;
 
     if( !m_pRenderer -> LoadMap( strMapFile.c_str(), __DEFAULT_MAP_ALIGNMENT ) )  {
-        perror("Error loading map\n" );
+        fprintf( stderr, "Error loading map\n" );
         return false;
     } 
 
     if( !LoadSprites() )  {
-        perror("Error loading sprites\n" );
+        fprintf( stderr, "Error loading sprites\n" );
         return false;
     }
 

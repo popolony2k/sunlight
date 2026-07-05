@@ -22,6 +22,7 @@
 #define __SPRITE_H__
 
 #include <map>
+#include <memory>
 #include "collision/collider.h"
 #include "sprite/texturemap.h"
 
@@ -38,7 +39,7 @@ namespace SunLight {
              * @brief Texture sequence list definition.
              * 
              */
-            typedef std :: map<int, TextureMap*>  TextureSequenceList;
+            typedef std :: map<int, std :: unique_ptr<TextureMap>>  TextureSequenceList;
 
             TextureSequenceList             m_Sequences;
             TextureSequenceList :: iterator m_itActiveSequence;

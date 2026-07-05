@@ -1,6 +1,6 @@
 /*
  * Copyright (c) since 2021 by PopolonY2k and Leidson Campos A. Ferreira
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -18,41 +18,37 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef __SOUNDMANAGER_H__
-#define __SOUNDMANAGER_H__
-
-#include <string>
-#include <map>
-#include <memory>
-#include "isound.h"
+#ifndef __PRIMITIVES_H__
+#define __PRIMITIVES_H__
 
 
-namespace SunLight {
-    namespace Sound  {
+namespace SunLight  {
+    namespace Base  {
+        /**
+         * Rectangle definition structure (backend-agnostic, sub-pixel precision).
+         */
+        struct stRectangle  {
+            float          x;
+            float          y;
+            float          width;
+            float          height;
+        };
 
         /**
-         * @brief Sound manager class implementation.
-         *
+         * 2D vector definition structure (backend-agnostic, sub-pixel precision).
          */
-        class SoundManager  {
-
-            std :: map<int, std :: unique_ptr<ISound>>   m_SoundMap;
-
-            public:
-
-            SoundManager( void );
-            virtual ~SoundManager( void );
-
-            bool Load( int nSoundId, std :: string strFileName );
-            bool Unload( int nSoundId );
-
-            bool Play( int nSoundId );
-            bool Stop( int nSoudId );
-            bool Pause( int nSoundId );
-            bool Resume( int nSoundId );
-            bool IsPlaying( int nSoundId );
+        struct stVector2D  {
+            float          x;
+            float          y;
         };
+
+        /**
+         * Opaque handle to a backend-owned texture resource.
+         * Only the active @see IEngine implementation knows its real type;
+         * every other layer just forwards this pointer around.
+         */
+        typedef void* TextureHandle;
     }
 }
 
-#endif /* __SOUNDMANAGER_H__ */
+#endif /* __PRIMITIVES_H__ */

@@ -20,23 +20,23 @@
 
 #include "world.h"
 #include <string>
+#include <cstdio>
 
 
 int main( int argc, char **argv ) {
     std :: string   strBasePath;
-    World           *pWorld;
     bool            bRet;
 
     // Check command line arguments
     if( argc < 2 )  {
-        perror( "Invalid command line arguments" );
+        fprintf( stderr, "Invalid command line arguments\n" );
         return EXIT_FAILURE;
     }
 
-    strBasePath = argv[1];  
-    pWorld = new World( strBasePath );
-    bRet = pWorld -> Run();
-    delete pWorld;
+    strBasePath = argv[1];
+
+    World world( strBasePath );
+    bRet = world.Run();
 
     if( !bRet ){
         return EXIT_FAILURE;

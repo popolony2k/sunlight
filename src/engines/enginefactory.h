@@ -1,6 +1,6 @@
 /*
  * Copyright (c) since 2021 by PopolonY2k and Leidson Campos A. Ferreira
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -18,36 +18,28 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
- #ifndef __WORLD_H__
- #define __WORLD_H__
+#ifndef __ENGINEFACTORY_H__
+#define __ENGINEFACTORY_H__
 
- #include "renderer/tilemaprenderer.h"
- #include <memory>
- #include <string>
+#include "engines/iengine.h"
 
 
- /**
- * @brief World class implementation.
- */
-class World {
+namespace SunLight {
+    namespace Engines  {
 
-    std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
-    std :: string m_strBasePath;
+        /**
+         * @brief Rendering engine access point used to retrieve the
+         * @see IEngine implementation selected at build time (DEFAULT_ENGINE).
+         * This is the only place in the codebase that needs to know which
+         * concrete backend is compiled in.
+         */
+        class EngineFactory  {
 
-    void MoveCameraUp( SunLight :: Input :: ControllerType type, int nId );    
-    void MoveCameraDown( SunLight :: Input :: ControllerType type, int nId );
-    void MoveCameraLeft( SunLight :: Input :: ControllerType type, int nId );
-    void MoveCameraRight( SunLight :: Input :: ControllerType type, int nId );
-    void ZoomIn( SunLight :: Input :: ControllerType type, int nId );
-    void ZoomOut( SunLight :: Input :: ControllerType type, int nId );
-    void ResetZoom( SunLight :: Input :: ControllerType type, int nId );
+            public:
 
-    public :
+            static IEngine& GetEngine( void );
+        };
+    }
+}
 
-    World( std :: string strBasePath );
-
-    bool Run( void );
-};
-
- #endif // __WORLD_H__
-
+#endif  /* __ENGINEFACTORY_H__ */
