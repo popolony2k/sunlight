@@ -18,7 +18,7 @@
 
 cmake_minimum_required (VERSION 3.24)
 
-project (sunlight)
+project (sunlight VERSION 0.1.0)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -40,8 +40,9 @@ if(NOT USE_LOCAL_LIBXML2)
         add_definitions(-DHAVE_SYS_RANDOM_H=1)
     endif()
 
-    set(LIBXML2_WITH_PYTHON OFF) # Turn off Python bind build dependency
-    set(LIBXML2_WITH_TESTS OFF)  # Turn off tests build dependency
+    set(LIBXML2_WITH_PYTHON OFF)   # Turn off Python bind build dependency
+    set(LIBXML2_WITH_TESTS OFF)    # Turn off tests build dependency
+    set(LIBXML2_WITH_PROGRAMS OFF) # Turn off xmllint/xmlcatalog CLI tools - sunlight only needs the library
 
     FetchContent_Declare(libxml2 OVERRIDE_FIND_PACKAGE
                          GIT_REPOSITORY https://github.com/GNOME/libxml2.git
@@ -159,5 +160,30 @@ target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::Lib
 
 target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> $<INSTALL_INTERFACE:include>)
 
+# raylib/tmx are fetched from source, not find_package-imported. install(EXPORT)
+# would require the whole transitive dependency graph (raylib -> glfw -> ...)
+# to also be export-set-clean, which vendored FetchContent targets aren't
+# designed for. Instead: install the binaries directly (no EXPORT, so no graph
+# validation - this mirrors how samples/ already vendors these runtime deps
+# next to each sample executable) and hand-write the imported target in
+# sunlightConfig.cmake.in rather than generating one via install(EXPORT).
+install(TARGETS sunlight raylib tmx
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        FILES_MATCHING PATTERN "*.h")
+
+configure_package_config_file(${CMAKE_SOURCE_DIR}/cmake/sunlightConfig.cmake.in
+                               ${CMAKE_BINARY_DIR}/sunlightConfig.cmake
+                               INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sunlight
+                               PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR CMAKE_INSTALL_BINDIR)
+
+write_basic_package_version_file(${CMAKE_BINARY_DIR}/sunlightConfigVersion.cmake
+                                  VERSION ${PROJECT_VERSION}
+                                  COMPATIBILITY SameMajorVersion)
+
 install(FILES "${CMAKE_BINARY_DIR}/sunlightConfig.cmake" "${CMAKE_BINARY_DIR}/sunlightConfigVersion.cmake"
-        DESTINATION "lib/cmake/sunlight")
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sunlight)

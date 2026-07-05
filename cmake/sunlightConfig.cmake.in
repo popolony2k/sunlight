@@ -1,0 +1,37 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(ZLIB)
+find_dependency(LibXml2)
+if(UNIX)
+    find_dependency(Threads)
+endif()
+
+# raylib and tmx are vendored (fetched from source as part of building
+# sunlight, see src/CMakeLists.txt) rather than exported as find_package-able
+# dependencies. Their compiled shared libraries are installed alongside
+# sunlight's own (see the install(TARGETS sunlight raylib tmx ...) call), the
+# same way samples/*/CMakeLists.txt copies them next to each sample
+# executable, so they're available at runtime without a consumer needing to
+# find_package() them separately.
+
+set_and_check(SUNLIGHT_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+
+if(NOT TARGET sunlight::sunlight)
+    add_library(sunlight::sunlight SHARED IMPORTED)
+
+    set_target_properties(sunlight::sunlight PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${SUNLIGHT_INCLUDE_DIR}")
+
+    if(WIN32)
+        set_target_properties(sunlight::sunlight PROPERTIES
+            IMPORTED_IMPLIB "@PACKAGE_CMAKE_INSTALL_LIBDIR@/sunlight.lib"
+            IMPORTED_LOCATION "@PACKAGE_CMAKE_INSTALL_BINDIR@/sunlight.dll")
+    else()
+        set_target_properties(sunlight::sunlight PROPERTIES
+            IMPORTED_LOCATION "@PACKAGE_CMAKE_INSTALL_LIBDIR@/${CMAKE_SHARED_LIBRARY_PREFIX}sunlight${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    endif()
+endif()
+
+check_required_components(sunlight)
