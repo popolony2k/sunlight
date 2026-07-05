@@ -1,6 +1,6 @@
 /*
  * Copyright (c) since 2021 by PopolonY2k and Leidson Campos A. Ferreira
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -22,6 +22,7 @@
 #define __RAYLIBENGINE_H__
 
 #include "raylib.h"
+#include "engines/iengine.h"
 
 namespace SunLight  {
     namespace Engines  {
@@ -29,24 +30,34 @@ namespace SunLight  {
 
             /**
              * @brief Raylib engine provider implementation.
-             * All specific raylib calls are implemented here. 
+             * All specific raylib calls are implemented here.
              */
-            class RaylibEngine  {
+            class RaylibEngine : public SunLight :: Engines :: IEngine  {
 
                 public:
 
-                static void DrawTextureTiled( Texture2D texture,
-                                              Rectangle source, 
-                                              Rectangle dest, 
-                                              Vector2 origin,
-                                              float rotation, 
-                                              float scale, 
-                                              Color tint);
-                static void SetPixel( int nPosX, int nPosY, Color color );
+                SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName,
+                                                                int& nWidth,
+                                                                int& nHeight ) override;
+                void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) override;
+
+                void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color ) override;
+
+                void DrawTexture( SunLight :: Base :: TextureHandle hTexture,
+                                   int nPosX,
+                                   int nPosY,
+                                   SunLight :: Base :: stColor tint ) override;
+
+                void DrawTextureTiled( SunLight :: Base :: TextureHandle hTexture,
+                                       SunLight :: Base :: stRectangle source,
+                                       SunLight :: Base :: stRectangle dest,
+                                       SunLight :: Base :: stVector2D origin,
+                                       float rotation,
+                                       float scale,
+                                       SunLight :: Base :: stColor tint ) override;
             };
         }
     }
 }
 #endif  /* __RAYLIBENGINE_H__ */
-
 

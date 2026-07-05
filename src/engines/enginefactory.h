@@ -1,6 +1,6 @@
 /*
  * Copyright (c) since 2021 by PopolonY2k and Leidson Campos A. Ferreira
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -18,30 +18,28 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "world.h"
-#include <string>
-#include <cstdio>
+#ifndef __ENGINEFACTORY_H__
+#define __ENGINEFACTORY_H__
+
+#include "engines/iengine.h"
 
 
-int main( int argc, char **argv ) {
-    std :: string   strBasePath;
-    World           *pWorld;
-    bool            bRet;
+namespace SunLight {
+    namespace Engines  {
 
-    // Check command line arguments
-    if( argc < 2 )  {
-        fprintf( stderr, "Invalid command line arguments\n" );
-        return EXIT_FAILURE;
+        /**
+         * @brief Rendering engine access point used to retrieve the
+         * @see IEngine implementation selected at build time (DEFAULT_ENGINE).
+         * This is the only place in the codebase that needs to know which
+         * concrete backend is compiled in.
+         */
+        class EngineFactory  {
+
+            public:
+
+            static IEngine& GetEngine( void );
+        };
     }
-
-    strBasePath = argv[1];  
-    pWorld = new World( strBasePath );
-    bRet = pWorld -> Run();
-    delete pWorld;
-
-    if( !bRet ){
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
 }
+
+#endif  /* __ENGINEFACTORY_H__ */

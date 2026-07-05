@@ -1,6 +1,6 @@
 /*
  * Copyright (c) since 2021 by PopolonY2k and Leidson Campos A. Ferreira
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -18,30 +18,37 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "world.h"
-#include <string>
-#include <cstdio>
+#ifndef __PRIMITIVES_H__
+#define __PRIMITIVES_H__
 
 
-int main( int argc, char **argv ) {
-    std :: string   strBasePath;
-    World           *pWorld;
-    bool            bRet;
+namespace SunLight  {
+    namespace Base  {
+        /**
+         * Rectangle definition structure (backend-agnostic, sub-pixel precision).
+         */
+        struct stRectangle  {
+            float          x;
+            float          y;
+            float          width;
+            float          height;
+        };
 
-    // Check command line arguments
-    if( argc < 2 )  {
-        fprintf( stderr, "Invalid command line arguments\n" );
-        return EXIT_FAILURE;
+        /**
+         * 2D vector definition structure (backend-agnostic, sub-pixel precision).
+         */
+        struct stVector2D  {
+            float          x;
+            float          y;
+        };
+
+        /**
+         * Opaque handle to a backend-owned texture resource.
+         * Only the active @see IEngine implementation knows its real type;
+         * every other layer just forwards this pointer around.
+         */
+        typedef void* TextureHandle;
     }
-
-    strBasePath = argv[1];  
-    pWorld = new World( strBasePath );
-    bRet = pWorld -> Run();
-    delete pWorld;
-
-    if( !bRet ){
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
 }
+
+#endif /* __PRIMITIVES_H__ */

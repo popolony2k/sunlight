@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include <cstdio>
 
 #define __DISPLAY_W                 1260
 #define __DISPLAY_H                 920
@@ -164,7 +165,7 @@ bool World :: Run( void )  {
     strMapFile = m_strBasePath + __TMX_MAP_FILE;
 
     if( !m_pRenderer -> LoadMap( strMapFile.c_str(), __DEFAULT_MAP_ALIGNMENT ) )  {
-        perror("Error loading map\n" );
+        fprintf( stderr, "Error loading map\n" );
         return false;
     } 
 

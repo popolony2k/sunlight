@@ -1,6 +1,6 @@
 /*
  * Copyright (c) since 2021 by PopolonY2k and Leidson Campos A. Ferreira
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -18,30 +18,33 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "world.h"
-#include <string>
-#include <cstdio>
+#include "enginefactory.h"
+
+#ifndef DEFAULT_ENGINE
+    #error "Unexpected value of DEFAULT_ENGINE"
+#endif
+
+#if DEFAULT_ENGINE == 1    /* USES RAYLIB */
+    #include "engines/raylib/raylibengine.h"
+
+    #define __DEFAULT_ENGINE  SunLight :: Engines :: Raylib :: RaylibEngine
+#else
+    #error "Unknown value of DEFAULT_ENGINE"
+#endif
 
 
-int main( int argc, char **argv ) {
-    std :: string   strBasePath;
-    World           *pWorld;
-    bool            bRet;
+namespace SunLight {
+    namespace Engines  {
 
-    // Check command line arguments
-    if( argc < 2 )  {
-        fprintf( stderr, "Invalid command line arguments\n" );
-        return EXIT_FAILURE;
+        /**
+         * @brief Get the single @see IEngine instance for the backend
+         * selected at build time.
+         */
+        IEngine& EngineFactory :: GetEngine( void )  {
+
+            static __DEFAULT_ENGINE engine;
+
+            return engine;
+        }
     }
-
-    strBasePath = argv[1];  
-    pWorld = new World( strBasePath );
-    bRet = pWorld -> Run();
-    delete pWorld;
-
-    if( !bRet ){
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
 }

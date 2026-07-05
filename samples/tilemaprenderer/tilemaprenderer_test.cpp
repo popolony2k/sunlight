@@ -20,6 +20,7 @@
 
 #include "world.h"
 #include <string>
+#include <cstdio>
 
 
 int main( int argc, char **argv ) {
@@ -29,7 +30,7 @@ int main( int argc, char **argv ) {
 
     // Check command line arguments
     if( argc < 2 )  {
-        perror( "Invalid command line arguments" );
+        fprintf( stderr, "Invalid command line arguments\n" );
         return EXIT_FAILURE;
     }
 
