@@ -108,18 +108,11 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 World :: World( std :: string strBasePath )  {
 
     m_strBasePath = strBasePath;
-    m_pRenderer = new SunLight :: Renderer :: TileMapRenderer( __DISPLAY_W,
-                                                               __DISPLAY_H,
-                                                               __GAME_NAME,
-                                                               __FRAMES_PER_SECOND,
-                                                               false );
-}
-
-/**
- * @brief Deconstructor. Finalizes all class data.
- */
-World :: ~World( void )  {
-    delete m_pRenderer;
+    m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
+                                                                               __DISPLAY_H,
+                                                                               __GAME_NAME,
+                                                                               __FRAMES_PER_SECOND,
+                                                                               false );
 }
 
 /**

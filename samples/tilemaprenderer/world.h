@@ -22,6 +22,7 @@
  #define __WORLD_H__
 
  #include "renderer/tilemaprenderer.h"
+ #include <memory>
  #include <string>
 
 
@@ -30,7 +31,7 @@
  */
 class World {
 
-    SunLight :: Renderer :: TileMapRenderer  *m_pRenderer = NULL;
+    std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
     std :: string m_strBasePath;
 
     void MoveCameraUp( SunLight :: Input :: ControllerType type, int nId );    
@@ -44,7 +45,6 @@ class World {
     public :
 
     World( std :: string strBasePath );
-    ~World( void );
 
     bool Run( void );
 };

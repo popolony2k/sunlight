@@ -25,7 +25,6 @@
 
 int main( int argc, char **argv ) {
     std :: string   strBasePath;
-    World           *pWorld;
     bool            bRet;
 
     // Check command line arguments
@@ -34,10 +33,10 @@ int main( int argc, char **argv ) {
         return EXIT_FAILURE;
     }
 
-    strBasePath = argv[1];  
-    pWorld = new World( strBasePath );
-    bRet = pWorld -> Run();
-    delete pWorld;
+    strBasePath = argv[1];
+
+    World world( strBasePath );
+    bRet = world.Run();
 
     if( !bRet ){
         return EXIT_FAILURE;
