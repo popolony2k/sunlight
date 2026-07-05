@@ -45,16 +45,16 @@ if(NOT USE_LOCAL_LIBXML2)
 
     FetchContent_Declare(libxml2 OVERRIDE_FIND_PACKAGE
                          GIT_REPOSITORY https://github.com/GNOME/libxml2.git
-                         GIT_TAG master)
+                         GIT_TAG v2.15.3)
     FetchContent_MakeAvailable(libxml2)
 endif()
 
 ####################################################################
 # TMX
 ####################################################################
-FetchContent_Declare(tmx 
+FetchContent_Declare(tmx
                      GIT_REPOSITORY https://github.com/baylej/tmx.git
-                     GIT_TAG master)
+                     GIT_TAG tmx_1.10.1)
 FetchContent_MakeAvailable(tmx)
 
 ####################################################################
