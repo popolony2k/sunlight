@@ -609,12 +609,14 @@ namespace SunLight {
                             tmx_tileset_list           *pTilesetList;
 
                             if( !pAnimInfo )  {
-                                pAnimInfo = new __stTileAnimInfo;
-                                memset( pAnimInfo, 0, sizeof( __stTileAnimInfo ) );
-                                pAnimInfo -> nMillis   = nMillis;
-                                pAnimInfo -> pNextTile = pTile;
+                                std :: unique_ptr<__stTileAnimInfo>  pOwnedAnimInfo = std :: make_unique<__stTileAnimInfo>();
+
+                                memset( pOwnedAnimInfo.get(), 0, sizeof( __stTileAnimInfo ) );
+                                pOwnedAnimInfo -> nMillis   = nMillis;
+                                pOwnedAnimInfo -> pNextTile = pTile;
+                                pAnimInfo = pOwnedAnimInfo.get();
                                 pTile -> user_data.pointer = pAnimInfo;
-                                m_AnimInfoList.push_back( pAnimInfo );
+                                m_AnimInfoList.push_back( std :: move( pOwnedAnimInfo ) );
                             }
 
                             if( pAnimInfo -> nMillis <= nMillis )  {
@@ -1083,19 +1085,8 @@ namespace SunLight {
 
             UnloadMap();
             m_TileMapListenerList.clear();
-
-            for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
-                delete  ( * itItem );
-            }
-
-            for( InputEventHandlerList :: iterator itItem = m_GPadInputEventHandlerList.begin(); itItem != m_GPadInputEventHandlerList.end(); itItem++ )  {
-                delete  ( * itItem );
-            }
-
             m_KeyInputEventHandlerList.clear();
             m_GPadInputEventHandlerList.clear();
-
-            delete m_pInputHandler;
         }
 
         /**
@@ -1222,11 +1213,11 @@ namespace SunLight {
                                                         SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
             if( evt != SunLight :: Input :: KeyboardKey :: KEY_NULL )  {
-                __stInputEventData *pEvtData = new __stInputEventData;
+                std :: unique_ptr<__stInputEventData>  pEvtData = std :: make_unique<__stInputEventData>();
 
                 pEvtData -> nEvent   = evt;
                 pEvtData -> pHandler = handler;
-                m_KeyInputEventHandlerList.push_back( pEvtData );
+                m_KeyInputEventHandlerList.push_back( std :: move( pEvtData ) );
             }
             else  {
                 m_pNullInputEventHandler = handler;
@@ -1242,11 +1233,11 @@ namespace SunLight {
         void TileMapRenderer :: SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, 
                                                             SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
-            __stInputEventData *pEvtData = new __stInputEventData;
+            std :: unique_ptr<__stInputEventData>  pEvtData = std :: make_unique<__stInputEventData>();
 
             pEvtData -> nEvent   = evt;
             pEvtData -> pHandler = handler;
-            m_GPadInputEventHandlerList.push_back( pEvtData );
+            m_GPadInputEventHandlerList.push_back( std :: move( pEvtData ) );
         }
 
         /**
@@ -1579,12 +1570,7 @@ namespace SunLight {
                 /*
                 * Release all allocated animations data structure.
                 */
-                __AnimInfoList :: iterator itItem = m_AnimInfoList.begin();
-
-                while( itItem != m_AnimInfoList.end() )  {
-                    delete *itItem;
-                    itItem = m_AnimInfoList.erase( itItem );
-                }
+                m_AnimInfoList.clear();
 
                 m_pTmxMap    = NULL;
                 m_nMapWidth  = 0;

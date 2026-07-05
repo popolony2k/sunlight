@@ -51,10 +51,6 @@ namespace SunLight {
          */
         SoundManager :: ~SoundManager( void )  {
 
-            for( std :: pair<int, ISound*> item : m_SoundMap )  {
-                delete item.second;
-            }
-
             m_SoundMap.clear();
         }
 
@@ -68,15 +64,13 @@ namespace SunLight {
          */
         bool SoundManager :: Load( int nSoundId, std :: string strFileName )  {
 
-            __DEFAULT_ENGINE  *pSound = new __DEFAULT_ENGINE();
-            bool              bRet;
+            std :: unique_ptr<__DEFAULT_ENGINE>  pSound = std :: make_unique<__DEFAULT_ENGINE>();
+            bool                                 bRet;
 
             bRet = pSound -> Load( strFileName.c_str() );
 
-            if( !bRet )
-                delete pSound;
-            else
-                m_SoundMap.insert( std :: make_pair( nSoundId, pSound ) );
+            if( bRet )
+                m_SoundMap.insert( std :: make_pair( nSoundId, std :: move( pSound ) ) );
 
             return bRet;
         }
@@ -90,14 +84,13 @@ namespace SunLight {
          */
         bool SoundManager :: Unload( int nSoundId )  {
 
-            std :: map<int, ISound*> :: iterator itItem = m_SoundMap.find( nSoundId );
+            std :: map<int, std :: unique_ptr<ISound>> :: iterator itItem = m_SoundMap.find( nSoundId );
             bool   bRet = false;
 
             if( itItem != m_SoundMap.end() )  {
                 bRet = itItem -> second -> Unload();
 
                 if( bRet )  {
-                    delete itItem -> second;
                     m_SoundMap.erase( nSoundId );
                 }
             }
@@ -114,7 +107,7 @@ namespace SunLight {
          */
         bool SoundManager :: Play( int nSoundId )  {
 
-            std :: map<int, ISound*> :: iterator itItem = m_SoundMap.find( nSoundId );
+            std :: map<int, std :: unique_ptr<ISound>> :: iterator itItem = m_SoundMap.find( nSoundId );
             bool    bRet = false;
 
             if( itItem != m_SoundMap.end() )
@@ -132,7 +125,7 @@ namespace SunLight {
          */
         bool SoundManager :: Stop( int nSoundId )  {
 
-            std :: map<int, ISound*> :: iterator itItem = m_SoundMap.find( nSoundId );
+            std :: map<int, std :: unique_ptr<ISound>> :: iterator itItem = m_SoundMap.find( nSoundId );
             bool    bRet = false;
 
             if( itItem != m_SoundMap.end() )
@@ -150,7 +143,7 @@ namespace SunLight {
          */
         bool SoundManager :: Pause( int nSoundId )  {
 
-            std :: map<int, ISound*> :: iterator itItem = m_SoundMap.find( nSoundId );
+            std :: map<int, std :: unique_ptr<ISound>> :: iterator itItem = m_SoundMap.find( nSoundId );
             bool    bRet = false;
 
             if( itItem != m_SoundMap.end() )
@@ -167,7 +160,7 @@ namespace SunLight {
          */
         bool SoundManager :: Resume( int nSoundId )  {
 
-            std :: map<int, ISound*> :: iterator itItem = m_SoundMap.find( nSoundId );
+            std :: map<int, std :: unique_ptr<ISound>> :: iterator itItem = m_SoundMap.find( nSoundId );
             bool    bRet = false;
 
             if( itItem != m_SoundMap.end() )
@@ -185,7 +178,7 @@ namespace SunLight {
          */
         bool SoundManager :: IsPlaying( int nSoundId )  {
 
-            std :: map<int, ISound*> :: iterator itItem = m_SoundMap.find( nSoundId );
+            std :: map<int, std :: unique_ptr<ISound>> :: iterator itItem = m_SoundMap.find( nSoundId );
             bool    bRet = false;
 
             if( itItem != m_SoundMap.end() )

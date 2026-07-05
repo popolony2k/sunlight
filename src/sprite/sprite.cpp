@@ -74,10 +74,10 @@ namespace SunLight {
             pTexture -> SetDimension2DPtr( &spritePos );
 
             if( itItem == m_Sequences.end() )  {
-                TextureMap   *pTextureMap = new TextureMap();
+                std :: unique_ptr<TextureMap>   pTextureMap = std :: make_unique<TextureMap>();
 
                 pTextureMap -> AddTexture( pTexture, nDelayMilli );
-                m_Sequences.insert( std :: make_pair( nSequence, pTextureMap ) );
+                m_Sequences.insert( std :: make_pair( nSequence, std :: move( pTextureMap ) ) );
             }
             else  {
                 itItem -> second -> AddTexture( pTexture, nDelayMilli );
@@ -187,7 +187,7 @@ namespace SunLight {
         void Sprite :: Unload( void )  {
 
             if( m_Sequences.size() > 0 )  {
-                for( std :: pair<int, TextureMap*> pair : m_Sequences )  {
+                for( auto& pair : m_Sequences )  {
                     if( pair.second -> First() )  {
                         do  {
                             pair.second -> GetTextureData().pTexture -> Unload();

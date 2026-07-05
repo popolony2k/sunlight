@@ -21,6 +21,7 @@
 #ifndef __IINPUTHANDLERFACTORY_H__
 #define __IINPUTHANDLERFACTORY_H__
 
+#include <memory>
 #include "iinputhandler.h"
 
 
@@ -29,14 +30,14 @@ namespace SunLight {
 
         /**
          * @brief Input handler class factory used to create
-         * @see IInputHandler objects based on configured 
+         * @see IInputHandler objects based on configured
          * backend renderer engine.
          */
         class InputHandlerFactory  {
 
             public:
 
-            static IInputHandler* CreateInputHandler( void );
+            static std :: unique_ptr<IInputHandler> CreateInputHandler( void );
         };
      }
 }

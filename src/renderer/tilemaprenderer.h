@@ -26,6 +26,7 @@
 #include <vector>
 #include <array>
 #include <map>
+#include <memory>
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "input/iinputhandler.h"
@@ -73,14 +74,14 @@ namespace SunLight {
                 SunLight :: Input :: INPUT_EVENT_HANDLER  pHandler;
             };
 
-            typedef std :: deque<__stTileAnimInfo*> __AnimInfoList;
+            typedef std :: deque<std :: unique_ptr<__stTileAnimInfo>> __AnimInfoList;
             typedef std :: deque<SunLight :: TileMap :: ITileMapListener*> TileMapListenerList;
-            typedef std :: deque<__stInputEventData*> InputEventHandlerList;
+            typedef std :: deque<std :: unique_ptr<__stInputEventData>> InputEventHandlerList;
             typedef std :: deque<SunLight :: Sprite :: Sprite*> SpriteList;
             typedef std :: map<int, SpriteList*>                SpriteMap;
             typedef std :: deque<int> GamePadList;
 
-            SunLight :: Input :: IInputHandler         *m_pInputHandler;
+            std :: unique_ptr<SunLight :: Input :: IInputHandler>  m_pInputHandler;
             GamePadList                                m_GamePadList;
             SpriteMap                                  m_SpriteMap;
             TileMapListenerList                        m_TileMapListenerList;

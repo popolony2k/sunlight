@@ -21,6 +21,7 @@
 #ifndef __TEXTUREMAP_H__
 #define __TEXTUREMAP_H__
 
+#include <memory>
 #include <queue>
 #include <string>
 #include "canvas/texturecanvas.h"
@@ -57,7 +58,7 @@ namespace SunLight {
 
             private:
 
-            typedef std :: deque<stTextureData*> TextureList;
+            typedef std :: deque<std :: unique_ptr<stTextureData>> TextureList;
 
             TextureList               m_TextureList;
             TextureList :: iterator   m_itTexture;

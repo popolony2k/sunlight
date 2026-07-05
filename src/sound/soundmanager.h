@@ -23,6 +23,7 @@
 
 #include <string>
 #include <map>
+#include <memory>
 #include "isound.h"
 
 
@@ -31,11 +32,11 @@ namespace SunLight {
 
         /**
          * @brief Sound manager class implementation.
-         * 
+         *
          */
         class SoundManager  {
 
-            std :: map<int, ISound*>   m_SoundMap;
+            std :: map<int, std :: unique_ptr<ISound>>   m_SoundMap;
 
             public:
 

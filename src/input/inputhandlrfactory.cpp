@@ -40,11 +40,9 @@ namespace SunLight {
          * 
          * @return Pointer to created IInputHandler; 
          */
-        IInputHandler* InputHandlerFactory :: CreateInputHandler( void )  {
+        std :: unique_ptr<IInputHandler> InputHandlerFactory :: CreateInputHandler( void )  {
 
-            IInputHandler* pInputHandler = new __DEFAULT_INPUT_HANDLER();
-
-            return pInputHandler;
-        } 
+            return std :: make_unique<__DEFAULT_INPUT_HANDLER>();
+        }
     }
 }
