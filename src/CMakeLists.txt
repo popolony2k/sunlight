@@ -176,7 +176,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
         FILES_MATCHING PATTERN "*.h")
 
-configure_package_config_file(${CMAKE_SOURCE_DIR}/cmake/sunlightConfig.cmake.in
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/sunlightConfig.cmake.in
                                ${CMAKE_BINARY_DIR}/sunlightConfig.cmake
                                INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sunlight
                                PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR CMAKE_INSTALL_BINDIR)
