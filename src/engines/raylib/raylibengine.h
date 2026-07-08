@@ -55,6 +55,8 @@ namespace SunLight  {
                                        float rotation,
                                        float scale,
                                        SunLight :: Base :: stColor tint ) override;
+
+                std :: string GetApplicationDirectory( void ) override;
             };
         }
     }
