@@ -21,6 +21,7 @@
 #ifndef __IENGINE_H__
 #define __IENGINE_H__
 
+#include <string>
 #include "base/color.h"
 #include "base/primitives.h"
 
@@ -105,6 +106,19 @@ namespace SunLight  {
                                            float rotation,
                                            float scale,
                                            SunLight :: Base :: stColor tint ) = 0;
+
+            /**
+             * @brief Must be implemented to return the directory the running
+             * executable lives in (trailing separator included), so callers
+             * can resolve resource paths relative to the binary instead of
+             * hardcoding an absolute, machine-specific path. Does not depend
+             * on the backend's window/render context having been
+             * initialized yet.
+             *
+             * @return The application's own directory, or an empty string
+             * if it could not be determined;
+             */
+            virtual std :: string GetApplicationDirectory( void ) = 0;
         };
     }
 }

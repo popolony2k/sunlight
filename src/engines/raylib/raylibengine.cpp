@@ -288,6 +288,21 @@ namespace SunLight  {
 
                 ::DrawTexture( *pTexture, nPosX, nPosY, Color{ tint.nRed, tint.nGreen, tint.nBlue, tint.nAlpha } );
             }
+
+            /**
+             * @brief Return the directory the running executable lives in.
+             * Copies raylib's own internal static buffer into an owned
+             * std::string immediately, so the result stays valid regardless
+             * of subsequent raylib calls.
+             * @return The application's own directory, or an empty string
+             * if it could not be determined;
+             */
+            std :: string RaylibEngine :: GetApplicationDirectory( void )  {
+
+                const char *szDirectory = ::GetApplicationDirectory();
+
+                return ( szDirectory ? std :: string( szDirectory ) : std :: string() );
+            }
         }
     }
 }

@@ -52,7 +52,7 @@ The core library lives in `src/`, one namespace per module under `SunLight::<Mod
 - `canvas` / `sprite` — `Canvas`/`TextureCanvas` (single animated texture with tiling/zoom-aware blit) and `Sprite` (named sequences of `TextureCanvas`s, e.g. walk-cycle frames).
 - `input` — `IInputHandler` + `InputHandlerFactory`, backed by `input/raylib/RaylibInputHandler`.
 - `sound` — `SoundManager` behind `ISound`, backed by `sound/raylib/RayLibSound`.
-- `engines` — `IEngine` (`SetPixel`, `DrawTexture`, `DrawTextureTiled`, `LoadTexture`/`UnloadTexture`) + `EngineFactory::GetEngine()`, backed by `engines/raylib/RaylibEngine`. The seam through which the actual raylib draw calls happen.
+- `engines` — `IEngine` (`SetPixel`, `DrawTexture`, `DrawTextureTiled`, `LoadTexture`/`UnloadTexture`, `GetApplicationDirectory`) + `EngineFactory::GetEngine()`, backed by `engines/raylib/RaylibEngine`. The seam through which the actual raylib draw calls happen.
 - `scripting`, `concurrent`, `general` — script listener hooks, a `Timer` utility, `Helper::Random()`.
 
 ### Backend abstraction pattern
