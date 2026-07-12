@@ -34,7 +34,7 @@ There's 3 settings ready for using on your preferred system.
 
 * settings.linux.json Specific settings for Linux;
 * settings.macos.json Specific settings for MacOs;
-* settings.windows.json Specific settings for Windows (with vckpg configuration)
+* settings.windows.json Specific settings for Windows (with vcpkg configuration; assumes the `VCPKG_ROOT` environment variable is set to your vcpkg installation, as set up by `vcpkg integrate install`)
 
 For example, consider you're developing on Linux platform, so you could use this ready made **settings.linux.json** by copying it to the **settings.json** file of your **.vscode** folder present on root path of your `sunlight` project copy.
 
