@@ -243,6 +243,9 @@ namespace SunLight {
             void MoveCameraLeft( void );
             void MoveCameraRight( void );
 
+            // Window management
+            void SetWindowTitle( const std :: string &strTitle );
+
             // Layer management
             bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer );
             bool SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer );
