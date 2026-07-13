@@ -1339,6 +1339,20 @@ namespace SunLight {
         }
 
         /**
+         * @brief Set the application window's title, replacing whatever
+         * title it was created with.
+         *
+         * @param strTitle The new window title;
+         */
+        void TileMapRenderer :: SetWindowTitle( const std :: string &strTitle )  {
+
+            m_strTitle = strTitle;
+
+            if( m_bIsStarted )
+                :: SetWindowTitle( m_strTitle.c_str() );
+        }
+
+        /**
          * Set layer parameters.
          * @param nLayerId The layer id to set layer parameters;
          * @param layer reference to layer parameters structure to set;

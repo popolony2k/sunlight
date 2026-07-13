@@ -24,6 +24,7 @@
 #include "sprite/sprite.h"
 #include "input/iinputhandler.h"
 #include "collision/icollisionmanager.h"
+#include <string>
 
 
 namespace SunLight {
@@ -126,6 +127,14 @@ namespace SunLight {
              * Move view camera right.
              */
             virtual void MoveCameraRight( void ) = 0;
+
+            /**
+             * @brief Set the application window's title, replacing whatever
+             * title it was created with.
+             *
+             * @param strTitle The new window title;
+             */
+            virtual void SetWindowTitle( const std :: string &strTitle ) = 0;
 
             /**
              * Set layer parameters.
