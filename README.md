@@ -114,4 +114,5 @@ If you intend to use VsCode as your IDE, follow the instructions shown [here](/d
 
 ## Samples :sunny:
 
-In order to get proper info on the samples usage, you may find more on [here](/samples/tilemaprenderer/docs/README.md).
+* [tilemaprenderer](/samples/tilemaprenderer/docs/README.md) — the minimal setup: loads a Tiled map and drives the renderer's camera/zoom, no sprites.
+* [sprite](/samples/sprite/docs/README.md) — builds on `tilemaprenderer` by adding an animated `Sprite` on top of the map.
