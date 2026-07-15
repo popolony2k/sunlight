@@ -139,8 +139,17 @@ bool World :: LoadSprites( void ) {
         SunLight :: TileMap :: stDimension2D    dimSunny;
         SunLight :: TileMap :: stDimension2D    dimObstacle;
 
+        // Sprites don't scroll with the camera in this library -
+        // TextureCanvas::Update() -> Viewport::GetClippedRect() computes
+        // screen = world * zoomFactor + viewport.pos with no m_CameraPos
+        // term at all (unlike tile layers, which DrawTile offsets by
+        // m_CameraPos explicitly). At this sample's zoom (3.8125x) and
+        // 900x800 viewport at (10,10), that means only world coordinates
+        // roughly within x:[0,236] y:[0,210] land on screen at all -
+        // Sunny is placed near the middle of that range so she's clearly
+        // visible, not at the map's own (much larger) center.
         dimSunny.pos.x = 100;
-        dimSunny.pos.y = 100;
+        dimSunny.pos.y = 90;
         dimSunny.size.nWidth  = 32;
         dimSunny.size.nHeight = 32;
 
@@ -156,10 +165,20 @@ bool World :: LoadSprites( void ) {
         // pieces, each cell is already a clean, filled square, so tile 0
         // (manual animation mode, the default) works directly as a static,
         // properly square obstacle via TextureCanvas :: SetTileSize().
-        dimObstacle.pos.x = 180;
-        dimObstacle.pos.y = 100;
-        dimObstacle.size.nWidth  = 32;
-        dimObstacle.size.nHeight = 32;
+        //
+        // A short walk to the right of Sunny's own start position, on the
+        // same vertical band, so pressing Right repeatedly leads straight
+        // into it without her ever leaving the viewport. Sized smaller
+        // than its native 32x32 tile - a Collider always exactly matches
+        // its owning Sprite's own dimension (see Canvas's constructor), so
+        // shrinking the collision box means shrinking the displayed one
+        // too; 24x24 still reads clearly at this zoom level while giving
+        // Sunny a bit more forgiving an approach before the collision
+        // actually triggers.
+        dimObstacle.pos.x = 172;
+        dimObstacle.pos.y = 94;
+        dimObstacle.size.nWidth  = 24;
+        dimObstacle.size.nHeight = 24;
 
         m_pCanvasObstacle -> SetTileSize( 32 );
         m_pCanvasObstacle -> SetDimension2D( dimObstacle );
