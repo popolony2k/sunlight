@@ -1,6 +1,6 @@
 # collision sample
 
-Builds on [sprite](/samples/sprite/docs/README.md) by making Sunny keyboard-controllable and giving it something to bump into — a static house obstacle. This is the smallest example of `sunlight`'s collision API: `CollisionManager`, `AddColliderToColliderRule`, and the `ICollisionListener` callback.
+Builds on [sprite](/samples/sprite/docs/README.md) by making Sunny keyboard-controllable and giving it something to bump into — a static obstacle sprite. This is the smallest example of `sunlight`'s collision API: `CollisionManager`, `AddColliderToColliderRule`, and the `ICollisionListener` callback.
 
 ## Building
 
@@ -35,14 +35,14 @@ This produces the `collision_test` executable under `build/samples/collision/`, 
 
 Unlike the `tilemaprenderer`/`sprite` samples, these keys move Sunny directly rather than scrolling the camera — there's no inversion here, since the character is visible on screen (see `feedback_camera_keybindings` in this project's notes if you're comparing against the other two samples' camera controls).
 
-Walk Sunny to the right into the house — movement stops at its edge instead of walking through it.
+Walk Sunny to the right into the obstacle — movement stops at its edge instead of walking through it.
 
 ## What it shows
 
-- `World::LoadSprites()` ([world.cpp](/samples/collision/world.cpp)) loads Sunny (animated, as in the `sprite` sample) and a static house tile (`resources/map/images/house.png`, pinned to a single non-animated frame via `TextureCanvas::SetTileSize`) as two separate `Sprite`s, added to the renderer on two different layer ids.
+- `World::LoadSprites()` ([world.cpp](/samples/collision/world.cpp)) loads Sunny (animated, as in the `sprite` sample) and a static obstacle (`resources/map/images/monke_variants.png`, tile 0 of its 4x4 grid — each cell there is a self-contained square icon, unlike e.g. the house tileset's diagonal roof pieces, which don't work as a single static tile) as two separate `Sprite`s, added to the renderer on two different layer ids.
 - Every `Sprite` already owns a `Collider` internally, and `TileMapRenderer::AddSprite()` automatically registers it with the renderer's `CollisionManager` on that same layer id — no manual collider wiring needed.
-- `GetCollisionManager().AddColliderToColliderRule(sunnyLayerId, houseLayerId)` tells the manager to check those two layers against each other every frame.
-- `World` implements `ICollisionListener::OnCollision()`. When it fires, the sample undoes the movement step that caused the overlap, giving the house solid, wall-like collision — a real game would trigger gameplay logic here instead (damage, pickups, opening a door, ...).
+- `GetCollisionManager().AddColliderToColliderRule(sunnyLayerId, obstacleLayerId)` tells the manager to check those two layers against each other every frame.
+- `World` implements `ICollisionListener::OnCollision()`. When it fires, the sample undoes the movement step that caused the overlap, giving the obstacle solid, wall-like collision — a real game would trigger gameplay logic here instead (damage, pickups, opening a door, ...).
 
 ## Resources
 

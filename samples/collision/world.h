@@ -36,8 +36,8 @@ class World : public SunLight :: Collision :: ICollisionListener {
     std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteSunny;
     std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasSunny;
-    std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteHouse;
-    std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasHouse;
+    std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteObstacle;
+    std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasObstacle;
     SunLight :: TileMap :: stCoordinate2D                       m_LastStep;
     std :: string m_strBasePath;
 

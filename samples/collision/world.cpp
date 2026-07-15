@@ -35,8 +35,8 @@
 #define __SUNNY_SPRITE_IDLE         "resources/sprites/sunny_idle_down.png"
 #define __SUNNY_SPRITE_IDLE_DELAY   100
 #define __SUNNY_LAYER_ID            4
-#define __HOUSE_IMAGE               "resources/map/images/house.png"
-#define __HOUSE_LAYER_ID            5
+#define __OBSTACLE_IMAGE            "resources/map/images/monke_variants.png"
+#define __OBSTACLE_LAYER_ID         7
 #define __PLAYER_MOVE_STEP          2
 #define __GAME_NAME                 "Collision test"
 
@@ -111,12 +111,12 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 
 /**
  * @brief Called by the CollisionManager whenever two registered colliders
- * overlap - here, Sunny (collider layer __SUNNY_LAYER_ID) and the house
- * (collider layer __HOUSE_LAYER_ID), paired via AddColliderToColliderRule()
- * in LoadSprites(). A real game would trigger gameplay logic here (damage,
- * pickups, opening a door, ...); this sample simply blocks movement by
- * undoing the step that caused the overlap, giving the house solid,
- * wall-like collision.
+ * overlap - here, Sunny (collider layer __SUNNY_LAYER_ID) and the obstacle
+ * (collider layer __OBSTACLE_LAYER_ID), paired via
+ * AddColliderToColliderRule() in LoadSprites(). A real game would trigger
+ * gameplay logic here (damage, pickups, opening a door, ...); this sample
+ * simply blocks movement by undoing the step that caused the overlap,
+ * giving the obstacle solid, wall-like collision.
  */
 void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: Collision :: Collider *pSecond )  {
 
@@ -135,9 +135,9 @@ void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :
 bool World :: LoadSprites( void ) {
 
     if( m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IDLE ) &&
-        m_pCanvasHouse -> Load( m_strBasePath + __HOUSE_IMAGE ) ) {
+        m_pCanvasObstacle -> Load( m_strBasePath + __OBSTACLE_IMAGE ) ) {
         SunLight :: TileMap :: stDimension2D    dimSunny;
-        SunLight :: TileMap :: stDimension2D    dimHouse;
+        SunLight :: TileMap :: stDimension2D    dimObstacle;
 
         dimSunny.pos.x = 100;
         dimSunny.pos.y = 100;
@@ -151,28 +151,30 @@ bool World :: LoadSprites( void ) {
         m_pSpriteSunny -> SetActiveTextureSequence( 0 );
         m_pSpriteSunny -> SetVisible( true );
 
-        // tileset_house.tsx packs 10 house tiles into a 5x2 grid; pinning
-        // the canvas to tile 0 (manual animation mode, the default) gives
-        // a static, non-animated obstacle - a plain house.
-        dimHouse.pos.x = 180;
-        dimHouse.pos.y = 100;
-        dimHouse.size.nWidth  = 32;
-        dimHouse.size.nHeight = 32;
+        // monke_variants.png is a 4x4 Tiled tileset grid (tileset_monke_variants.tsx)
+        // of self-contained character icons - unlike house.png's diagonal roof
+        // pieces, each cell is already a clean, filled square, so tile 0
+        // (manual animation mode, the default) works directly as a static,
+        // properly square obstacle via TextureCanvas :: SetTileSize().
+        dimObstacle.pos.x = 180;
+        dimObstacle.pos.y = 100;
+        dimObstacle.size.nWidth  = 32;
+        dimObstacle.size.nHeight = 32;
 
-        m_pCanvasHouse -> SetTileSize( 32 );
-        m_pCanvasHouse -> SetDimension2D( dimHouse );
-        m_pSpriteHouse -> AddTextureSequence( 0, m_pCanvasHouse.get() );
-        m_pSpriteHouse -> SetActiveTextureSequence( 0 );
-        m_pSpriteHouse -> SetVisible( true );
+        m_pCanvasObstacle -> SetTileSize( 32 );
+        m_pCanvasObstacle -> SetDimension2D( dimObstacle );
+        m_pSpriteObstacle -> AddTextureSequence( 0, m_pCanvasObstacle.get() );
+        m_pSpriteObstacle -> SetActiveTextureSequence( 0 );
+        m_pSpriteObstacle -> SetVisible( true );
 
         m_pRenderer -> AddSprite( __SUNNY_LAYER_ID, *m_pSpriteSunny );
-        m_pRenderer -> AddSprite( __HOUSE_LAYER_ID, *m_pSpriteHouse );
+        m_pRenderer -> AddSprite( __OBSTACLE_LAYER_ID, *m_pSpriteObstacle );
 
         // Every sprite added via AddSprite() is automatically registered
         // with the renderer's CollisionManager, keyed by the same layer id
         // (see TileMapRenderer::AddSprite()) - pairing the two layers here
-        // is all that's needed to start checking Sunny against the house.
-        m_pRenderer -> GetCollisionManager().AddColliderToColliderRule( __SUNNY_LAYER_ID, __HOUSE_LAYER_ID );
+        // is all that's needed to start checking Sunny against the obstacle.
+        m_pRenderer -> GetCollisionManager().AddColliderToColliderRule( __SUNNY_LAYER_ID, __OBSTACLE_LAYER_ID );
         m_pRenderer -> GetCollisionManager().AddCollisionListener( this );
 
         return true;
@@ -196,8 +198,8 @@ World :: World( std :: string strBasePath )  {
                                                                                false );
     m_pSpriteSunny = std :: make_unique<SunLight :: Sprite :: Sprite>();
     m_pCanvasSunny = std :: make_unique<SunLight :: Canvas :: TextureCanvas>();
-    m_pSpriteHouse = std :: make_unique<SunLight :: Sprite :: Sprite>();
-    m_pCanvasHouse = std :: make_unique<SunLight :: Canvas :: TextureCanvas>();
+    m_pSpriteObstacle = std :: make_unique<SunLight :: Sprite :: Sprite>();
+    m_pCanvasObstacle = std :: make_unique<SunLight :: Canvas :: TextureCanvas>();
 }
 
 /**
