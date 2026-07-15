@@ -30,6 +30,7 @@ add_subdirectory(src)
 if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/tilemaprenderer)
     add_subdirectory(samples/sprite)
+    add_subdirectory(samples/collision)
 endif(BUILD_LIBRARY_SAMPLES)
 
 # Unit tests

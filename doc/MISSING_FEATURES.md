@@ -41,9 +41,9 @@ which track in-engine feature/bug work.
   Now that `IEngine` is a real interface, a mock `IEngine` implementation could
   unlock testing `TileMapRenderer`'s input/collision/sprite-dispatch logic
   without a real window — that wasn't possible before the engine abstraction.
-- No sample demonstrates `SoundManager` or `ScriptProcessor` (only tilemap
-  rendering and sprites are shown, via `samples/tilemaprenderer` and
-  `samples/sprite`).
+- No sample demonstrates `SoundManager` or `ScriptProcessor` (`samples/tilemaprenderer`,
+  `samples/sprite`, and `samples/collision` cover map rendering, sprites/animation,
+  and `CollisionManager` respectively).
 
 ## Already-tracked backlog (see `TODO.txt` / `FIXME.txt`)
 
