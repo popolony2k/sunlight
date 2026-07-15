@@ -22,7 +22,7 @@ cmake -B build -S . -DBUILD_LIBRARY_SAMPLES=ON
 cmake --build build -j 4
 ```
 
-This builds `sprite_test` and `tilemaprenderer_test` and copies the raylib/tmx/LibXml2/sunlight shared libs next to each executable (required at runtime, via the `*_copy_binaries` custom targets). Each sample takes its own directory as `argv[1]` and resolves resource paths relative to it, e.g.:
+This builds `tilemaprenderer_test`, `sprite_test`, and `collision_test`, and copies the raylib/tmx/LibXml2/sunlight shared libs next to each executable (required at runtime, via the `*_copy_binaries` custom targets). Each sample takes its own directory as `argv[1]` and resolves resource paths relative to it, e.g.:
 
 ```shell
 ./build/samples/tilemaprenderer/tilemaprenderer_test samples/tilemaprenderer/
