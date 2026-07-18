@@ -32,6 +32,14 @@ which track in-engine feature/bug work.
   it covers `TextureCanvas::Load`/`Unload`/`Update` against a `MockEngine` test
   double (texture handle plumbing, size adoption on load, and draw dispatch gated
   on visibility/viewport clipping).
+- ~~No `CollisionManager` test coverage~~ — `tests/mock_tilemap.h` adds `MockTileMap`,
+  a stub `ITileMap` implementing only what `CollisionManager` actually calls on its
+  parent (`GetLayer`, `TileMapToTileMatrix`, `GetTile`). `tests/test_collisionmanager.cpp`
+  covers layer-id validation on `AddCollider`/`AddColliderToColliderRule`/
+  `AddColliderToTileRule`, `Update()`'s collider-to-collider dispatch (fires only for
+  overlapping colliders on a paired layer, respects `RemoveCollider`), and the
+  collider-to-tile path's failure/no-op branches, including a real (but
+  collision-shape-less) `tmx_tile` to exercise `Collider::Hit(stTile&)` safely.
 
 ## Missing scaffolding
 
@@ -47,10 +55,11 @@ which track in-engine feature/bug work.
 ## Test / sample coverage gaps
 
 - Tests cover pure-logic code (`Viewport`, `Collider`, `Helper`, `base/primitives.h`),
-  `SoundManager` (via a mock `ISound`), and `TextureCanvas` (via a mock `IEngine`,
-  see above). `TileMapRenderer`, `Sprite`, `CollisionManager`, and `ScriptProcessor`
-  still have zero test coverage - the `MockEngine`/`EngineFactory::SetEngine()` seam
-  now exists for them too, but `TileMapRenderer` also owns its window lifecycle
+  `SoundManager` (via a mock `ISound`), `TextureCanvas` (via a mock `IEngine`), and
+  `CollisionManager` (via a mock `ITileMap`, see above). `TileMapRenderer`, `Sprite`,
+  and `ScriptProcessor` still have zero test coverage - the `MockEngine`/
+  `EngineFactory::SetEngine()` seam exists for `Sprite` too (it just forwards to its
+  active `TextureCanvas`), but `TileMapRenderer` also owns its window lifecycle
   (`InitWindow`, `BeginDrawing`/`EndDrawing`, ...) directly via raylib, so only the
   parts of it that route through `IEngine` are unlockable this way, not the whole class.
 - No sample demonstrates `SoundManager` or `ScriptProcessor` (`samples/tilemaprenderer`,
