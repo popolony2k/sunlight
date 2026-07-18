@@ -117,3 +117,4 @@ If you intend to use VsCode as your IDE, follow the instructions shown [here](/d
 * [tilemaprenderer](/samples/tilemaprenderer/docs/README.md) — the minimal setup: loads a Tiled map and drives the renderer's camera/zoom, no sprites.
 * [sprite](/samples/sprite/docs/README.md) — builds on `tilemaprenderer` by adding an animated `Sprite` on top of the map.
 * [collision](/samples/collision/docs/README.md) — builds on `sprite` by making the sprite player-controlled and colliding it with a static obstacle via `CollisionManager`.
+* [gamepad](/samples/gamepad/docs/README.md) — builds on `collision` by giving two independent characters their own controller: one gamepad's left stick/DPad drives Sunny, the right stick/face buttons drive a second sprite.
