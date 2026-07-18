@@ -38,6 +38,18 @@ namespace SunLight {
             public:
 
             static IEngine& GetEngine( void );
+
+            /**
+             * @brief Override the engine returned by @see GetEngine() - for
+             * tests only, to substitute a mock @see IEngine without a real
+             * window/render context. Pass nullptr to restore the default,
+             * build-time backend. The override is not owned by the factory -
+             * the caller keeps it alive for as long as it's set.
+             *
+             * @param pOverride The replacement engine, or nullptr to reset
+             * back to the default backend;
+             */
+            static void SetEngine( IEngine *pOverride );
         };
     }
 }

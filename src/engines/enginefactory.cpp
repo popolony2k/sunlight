@@ -36,15 +36,29 @@
 namespace SunLight {
     namespace Engines  {
 
+        static IEngine  *s_pOverrideEngine = nullptr;
+
         /**
          * @brief Get the single @see IEngine instance for the backend
-         * selected at build time.
+         * selected at build time, unless overridden by @see SetEngine()
+         * (tests only).
          */
         IEngine& EngineFactory :: GetEngine( void )  {
+
+            if( s_pOverrideEngine )
+                return *s_pOverrideEngine;
 
             static __DEFAULT_ENGINE engine;
 
             return engine;
+        }
+
+        /**
+         * @brief Override the engine returned by @see GetEngine().
+         */
+        void EngineFactory :: SetEngine( IEngine *pOverride )  {
+
+            s_pOverrideEngine = pOverride;
         }
     }
 }
