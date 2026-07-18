@@ -36,13 +36,26 @@
 namespace SunLight {
     namespace Sound  {
 
+        static SoundFactory :: CreatorFunction   s_pCreator = nullptr;
+
         /**
-         * @brief Create a new @see ISound instance of the backend selected
-         * at build time.
+         * @brief Create a new @see ISound instance - the backend selected
+         * at build time, unless overridden by @see SetCreator() (tests only).
          */
         std :: unique_ptr<ISound> SoundFactory :: CreateSound( void )  {
 
+            if( s_pCreator )
+                return s_pCreator();
+
             return std :: make_unique<__DEFAULT_ENGINE>();
+        }
+
+        /**
+         * @brief Override the backend used by @see CreateSound().
+         */
+        void SoundFactory :: SetCreator( CreatorFunction creator )  {
+
+            s_pCreator = creator;
         }
     }
 }
