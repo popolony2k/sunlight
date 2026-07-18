@@ -867,26 +867,34 @@ namespace SunLight {
             bool    bEventHandled = false;
 
             for( int nGamePadId : m_GamePadList )  {
-                SunLight :: Input :: GamepadButton button[]    = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN, 
+                SunLight :: Input :: GamepadButton button[]    = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
+                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
+                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
                                                                    SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN };
-                float    fPosX = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, 
+                float    fPosX = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
                                                                             SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
-                float    fPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId, 
+                float    fPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
                                                                             SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_Y );
+                float    fRightPosX = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
+                                                                                 SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_RIGHT_X );
+                float    fRightPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
+                                                                                 SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_RIGHT_Y );
 
                 // Calculate deadzones
-                if( ( fPosX > -ctfLeftStickDeadzoneX ) && ( fPosX < ctfLeftStickDeadzoneX ) ) 
+                if( ( fPosX > -ctfLeftStickDeadzoneX ) && ( fPosX < ctfLeftStickDeadzoneX ) )
                     fPosX = 0.0f;
-                if( ( fPosY > -ctfRightStickDeadzoneY ) && ( fPosY < ctfRightStickDeadzoneY ) ) 
+                if( ( fPosY > -ctfRightStickDeadzoneY ) && ( fPosY < ctfRightStickDeadzoneY ) )
                     fPosY = 0.0f;
+                if( ( fRightPosX > -ctfRightStickDeadzoneX ) && ( fRightPosX < ctfRightStickDeadzoneX ) )
+                    fRightPosX = 0.0f;
+                if( ( fRightPosY > -ctfRightStickDeadzoneY ) && ( fRightPosY < ctfRightStickDeadzoneY ) )
+                    fRightPosY = 0.0f;
 
-                // TODO: Code sample for future use when add support to Right stick and trigger handling  
-                // if (rightStickX > -ctfRightStickDeadzoneX && rightStickX < ctfRightStickDeadzoneX) rightStickX = 0.0f;
-                // if (rightStickY > -rightStickDeadzoneY && rightStickY < rightStickDeadzoneY) rightStickY = 0.0f;
+                // TODO: Code sample for future use when add support to trigger handling
                 // if (leftTrigger < leftTriggerDeadzone) leftTrigger = -1.0f;
                 // if (rightTrigger < rightTriggerDeadzone) rightTrigger = -1.0f;
 
-                // Handle Analog GamePad control stick
+                // Handle Analog GamePad control stick (left)
                 if( fPosX > 0.0 )  {
                     button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT;
                     bEventHandled = true;
@@ -909,13 +917,36 @@ namespace SunLight {
                     }
                 }
 
-                // Handle DPad control stick
+                // Handle Analog GamePad control stick (right)
+                if( fRightPosX > 0.0 )  {
+                    button[2] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT;
+                    bEventHandled = true;
+                }
+                else  {
+                    if( fRightPosX < 0.0 )  {
+                        button[2] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT;
+                        bEventHandled = true;
+                    }
+                }
+
+                if( fRightPosY > 0.0 )  {
+                    button[3] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN;
+                    bEventHandled = true;
+                }
+                else  {
+                    if( fRightPosY < 0.0 )  {
+                        button[3] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_UP;
+                        bEventHandled = true;
+                    }
+                }
+
+                // Handle DPad and analog stick controls (left + right)
                 for( InputEventHandlerList :: iterator itItem = m_GPadInputEventHandlerList.begin(); itItem != m_GPadInputEventHandlerList.end(); itItem++ )  {
                     SunLight :: Input :: GamepadButton   evt = ( SunLight :: Input :: GamepadButton ) ( * itItem ) -> nEvent;
-                    
+
                     /*
                      * DPad and Analog MUST be processed in the same handler list iteration.
-                     * The order of events can affect main renderer processing behavior 
+                     * The order of events can affect main renderer processing behavior
                      * (depending on final developer game logic);
                      */
                     if( m_pInputHandler -> IsGamepadButtonDown( nGamePadId, evt ) )  {
@@ -923,7 +954,7 @@ namespace SunLight {
                         bEventHandled = true;
                     }
                     else  {
-                        if( ( evt == button[0] ) || ( evt == button[1] ) )  {
+                        if( ( evt == button[0] ) || ( evt == button[1] ) || ( evt == button[2] ) || ( evt == button[3] ) )  {
                             ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
                             bEventHandled = true;
                         }
