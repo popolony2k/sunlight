@@ -26,6 +26,12 @@ which track in-engine feature/bug work.
   gives tests a seam to substitute a mock `ISound`. `tests/test_soundmanager.cpp` covers
   `Load`/`Unload`/`Play`/`Stop`/`Pause`/`Resume`/`IsPlaying`'s id-keyed dispatch and
   bookkeeping against a `MockSound` test double, with no real audio device involved.
+- ~~No `IEngine`-mocking seam~~ — `EngineFactory::SetEngine()` overrides what
+  `GetEngine()` returns (tests only), letting a mock `IEngine` stand in without a
+  real window/render context. `tests/test_texturecanvas.cpp` is the first consumer:
+  it covers `TextureCanvas::Load`/`Unload`/`Update` against a `MockEngine` test
+  double (texture handle plumbing, size adoption on load, and draw dispatch gated
+  on visibility/viewport clipping).
 
 ## Missing scaffolding
 
@@ -40,12 +46,13 @@ which track in-engine feature/bug work.
 
 ## Test / sample coverage gaps
 
-- Tests cover pure-logic code (`Viewport`, `Collider`, `Helper`, `base/primitives.h`)
-  plus `SoundManager` (via a mock `ISound`, see above). `TileMapRenderer`, `Sprite`,
-  `CollisionManager`, and `ScriptProcessor` still have zero test coverage.
-  Now that `IEngine` is a real interface, a mock `IEngine` implementation could
-  unlock testing `TileMapRenderer`'s input/collision/sprite-dispatch logic
-  without a real window — that wasn't possible before the engine abstraction.
+- Tests cover pure-logic code (`Viewport`, `Collider`, `Helper`, `base/primitives.h`),
+  `SoundManager` (via a mock `ISound`), and `TextureCanvas` (via a mock `IEngine`,
+  see above). `TileMapRenderer`, `Sprite`, `CollisionManager`, and `ScriptProcessor`
+  still have zero test coverage - the `MockEngine`/`EngineFactory::SetEngine()` seam
+  now exists for them too, but `TileMapRenderer` also owns its window lifecycle
+  (`InitWindow`, `BeginDrawing`/`EndDrawing`, ...) directly via raylib, so only the
+  parts of it that route through `IEngine` are unlockable this way, not the whole class.
 - No sample demonstrates `SoundManager` or `ScriptProcessor` (`samples/tilemaprenderer`,
   `samples/sprite`, and `samples/collision` cover map rendering, sprites/animation,
   and `CollisionManager` respectively).
