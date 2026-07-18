@@ -182,7 +182,16 @@ namespace SunLight {
                         case LOOP_CMD :  {
                             TwoParmsCommand   *pParm = ( TwoParmsCommand * ) *m_CurrentCommand;
 
-                            pParm -> data.nCounter = 0;
+                            /*
+                             * A jump back from END_LOOP_CMD always overshoots
+                             * this command (the unconditional m_CurrentCommand++
+                             * below runs right after the jump too), landing on
+                             * the first command of the loop body - so this case
+                             * only ever runs once per loop, and nParm2 (the
+                             * requested repeat count) only needs to seed the
+                             * counter here, never re-seed it.
+                             */
+                            pParm -> data.nCounter = pParm -> nParm2;
                             m_CommandLabelMap.insert( std ::make_pair( pParm -> nParm1, m_CurrentCommand ) );
                         }
                         break;
@@ -190,11 +199,18 @@ namespace SunLight {
                         case END_LOOP_CMD :  {
                             OneParmCommand                  *pParm     = ( OneParmCommand * ) *m_CurrentCommand;
                             CommandLabelMap :: iterator     itLoopCmd  = m_CommandLabelMap.find( pParm ->nParm );
-                            TwoParmsCommand                 *pLoopParm = ( TwoParmsCommand * ) ( *itLoopCmd -> second );
 
-                            if( pLoopParm -> data.nCounter > 0 )  {
-                                pLoopParm -> data.nCounter--;
-                                m_CurrentCommand = itLoopCmd -> second;
+                            if( itLoopCmd != m_CommandLabelMap.end() )  {
+                                TwoParmsCommand *pLoopParm = ( TwoParmsCommand * ) ( *itLoopCmd -> second );
+
+                                if( pLoopParm -> data.nCounter > 0 )  {
+                                    pLoopParm -> data.nCounter--;
+                                    m_CurrentCommand = itLoopCmd -> second;
+                                }
+                            }
+                            else if( m_pListener != nullptr )  {
+                                m_pListener -> OnError( "END_LOOP_CMD: no matching LOOP_CMD for label " +
+                                                        std :: to_string( pParm -> nParm ) );
                             }
                         }
                         break;
@@ -210,7 +226,13 @@ namespace SunLight {
                             OneParmCommand                  *pParm    = ( OneParmCommand * ) *m_CurrentCommand;
                             CommandLabelMap :: iterator     itLoopCmd = m_CommandLabelMap.find( pParm -> nParm );
 
-                            m_CurrentCommand = itLoopCmd -> second;
+                            if( itLoopCmd != m_CommandLabelMap.end() )  {
+                                m_CurrentCommand = itLoopCmd -> second;
+                            }
+                            else if( m_pListener != nullptr )  {
+                                m_pListener -> OnError( "GOTO_LABEL_CMD: unknown label " +
+                                                        std :: to_string( pParm -> nParm ) );
+                            }
                         }
                         break;
 
