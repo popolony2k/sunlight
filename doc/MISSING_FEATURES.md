@@ -40,6 +40,16 @@ which track in-engine feature/bug work.
   overlapping colliders on a paired layer, respects `RemoveCollider`), and the
   collider-to-tile path's failure/no-op branches, including a real (but
   collision-shape-less) `tmx_tile` to exercise `Collider::Hit(stTile&)` safely.
+- ~~No `Sprite` test coverage~~ — `tests/test_sprite.cpp` covers `AddTextureSequence`'s
+  dimension-adoption/aliasing (a sprite's dimension is shared with each texture added
+  to it via `SetDimension2DPtr`, not copied), `SetActiveTextureSequence`/
+  `GetActiveTextureSequence`/`GetActiveTexture`'s valid/unknown-id handling,
+  `SetVisible`/`Move`, and `Update`/`Unload`'s dispatch to the active/every texture
+  via a `MockEngine`. Caught along the way: `BaseCanvas::GetViewport()` delegates to
+  a parent's viewport once one is set (`AddTextureSequence` parents each texture
+  under its `Sprite`), so the viewport must be configured through the sprite (or on
+  the texture after parenting) — configuring it on a freshly constructed,
+  not-yet-added `TextureCanvas` silently targets the wrong object once it's added.
 
 ## Missing scaffolding
 
@@ -55,13 +65,12 @@ which track in-engine feature/bug work.
 ## Test / sample coverage gaps
 
 - Tests cover pure-logic code (`Viewport`, `Collider`, `Helper`, `base/primitives.h`),
-  `SoundManager` (via a mock `ISound`), `TextureCanvas` (via a mock `IEngine`), and
-  `CollisionManager` (via a mock `ITileMap`, see above). `TileMapRenderer`, `Sprite`,
-  and `ScriptProcessor` still have zero test coverage - the `MockEngine`/
-  `EngineFactory::SetEngine()` seam exists for `Sprite` too (it just forwards to its
-  active `TextureCanvas`), but `TileMapRenderer` also owns its window lifecycle
-  (`InitWindow`, `BeginDrawing`/`EndDrawing`, ...) directly via raylib, so only the
-  parts of it that route through `IEngine` are unlockable this way, not the whole class.
+  `SoundManager` (via a mock `ISound`), `TextureCanvas`, `Sprite` (both via a mock
+  `IEngine`), and `CollisionManager` (via a mock `ITileMap`, see above).
+  `TileMapRenderer` and `ScriptProcessor` still have zero test coverage -
+  `TileMapRenderer` owns its window lifecycle (`InitWindow`, `BeginDrawing`/
+  `EndDrawing`, ...) directly via raylib, so only the parts of it that route
+  through `IEngine` are unlockable via the same `MockEngine` seam, not the whole class.
 - No sample demonstrates `SoundManager` or `ScriptProcessor` (`samples/tilemaprenderer`,
   `samples/sprite`, and `samples/collision` cover map rendering, sprites/animation,
   and `CollisionManager` respectively).
