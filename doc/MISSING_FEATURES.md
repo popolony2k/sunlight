@@ -89,8 +89,14 @@ which track in-engine feature/bug work.
 - No git tags/releases yet — `project(sunlight VERSION 0.1.0)` exists now (added
   while fixing the `install()` rule), but there's still no tagged release, so
   there's no way to tell a consumer "you're on v0.x" from git history alone.
-- No Doxygen config. Every header already uses consistent `@brief`/`@param`
-  doxygen-style comments, but none of it is ever rendered into browsable docs.
+- ~~No Doxygen config~~ — `Doxyfile` (root) generates HTML from `src/` (with
+  `README.md` as the main page), published via `.github/workflows/doxygen.yml`
+  to GitHub Pages on every push to `main`. Live at
+  [popolony2k.github.io/sunlight](https://popolony2k.github.io/sunlight/),
+  linked from the README. A handful of pre-existing doc-comment slips
+  (stale `@param` names after refactors, a stray `@ITileMapListener`/`\The`
+  typo, a couple of unresolved `\link` targets) show up as Doxygen warnings
+  but don't block generation — left as-is, not in scope here.
 - No `.gitattributes`, despite the project explicitly supporting
   Windows/Mac/Linux — no line-ending normalization across platforms.
 
