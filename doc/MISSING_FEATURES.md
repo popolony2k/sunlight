@@ -21,6 +21,11 @@ which track in-engine feature/bug work.
   `project(sunlight)` also gained a `VERSION 0.1.0`, needed for the generated
   ConfigVersion file. Verified end-to-end against a standalone external consumer
   project. (#42)
+- ~~No `SoundManager` test coverage~~ — `SoundFactory::CreateSound()` now isolates
+  `SoundManager` from the concrete `RayLibSound` backend (#52), and `SoundFactory::SetCreator()`
+  gives tests a seam to substitute a mock `ISound`. `tests/test_soundmanager.cpp` covers
+  `Load`/`Unload`/`Play`/`Stop`/`Pause`/`Resume`/`IsPlaying`'s id-keyed dispatch and
+  bookkeeping against a `MockSound` test double, with no real audio device involved.
 
 ## Missing scaffolding
 
@@ -35,9 +40,9 @@ which track in-engine feature/bug work.
 
 ## Test / sample coverage gaps
 
-- Tests only cover pure-logic code (`Viewport`, `Collider`, `Helper`,
-  `base/primitives.h`). `TileMapRenderer`, `Sprite`, `CollisionManager`,
-  `SoundManager`, and `ScriptProcessor` have zero test coverage.
+- Tests cover pure-logic code (`Viewport`, `Collider`, `Helper`, `base/primitives.h`)
+  plus `SoundManager` (via a mock `ISound`, see above). `TileMapRenderer`, `Sprite`,
+  `CollisionManager`, and `ScriptProcessor` still have zero test coverage.
   Now that `IEngine` is a real interface, a mock `IEngine` implementation could
   unlock testing `TileMapRenderer`'s input/collision/sprite-dispatch logic
   without a real window — that wasn't possible before the engine abstraction.

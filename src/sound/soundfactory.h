@@ -23,6 +23,7 @@
 
 #include "isound.h"
 #include <memory>
+#include <functional>
 
 
 namespace SunLight {
@@ -43,7 +44,20 @@ namespace SunLight {
 
             public:
 
+            typedef std :: function<std :: unique_ptr<ISound>( void )>  CreatorFunction;
+
             static std :: unique_ptr<ISound> CreateSound( void );
+
+            /**
+             * @brief Override the backend used by @see CreateSound() - for
+             * tests only, to substitute a mock @see ISound without a real
+             * audio device. Pass an empty @see CreatorFunction to restore
+             * the default, build-time backend.
+             *
+             * @param creator The replacement creator function, or an empty
+             * std::function to reset back to the default backend;
+             */
+            static void SetCreator( CreatorFunction creator );
         };
     }
 }
