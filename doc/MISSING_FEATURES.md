@@ -65,6 +65,17 @@ which track in-engine feature/bug work.
     label id. Fixed to guard the lookup and report the failure through
     `IScriptListener::OnError()` instead - previously dead code, since nothing in
     `ScriptProcessor` ever called it.
+- ~~No `TileMapRenderer` test coverage~~ (partial) — `tests/test_tilemaprenderer.cpp`
+  locks in the documented pre-`Start()` contract: `LoadMap`/`AddSprite`/`RemoveSprite`
+  (which all gate on `m_bIsStarted`) and `UnloadMap`/`GetMapInfo`/`GetLayer`/`SetLayer`/
+  `TileMapToTileMatrix` (which all need a loaded `m_pTmxMap`) fail gracefully rather
+  than crash when called too early, plus `GetInputHandler`/`GetCollisionManager`
+  return stable, usable references standalone. Investigated and ruled out testing
+  the map-loading pipeline itself (parsing a real `.tmx` through a `MockEngine`,
+  no rendering needed): `LoadMap()` returns `false` immediately unless `m_bIsStarted`
+  is already `true`, which only happens after `Start()`'s real `InitWindow()` call
+  succeeds - unreachable on a headless CI runner, so that slice was scoped out
+  rather than built on a foundation that can't run in CI.
 
 ## Missing scaffolding
 
@@ -82,10 +93,11 @@ which track in-engine feature/bug work.
 - Tests cover pure-logic code (`Viewport`, `Collider`, `Helper`, `base/primitives.h`,
   `ScriptProcessor`), `SoundManager` (via a mock `ISound`), `TextureCanvas`, `Sprite`
   (both via a mock `IEngine`), and `CollisionManager` (via a mock `ITileMap`, see
-  above). `TileMapRenderer` still has zero test coverage - it owns its window
-  lifecycle (`InitWindow`, `BeginDrawing`/`EndDrawing`, ...) directly via raylib, so
-  only the parts of it that route through `IEngine` are unlockable via the same
-  `MockEngine` seam, not the whole class.
+  above). `TileMapRenderer` has only thin coverage (its pre-`Start()` guard
+  contract, see above) - the map-loading pipeline and everything past it needs a
+  real window (`Start()`'s `InitWindow()` call), so it's unreachable without a
+  display, and `Run()`'s input/update/collision dispatch loop is `private`/`inline`,
+  only reachable through that same real window loop.
 - No sample demonstrates `SoundManager` or `ScriptProcessor` (`samples/tilemaprenderer`,
   `samples/sprite`, and `samples/collision` cover map rendering, sprites/animation,
   and `CollisionManager` respectively).
