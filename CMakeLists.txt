@@ -31,6 +31,7 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/tilemaprenderer)
     add_subdirectory(samples/sprite)
     add_subdirectory(samples/collision)
+    add_subdirectory(samples/gamepad)
 endif(BUILD_LIBRARY_SAMPLES)
 
 # Unit tests
