@@ -19,18 +19,7 @@
  */
 
 #include "soundmanager.h"
-
-#ifndef DEFAULT_ENGINE
-    #error "Unexpected value of DEFAULT_ENGINE"
-#endif
-
-#if DEFAULT_ENGINE == 1    /* USES RAYLIB */
-    #include "sound/raylib/raylibsound.h"
-    
-    #define __DEFAULT_ENGINE  SunLight :: Sound ::RayLib :: RayLibSound
-#else
-    #error "Unknown value of DEFAULT_ENGINE"
-#endif
+#include "soundfactory.h"
 
 namespace SunLight {
     namespace Sound  {
@@ -64,8 +53,8 @@ namespace SunLight {
          */
         bool SoundManager :: Load( int nSoundId, std :: string strFileName )  {
 
-            std :: unique_ptr<__DEFAULT_ENGINE>  pSound = std :: make_unique<__DEFAULT_ENGINE>();
-            bool                                 bRet;
+            std :: unique_ptr<ISound>  pSound = SoundFactory :: CreateSound();
+            bool                       bRet;
 
             bRet = pSound -> Load( strFileName.c_str() );
 
