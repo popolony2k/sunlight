@@ -76,13 +76,19 @@ which track in-engine feature/bug work.
   is already `true`, which only happens after `Start()`'s real `InitWindow()` call
   succeeds - unreachable on a headless CI runner, so that slice was scoped out
   rather than built on a foundation that can't run in CI.
+- ~~No `CONTRIBUTING.md`, `SECURITY.md`, or `CHANGELOG.md`~~ — `CONTRIBUTING.md`
+  covers building/testing, the code conventions from `CLAUDE.md`, and the PR
+  workflow. `SECURITY.md` points reporters at GitHub's private vulnerability
+  reporting (enabled on the repo as part of this change) instead of a public
+  issue. `CHANGELOG.md` follows Keep a Changelog, starting from the point the
+  project adopted these practices (`main` is unreleased, so everything so far
+  lives under `[Unreleased]`).
 
 ## Missing scaffolding
 
 - No git tags/releases yet — `project(sunlight VERSION 0.1.0)` exists now (added
   while fixing the `install()` rule), but there's still no tagged release, so
   there's no way to tell a consumer "you're on v0.x" from git history alone.
-- No `CONTRIBUTING.md`, `SECURITY.md`, or `CHANGELOG.md`.
 - No Doxygen config. Every header already uses consistent `@brief`/`@param`
   doxygen-style comments, but none of it is ever rendered into browsable docs.
 - No `.gitattributes`, despite the project explicitly supporting
