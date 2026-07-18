@@ -68,6 +68,9 @@ DartConfiguration.tcl
 *.a
 *.vs
 
+# Generated Doxygen output
+doc/doxygen/
+
 # Build directories (Mac, Linux and Windows)
 **/Debug/
 **/debug/
