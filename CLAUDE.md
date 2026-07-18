@@ -75,7 +75,7 @@ Internal containers/members that exclusively own heap-allocated data (e.g. `Spri
 
 ## Known issues (tracked in `doc/`)
 - `doc/FIXME.txt`: access violation when map scroll goes past viewport boundaries.
-- `doc/TODO.txt`: no isometric/hexagonal map support; missing some gamepad face-button bindings; per-layer parallax scrolling and per-object property management (opacity/visible/position) not implemented; sprite/layer draw-order still being finished.
+- `doc/TODO.txt`: no isometric/hexagonal map support; per-layer parallax scrolling and per-object property management (opacity/visible/position) not implemented; sprite/layer draw-order still being finished.
 
 ## Git workflow
 
