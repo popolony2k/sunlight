@@ -97,8 +97,12 @@ which track in-engine feature/bug work.
   (stale `@param` names after refactors, a stray `@ITileMapListener`/`\The`
   typo, a couple of unresolved `\link` targets) show up as Doxygen warnings
   but don't block generation — left as-is, not in scope here.
-- No `.gitattributes`, despite the project explicitly supporting
-  Windows/Mac/Linux — no line-ending normalization across platforms.
+- ~~No `.gitattributes`~~ — normalizes text files (source, CMake, Tiled maps/
+  tilesets, docs, config) to LF in the repository regardless of a
+  contributor's OS/editor, and marks images (`.png`/`.jpg`/`.ico`) binary so
+  Git never line-ending-normalizes or text-diffs them. No tracked file had
+  CRLF endings at the time this was added, so no renormalization commit was
+  needed.
 
 ## Test / sample coverage gaps
 

@@ -1,0 +1,35 @@
+# Auto-detect text files and normalize line endings to LF in the repository,
+# regardless of what line endings a contributor's OS/editor writes.
+* text=auto eol=lf
+
+# Source code
+*.cpp text
+*.h   text
+*.in  text
+
+# Build/config files
+*.txt       text
+*.cmake     text
+Doxyfile    text
+LICENSE     text
+.gitignore  text
+.gitattributes text
+
+# Docs
+*.md text
+
+# Tiled map/tileset files (XML) and their legacy/backup copies
+*.tmx     text
+*.tsx     text
+*.tmx.old text
+*.tsx.old text
+
+# Misc text formats
+*.json text
+*.yml  text
+
+# Images - binary, never line-ending-normalize or diff as text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
