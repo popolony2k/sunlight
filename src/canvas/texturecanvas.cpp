@@ -63,7 +63,7 @@ namespace SunLight {
                                                                                           m_nTextureHeight );
 
             if( m_hTexture != nullptr )  {
-                if( ( dimension.size.nHeight == 0 ) &&
+                if( ( dimension.size.nWidth == 0 ) &&
                     ( dimension.size.nHeight == 0 )  ) {
                     dimension.size.nHeight = m_nTextureHeight;
                     dimension.size.nWidth  = m_nTextureWidth;

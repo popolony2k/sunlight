@@ -43,6 +43,22 @@ TEST_SUITE( "canvas/TextureCanvas" )  {
         CHECK( canvas.GetDimension2D().size.nHeight == 32 );
     }
 
+    TEST_CASE( "Load does not override a size the caller already set" )  {
+
+        MockEngineFixture  fixture;
+        TextureCanvas      canvas;
+        stDimension2D      dim { { 0, 0 }, { 48, 0 } };
+
+        canvas.SetDimension2D( dim );
+
+        fixture.engine.nLoadTextureWidth  = 64;
+        fixture.engine.nLoadTextureHeight = 32;
+
+        CHECK( canvas.Load( "sprite.png" ) == true );
+        CHECK( canvas.GetDimension2D().size.nWidth  == 48 );
+        CHECK( canvas.GetDimension2D().size.nHeight == 0 );
+    }
+
     TEST_CASE( "Load returns false when the engine fails to load the texture" )  {
 
         MockEngineFixture  fixture;
