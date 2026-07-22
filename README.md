@@ -119,3 +119,4 @@ If you intend to use VsCode as your IDE, follow the instructions shown [here](/d
 * [sprite](/samples/sprite/docs/README.md) — builds on `tilemaprenderer` by adding an animated `Sprite` on top of the map.
 * [collision](/samples/collision/docs/README.md) — builds on `sprite` by making the sprite player-controlled and colliding it with a static obstacle via `CollisionManager`.
 * [gamepad](/samples/gamepad/docs/README.md) — builds on `collision` by giving two independent characters their own controller: one gamepad's left stick/DPad drives Sunny, the right stick/face buttons drive a second sprite.
+* [scriptprocessor](/samples/scriptprocessor/docs/README.md) — a scripted "stage intro" cutscene demonstrating `ScriptProcessor`: queued commands load a stage, slide sprites on screen, and play/pause/resume a tone via `SoundManager`, exercising every control-flow command (`WAIT_CMD`, `WAIT_SPRITES_QUEUE_EMPTY`, `LOOP_CMD`/`END_LOOP_CMD`, `LABEL_CMD`/`GOTO_LABEL_CMD`).
