@@ -80,6 +80,27 @@ git workflow) if you're making a larger change.
    the test suite on all three platforms.
 4. `main` requires at least one approving review before merging.
 
+## Releasing
+
+Releases are cut by pushing a tag — nothing else is needed:
+
+```shell
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds and
+`cmake --install`s the library (headers + shared libs, no samples/tests) on Linux, macOS, and
+Windows, packages each as `sunlight-vX.Y.Z-<platform>.{tar.gz,zip}`, and publishes a GitHub
+Release with those three archives attached and release notes generated automatically from the
+PRs merged since the previous tag.
+
+The version number itself is a manual choice (this project isn't on automated/Conventional-Commit
+versioning) — follow [Semantic Versioning](https://semver.org/): bump `PATCH` for fixes, `MINOR`
+for new features (the project hasn't reached `1.0.0` yet, so breaking changes also bump `MINOR`
+per semver's pre-1.0 convention), and update `project(sunlight VERSION X.Y.Z)` in
+`src/CMakeLists.txt` to match before tagging.
+
 ## Reporting bugs / requesting features
 
 Open a GitHub issue. For security vulnerabilities, see [SECURITY.md](SECURITY.md)

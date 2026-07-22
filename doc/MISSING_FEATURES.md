@@ -86,9 +86,18 @@ which track in-engine feature/bug work.
 
 ## Missing scaffolding
 
-- No git tags/releases yet — `project(sunlight VERSION 0.1.0)` exists now (added
-  while fixing the `install()` rule), but there's still no tagged release, so
-  there's no way to tell a consumer "you're on v0.x" from git history alone.
+- ~~No git tags/releases~~ — `.github/workflows/release.yml` triggers on any `v*` tag push,
+  builds and `cmake --install`s the library on Linux/macOS/Windows (headers + shared libs, no
+  samples/tests), packages each platform as `sunlight-vX.Y.Z-<platform>.{tar.gz,zip}`, and
+  publishes a GitHub Release with all three attached and auto-generated notes. The version number
+  itself stays a manual, deliberate choice (see `CONTRIBUTING.md`'s "Releasing" section) rather
+  than fully automated Conventional-Commit-driven versioning — investigated that route too, but
+  `main`'s branch ruleset only allows pull-request-based bypass (confirmed via `gh api
+  repos/.../rulesets`), so a tool that wants to push a version-bump/changelog commit directly to
+  `main` (the classic `semantic-release` + `@semantic-release/git` setup) can't work here without
+  weakening branch protection. Tags and GitHub Releases aren't subject to that ruleset at all
+  (it's scoped to `target: "branch"`), which is what makes the tag-triggered build/package/publish
+  flow here fully automatic with zero protection changes.
 - ~~No Doxygen config~~ — `Doxyfile` (root) generates HTML from `src/` (with
   `README.md` as the main page), published via `.github/workflows/doxygen.yml`
   to GitHub Pages on every push to `main`. Live at
