@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+            archive_ext: tar.gz
+          - os: macos-latest
+            platform: macos
+            archive_ext: tar.gz
+          - os: windows-latest
+            platform: windows-x64
+            archive_ext: zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            zlib1g-dev \
+            libasound2-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            libglu1-mesa-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libwayland-dev \
+            libxkbcommon-dev
+
+      - name: Install Windows dependencies (zlib, iconv via vcpkg)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: vcpkg install zlib:x64-windows libiconv:x64-windows
+
+      - name: Configure (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cmake -B build -S . -DBUILD_LIBRARY_SAMPLES=OFF -DBUILD_LIBRARY_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/sunlight-${{ github.ref_name }}-${{ matrix.platform }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: cmake -B build -S . -DBUILD_LIBRARY_SAMPLES=OFF -DBUILD_LIBRARY_TESTS=OFF "-DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/sunlight-${{ github.ref_name }}-${{ matrix.platform }}" "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build
+        run: cmake --build build --target sunlight --config Release -j 4
+
+      - name: Install
+        run: cmake --install build --config Release
+
+      - name: Package (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: tar -czf sunlight-${{ github.ref_name }}-${{ matrix.platform }}.tar.gz sunlight-${{ github.ref_name }}-${{ matrix.platform }}
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path sunlight-${{ github.ref_name }}-${{ matrix.platform }} -DestinationPath sunlight-${{ github.ref_name }}-${{ matrix.platform }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sunlight-${{ matrix.platform }}
+          path: sunlight-${{ github.ref_name }}-${{ matrix.platform }}.${{ matrix.archive_ext }}
+          if-no-files-found: error
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/* \
+            --title "sunlight ${{ github.ref_name }}" \
+            --generate-notes
