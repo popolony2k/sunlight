@@ -114,9 +114,13 @@ which track in-engine feature/bug work.
   real window (`Start()`'s `InitWindow()` call), so it's unreachable without a
   display, and `Run()`'s input/update/collision dispatch loop is `private`/`inline`,
   only reachable through that same real window loop.
-- No sample demonstrates `SoundManager` or `ScriptProcessor` (`samples/tilemaprenderer`,
-  `samples/sprite`, and `samples/collision` cover map rendering, sprites/animation,
-  and `CollisionManager` respectively).
+- ~~No sample demonstrates `SoundManager` or `ScriptProcessor`~~ — `samples/scriptprocessor`
+  covers both together: a scripted "stage intro" cutscene exercising every `ScriptProcessor`
+  control-flow command (`WAIT_CMD`, `WAIT_SPRITES_QUEUE_EMPTY`, `LOOP_CMD`/`END_LOOP_CMD`,
+  `LABEL_CMD`/`GOTO_LABEL_CMD`) while driving real `SoundManager` playback
+  (`PLAY_SONG_CMD`/`PAUSE_SONG_CMD`/`RESUME_SONG_CMD`, plus `STOP_SONG_CMD` wired to a key since
+  the script's own idle loop runs forever and never reaches it) through a synthesized WAV asset
+  (no external/licensed audio needed). This closes the last sample-coverage gap.
 
 ## Already-tracked backlog (see `TODO.txt` / `FIXME.txt`)
 
