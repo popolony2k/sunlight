@@ -56,6 +56,12 @@ namespace SunLight  {
                                        float scale,
                                        SunLight :: Base :: stColor tint ) override;
 
+                void DrawFilledRectangle( int nPosX,
+                                          int nPosY,
+                                          int nWidth,
+                                          int nHeight,
+                                          SunLight :: Base :: stColor color ) override;
+
                 std :: string GetApplicationDirectory( void ) override;
             };
         }

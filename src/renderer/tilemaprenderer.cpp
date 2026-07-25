@@ -1788,16 +1788,21 @@ namespace SunLight {
                          * frame, there's nothing fresh to composite over -
                          * drawing it unconditionally would paint over
                          * whatever stale content is still in the frame
-                         * buffer from the last visible frame instead. Uses
-                         * raylib's own ::DrawRectangle/::Fade directly
-                         * (this class already has its own, unrelated,
-                         * wireframe-only DrawRectangle method, hence the ::
-                         * qualification - same idiom as ::SetWindowTitle
-                         * above).
+                         * buffer from the last visible frame instead.
+                         * Routed through IEngine (not raylib's ::DrawRectangle/
+                         * ::Fade directly) - full window bounds, deliberately
+                         * bypassing any viewport/camera state.
                          */
                         if( m_fScreenFadeAlpha > 0.0f )  {
-                            :: DrawRectangle( 0, 0, ( int ) m_fWindowWidth, ( int ) m_fWindowHeight,
-                                             :: Fade( BLACK, m_fScreenFadeAlpha ) );
+                            SunLight :: Base :: stColor  fadeColor = BLACK_COLOR;
+
+                            fadeColor.nAlpha = ( unsigned char ) ( 255.0f * m_fScreenFadeAlpha );
+
+                            SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle(
+                                                                  0, 0,
+                                                                  ( int ) m_fWindowWidth,
+                                                                  ( int ) m_fWindowHeight,
+                                                                  fadeColor );
                         }
                     }
 

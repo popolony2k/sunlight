@@ -44,6 +44,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nSetPixelCalls             = 0;
     int                                 nDrawTextureCalls          = 0;
     int                                 nDrawTextureTiledCalls     = 0;
+    int                                 nDrawFilledRectangleCalls  = 0;
     int                                 nGetApplicationDirectoryCalls = 0;
 
     std :: string                       strLastLoadTextureFileName;
@@ -52,6 +53,11 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     SunLight :: Base :: stRectangle     lastDrawTextureTiledSource { 0, 0, 0, 0 };
     SunLight :: Base :: stRectangle     lastDrawTextureTiledDest   { 0, 0, 0, 0 };
     float                               fLastDrawTextureTiledScale = 0.0f;
+    int                                 nLastFilledRectangleX      = 0;
+    int                                 nLastFilledRectangleY      = 0;
+    int                                 nLastFilledRectangleWidth  = 0;
+    int                                 nLastFilledRectangleHeight = 0;
+    SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
 
     SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName, int& nWidth, int& nHeight )  {
         nLoadTextureCalls++;
@@ -87,6 +93,15 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         lastDrawTextureTiledSource = source;
         lastDrawTextureTiledDest   = dest;
         fLastDrawTextureTiledScale = scale;
+    }
+
+    void DrawFilledRectangle( int nPosX, int nPosY, int nWidth, int nHeight, SunLight :: Base :: stColor color )  {
+        nDrawFilledRectangleCalls++;
+        nLastFilledRectangleX      = nPosX;
+        nLastFilledRectangleY      = nPosY;
+        nLastFilledRectangleWidth  = nWidth;
+        nLastFilledRectangleHeight = nHeight;
+        lastFilledRectangleColor   = color;
     }
 
     std :: string GetApplicationDirectory( void )  {
