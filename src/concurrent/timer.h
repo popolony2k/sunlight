@@ -25,6 +25,7 @@
 #include <chrono>
 #include <functional>
 #include <cstdio>
+#include <atomic>
 #include "base/object.h"
 
 
@@ -38,10 +39,10 @@ namespace SunLight {
         class Timer : public SunLight :: Base :: Object {
 
             private:
-            
-            std :: thread       m_Thread;
-            bool                m_bRunning;
-            int                 m_nTimerId;
+
+            std :: thread        m_Thread;
+            std :: atomic<bool>  m_bRunning;
+            int                  m_nTimerId;
 
 
             public:

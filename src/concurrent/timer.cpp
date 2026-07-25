@@ -59,7 +59,20 @@ namespace SunLight {
                 m_Thread   = std :: thread( [this, nInterval, handler] {
                     while( m_bRunning ) {
                         std :: this_thread :: sleep_for( nInterval );
-                        handler( m_nTimerId );
+
+                        /*
+                         * Stop() can flip m_bRunning to false while this
+                         * thread is asleep - re-check it here, right
+                         * before actually invoking the handler, or a
+                         * guaranteed extra callback fires after every
+                         * Stop() call, racing against whatever teardown
+                         * the caller just did once Stop()'s own join()
+                         * returns (found via a caller that nils out state
+                         * its callback depends on right after stopping the
+                         * timer).
+                         */
+                        if( m_bRunning )
+                            handler( m_nTimerId );
                     }
                 } );
 
