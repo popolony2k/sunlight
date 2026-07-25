@@ -1073,6 +1073,7 @@ namespace SunLight {
             m_fWindowHeight               = fHeight;
             m_nTargetFps                  = nTargetFps;
             m_strTitle                    = szTitle;
+            m_fScreenFadeAlpha            = 0.0f;
             m_pTmxMap                     = NULL;
             m_bIsStarted                  = false;
             m_bWindowResizeable           = __DEFAULT_RESIZEABLE_STATUS;
@@ -1381,6 +1382,16 @@ namespace SunLight {
 
             if( m_bIsStarted )
                 :: SetWindowTitle( m_strTitle.c_str() );
+        }
+
+        /**
+         * @brief Set a whole-screen fade overlay. Stored here and drawn by
+         * @see Run() as the very last thing each frame, on top of whatever
+         * else was rendered - see Run()'s own comment for why.
+         */
+        void TileMapRenderer :: SetScreenFade( float fAlpha )  {
+
+            m_fScreenFadeAlpha = fAlpha;
         }
 
         /**
@@ -1767,7 +1778,29 @@ namespace SunLight {
                         HandleUserInput();
                         HandleUserUpdate();
                         HandleUserCollisions();
+
+                        /*
+                         * Screen fade overlay - drawn last, after
+                         * everything else this frame, so it composites on
+                         * top of the whole rendered scene rather than any
+                         * single element. Deliberately inside the
+                         * GetVisible() branch: if nothing was rendered this
+                         * frame, there's nothing fresh to composite over -
+                         * drawing it unconditionally would paint over
+                         * whatever stale content is still in the frame
+                         * buffer from the last visible frame instead. Uses
+                         * raylib's own ::DrawRectangle/::Fade directly
+                         * (this class already has its own, unrelated,
+                         * wireframe-only DrawRectangle method, hence the ::
+                         * qualification - same idiom as ::SetWindowTitle
+                         * above).
+                         */
+                        if( m_fScreenFadeAlpha > 0.0f )  {
+                            :: DrawRectangle( 0, 0, ( int ) m_fWindowWidth, ( int ) m_fWindowHeight,
+                                             :: Fade( BLACK, m_fScreenFadeAlpha ) );
+                        }
                     }
+
                     EndDrawing();
                 }
 

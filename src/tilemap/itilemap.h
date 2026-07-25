@@ -137,6 +137,16 @@ namespace SunLight {
             virtual void SetWindowTitle( const std :: string &strTitle ) = 0;
 
             /**
+             * @brief Set a whole-screen fade overlay, drawn on top of every
+             * other rendered element (tilemap, sprites, everything) - not a
+             * per-texture effect.
+             *
+             * @param fAlpha Fade amount, 0.0 (fully visible, no overlay) to
+             * 1.0 (fully black);
+             */
+            virtual void SetScreenFade( float fAlpha ) = 0;
+
+            /**
              * Set layer parameters.
              * @param nLayerId The layer id to set layer parameters;
              * @param layer reference to layer parameters structure to set;

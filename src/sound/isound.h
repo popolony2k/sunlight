@@ -97,6 +97,17 @@ namespace SunLight {
              * @return false If is not playing;
              */
             virtual bool IsPlaying( void ) = 0;
+
+            /**
+             * @brief Must be implemented to set this sound's playback volume
+             * on chosen target engine, independently of every other loaded
+             * sound;
+             *
+             * @param fVolume Volume level, 0.0 (silent) to 1.0 (max);
+             * @return true If operation was succesfull;
+             * @return false If operation was failed;
+             */
+            virtual bool SetVolume( float fVolume ) = 0;
         };
     }
 }

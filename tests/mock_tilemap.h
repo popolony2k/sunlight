@@ -65,6 +65,7 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     void MoveCameraLeft( void )  {}
     void MoveCameraRight( void )  {}
     void SetWindowTitle( const std :: string& )  {}
+    void SetScreenFade( float )  {}
 
     bool SetLayer( int, SunLight :: TileMap :: stLayer& )  {
         return false;
