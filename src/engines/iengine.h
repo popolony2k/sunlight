@@ -108,6 +108,26 @@ namespace SunLight  {
                                            SunLight :: Base :: stColor tint ) = 0;
 
             /**
+             * @brief Must be implemented to fill a rectangle with a solid/
+             * alpha-blended color on chosen target engine. Draws exactly
+             * the rectangle it's given, with no viewport/camera awareness
+             * of its own - same as every other draw method on this
+             * interface, any clipping against a viewport must already be
+             * done by the caller before the coordinates reach here.
+             *
+             * @param nPosX X coordinate of the rectangle's top-left corner;
+             * @param nPosY Y coordinate of the rectangle's top-left corner;
+             * @param nWidth Rectangle width;
+             * @param nHeight Rectangle height;
+             * @param color Fill color (including alpha);
+             */
+            virtual void DrawFilledRectangle( int nPosX,
+                                              int nPosY,
+                                              int nWidth,
+                                              int nHeight,
+                                              SunLight :: Base :: stColor color ) = 0;
+
+            /**
              * @brief Must be implemented to return the directory the running
              * executable lives in (trailing separator included), so callers
              * can resolve resource paths relative to the binary instead of
