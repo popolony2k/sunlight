@@ -55,6 +55,7 @@ namespace SunLight {
                 bool Pause( void );
                 bool Resume( void );
                 bool IsPlaying( void );
+                bool SetVolume( float fVolume );
             };
         }
     }

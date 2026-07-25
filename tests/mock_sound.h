@@ -41,6 +41,7 @@ class MockSound : public SunLight :: Sound :: ISound  {
     bool          bPauseResult     = true;
     bool          bResumeResult    = true;
     bool          bIsPlayingResult = false;
+    bool          bSetVolumeResult = true;
 
     int           nLoadCalls      = 0;
     int           nUnloadCalls    = 0;
@@ -49,6 +50,9 @@ class MockSound : public SunLight :: Sound :: ISound  {
     int           nPauseCalls     = 0;
     int           nResumeCalls    = 0;
     int           nIsPlayingCalls = 0;
+    int           nSetVolumeCalls = 0;
+
+    float         fLastVolume     = 0.0f;
 
     std :: string strLastFileName;
 
@@ -86,6 +90,12 @@ class MockSound : public SunLight :: Sound :: ISound  {
     bool IsPlaying( void )  {
         nIsPlayingCalls++;
         return bIsPlayingResult;
+    }
+
+    bool SetVolume( float fVolume )  {
+        nSetVolumeCalls++;
+        fLastVolume = fVolume;
+        return bSetVolumeResult;
     }
 };
 

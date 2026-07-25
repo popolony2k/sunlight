@@ -79,6 +79,19 @@ TEST_SUITE( "sound/SoundManager" )  {
         CHECK( fixture.pLastCreated -> nIsPlayingCalls == 1 );
     }
 
+    TEST_CASE( "SetVolume forwards to the loaded sound" )  {
+
+        MockSoundFixture  fixture;
+        SoundManager      manager;
+
+        manager.Load( 5, "a.wav" );
+        REQUIRE( fixture.pLastCreated != nullptr );
+
+        CHECK( manager.SetVolume( 5, 0.25f ) == true );
+        CHECK( fixture.pLastCreated -> nSetVolumeCalls == 1 );
+        CHECK( fixture.pLastCreated -> fLastVolume == doctest :: Approx( 0.25f ) );
+    }
+
     TEST_CASE( "Operations on an unknown sound id return false without creating any sound" )  {
 
         MockSoundFixture  fixture;
@@ -90,6 +103,7 @@ TEST_SUITE( "sound/SoundManager" )  {
         CHECK( manager.Resume( 999 ) == false );
         CHECK( manager.IsPlaying( 999 ) == false );
         CHECK( manager.Unload( 999 ) == false );
+        CHECK( manager.SetVolume( 999, 0.5f ) == false );
 
         CHECK( fixture.pLastCreated == nullptr );
     }

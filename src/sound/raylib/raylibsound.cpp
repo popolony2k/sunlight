@@ -190,6 +190,24 @@ namespace SunLight {
 
                 return false;
             }
+
+            /**
+             * @brief Implements per-sound volume control on chosen target
+             * engine;
+             *
+             * @param fVolume Volume level, 0.0 (silent) to 1.0 (max);
+             * @return true If operation was succesfull;
+             * @return false If operation was failed;
+             */
+            bool RayLibSound :: SetVolume( float fVolume )  {
+
+                if( m_Loaded )  {
+                    ::SetSoundVolume( m_Sound, fVolume );
+                    return true;
+                }
+
+                return false;
+            }
         }
     }
 }

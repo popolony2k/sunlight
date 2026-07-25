@@ -175,5 +175,25 @@ namespace SunLight {
 
             return bRet;
         }
+
+        /**
+         * @brief Set a loaded sound's playback volume, independently of
+         * every other loaded sound;
+         *
+         * @param nSoundId The corresponding sound id loaded by @see Load function;
+         * @param fVolume Volume level, 0.0 (silent) to 1.0 (max);
+         * @return true If operation was succesfull;
+         * @return false If operation was failed;
+         */
+        bool SoundManager :: SetVolume( int nSoundId, float fVolume )  {
+
+            std :: map<int, std :: unique_ptr<ISound>> :: iterator itItem = m_SoundMap.find( nSoundId );
+            bool    bRet = false;
+
+            if( itItem != m_SoundMap.end() )
+                bRet = itItem -> second -> SetVolume( fVolume );
+
+            return bRet;
+        }
     }
 }

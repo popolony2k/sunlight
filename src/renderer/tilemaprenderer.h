@@ -101,6 +101,7 @@ namespace SunLight {
             uint32_t                                   m_nWindowBackgroundColor;
             __AnimInfoList                             m_AnimInfoList;
             std :: string                              m_strTitle;
+            float                                      m_fScreenFadeAlpha;
             tmx_map                                    *m_pTmxMap;
             bool                                       m_bClearBackground;
             bool                                       m_bIsStarted;
@@ -245,6 +246,7 @@ namespace SunLight {
 
             // Window management
             void SetWindowTitle( const std :: string &strTitle );
+            void SetScreenFade( float fAlpha );
 
             // Layer management
             bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer );
