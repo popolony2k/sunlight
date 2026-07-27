@@ -63,6 +63,23 @@ namespace SunLight  {
                                           SunLight :: Base :: stColor color ) override;
 
                 std :: string GetApplicationDirectory( void ) override;
+
+                void SetFullscreen( bool bFullscreen ) override;
+                bool GetFullscreen( void ) override;
+
+                int GetScreenWidth( void ) override;
+                int GetScreenHeight( void ) override;
+
+                SunLight :: Base :: TextureHandle LoadRenderTarget( int nWidth, int nHeight ) override;
+                void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
+                void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
+                void EndRenderTarget( void ) override;
+                SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget ) override;
+
+                void DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,
+                                        SunLight :: Base :: stRectangle source,
+                                        SunLight :: Base :: stRectangle dest,
+                                        SunLight :: Base :: stColor tint ) override;
             };
         }
     }

@@ -323,6 +323,134 @@ namespace SunLight  {
 
                 return ( szDirectory ? std :: string( szDirectory ) : std :: string() );
             }
+
+            /**
+             * @brief Enter or leave fullscreen. Uses raylib's borderless-
+             * windowed mode (not the older exclusive ToggleFullscreen(),
+             * which changes the monitor's own video mode and is markedly
+             * less reliable across platforms/window managers) - the window
+             * simply resizes to the current monitor's native resolution.
+             * @param bFullscreen true to enter fullscreen, false for windowed;
+             */
+            void RaylibEngine :: SetFullscreen( bool bFullscreen )  {
+
+                if( bFullscreen != ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE ) )
+                    ::ToggleBorderlessWindowed();
+            }
+
+            /**
+             * @brief Query whether the window is currently fullscreen (see
+             * @see SetFullscreen).
+             */
+            bool RaylibEngine :: GetFullscreen( void )  {
+
+                return ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE );
+            }
+
+            /**
+             * @brief Current window/screen width, in pixels.
+             */
+            int RaylibEngine :: GetScreenWidth( void )  {
+
+                return ::GetScreenWidth();
+            }
+
+            /**
+             * @brief Current window/screen height, in pixels.
+             */
+            int RaylibEngine :: GetScreenHeight( void )  {
+
+                return ::GetScreenHeight();
+            }
+
+            /**
+             * @brief Allocate an offscreen render target. Point filtering
+             * is applied so pixel-art content stays crisp when later drawn
+             * scaled up rather than blurring.
+             * @param nWidth Render target width, in pixels;
+             * @param nHeight Render target height, in pixels;
+             * @return Opaque handle to the render target;
+             */
+            SunLight :: Base :: TextureHandle RaylibEngine :: LoadRenderTarget( int nWidth, int nHeight )  {
+
+                RenderTexture2D *pRenderTarget = new RenderTexture2D;
+
+                *pRenderTarget = ::LoadRenderTexture( nWidth, nHeight );
+
+                ::SetTextureFilter( pRenderTarget -> texture, TEXTURE_FILTER_POINT );
+
+                return pRenderTarget;
+            }
+
+            /**
+             * @brief Release a render target previously allocated by
+             * @see LoadRenderTarget.
+             * @param hRenderTarget The render target handle to release;
+             */
+            void RaylibEngine :: UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
+
+                RenderTexture2D *pRenderTarget = reinterpret_cast<RenderTexture2D*>( hRenderTarget );
+
+                ::UnloadRenderTexture( *pRenderTarget );
+                delete pRenderTarget;
+            }
+
+            /**
+             * @brief Redirect subsequent drawing into the given render
+             * target, until the matching @see EndRenderTarget call.
+             * @param hRenderTarget The render target to draw into;
+             */
+            void RaylibEngine :: BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
+
+                ::BeginTextureMode( *reinterpret_cast<RenderTexture2D*>( hRenderTarget ) );
+            }
+
+            /**
+             * @brief Stop redirecting drawing into whichever render target
+             * the matching @see BeginRenderTarget call started.
+             */
+            void RaylibEngine :: EndRenderTarget( void )  {
+
+                ::EndTextureMode();
+            }
+
+            /**
+             * @brief Return a texture handle for the given render target's
+             * own contents - points directly at the texture field embedded
+             * in the render target itself, which stays valid for as long
+             * as the render target does.
+             * @param hRenderTarget The render target handle whose texture
+             * is being requested;
+             */
+            SunLight :: Base :: TextureHandle RaylibEngine :: GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget )  {
+
+                return &( reinterpret_cast<RenderTexture2D*>( hRenderTarget ) -> texture );
+            }
+
+            /**
+             * @brief Draw a texture stretched from a source rectangle into
+             * a destination rectangle, with no tiling. A negative source
+             * width/height flips the drawn result along that axis - used
+             * for render targets, whose contents are stored bottom-up.
+             * @param hTexture The texture handle to draw;
+             * @param source Source rectangle defining the texture area to
+             * be drawn;
+             * @param dest Destination rectangle the source is stretched
+             * into;
+             * @param tint Color tint applied to texture;
+             */
+            void RaylibEngine :: DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,
+                                                    SunLight :: Base :: stRectangle source,
+                                                    SunLight :: Base :: stRectangle dest,
+                                                    SunLight :: Base :: stColor tint )  {
+
+                Texture2D  texture = *reinterpret_cast<Texture2D*>( hTexture );
+                Rectangle  sourceRect { source.x, source.y, source.width, source.height };
+                Rectangle  destRect   { dest.x, dest.y, dest.width, dest.height };
+
+                ::DrawTexturePro( texture, sourceRect, destRect, Vector2 { 0.0f, 0.0f }, 0.0f,
+                                 Color{ tint.nRed, tint.nGreen, tint.nBlue, tint.nAlpha } );
+            }
         }
     }
 }

@@ -1075,6 +1075,7 @@ namespace SunLight {
             m_strTitle                    = szTitle;
             m_fScreenFadeAlpha            = 0.0f;
             m_pTmxMap                     = NULL;
+            m_pRenderTexture              = nullptr;
             m_bIsStarted                  = false;
             m_bWindowResizeable           = __DEFAULT_RESIZEABLE_STATUS;
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
@@ -1197,6 +1198,26 @@ namespace SunLight {
         void TileMapRenderer :: SetDrawFPS( bool bDrawFPS )  {
 
             m_bDrawFPS = bDrawFPS;
+        }
+
+        /**
+         * Enter or leave fullscreen (see @see ITileMap::SetFullscreen).
+         * Routed through IEngine rather than raylib directly, same as
+         * every other window/render primitive TileMapRenderer uses.
+         * @param bFullscreen true to enter fullscreen, false for windowed;
+         */
+        void TileMapRenderer :: SetFullscreen( bool bFullscreen )  {
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().SetFullscreen( bFullscreen );
+        }
+
+        /**
+         * Query whether the window is currently fullscreen (see
+         * @see SetFullscreen).
+         */
+        bool TileMapRenderer :: GetFullscreen( void )  {
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().GetFullscreen();
         }
 
         /**
@@ -1744,6 +1765,24 @@ namespace SunLight {
 
             SetExitKey( __DEFAULT_EXIT_KEY );
             SetTargetFPS( m_nTargetFps != -1 ? m_nTargetFps : __DEFAULT_FPS );
+
+            /*
+             * Everything renders into this fixed-size offscreen target
+             * (Run() blits it scaled+letterboxed to the real window/screen
+             * every frame) - game/camera/collision math never needs to
+             * know the actual window size at all. If Start() is somehow
+             * called again without an intervening Stop(), release
+             * whatever render target already exists first so it isn't
+             * leaked.
+             */
+            if( m_pRenderTexture != nullptr )  {
+                SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( m_pRenderTexture );
+                m_pRenderTexture = nullptr;
+            }
+
+            m_pRenderTexture = SunLight :: Engines :: EngineFactory :: GetEngine().LoadRenderTarget(
+                                                      ( int ) m_fWindowWidth,
+                                                      ( int ) m_fWindowHeight );
             m_bIsStarted = true;
 
             return m_bIsStarted;
@@ -1760,6 +1799,12 @@ namespace SunLight {
 
             if( m_bIsStarted )  {
                 UnloadMap();
+
+                if( m_pRenderTexture != nullptr )  {
+                    SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( m_pRenderTexture );
+                    m_pRenderTexture = nullptr;
+                }
+
                 CloseWindow();
                 m_bIsStarted = false;
             }
@@ -1772,7 +1817,7 @@ namespace SunLight {
 
             if( m_bIsStarted )  {
                 while ( !WindowShouldClose() ) {
-                    BeginDrawing();
+                    SunLight :: Engines :: EngineFactory :: GetEngine().BeginRenderTarget( m_pRenderTexture );
                     if( GetVisible() )  {
                         RenderMap();
                         HandleUserInput();
@@ -1805,7 +1850,39 @@ namespace SunLight {
                                                                   fadeColor );
                         }
                     }
+                    SunLight :: Engines :: EngineFactory :: GetEngine().EndRenderTarget();
 
+                    /*
+                     * Blit the fixed-resolution render texture to the real
+                     * window, scaled to fit and letterboxed (black bars) to
+                     * preserve aspect ratio - recomputed from the actual
+                     * current screen size every single frame, so both
+                     * fullscreen (SetFullscreen) and live window resizing
+                     * (if m_bWindowResizeable) fall out of this one path
+                     * with no separate resize-event handling needed.
+                     * Source height is negative because render targets are
+                     * stored bottom-up (OpenGL convention) - this flips it
+                     * back right-side up. BeginDrawing/EndDrawing/
+                     * ClearBackground/WindowShouldClose stay raylib-direct,
+                     * same as the rest of this window's lifecycle.
+                     */
+                    int    nScreenWidth  = SunLight :: Engines :: EngineFactory :: GetEngine().GetScreenWidth();
+                    int    nScreenHeight = SunLight :: Engines :: EngineFactory :: GetEngine().GetScreenHeight();
+                    float  fScaleX       = ( float ) nScreenWidth / m_fWindowWidth;
+                    float  fScaleY       = ( float ) nScreenHeight / m_fWindowHeight;
+                    float  fScale        = ( fScaleX < fScaleY ) ? fScaleX : fScaleY;
+
+                    SunLight :: Base :: stRectangle  source { 0.0f, 0.0f, m_fWindowWidth, -m_fWindowHeight };
+                    SunLight :: Base :: stRectangle  dest   { ( nScreenWidth - ( m_fWindowWidth * fScale ) ) * 0.5f,
+                                                              ( nScreenHeight - ( m_fWindowHeight * fScale ) ) * 0.5f,
+                                                              m_fWindowWidth * fScale,
+                                                              m_fWindowHeight * fScale };
+
+                    BeginDrawing();
+                    ClearBackground( BLACK );
+                    SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureScaled(
+                                          SunLight :: Engines :: EngineFactory :: GetEngine().GetRenderTargetTexture( m_pRenderTexture ),
+                                          source, dest, WHITE_COLOR );
                     EndDrawing();
                 }
 

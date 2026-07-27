@@ -109,6 +109,14 @@ namespace SunLight {
             bool                                       m_bDrawFPS;
             static bool                                m_bInitialized;
 
+            // Everything is rendered into this fixed-internal-resolution
+            // offscreen render target (via IEngine), then Run() blits it
+            // scaled+letterboxed to whatever the actual window/screen size
+            // currently is - the one place both fullscreen and live
+            // window-resizing are handled, since both just mean "the real
+            // screen size differs from this".
+            SunLight :: Base :: TextureHandle          m_pRenderTexture;
+
             // TmxLib overrides
             static void* TextureLoaderCallback( const char *szFileName );
             static void TextureFreeCallback( void *pTexture );
@@ -218,6 +226,8 @@ namespace SunLight {
             void SetWindowBackgroundColor( uint32_t nWindowBkColor );
             void SetClearBackground( bool bStatus );
             void SetDrawFPS( bool bDrawFPS );
+            void SetFullscreen( bool bFullscreen );
+            bool GetFullscreen( void );
 
             // View port control
             void SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode );

@@ -46,6 +46,12 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nDrawTextureTiledCalls     = 0;
     int                                 nDrawFilledRectangleCalls  = 0;
     int                                 nGetApplicationDirectoryCalls = 0;
+    int                                 nSetFullscreenCalls        = 0;
+    int                                 nLoadRenderTargetCalls     = 0;
+    int                                 nUnloadRenderTargetCalls   = 0;
+    int                                 nBeginRenderTargetCalls    = 0;
+    int                                 nEndRenderTargetCalls      = 0;
+    int                                 nDrawTextureScaledCalls    = 0;
 
     std :: string                       strLastLoadTextureFileName;
     SunLight :: Base :: TextureHandle   hLastUnloadedTexture = nullptr;
@@ -58,6 +64,14 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nLastFilledRectangleWidth  = 0;
     int                                 nLastFilledRectangleHeight = 0;
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
+    bool                                bFullscreen                = false;
+    int                                 nScreenWidthResult         = 0;
+    int                                 nScreenHeightResult        = 0;
+    SunLight :: Base :: TextureHandle   hLoadRenderTargetResult    = ( SunLight :: Base :: TextureHandle )  0x2;
+    SunLight :: Base :: TextureHandle   hLastUnloadedRenderTarget  = nullptr;
+    SunLight :: Base :: TextureHandle   hLastBegunRenderTarget     = nullptr;
+    SunLight :: Base :: stRectangle     lastDrawTextureScaledSource { 0, 0, 0, 0 };
+    SunLight :: Base :: stRectangle     lastDrawTextureScaledDest   { 0, 0, 0, 0 };
 
     SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName, int& nWidth, int& nHeight )  {
         nLoadTextureCalls++;
@@ -107,6 +121,56 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     std :: string GetApplicationDirectory( void )  {
         nGetApplicationDirectoryCalls++;
         return strApplicationDirectoryResult;
+    }
+
+    void SetFullscreen( bool bValue )  {
+        nSetFullscreenCalls++;
+        bFullscreen = bValue;
+    }
+
+    bool GetFullscreen( void )  {
+        return bFullscreen;
+    }
+
+    int GetScreenWidth( void )  {
+        return nScreenWidthResult;
+    }
+
+    int GetScreenHeight( void )  {
+        return nScreenHeightResult;
+    }
+
+    SunLight :: Base :: TextureHandle LoadRenderTarget( int nWidth, int nHeight )  {
+        nLoadRenderTargetCalls++;
+        return hLoadRenderTargetResult;
+    }
+
+    void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
+        nUnloadRenderTargetCalls++;
+        hLastUnloadedRenderTarget = hRenderTarget;
+    }
+
+    void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
+        nBeginRenderTargetCalls++;
+        hLastBegunRenderTarget = hRenderTarget;
+    }
+
+    void EndRenderTarget( void )  {
+        nEndRenderTargetCalls++;
+    }
+
+    SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget )  {
+        return hRenderTarget;
+    }
+
+    void DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,
+                            SunLight :: Base :: stRectangle source,
+                            SunLight :: Base :: stRectangle dest,
+                            SunLight :: Base :: stColor tint )  {
+        nDrawTextureScaledCalls++;
+        hLastDrawnTexture           = hTexture;
+        lastDrawTextureScaledSource = source;
+        lastDrawTextureScaledDest   = dest;
     }
 };
 
