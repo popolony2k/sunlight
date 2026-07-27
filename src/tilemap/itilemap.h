@@ -147,6 +147,25 @@ namespace SunLight {
             virtual void SetScreenFade( float fAlpha ) = 0;
 
             /**
+             * @brief Enter or leave fullscreen (borderless-windowed at the
+             * current monitor's native resolution). The game itself always
+             * renders at its own fixed internal resolution regardless of
+             * this setting - the renderer is responsible for scaling that
+             * up/down and letterboxing to whatever the actual window size
+             * ends up being.
+             *
+             * @param bFullscreen true to enter fullscreen, false to return
+             * to windowed mode;
+             */
+            virtual void SetFullscreen( bool bFullscreen ) = 0;
+
+            /**
+             * @brief Query whether the window is currently fullscreen (see
+             * @link SetFullscreen).
+             */
+            virtual bool GetFullscreen( void ) = 0;
+
+            /**
              * Set layer parameters.
              * @param nLayerId The layer id to set layer parameters;
              * @param layer reference to layer parameters structure to set;
