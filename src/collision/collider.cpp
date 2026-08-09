@@ -66,6 +66,10 @@ namespace SunLight {
          */
         Collider :: Collider( void )  {
 
+            m_fInsetLeft   = 0.0f;
+            m_fInsetTop    = 0.0f;
+            m_fInsetRight  = 0.0f;
+            m_fInsetBottom = 0.0f;
         }
 
         /**
@@ -76,24 +80,50 @@ namespace SunLight {
         }
 
         /**
+         * Compute the rectangle actually used for this collider's own side
+         * of an overlap test - the parent's full dimension with SetInset's
+         * percentages shaved off each edge. See SetInset's own doc comment
+         * for why this is recomputed here rather than cached.
+         * @param fX Receives the effective rectangle's X position;
+         * @param fY Receives the effective rectangle's Y position;
+         * @param fWidth Receives the effective rectangle's width;
+         * @param fHeight Receives the effective rectangle's height;
+         */
+        void Collider :: GetEffectiveRect( float &fX, float &fY, float &fWidth, float &fHeight )  {
+
+            SunLight :: TileMap :: stDimension2D&  self = GetDimension2D();
+            float                                 fInsetLeftPx   = self.size.nWidth  * m_fInsetLeft;
+            float                                 fInsetTopPx    = self.size.nHeight * m_fInsetTop;
+            float                                 fInsetRightPx  = self.size.nWidth  * m_fInsetRight;
+            float                                 fInsetBottomPx = self.size.nHeight * m_fInsetBottom;
+
+            fX      = self.pos.x + fInsetLeftPx;
+            fY      = self.pos.y + fInsetTopPx;
+            fWidth  = self.size.nWidth  - fInsetLeftPx - fInsetRightPx;
+            fHeight = self.size.nHeight - fInsetTopPx  - fInsetBottomPx;
+        }
+
+        /**
          * Check if collider object area has been hit by tile passed as parameter.
          * @param tile Reference to the tile struct containing all tile information;
          */
         bool Collider :: Hit( SunLight :: TileMap :: stTile &tile )  {
 
             SunLight :: TileMap :: stDimension2D&  viewport    = GetViewport().GetDimension2D();
-            SunLight :: TileMap :: stDimension2D&  dimension   = GetDimension2D();
             tmx_object                           *pCollision = tile.pTile -> collision;
             bool                                 bHit        = false;
+            float                                fSelfX, fSelfY, fSelfWidth, fSelfHeight;
+
+            GetEffectiveRect( fSelfX, fSelfY, fSelfWidth, fSelfHeight );
 
             while( pCollision )  {
 
                 switch( pCollision -> obj_type )  {
                     case OT_SQUARE :
-                        bHit = RectRect( ( float ) ( dimension.pos.x + viewport.pos.x ),
-                                         ( float ) ( dimension.pos.y + viewport.pos.y ),
-                                         ( float ) dimension.size.nWidth,
-                                         ( float ) dimension.size.nHeight,
+                        bHit = RectRect( fSelfX + ( float ) viewport.pos.x,
+                                         fSelfY + ( float ) viewport.pos.y,
+                                         fSelfWidth,
+                                         fSelfHeight,
                                          ( float ) ( tile.dimension.pos.x + pCollision -> x ),
                                          ( float ) ( tile.dimension.pos.y + pCollision -> y ),
                                          ( float ) pCollision -> width,
@@ -138,16 +168,36 @@ namespace SunLight {
          */
         bool Collider :: Hit( SunLight :: TileMap :: stDimension2D &dimension )  {
 
-            SunLight :: TileMap :: stDimension2D&  self = GetDimension2D();
+            float  fSelfX, fSelfY, fSelfWidth, fSelfHeight;
 
-            return RectRect( ( float ) self.pos.x,
-                             ( float ) self.pos.y,
-                             ( float ) self.size.nWidth,
-                             ( float ) self.size.nHeight,
+            GetEffectiveRect( fSelfX, fSelfY, fSelfWidth, fSelfHeight );
+
+            return RectRect( fSelfX,
+                             fSelfY,
+                             fSelfWidth,
+                             fSelfHeight,
                              ( float ) dimension.pos.x,
                              ( float ) dimension.pos.y,
                              ( float ) dimension.size.nWidth,
                              ( float ) dimension.size.nHeight );
+        }
+
+        /**
+         * Set the inset (as fractions of the parent's own width/height)
+         * shrinking the rectangle this collider's Hit() checks use for it's
+         * own side of the test. See the header's own doc comment for the
+         * full explanation.
+         * @param fLeftPct Fraction of width to shrink off the left edge;
+         * @param fTopPct Fraction of height to shrink off the top edge;
+         * @param fRightPct Fraction of width to shrink off the right edge;
+         * @param fBottomPct Fraction of height to shrink off the bottom edge;
+         */
+        void Collider :: SetInset( float fLeftPct, float fTopPct, float fRightPct, float fBottomPct )  {
+
+            m_fInsetLeft   = fLeftPct;
+            m_fInsetTop    = fTopPct;
+            m_fInsetRight  = fRightPct;
+            m_fInsetBottom = fBottomPct;
         }
     }
 }

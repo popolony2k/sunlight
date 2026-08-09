@@ -58,4 +58,48 @@ TEST_SUITE( "collision/Collider" )  {
 
         CHECK( collider.Hit( other ) == true );
     }
+
+    TEST_CASE( "SetInset defaults to zero - unchanged full-size behavior" )  {
+
+        Collider      collider;
+        stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        stDimension2D other { { 45, 0 }, { 50, 50 } };
+
+        collider.SetDimension2D( self );
+
+        // Same overlap as the plain full-size Hit() tests above - confirms
+        // an untouched Collider (no SetInset call) behaves exactly as
+        // before this feature existed.
+        CHECK( collider.Hit( other ) == true );
+    }
+
+    TEST_CASE( "SetInset shrinks the collider's own side of the test" )  {
+
+        Collider      collider;
+        // 50x50 self, 20% inset on every edge -> effective rect is
+        // (10,10)-(40,40), a 30x30 box centered in the original 50x50.
+        stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        stDimension2D other { { 45, 0 }, { 50, 50 } };
+
+        collider.SetDimension2D( self );
+        collider.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
+
+        // other still overlaps self's full 50x50 box (as the test above
+        // confirms) but no longer reaches the inset-shrunk 30x30 box, which
+        // now ends at x=40 while other starts at x=45.
+        CHECK( collider.Hit( other ) == false );
+    }
+
+    TEST_CASE( "SetInset still detects overlap within the shrunk box" )  {
+
+        Collider      collider;
+        stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        stDimension2D other { { 35, 0 }, { 50, 50 } };
+
+        collider.SetDimension2D( self );
+        collider.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
+
+        // Effective rect ends at x=40 - other starts at x=35, still inside it.
+        CHECK( collider.Hit( other ) == true );
+    }
 }
