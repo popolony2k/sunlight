@@ -29,9 +29,14 @@ namespace SunLight {
 
         /**
          * @brief Collider implementation.
-         * 
+         *
          */
         class Collider : public SunLight :: Canvas :: BaseCanvas {
+
+            float  m_fInsetLeft;
+            float  m_fInsetTop;
+            float  m_fInsetRight;
+            float  m_fInsetBottom;
 
             bool RectRect( float fRect1X,
                         float fRect1Y,
@@ -42,6 +47,11 @@ namespace SunLight {
                         float fRect2Width,
                         float fRect2Height );
 
+            void GetEffectiveRect( float &fX,
+                                   float &fY,
+                                   float &fWidth,
+                                   float &fHeight );
+
             public:
 
             Collider( void );
@@ -49,6 +59,35 @@ namespace SunLight {
 
             bool Hit( SunLight :: TileMap :: stTile &tile );
             bool Hit( SunLight :: TileMap :: stDimension2D &dimension );
+
+            /**
+             * @brief Shrinks the rectangle actually used for this collider's
+             * own overlap tests, relative to it's parent's full render
+             * dimension - the dimension itself (position/size, tracked via
+             * SetDimension2DPtr) is untouched, so this only affects the
+             * area Hit() considers "self", not what's drawn or how the
+             * parent's position is tracked. Every percentage is a fraction
+             * (0.0-1.0) of the parent's own width/height, recomputed from
+             * the current dimension on every Hit() call rather than cached
+             * as pixels, so it stays correct even if the parent's own size
+             * changes at runtime (e.g. a differently-sized active texture
+             * sequence). Defaults to 0 on every side (full-size collision,
+             * today's behavior) until explicitly set. Not clamped/validated -
+             * opposing percentages summing past 1.0 on an axis (e.g.
+             * fLeftPct=0.6, fRightPct=0.6) push that axis's effective size
+             * negative; RectRect() doesn't crash or false-positive on that,
+             * it just fails toward "never hits", but it's still the caller's
+             * responsibility to pass sane values (same convention as
+             * TileMapRenderer::SetCameraPosition's own unclamped position).
+             * @param fLeftPct Fraction of width to shrink off the left edge;
+             * @param fTopPct Fraction of height to shrink off the top edge;
+             * @param fRightPct Fraction of width to shrink off the right edge;
+             * @param fBottomPct Fraction of height to shrink off the bottom edge;
+             */
+            void SetInset( float fLeftPct,
+                           float fTopPct,
+                           float fRightPct,
+                           float fBottomPct );
         };
     }
 }
