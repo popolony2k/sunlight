@@ -1423,6 +1423,23 @@ namespace SunLight {
         }
 
         /**
+         * @brief Read the world-space coordinate currently shown at the
+         * top-left of the viewport - the exact inverse of
+         * SetCameraPosition (m_CameraPos itself stores the negated
+         * coordinate, same convention that method's own comment covers).
+         *
+         * @param nX Receives the world-space x coordinate (pixels)
+         * currently shown at the viewport's left edge.
+         * @param nY Receives the world-space y coordinate (pixels)
+         * currently shown at the viewport's top edge.
+         */
+        void TileMapRenderer :: GetCameraPosition( int &nX, int &nY )  {
+
+            nX = ( int ) -m_CameraPos.x;
+            nY = ( int ) -m_CameraPos.y;
+        }
+
+        /**
          * @brief Set the application window's title, replacing whatever
          * title it was created with.
          *
