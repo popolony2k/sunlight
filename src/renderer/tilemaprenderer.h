@@ -257,6 +257,7 @@ namespace SunLight {
             void MoveCameraLeft( void );
             void MoveCameraRight( void );
             void SetCameraPosition( int nX, int nY );
+            void GetCameraPosition( int &nX, int &nY );
 
             // Window management
             void SetWindowTitle( const std :: string &strTitle );

@@ -147,6 +147,22 @@ namespace SunLight {
             virtual void SetCameraPosition( int nX, int nY ) = 0;
 
             /**
+             * @brief Read the world-space coordinate currently shown at the
+             * top-left of the viewport - the exact inverse of
+             * SetCameraPosition, and the only reliable way to know the
+             * camera's current scroll position (there is no derived way to
+             * compute it purely from map/viewport size - alignment's own
+             * internal math isn't part of this interface's contract and
+             * isn't safe to replicate outside it).
+             *
+             * @param nX Receives the world-space x coordinate (pixels)
+             * currently shown at the viewport's left edge.
+             * @param nY Receives the world-space y coordinate (pixels)
+             * currently shown at the viewport's top edge.
+             */
+            virtual void GetCameraPosition( int &nX, int &nY ) = 0;
+
+            /**
              * @brief Set the application window's title, replacing whatever
              * title it was created with.
              *
