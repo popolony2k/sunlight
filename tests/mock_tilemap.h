@@ -64,6 +64,7 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     void MoveCameraDown( void )  {}
     void MoveCameraLeft( void )  {}
     void MoveCameraRight( void )  {}
+    void SetCameraPosition( int, int )  {}
     void SetWindowTitle( const std :: string& )  {}
     void SetScreenFade( float )  {}
     void SetFullscreen( bool )  {}
@@ -110,6 +111,10 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     }
 
     bool GetMapInfo( SunLight :: TileMap :: stMapInfo& )  {
+        return false;
+    }
+
+    bool GetObjectByName( const char*, SunLight :: TileMap :: stObject& )  {
         return false;
     }
 

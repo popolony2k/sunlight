@@ -22,6 +22,7 @@
 #define __TILEMAPDEFS_H__
 
 #include <tmx.h>
+#include <string>
 
 
 namespace SunLight  {
@@ -87,6 +88,16 @@ namespace SunLight  {
             stSize2D       mapSize;
             stSize2D       tileSize;
             tmx_map        *pMap;
+        };
+
+        /**
+         * A single Tiled object (<object> element inside an <objectgroup>
+         * layer), eg. a level-design-authored marker/trigger placed in the
+         * map editor - world-space position/size, in pixels.
+         */
+        struct stObject  {
+            std :: string  strName;
+            stDimension2D  dimension;
         };
     }
 }

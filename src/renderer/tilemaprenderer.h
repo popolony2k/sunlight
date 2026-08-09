@@ -182,6 +182,9 @@ namespace SunLight {
             void DrawAllLayers( tmx_layer *pLayer );
             void RenderMap( void );
 
+            // Object management internals
+            bool FindObjectByName( tmx_layer *pLayer, const char *szObjectName, SunLight :: TileMap :: stObject& object );
+
             // General engine handlers
             void InitalizeDefaultUserInputHandlers( void );
 
@@ -253,6 +256,7 @@ namespace SunLight {
             void MoveCameraDown( void );
             void MoveCameraLeft( void );
             void MoveCameraRight( void );
+            void SetCameraPosition( int nX, int nY );
 
             // Window management
             void SetWindowTitle( const std :: string &strTitle );
@@ -277,6 +281,9 @@ namespace SunLight {
             bool LoadMap( const char *szTxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment = MAP_ALIGNMENT_CENTER );
             bool UnloadMap( void );
             bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo );
+
+            // Object management
+            bool GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object );
 
             // Collision management
             SunLight :: Collision :: ICollisionManager& GetCollisionManager( void );

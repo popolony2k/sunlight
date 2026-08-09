@@ -129,6 +129,24 @@ namespace SunLight {
             virtual void MoveCameraRight( void ) = 0;
 
             /**
+             * @brief Jump the camera so the given world-space coordinate is
+             * shown at the top-left of the viewport - an absolute move,
+             * unlike MoveCameraUp/Down/Left/Right's incremental one-step
+             * moves (and unlike ResetCamera, which only returns to the
+             * map's original load-time position).
+             *
+             * Unlike MoveCameraUp/Down/Left/Right, this does not clamp to
+             * map boundaries - the caller is responsible for passing a
+             * valid target (e.g. a position read via GetObjectByName()).
+             *
+             * @param nX World-space x coordinate (pixels) to show at the
+             * viewport's left edge.
+             * @param nY World-space y coordinate (pixels) to show at the
+             * viewport's top edge.
+             */
+            virtual void SetCameraPosition( int nX, int nY ) = 0;
+
+            /**
              * @brief Set the application window's title, replacing whatever
              * title it was created with.
              *
@@ -220,6 +238,20 @@ namespace SunLight {
              * receive the map information.
              */
             virtual bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo ) = 0;
+
+            /**
+             * @brief Look up a level-design-authored object (a Tiled
+             * <object> placed inside any <objectgroup> layer, eg. a
+             * trigger/marker) by name.
+             *
+             * @param szObjectName The object's name, as set in the map
+             * editor.
+             * @param object Reference to receive the object's data if
+             * found.
+             * @return true if an object with this name was found (searched
+             * across every object-group layer), false otherwise.
+             */
+            virtual bool GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object ) = 0;
 
             /**
              * Return the reference to internal renderer collision manager.
