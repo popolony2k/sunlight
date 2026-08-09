@@ -1392,6 +1392,37 @@ namespace SunLight {
         }
 
         /**
+         * @brief Jump the camera so the given world-space coordinate is
+         * shown at the top-left of the viewport. m_CameraPos itself is the
+         * negated world coordinate currently shown at the viewport's
+         * top-left (confirmed via every MoveCamera call and the alignment-
+         * init code above, all of which treat it that way) - callers pass plain,
+         * positive world-space coordinates (the same space stObject's
+         * x/y and TileMapToTileMatrix's input already use), not this
+         * internal negated convention.
+         *
+         * Unlike MoveCameraUp/Down/Left/Right, this does not clamp to map
+         * boundaries - same unconditional-application spirit as
+         * ResetCamera(). Move* re-validates every call because it's nudged
+         * one small step at a time, every frame; this is a deliberate jump
+         * to a caller-supplied target (e.g. an authored map marker via
+         * GetObjectByName()) that's assumed already valid - clamping it
+         * would work against exactly what it's for, landing precisely on
+         * that target instead of wherever the nearest in-bounds point is.
+         * The caller is responsible for passing a valid target.
+         *
+         * @param nX World-space x coordinate (pixels) to show at the
+         * viewport's left edge.
+         * @param nY World-space y coordinate (pixels) to show at the
+         * viewport's top edge.
+         */
+        void TileMapRenderer :: SetCameraPosition( int nX, int nY )  {
+
+            m_CameraPos.x = ( float ) -nX;
+            m_CameraPos.y = ( float ) -nY;
+        }
+
+        /**
          * @brief Set the application window's title, replacing whatever
          * title it was created with.
          *
@@ -1677,6 +1708,73 @@ namespace SunLight {
             }
 
             return false;
+        }
+
+        /**
+         * @brief Recursive helper for GetObjectByName() - walks pLayer's
+         * linked list looking for a named object inside any L_OBJGR layer,
+         * recursing into L_GROUP the same way DrawAllLayers() does, so a
+         * map that nests an object group inside a <group> layer is still
+         * searched correctly instead of silently skipped.
+         *
+         * @param pLayer Head of the tmx_layer linked list to search;
+         * @param szObjectName The object's name, as set in the map editor;
+         * @param object Reference to receive the object's data if found;
+         * @return true if an object with this name was found, false
+         * otherwise;
+         */
+        bool TileMapRenderer :: FindObjectByName( tmx_layer *pLayer, const char *szObjectName, SunLight :: TileMap :: stObject& object )  {
+
+            for( ; pLayer != nullptr; pLayer = pLayer -> next )  {
+
+                if( pLayer -> type == L_GROUP )  {
+                    if( FindObjectByName( pLayer -> content.group_head, szObjectName, object ) )
+                        return true;
+
+                    continue;
+                }
+
+                if( pLayer -> type != L_OBJGR )
+                    continue;
+
+                for( tmx_object *pObject = pLayer -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )  {
+
+                    if( ( pObject -> name != nullptr ) && ( ::strcmp( pObject -> name, szObjectName ) == 0 ) )  {
+
+                        object.strName            = pObject -> name;
+                        object.dimension.pos.x    = ( int ) pObject -> x;
+                        object.dimension.pos.y    = ( int ) pObject -> y;
+                        object.dimension.size.nWidth  = ( int ) pObject -> width;
+                        object.dimension.size.nHeight = ( int ) pObject -> height;
+
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * @brief Look up a level-design-authored object (a Tiled <object>
+         * placed inside any <objectgroup> layer) by name - searches every
+         * object-group layer in the loaded map, including ones nested
+         * inside <group> layers (see FindObjectByName()), since libtmx has
+         * no tmx_find_object_by_name of it's own (only
+         * tmx_find_object_by_id, no use here - objects are authored/named
+         * by hand in the map editor, not looked up by their internal id).
+         *
+         * @param szObjectName The object's name, as set in the map editor.
+         * @param object Reference to receive the object's data if found.
+         * @return true if an object with this name was found, false
+         * otherwise (including if no map is loaded).
+         */
+        bool TileMapRenderer :: GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object )  {
+
+            if( m_pTmxMap == nullptr )
+                return false;
+
+            return FindObjectByName( m_pTmxMap -> ly_head, szObjectName, object );
         }
 
         /**
