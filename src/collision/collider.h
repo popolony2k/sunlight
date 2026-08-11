@@ -59,6 +59,7 @@ namespace SunLight {
 
             bool Hit( SunLight :: TileMap :: stTile &tile );
             bool Hit( SunLight :: TileMap :: stDimension2D &dimension );
+            bool Hit( Collider &other );
 
             /**
              * @brief Shrinks the rectangle actually used for this collider's

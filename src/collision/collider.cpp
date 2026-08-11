@@ -183,6 +183,43 @@ namespace SunLight {
         }
 
         /**
+         * Check if this collider's own effective (SetInset-shrunk)
+         * rectangle overlaps another collider's own effective rectangle -
+         * unlike the stDimension2D overload above (which only ever applies
+         * THIS side's inset against the other's raw, full area - by
+         * design, for callers testing against an arbitrary rectangle that
+         * isn't itself a Collider, e.g. a tile's collision shape), this
+         * applies BOTH colliders' own SetInset shrink, so a collider-to-
+         * collider overlap test correctly honors each side's own inset
+         * independently. CollisionManager::Update() uses this one for it's
+         * collider-to-collider rule checks - using the stDimension2D
+         * overload there instead silently ignored the second collider's
+         * own inset entirely, since only the first side's GetEffectiveRect
+         * was ever consulted (found via Caravellius, 2026-08-11 - a
+         * boss's own head hitbox never responded to SetInset at all,
+         * however aggressively it was shrunk, because it was always the
+         * second collider in it's own collision_add_rule pairing).
+         * @param other The other collider to test against;
+         */
+        bool Collider :: Hit( Collider &other )  {
+
+            float  fSelfX, fSelfY, fSelfWidth, fSelfHeight;
+            float  fOtherX, fOtherY, fOtherWidth, fOtherHeight;
+
+            GetEffectiveRect( fSelfX, fSelfY, fSelfWidth, fSelfHeight );
+            other.GetEffectiveRect( fOtherX, fOtherY, fOtherWidth, fOtherHeight );
+
+            return RectRect( fSelfX,
+                             fSelfY,
+                             fSelfWidth,
+                             fSelfHeight,
+                             fOtherX,
+                             fOtherY,
+                             fOtherWidth,
+                             fOtherHeight );
+        }
+
+        /**
          * Set the inset (as fractions of the parent's own width/height)
          * shrinking the rectangle this collider's Hit() checks use for it's
          * own side of the test. See the header's own doc comment for the
