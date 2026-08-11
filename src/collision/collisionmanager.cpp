@@ -244,7 +244,14 @@ namespace SunLight {
             for( auto& pPair : m_ColliderToColliderRuleList )  {
                 for( Collider *pFirst : *pPair -> first )  {
                     for( Collider *pSecond : *pPair -> second )  {
-                        if( pFirst -> Hit( pSecond -> GetDimension2D() ) )  {
+                        // Collider-to-Collider overload (not the
+                        // stDimension2D one) so both sides' own SetInset
+                        // shrink apply - passing pSecond->GetDimension2D()
+                        // here instead silently ignored pSecond's own
+                        // inset entirely, since only pFirst's side was
+                        // ever ran through GetEffectiveRect (see Hit(
+                        // Collider&)'s own doc comment in collider.cpp).
+                        if( pFirst -> Hit( *pSecond ) )  {
                             FireOnCollision( pFirst, pSecond );
                         }
                     }

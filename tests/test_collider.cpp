@@ -102,4 +102,78 @@ TEST_SUITE( "collision/Collider" )  {
         // Effective rect ends at x=40 - other starts at x=35, still inside it.
         CHECK( collider.Hit( other ) == true );
     }
+
+    // Hit(Collider&) - unlike Hit(stDimension2D&) above (which only ever
+    // applies "self"'s own inset against the other side's raw, full
+    // dimension - by design, since the other side there isn't necessarily
+    // a Collider at all), this overload applies BOTH colliders' own
+    // SetInset shrink. Regression coverage for a real bug found via
+    // Caravellius (2026-08-11): CollisionManager::Update() used to call
+    // the stDimension2D overload for it's collider-to-collider rule
+    // checks, which silently ignored the SECOND collider's own inset
+    // entirely - an enemy's own SetInset never took effect against a
+    // player bullet, however aggressively it was shrunk, purely because
+    // of which side of the rule pairing it happened to be registered on.
+
+    TEST_CASE( "Hit(Collider&) honors both colliders' own inset" )  {
+
+        Collider      first;
+        Collider      second;
+        stDimension2D firstDim  { { 0, 0 }, { 50, 50 } };
+        stDimension2D secondDim { { 45, 0 }, { 50, 50 } };
+
+        first.SetDimension2D( firstDim );
+        second.SetDimension2D( secondDim );
+
+        // Only "second"'s own inset shrinks it's own box - "first" is
+        // still it's full, un-inset 50x50. second's effective rect is
+        // (55,10)-(90,40) (10,10)-(40,40) offset by it's own (45,0)
+        // position - starts at x=55, past first's own right edge (x=50),
+        // so they no longer overlap even though their raw, full boxes
+        // still would (same setup as the "shrinks the collider's own
+        // side" test above, just on the "other" side of the pairing this
+        // time - the exact case Hit(stDimension2D&) could never express).
+        second.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
+
+        CHECK( first.Hit( second ) == false );
+
+        // Confirm it's genuinely second's own inset being honored, not
+        // some other effect - the same pair without it overlaps.
+        Collider second_no_inset;
+
+        second_no_inset.SetDimension2D( secondDim );
+
+        CHECK( first.Hit( second_no_inset ) == true );
+    }
+
+    TEST_CASE( "Hit(Collider&) still detects overlap within both shrunk boxes" )  {
+
+        Collider      first;
+        Collider      second;
+        stDimension2D firstDim  { { 0, 0 }, { 50, 50 } };
+        stDimension2D secondDim { { 35, 0 }, { 50, 50 } };
+
+        first.SetDimension2D( firstDim );
+        second.SetDimension2D( secondDim );
+        first.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
+        second.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
+
+        // first's effective rect ends at x=40; second's effective rect
+        // (35+10=45 to 35+40=75) starts at x=45 - past first's own x=40,
+        // so even with both sides properly shrunk this specific pair no
+        // longer overlaps (tighter than the single-sided-inset case
+        // above, exactly because now both edges moved inward).
+        CHECK( first.Hit( second ) == false );
+
+        // A closer pair, still with both sides shrunk, that does overlap.
+        stDimension2D closerDim { { 25, 0 }, { 50, 50 } };
+        Collider      closer;
+
+        closer.SetDimension2D( closerDim );
+        closer.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
+
+        // closer's effective rect starts at x=25+10=35, still inside
+        // first's own effective rect (ends at x=40).
+        CHECK( first.Hit( closer ) == true );
+    }
 }

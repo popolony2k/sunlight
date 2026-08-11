@@ -98,6 +98,41 @@ TEST_SUITE( "collision/CollisionManager" )  {
         CHECK( listener.colliderHits[0].second == &colliderB );
     }
 
+    TEST_CASE( "Update honors the SECOND collider's own SetInset, not just the first's" )  {
+
+        // Regression coverage for the actual Update() call site, not just
+        // Collider::Hit(Collider&) in isolation (see tests/test_collider.cpp)
+        // - guards against this line ever reverting back to calling
+        // pFirst->Hit(pSecond->GetDimension2D()), which would silently
+        // reintroduce the bug (that overload compiles fine too, it just
+        // ignores pSecond's own inset entirely). Mirrors the "fires
+        // OnCollision only for overlapping colliders" test above, but with
+        // an inset on colliderB (the SECOND/"pSecond" side of the rule)
+        // shrinking it away from colliderA - their raw, full-size boxes
+        // still overlap (0,0,50,50 vs 45,0,50,50), only colliderB's own
+        // inset-shrunk effective box (55,10)-(85,40) doesn't reach
+        // colliderA's (0,0)-(50,50) anymore.
+        MockTileMap             tileMap;
+        CollisionManager        manager( &tileMap );
+        TestCollisionListener   listener;
+        Collider                colliderA, colliderB;
+        stDimension2D           dimA { { 0, 0 },  { 50, 50 } };
+        stDimension2D           dimB { { 45, 0 }, { 50, 50 } };  // overlaps A's raw box
+
+        colliderA.SetDimension2D( dimA );
+        colliderB.SetDimension2D( dimB );
+        colliderB.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
+
+        manager.AddCollider( 0, &colliderA );
+        manager.AddCollider( 1, &colliderB );
+        manager.AddColliderToColliderRule( 0, 1 );
+        manager.AddCollisionListener( &listener );
+
+        manager.Update();
+
+        CHECK( listener.colliderHits.size() == 0 );
+    }
+
     TEST_CASE( "Update ignores colliders on layers with no rule between them" )  {
 
         MockTileMap             tileMap;
