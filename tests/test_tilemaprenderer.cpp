@@ -34,6 +34,7 @@
 #include <doctest/doctest.h>
 #include "renderer/tilemaprenderer.h"
 #include "sprite/sprite.h"
+#include "mock_engine.h"
 
 using namespace SunLight :: Renderer;
 using namespace SunLight :: TileMap;
@@ -109,5 +110,37 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
         CHECK( renderer.AddSprite( 1, sprite ) == false );
         CHECK( renderer.RemoveSprite( 1, sprite ) == false );
+    }
+
+    TEST_CASE( "GetDrawFPS/GetWindowResizeable round-trip what their setters last set" )  {
+
+        TileMapRenderer  renderer( 800, 600, "test", -1, false );
+
+        renderer.SetDrawFPS( true );
+        CHECK( renderer.GetDrawFPS() == true );
+
+        renderer.SetDrawFPS( false );
+        CHECK( renderer.GetDrawFPS() == false );
+
+        renderer.SetWindowResizeable( true );
+        CHECK( renderer.GetWindowResizeable() == true );
+
+        renderer.SetWindowResizeable( false );
+        CHECK( renderer.GetWindowResizeable() == false );
+    }
+
+    TEST_CASE( "SetWindowResizeable before Start() only updates local state, never touches IEngine" )  {
+
+        // IEngine::SetWindowResizeable is only meaningful once the window
+        // exists (see its own doc comment) - this locks in the m_bIsStarted
+        // gate that keeps TileMapRenderer from calling it too early, using
+        // MockEngineFixture rather than a real window/display.
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        renderer.SetWindowResizeable( true );
+
+        CHECK( renderer.GetWindowResizeable() == true );
+        CHECK( fixture.engine.nSetWindowResizeableCalls == 0 );
     }
 }

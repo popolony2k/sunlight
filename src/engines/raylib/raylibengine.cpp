@@ -348,6 +348,22 @@ namespace SunLight  {
             }
 
             /**
+             * @brief Allow or disallow live window resizing on an
+             * already-created window (see @see IEngine::SetWindowResizeable).
+             * SetWindowState/ClearWindowState (unlike SetConfigFlags, which
+             * only takes effect if set before InitWindow) act directly on
+             * the live window handle, so this works in either direction at
+             * any point after the window already exists.
+             */
+            void RaylibEngine :: SetWindowResizeable( bool bResizeable )  {
+
+                if( bResizeable )
+                    ::SetWindowState( FLAG_WINDOW_RESIZABLE );
+                else
+                    ::ClearWindowState( FLAG_WINDOW_RESIZABLE );
+            }
+
+            /**
              * @brief Current window/screen width, in pixels.
              */
             int RaylibEngine :: GetScreenWidth( void )  {

@@ -200,6 +200,37 @@ namespace SunLight {
             virtual bool GetFullscreen( void ) = 0;
 
             /**
+             * @brief Show or hide the on-screen FPS counter, drawn at the
+             * top-left corner of the window every frame.
+             *
+             * @param bDrawFPS true to draw the FPS counter, false to hide it;
+             */
+            virtual void SetDrawFPS( bool bDrawFPS ) = 0;
+
+            /**
+             * @brief Query whether the FPS counter is currently being drawn
+             * (see @link SetDrawFPS).
+             */
+            virtual bool GetDrawFPS( void ) = 0;
+
+            /**
+             * @brief Allow or disallow the user resizing the application
+             * window by dragging its edges/corners. Safe to call both
+             * before the window is created (the initial state) and while
+             * it's already running (a genuine live toggle, in either
+             * direction).
+             *
+             * @param bResizeable true to allow resizing, false to disallow it;
+             */
+            virtual void SetWindowResizeable( bool bResizeable ) = 0;
+
+            /**
+             * @brief Query whether the window is currently resizeable (see
+             * @link SetWindowResizeable).
+             */
+            virtual bool GetWindowResizeable( void ) = 0;
+
+            /**
              * Set layer parameters.
              * @param nLayerId The layer id to set layer parameters;
              * @param layer reference to layer parameters structure to set;

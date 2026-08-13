@@ -1163,12 +1163,29 @@ namespace SunLight {
         }
 
         /**
-         * Set window resizeable status.
+         * Set window resizeable status. Safe to call both before Start()
+         * (the initial state, applied via SetConfigFlags right before
+         * InitWindow - see Start()) and while the window is already
+         * running (a genuine live toggle, in either direction, via
+         * IEngine::SetWindowResizeable - SetConfigFlags itself only takes
+         * effect pre-InitWindow, so it can't be reused for that case).
          * @param bResizeable The new resizeable status for window;
          */
         void TileMapRenderer :: SetWindowResizeable( bool bResizeable )  {
 
             m_bWindowResizeable = bResizeable;
+
+            if( m_bIsStarted )
+                SunLight :: Engines :: EngineFactory :: GetEngine().SetWindowResizeable( bResizeable );
+        }
+
+        /**
+         * Query whether the window is currently resizeable (see
+         * @see SetWindowResizeable).
+         */
+        bool TileMapRenderer :: GetWindowResizeable( void )  {
+
+            return m_bWindowResizeable;
         }
 
         /**
@@ -1198,6 +1215,15 @@ namespace SunLight {
         void TileMapRenderer :: SetDrawFPS( bool bDrawFPS )  {
 
             m_bDrawFPS = bDrawFPS;
+        }
+
+        /**
+         * Query whether the FPS counter is currently being drawn (see
+         * @see SetDrawFPS).
+         */
+        bool TileMapRenderer :: GetDrawFPS( void )  {
+
+            return m_bDrawFPS;
         }
 
         /**

@@ -78,6 +78,18 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
         return false;
     }
 
+    void SetDrawFPS( bool )  {}
+
+    bool GetDrawFPS( void )  {
+        return false;
+    }
+
+    void SetWindowResizeable( bool )  {}
+
+    bool GetWindowResizeable( void )  {
+        return false;
+    }
+
     bool SetLayer( int, SunLight :: TileMap :: stLayer& )  {
         return false;
     }

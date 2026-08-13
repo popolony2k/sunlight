@@ -162,6 +162,19 @@ namespace SunLight  {
             virtual bool GetFullscreen( void ) = 0;
 
             /**
+             * @brief Must be implemented to allow or disallow the user
+             * resizing the window by dragging it's edges/corners, on an
+             * already-created window. Only meaningful to call once the
+             * window exists - callers are responsible for not calling this
+             * before that (see TileMapRenderer::SetWindowResizeable, which
+             * uses it's own pre-window-creation config-flag path instead
+             * for the initial state).
+             *
+             * @param bResizeable true to allow resizing, false to disallow it;
+             */
+            virtual void SetWindowResizeable( bool bResizeable ) = 0;
+
+            /**
              * @brief Must be implemented to return the current width, in
              * pixels, of the actual window/screen on chosen target engine -
              * as opposed to any fixed internal rendering resolution a
