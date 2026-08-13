@@ -226,9 +226,11 @@ namespace SunLight {
             // Window behavior
             void SetExitKey( SunLight :: Input :: KeyboardKey key );
             void SetWindowResizeable( bool bResizeable );
+            bool GetWindowResizeable( void );
             void SetWindowBackgroundColor( uint32_t nWindowBkColor );
             void SetClearBackground( bool bStatus );
             void SetDrawFPS( bool bDrawFPS );
+            bool GetDrawFPS( void );
             void SetFullscreen( bool bFullscreen );
             bool GetFullscreen( void );
 

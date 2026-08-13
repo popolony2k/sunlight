@@ -47,6 +47,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nDrawFilledRectangleCalls  = 0;
     int                                 nGetApplicationDirectoryCalls = 0;
     int                                 nSetFullscreenCalls        = 0;
+    int                                 nSetWindowResizeableCalls  = 0;
     int                                 nLoadRenderTargetCalls     = 0;
     int                                 nUnloadRenderTargetCalls   = 0;
     int                                 nBeginRenderTargetCalls    = 0;
@@ -65,6 +66,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nLastFilledRectangleHeight = 0;
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
     bool                                bFullscreen                = false;
+    bool                                bWindowResizeable          = false;
     int                                 nScreenWidthResult         = 0;
     int                                 nScreenHeightResult        = 0;
     SunLight :: Base :: TextureHandle   hLoadRenderTargetResult    = ( SunLight :: Base :: TextureHandle )  0x2;
@@ -130,6 +132,11 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
 
     bool GetFullscreen( void )  {
         return bFullscreen;
+    }
+
+    void SetWindowResizeable( bool bValue )  {
+        nSetWindowResizeableCalls++;
+        bWindowResizeable = bValue;
     }
 
     int GetScreenWidth( void )  {
