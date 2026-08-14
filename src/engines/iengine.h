@@ -128,6 +128,83 @@ namespace SunLight  {
                                               SunLight :: Base :: stColor color ) = 0;
 
             /**
+             * @brief Must be implemented to load (or replace) the font used
+             * by @see DrawText, from a font file on disk. Implementations
+             * are expected to support at least TrueType/OpenType and, where
+             * the backend's own font loader allows it, other formats too
+             * (e.g. raylib auto-detects an AngelCode BMFont ".fnt" atlas by
+             * extension) - callers pass a plain file path and rely on the
+             * backend to sort out the format, the same way @see LoadTexture
+             * doesn't ask the caller which image codec to use. Only
+             * meaningful to call once the window/render context exists.
+             * Until this is called for the first time, @see DrawText must
+             * fall back to the backend's own built-in default font, so text
+             * can be drawn with zero setup. Implementations must release
+             * whatever font this call is replacing (if it was a font this
+             * method loaded, not the backend's built-in default), so
+             * repeated calls don't leak font resources.
+             *
+             * @param szFilePath Path to the font file to load;
+             * @return true if the font loaded successfully and is now the
+             * active font, false if it failed to load (the previously
+             * active font, if any, is left untouched).
+             */
+            virtual bool SetFont( const char *szFilePath ) = 0;
+
+            /**
+             * @brief Must be implemented to draw a line of text on chosen
+             * target engine, in screen space - same as every other draw
+             * method on this interface, with no viewport/camera transform
+             * of its own, and using whichever font is currently active (see
+             * @see SetFont).
+             *
+             * @param szText The text to draw;
+             * @param nPosX X coordinate to draw at;
+             * @param nPosY Y coordinate to draw at;
+             * @param nFontSize Font size, in pixels;
+             * @param color Text color;
+             */
+            virtual void DrawText( const char *szText,
+                                   int nPosX,
+                                   int nPosY,
+                                   int nFontSize,
+                                   SunLight :: Base :: stColor color ) = 0;
+
+            /**
+             * @brief Must be implemented to measure how wide a line of
+             * text would render, in pixels, at a given font size, using
+             * whichever font is currently active (see @see SetFont) - the
+             * same font @see DrawText itself would use.
+             *
+             * @param szText The text to measure;
+             * @param nFontSize Font size, in pixels;
+             * @return The text's rendered width, in pixels;
+             */
+            virtual int MeasureText( const char *szText, int nFontSize ) = 0;
+
+            /**
+             * @brief Must be implemented to release any GPU-context-tied
+             * state this backend privately keeps (only a custom font
+             * loaded via @see SetFont, at the moment - see RaylibEngine's
+             * own implementation for why this exists), right before the
+             * window/render context is actually destroyed. This is NOT a
+             * general resource-teardown hook - textures/render targets
+             * loaded through this interface are still each caller's own
+             * responsibility to Unload; this exists purely for state a
+             * backend keeps privately that its own public API otherwise
+             * gives callers no way to release (SetFont has no matching
+             * "UnsetFont"), so it doesn't outlive the context it was
+             * created in.
+             *
+             * Called exactly once per window lifecycle, by
+             * TileMapRenderer::Stop(), immediately before the window/
+             * context is closed - implementations must not touch any
+             * backend draw/resource call after this point until a new
+             * window/context exists again.
+             */
+            virtual void OnWindowClosing( void ) = 0;
+
+            /**
              * @brief Must be implemented to return the directory the running
              * executable lives in (trailing separator included), so callers
              * can resolve resource paths relative to the binary instead of

@@ -20,6 +20,12 @@
 
 #include "engines/raylib/raylibengine.h"
 
+// Extra spacing (in pixels) DrawTextEx adds between characters, on top of
+// whatever a font's own glyph metrics already provide - 0 means "use the
+// font as authored, no extra letter-spacing", the correct default for a
+// generic engine primitive with no per-call spacing parameter of it's own.
+#define __DEFAULT_TEXT_SPACING   0.0f
+
 namespace SunLight  {
     namespace Engines  {
         namespace Raylib  {
@@ -239,6 +245,101 @@ namespace SunLight  {
 
                 ::DrawRectangle( nPosX, nPosY, nWidth, nHeight,
                                 Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+            }
+
+            /**
+             * @brief Load (or replace) the font used by DrawText (see
+             * @see IEngine::SetFont). Forwards straight to raylib's own
+             * ::LoadFont, which auto-detects the font file's format from
+             * it's extension (TrueType/OpenType, or an AngelCode BMFont
+             * ".fnt" atlas) - this method has no format-specific logic of
+             * it's own. The previous custom font, if any, is unloaded only
+             * after the new one is confirmed valid, so a failed load never
+             * leaves DrawText without a usable font.
+             */
+            bool RaylibEngine :: SetFont( const char *szFilePath )  {
+
+                Font  newFont = ::LoadFont( szFilePath );
+
+                // On failure raylib's own ::LoadFont returns an all-zero,
+                // never-allocated Font (confirmed in raylib's own source -
+                // it only reaches a GPU upload on the success path), so
+                // there's nothing of newFont's to release here.
+                if( !::IsFontValid( newFont ) )
+                    return false;
+
+                if( m_bCustomFontLoaded )
+                    ::UnloadFont( m_CurrentFont );
+
+                m_CurrentFont       = newFont;
+                m_bCustomFontLoaded = true;
+
+                return true;
+            }
+
+            /**
+             * @brief The font DrawText/MeasureText should use right now -
+             * whichever one SetFont last loaded, or raylib's own built-in
+             * default font if SetFont has never been called (or every
+             * call to it so far has failed).
+             */
+            Font  RaylibEngine :: GetActiveFont( void )  {
+
+                return m_bCustomFontLoaded ? m_CurrentFont : ::GetFontDefault();
+            }
+
+            /**
+             * @brief Draw a line of text in screen space, using whichever
+             * font is currently active - the backend's own built-in
+             * default font until @see SetFont is called for the first
+             * time (see @see IEngine::DrawText).
+             */
+            void RaylibEngine :: DrawText( const char *szText,
+                                           int nPosX,
+                                           int nPosY,
+                                           int nFontSize,
+                                           SunLight :: Base :: stColor color )  {
+
+                ::DrawTextEx( GetActiveFont(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY },
+                             ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
+                             Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+            }
+
+            /**
+             * @brief Measure a line of text's rendered width, using
+             * whichever font is currently active - same font resolution
+             * as @see DrawText (see @see IEngine::MeasureText).
+             */
+            int RaylibEngine :: MeasureText( const char *szText, int nFontSize )  {
+
+                Vector2  size = ::MeasureTextEx( GetActiveFont(), szText,
+                                                 ( float ) nFontSize, __DEFAULT_TEXT_SPACING );
+
+                return ( int ) size.x;
+            }
+
+            /**
+             * @brief Release this class's own GPU-context-tied state
+             * before the window/context goes away (see @see
+             * IEngine::OnWindowClosing) - just the custom font tracking,
+             * at the moment. Deliberately does NOT call ::UnloadFont here
+             * first - not because the context is already gone (it isn't:
+             * this runs before CloseWindow() is even called, so the GL
+             * context is still fully valid at this point, an explicit
+             * unload would be perfectly safe here too), but because it
+             * would be redundant work for no benefit - CloseWindow()'s own
+             * teardown (rlglClose(), then ClosePlatform()'s
+             * glfwDestroyWindow()) discards the whole GL context
+             * immediately after this runs anyway, taking every GPU handle
+             * in it with it, including this one. This only clears this
+             * class's own bookkeeping, so a *future* window (if Start() is
+             * ever called again) doesn't inherit a stale handle pointing
+             * at a texture that no longer exists.
+             */
+            void RaylibEngine :: OnWindowClosing( void )  {
+
+                m_CurrentFont       = Font {};
+                m_bCustomFontLoaded = false;
             }
 
             /**

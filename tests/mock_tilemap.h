@@ -90,6 +90,24 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
         return false;
     }
 
+    bool SetFont( const char* )  {
+        return false;
+    }
+
+    void DrawText( const char*, int, int, int, unsigned char, unsigned char, unsigned char, unsigned char )  {}
+
+    int MeasureText( const char*, int )  {
+        return 0;
+    }
+
+    int GetWindowWidth( void )  {
+        return 0;
+    }
+
+    int GetWindowHeight( void )  {
+        return 0;
+    }
+
     bool SetLayer( int, SunLight :: TileMap :: stLayer& )  {
         return false;
     }

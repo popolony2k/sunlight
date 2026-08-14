@@ -1490,6 +1490,67 @@ namespace SunLight {
         }
 
         /**
+         * @brief Load (or replace) the font used by @see DrawText (see
+         * @see ITileMap::SetFont). A thin pass-through to IEngine - unlike
+         * @see SetWindowResizeable, there's no pre-Start() path to support
+         * here (loading a font needs the render context IEngine's backend
+         * already requires), so this is always forwarded directly.
+         */
+        bool TileMapRenderer :: SetFont( const char *szFilePath )  {
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( szFilePath );
+        }
+
+        /**
+         * @brief Draw a line of text in screen space (see
+         * @see ITileMap::DrawText). A thin pass-through to IEngine, same
+         * shape as @see SetFont.
+         */
+        void TileMapRenderer :: DrawText( const char *szText,
+                                          int nPosX,
+                                          int nPosY,
+                                          int nFontSize,
+                                          unsigned char nRed,
+                                          unsigned char nGreen,
+                                          unsigned char nBlue,
+                                          unsigned char nAlpha )  {
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().DrawText( szText, nPosX, nPosY, nFontSize,
+                                          SunLight :: Base :: stColor { nRed, nGreen, nBlue, nAlpha } );
+        }
+
+        /**
+         * @brief Measure a line of text's rendered width (see
+         * @see ITileMap::MeasureText). A thin pass-through to IEngine,
+         * same shape as @see DrawText.
+         */
+        int TileMapRenderer :: MeasureText( const char *szText, int nFontSize )  {
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().MeasureText( szText, nFontSize );
+        }
+
+        /**
+         * @brief Return the engine's own fixed design/render resolution
+         * width (see @see ITileMap::GetWindowWidth). Pure state - m_fWindowWidth
+         * is set once, at construction, and never touched again (in
+         * particular, never updated on a live window resize - see it's
+         * own doc comment on ITileMap for why that's deliberate).
+         */
+        int TileMapRenderer :: GetWindowWidth( void )  {
+
+            return ( int ) m_fWindowWidth;
+        }
+
+        /**
+         * @brief Return the engine's own fixed design/render resolution
+         * height (see @see GetWindowWidth).
+         */
+        int TileMapRenderer :: GetWindowHeight( void )  {
+
+            return ( int ) m_fWindowHeight;
+        }
+
+        /**
          * Set layer parameters.
          * @param nLayerId The layer id to set layer parameters;
          * @param layer reference to layer parameters structure to set;
@@ -1945,6 +2006,13 @@ namespace SunLight {
                     SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( m_pRenderTexture );
                     m_pRenderTexture = nullptr;
                 }
+
+                // Give the backend a chance to release any GPU-context-tied
+                // state it privately keeps (e.g. a custom font loaded via
+                // SetFont) before CloseWindow() tears down the context that
+                // state belongs to - see IEngine::OnWindowClosing's own
+                // comment for why this can't just be inferred/skipped.
+                SunLight :: Engines :: EngineFactory :: GetEngine().OnWindowClosing();
 
                 CloseWindow();
                 m_bIsStarted = false;
