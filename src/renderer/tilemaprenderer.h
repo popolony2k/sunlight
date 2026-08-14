@@ -265,6 +265,20 @@ namespace SunLight {
             void SetWindowTitle( const std :: string &strTitle );
             void SetScreenFade( float fAlpha );
 
+            // Text rendering
+            bool SetFont( const char *szFilePath );
+            void DrawText( const char *szText,
+                           int nPosX,
+                           int nPosY,
+                           int nFontSize,
+                           unsigned char nRed,
+                           unsigned char nGreen,
+                           unsigned char nBlue,
+                           unsigned char nAlpha );
+            int MeasureText( const char *szText, int nFontSize );
+            int GetWindowWidth( void );
+            int GetWindowHeight( void );
+
             // Layer management
             bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer );
             bool SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer );

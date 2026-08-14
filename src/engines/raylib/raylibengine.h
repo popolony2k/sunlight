@@ -62,6 +62,18 @@ namespace SunLight  {
                                           int nHeight,
                                           SunLight :: Base :: stColor color ) override;
 
+                bool SetFont( const char *szFilePath ) override;
+
+                void DrawText( const char *szText,
+                               int nPosX,
+                               int nPosY,
+                               int nFontSize,
+                               SunLight :: Base :: stColor color ) override;
+
+                int MeasureText( const char *szText, int nFontSize ) override;
+
+                void OnWindowClosing( void ) override;
+
                 std :: string GetApplicationDirectory( void ) override;
 
                 void SetFullscreen( bool bFullscreen ) override;
@@ -82,6 +94,20 @@ namespace SunLight  {
                                         SunLight :: Base :: stRectangle source,
                                         SunLight :: Base :: stRectangle dest,
                                         SunLight :: Base :: stColor tint ) override;
+
+                private:
+
+                // Shared by DrawText/MeasureText - the font either of them
+                // should use right now (see m_CurrentFont's own comment).
+                Font  GetActiveFont( void );
+
+                // Font currently used by DrawText, loaded via SetFont - only
+                // valid (and only ever Unload'd) when m_bCustomFontLoaded is
+                // true; otherwise DrawText falls back to raylib's own
+                // built-in GetFontDefault(), which this class never owns
+                // and must never Unload.
+                Font  m_CurrentFont       {};
+                bool  m_bCustomFontLoaded = false;
             };
         }
     }

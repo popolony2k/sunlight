@@ -231,6 +231,88 @@ namespace SunLight {
             virtual bool GetWindowResizeable( void ) = 0;
 
             /**
+             * @brief Load (or replace) the font used by @link DrawText,
+             * from any backend-supported font file (at minimum TrueType/
+             * OpenType; the raylib backend also auto-detects an AngelCode
+             * BMFont ".fnt" atlas by extension - see IEngine::SetFont).
+             * Callers just pass a file path; which font formats are
+             * actually supported is entirely a backend concern, not
+             * something callers need to know about. Until this is called
+             * for the first time, @link DrawText falls back to the
+             * backend's own built-in default font, so text can be drawn
+             * with zero setup.
+             *
+             * @param szFilePath Path to the font file to load;
+             * @return true if the font loaded successfully and is now the
+             * active font, false if it failed to load (the previously
+             * active font, if any, is left untouched).
+             */
+            virtual bool SetFont( const char *szFilePath ) = 0;
+
+            /**
+             * @brief Draw a line of text on screen, in screen space (no
+             * viewport/camera transform, same as the FPS counter), using
+             * whichever font is currently active (see @link SetFont).
+             *
+             * @param szText The text to draw;
+             * @param nPosX X coordinate to draw at;
+             * @param nPosY Y coordinate to draw at;
+             * @param nFontSize Font size, in pixels;
+             * @param nRed Text color red channel (0-255);
+             * @param nGreen Text color green channel (0-255);
+             * @param nBlue Text color blue channel (0-255);
+             * @param nAlpha Text color alpha channel (0-255);
+             */
+            virtual void DrawText( const char *szText,
+                                   int nPosX,
+                                   int nPosY,
+                                   int nFontSize,
+                                   unsigned char nRed,
+                                   unsigned char nGreen,
+                                   unsigned char nBlue,
+                                   unsigned char nAlpha ) = 0;
+
+            /**
+             * @brief Measure how wide a line of text would render, in
+             * pixels, at a given font size, using whichever font is
+             * currently active (see @link SetFont) - the same font @link
+             * DrawText itself would use. Meant for screen-space HUD
+             * layout (e.g. right-aligning a score/lives readout), not for
+             * anything camera/viewport-aware.
+             *
+             * @param szText The text to measure;
+             * @param nFontSize Font size, in pixels;
+             * @return The text's rendered width, in pixels;
+             */
+            virtual int MeasureText( const char *szText, int nFontSize ) = 0;
+
+            /**
+             * @brief Return the engine's own fixed design/render
+             * resolution width, in pixels - the coordinate space @link
+             * DrawText and every other screen-space draw call (the FPS
+             * counter, the screen-fade overlay) operate in. This is
+             * constant for the lifetime of the app (set once, at
+             * construction) and deliberately NOT the actual, live OS
+             * window's pixel size, which can change independently (see
+             * IEngine::GetScreenWidth) - the engine always letterbox-
+             * scales this fixed resolution to fit whatever the real
+             * window size ends up being, so screen-space drawing (and HUD
+             * layout built on top of it) should always measure against
+             * this value, not the live window size.
+             *
+             * @return The render resolution width, in pixels;
+             */
+            virtual int GetWindowWidth( void ) = 0;
+
+            /**
+             * @brief Return the engine's own fixed design/render
+             * resolution height, in pixels (see @link GetWindowWidth).
+             *
+             * @return The render resolution height, in pixels;
+             */
+            virtual int GetWindowHeight( void ) = 0;
+
+            /**
              * Set layer parameters.
              * @param nLayerId The layer id to set layer parameters;
              * @param layer reference to layer parameters structure to set;

@@ -48,6 +48,11 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nGetApplicationDirectoryCalls = 0;
     int                                 nSetFullscreenCalls        = 0;
     int                                 nSetWindowResizeableCalls  = 0;
+    int                                 nSetFontCalls              = 0;
+    int                                 nDrawTextCalls             = 0;
+    int                                 nMeasureTextCalls          = 0;
+    int                                 nMeasureTextResult         = 0;
+    int                                 nOnWindowClosingCalls      = 0;
     int                                 nLoadRenderTargetCalls     = 0;
     int                                 nUnloadRenderTargetCalls   = 0;
     int                                 nBeginRenderTargetCalls    = 0;
@@ -67,6 +72,9 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
     bool                                bFullscreen                = false;
     bool                                bWindowResizeable          = false;
+    bool                                bSetFontResult             = true;
+    std :: string                       strLastSetFontPath;
+    std :: string                       strLastDrawnText;
     int                                 nScreenWidthResult         = 0;
     int                                 nScreenHeightResult        = 0;
     SunLight :: Base :: TextureHandle   hLoadRenderTargetResult    = ( SunLight :: Base :: TextureHandle )  0x2;
@@ -137,6 +145,26 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     void SetWindowResizeable( bool bValue )  {
         nSetWindowResizeableCalls++;
         bWindowResizeable = bValue;
+    }
+
+    bool SetFont( const char *szFilePath )  {
+        nSetFontCalls++;
+        strLastSetFontPath = szFilePath;
+        return bSetFontResult;
+    }
+
+    void DrawText( const char *szText, int, int, int, SunLight :: Base :: stColor )  {
+        nDrawTextCalls++;
+        strLastDrawnText = szText;
+    }
+
+    int MeasureText( const char*, int )  {
+        nMeasureTextCalls++;
+        return nMeasureTextResult;
+    }
+
+    void OnWindowClosing( void )  {
+        nOnWindowClosingCalls++;
     }
 
     int GetScreenWidth( void )  {
