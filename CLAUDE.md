@@ -75,6 +75,24 @@ Both factories also expose a test-only override hook — `SoundFactory::SetCreat
 
 Internal containers/members that exclusively own heap-allocated data (e.g. `Sprite::m_Sequences`, `CollisionManager`'s rule lists, `SoundManager::m_SoundMap`, `TileMapRenderer::m_pInputHandler`/`m_AnimInfoList`/event handler lists) use `std::unique_ptr`, not raw `new`/`delete` pairs. Raw pointers remain only for genuinely non-owning references — back-pointers (`BaseCanvas::m_pParent`), externally-owned objects registered into a container (`Collider*` inside `CollisionManager`, `Sprite*`/`TextureCanvas*` handed to a manager by its caller), self-referential struct members (`GraphicObject::m_pDimension` can point to its own `m_Dimension`), and handles crossing a C API boundary (tmx callbacks, `TextureHandle`). When adding a new owning member, prefer `unique_ptr` over raw `new`/`delete` to match this convention — several real bugs (leaks, dangling pointers from `Clear()`-style methods that deleted contents without clearing the container) were found and fixed by this exact conversion.
 
+## Reviewing and testing changes
+
+### Doc comments must be verified, not just plausible
+
+This codebase's comments explain *why*, not just *what* — most non-trivial methods carry a paragraph justifying the design choice (see `IEngine::DrawFilledRectangle`, `Collider::SetInset`, `TileMapRenderer::SetCameraPosition`). Match that density in new code, but treat every "why" — especially one citing an external library's behavior or a language/standard guarantee — as a claim to verify, not a plausible-sounding assumption to write down. Two real examples from this project's history where the code was correct but the comment's stated reasoning wasn't:
+- A comment justified skipping an explicit `UnloadFont()` call by saying the GL context "may already be mid-teardown" — actually still fully valid at that point, since the call in question runs *before* `CloseWindow()`, not after.
+- A comment justified switching `ScriptProcessor` off raw `std::deque` iterators by saying the standard "only guarantees invalidating the past-the-end iterator" on `push_back()` — backwards for `std::deque` specifically: the standard invalidates *all* iterators on `push_back`/`push_front` (unlike `std::vector`), so the bug was UB on every platform, not a Windows/MSVC-only quirk.
+
+Both were caught by reading the actual vendored source (`build/_deps/raylib-src/src/` after a `FetchContent` configure) or double-checking the standard's actual wording, rather than trusting a write-up at face value. A wrong "why" is worse than none — it misleads whoever reads it next. Apply this same standard when *reviewing* a pasted diff/PR, not only when writing new code: re-derive or verify each factual claim it makes before agreeing with it.
+
+### What a PR needs before it's done
+
+- **Add doctest coverage for anything new that doesn't need a real window/display** (see `## Build` above for what that excludes). This includes pure logic, and — often missed — the parts of a window-touching feature that don't actually need a window, via the `MockEngineFixture`/`MockSound` seams (e.g. a setter's "don't call into `IEngine` before `Start()`" guard is fully testable with a mock even though the live-window branch isn't).
+- **A new pure virtual on `IEngine`/`ITileMap`/`ISound` requires updating the matching mock in the same change** (`tests/mock_engine.h`/`tests/mock_tilemap.h`/`tests/mock_sound.h`), or `sunlight_tests` won't compile. This has broken the build multiple times in this project's history — always check the mock header when touching an interface.
+- **A regression test for a bug fix has to be proven to actually catch the bug**, not just added and left green. Temporarily revert the fix, rerun that one test, confirm it fails, then restore the fix and confirm it passes again — a test that never demonstrably failed against the old code isn't verified coverage.
+- **Check every diff touching rendering/input/sound for a direct raylib (or future SDL) call outside its `*/raylib/` folder** — see "Backend abstraction pattern" above. The fix is always: add or reuse a method on the relevant interface, implement it in the `Raylib*` class, route the original call site through the matching factory instead of the raylib call directly.
+- Build and run the *full* suite (`./build/tests/sunlight_tests`) before calling a change done, not just the tests you touched.
+
 ## Known issues (tracked in `doc/`)
 - `doc/FIXME.txt`: access violation when map scroll goes past viewport boundaries.
 - `doc/TODO.txt`: no isometric/hexagonal map support; per-layer parallax scrolling and per-object property management (opacity/visible/position) not implemented; sprite/layer draw-order still being finished.
