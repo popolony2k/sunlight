@@ -65,9 +65,12 @@ namespace SunLight {
         typedef std :: deque<BaseCommand*> CommandQueue;
 
         /**
-         * @brief Command reference map definition;
+         * @brief Command reference map definition. Values are indices into
+         * m_CommandQueue rather than iterators - see m_nCurrentCommandIndex's
+         * own comment for why a raw deque iterator isn't safe to hold across
+         * a later Add() call.
          */
-        typedef std :: map<uint16_t, CommandQueue :: iterator> CommandLabelMap;
+        typedef std :: map<uint16_t, size_t> CommandLabelMap;
 
         /**
          * @brief Script processor class implementation for script 
@@ -77,7 +80,29 @@ namespace SunLight {
 
             CommandQueue                             m_CommandQueue;
             CommandLabelMap                          m_CommandLabelMap;
-            CommandQueue :: iterator                 m_CurrentCommand;
+
+            /*
+             * Index into m_CommandQueue, not a raw std::deque<>::iterator.
+             * Unlike std::vector, the standard says std::deque::push_back()
+             * invalidates ALL iterators to the deque, not just the past-
+             * the-end one - only references/pointers to existing elements
+             * are guaranteed to survive. So holding m_CurrentCommand across
+             * a later Add() call was already undefined behavior on every
+             * platform, not a Windows-specific quirk; MSVC's checked/debug
+             * iterators (default in a Debug build) just happen to be the
+             * only one of the three that actually catch it, since libstdc++/
+             * libc++'s chunk-based deque implementations often don't move
+             * the specific element/chunk an existing iterator points at, so
+             * the dangling iterator "works" there until it doesn't. Add()
+             * being called again shortly after Clear() reset this (e.g.
+             * Caravellius's restart_game(): sp_clear() immediately followed
+             * by sp_load_stage()) tripped a "deque iterators incompatible"
+             * debug assertion on Windows, in Run()'s own m_CurrentCommand
+             * != m_CommandQueue.end() check. An index has no such hazard,
+             * and Clear()/Compile()'s existing begin()-reset semantics map
+             * directly onto index 0.
+             */
+            size_t                                    m_nCurrentCommandIndex;
             uint64_t                                 m_nWaitMilli;
             SunLight :: Scripting :: IScriptListener *m_pListener;
             bool                                     m_bWaitSpritesQueueEmpty;

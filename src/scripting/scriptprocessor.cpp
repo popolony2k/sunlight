@@ -123,7 +123,7 @@ namespace SunLight {
 
             m_CommandQueue.clear();
             m_CommandLabelMap.clear();
-            m_CurrentCommand = m_CommandQueue.begin();
+            m_nCurrentCommandIndex = 0;
         }
 
         /**
@@ -134,7 +134,7 @@ namespace SunLight {
          */
         bool ScriptProcessor :: Compile( void )  {
 
-            m_CurrentCommand = m_CommandQueue.begin();
+            m_nCurrentCommandIndex = 0;
 
             return ( !m_CommandQueue.empty() );
         }
@@ -146,20 +146,20 @@ namespace SunLight {
          */
         bool ScriptProcessor :: Run( void )  {
 
-            if( !m_CommandQueue.empty() && ( m_CurrentCommand != m_CommandQueue.end() ) )  {
-                
+            if( m_nCurrentCommandIndex < m_CommandQueue.size() )  {
+
                 if( !m_bWaitSpritesQueueEmpty )  {
                     /*
-                    * Command processing 
+                    * Command processing
                     */
-                    switch( ( *m_CurrentCommand ) -> cmd )  {
+                    switch( m_CommandQueue[m_nCurrentCommandIndex] -> cmd )  {
 
                         case WAIT_SPRITES_QUEUE_EMPTY :
                             m_bWaitSpritesQueueEmpty = true;
                             break;
 
                         case  WAIT_CMD :  {
-                            OneParmCommand   *pParm = ( OneParmCommand * ) *m_CurrentCommand;
+                            OneParmCommand   *pParm = ( OneParmCommand * ) m_CommandQueue[m_nCurrentCommandIndex];
                             uint64_t         nTime  = duration_cast<milliseconds> ( steady_clock :: now().time_since_epoch() ).count();
 
                             m_nWaitMilli = ( m_nWaitMilli != 0 ? m_nWaitMilli : nTime + pParm -> nParm );
@@ -172,19 +172,19 @@ namespace SunLight {
                         break;
                         
                         case MOVE_SPRITES_TO_SCREEN_CMD :  {
-                            OneParmCommand   *pParm = ( OneParmCommand * ) *m_CurrentCommand;
+                            OneParmCommand   *pParm = ( OneParmCommand * ) m_CommandQueue[m_nCurrentCommandIndex];
 
                             if( m_pListener != nullptr )
-                                m_pListener -> OnCommand( ( *m_CurrentCommand ) -> cmd, pParm -> nParm );
+                                m_pListener -> OnCommand( pParm -> cmd, pParm -> nParm );
                         }
                         break;
 
                         case LOOP_CMD :  {
-                            TwoParmsCommand   *pParm = ( TwoParmsCommand * ) *m_CurrentCommand;
+                            TwoParmsCommand   *pParm = ( TwoParmsCommand * ) m_CommandQueue[m_nCurrentCommandIndex];
 
                             /*
                              * A jump back from END_LOOP_CMD always overshoots
-                             * this command (the unconditional m_CurrentCommand++
+                             * this command (the unconditional m_nCurrentCommandIndex++
                              * below runs right after the jump too), landing on
                              * the first command of the loop body - so this case
                              * only ever runs once per loop, and nParm2 (the
@@ -192,20 +192,20 @@ namespace SunLight {
                              * counter here, never re-seed it.
                              */
                             pParm -> data.nCounter = pParm -> nParm2;
-                            m_CommandLabelMap.insert( std ::make_pair( pParm -> nParm1, m_CurrentCommand ) );
+                            m_CommandLabelMap.insert( std ::make_pair( pParm -> nParm1, m_nCurrentCommandIndex ) );
                         }
                         break;
 
                         case END_LOOP_CMD :  {
-                            OneParmCommand                  *pParm     = ( OneParmCommand * ) *m_CurrentCommand;
+                            OneParmCommand                  *pParm     = ( OneParmCommand * ) m_CommandQueue[m_nCurrentCommandIndex];
                             CommandLabelMap :: iterator     itLoopCmd  = m_CommandLabelMap.find( pParm ->nParm );
 
                             if( itLoopCmd != m_CommandLabelMap.end() )  {
-                                TwoParmsCommand *pLoopParm = ( TwoParmsCommand * ) ( *itLoopCmd -> second );
+                                TwoParmsCommand *pLoopParm = ( TwoParmsCommand * ) m_CommandQueue[itLoopCmd -> second];
 
                                 if( pLoopParm -> data.nCounter > 0 )  {
                                     pLoopParm -> data.nCounter--;
-                                    m_CurrentCommand = itLoopCmd -> second;
+                                    m_nCurrentCommandIndex = itLoopCmd -> second;
                                 }
                             }
                             else if( m_pListener != nullptr )  {
@@ -216,18 +216,18 @@ namespace SunLight {
                         break;
 
                         case LABEL_CMD :  {
-                            OneParmCommand   *pParm = ( OneParmCommand * ) *m_CurrentCommand;
+                            OneParmCommand   *pParm = ( OneParmCommand * ) m_CommandQueue[m_nCurrentCommandIndex];
 
-                            m_CommandLabelMap.insert( std ::make_pair( pParm -> nParm, m_CurrentCommand ) );
+                            m_CommandLabelMap.insert( std ::make_pair( pParm -> nParm, m_nCurrentCommandIndex ) );
                         }
                         break;
 
                         case GOTO_LABEL_CMD :  {
-                            OneParmCommand                  *pParm    = ( OneParmCommand * ) *m_CurrentCommand;
+                            OneParmCommand                  *pParm    = ( OneParmCommand * ) m_CommandQueue[m_nCurrentCommandIndex];
                             CommandLabelMap :: iterator     itLoopCmd = m_CommandLabelMap.find( pParm -> nParm );
 
                             if( itLoopCmd != m_CommandLabelMap.end() )  {
-                                m_CurrentCommand = itLoopCmd -> second;
+                                m_nCurrentCommandIndex = itLoopCmd -> second;
                             }
                             else if( m_pListener != nullptr )  {
                                 m_pListener -> OnError( "GOTO_LABEL_CMD: unknown label " +
@@ -241,13 +241,13 @@ namespace SunLight {
                         case PAUSE_SONG_CMD :
                         case RESUME_SONG_CMD:
                         case STOP_SONG_CMD  :  {
-                            OneParmCommand   *pParm = ( OneParmCommand * ) *m_CurrentCommand;
+                            OneParmCommand   *pParm = ( OneParmCommand * ) m_CommandQueue[m_nCurrentCommandIndex];
 
                             if( m_pListener != nullptr )
-                                m_pListener -> OnCommand( ( *m_CurrentCommand ) -> cmd, pParm -> nParm );
+                                m_pListener -> OnCommand( pParm -> cmd, pParm -> nParm );
                         }
                         break;
-                        
+
                         case PLAY_SONG_DIRECT_CMD  :  // Not handled by scripts
                         case PAUSE_SONG_DIRECT_CMD :
                         case RESUME_SONG_DIRECT_CMD:
@@ -255,7 +255,7 @@ namespace SunLight {
                         break;
                     }
 
-                    m_CurrentCommand++;
+                    m_nCurrentCommandIndex++;
                 }
 
                 return true;
