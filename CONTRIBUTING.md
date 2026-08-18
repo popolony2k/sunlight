@@ -28,17 +28,31 @@ adding a new source file, re-run `cmake -B build -S .` so the glob picks it up.
 
 ## Before submitting a PR
 
-- **Run the test suite** (`ctest --test-dir build` or
-  `./build/tests/sunlight_tests`) and confirm it's still green. Add test
-  coverage for new logic where practical — see `tests/mock_engine.h`,
-  `tests/mock_sound.h`, and `tests/mock_tilemap.h` for the mocking seams
-  (`EngineFactory::SetEngine()`, `SoundFactory::SetCreator()`) already
-  available for code that touches `IEngine`/`ISound`.
+- **Run the full test suite** (`ctest --test-dir build` or
+  `./build/tests/sunlight_tests`) and confirm it's still green — not just the
+  tests you touched. Add test coverage for new logic where practical — see
+  `tests/mock_engine.h`, `tests/mock_sound.h`, and `tests/mock_tilemap.h` for
+  the mocking seams (`EngineFactory::SetEngine()`, `SoundFactory::SetCreator()`)
+  already available for code that touches `IEngine`/`ISound`, including the
+  parts of a window-touching feature that don't actually need a window (a
+  guard clause, a state getter/setter) even when the feature as a whole isn't
+  fully testable.
+- **If you add a new pure virtual to `IEngine`/`ITileMap`/`ISound`, update the
+  matching mock in the same PR** (`tests/mock_engine.h`/`tests/mock_tilemap.h`/
+  `tests/mock_sound.h`) — otherwise `sunlight_tests` won't compile.
+- **If you're fixing a bug, verify your regression test actually catches it**:
+  temporarily revert the fix, confirm the new test fails, then restore the fix
+  and confirm it passes. A test that was never observed to fail against the
+  old code isn't verified coverage.
 - **Reset `BUILD_LIBRARY_SAMPLES`/`BUILD_LIBRARY_TESTS` to `OFF`** before
   committing if you turned them on locally — they default to `OFF` and PRs
   shouldn't change that.
 - Keep commits focused; a bug fix doesn't need an unrelated refactor riding
   along with it.
+
+See `CLAUDE.md`'s "Reviewing and testing changes" section for the fuller
+version of this (including why a comment's stated reasoning needs verifying,
+not just its code).
 
 ## Code conventions
 
