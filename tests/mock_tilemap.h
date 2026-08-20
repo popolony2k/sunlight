@@ -90,6 +90,12 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
         return false;
     }
 
+    void SetStretchToFill( bool )  {}
+
+    bool GetStretchToFill( void )  {
+        return false;
+    }
+
     bool SetFont( const char* )  {
         return false;
     }

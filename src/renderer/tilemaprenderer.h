@@ -107,6 +107,7 @@ namespace SunLight {
             bool                                       m_bIsStarted;
             bool                                       m_bWindowResizeable;
             bool                                       m_bDrawFPS;
+            bool                                       m_bStretchToFill;
             static bool                                m_bInitialized;
 
             // Everything is rendered into this fixed-internal-resolution
@@ -233,6 +234,8 @@ namespace SunLight {
             bool GetDrawFPS( void );
             void SetFullscreen( bool bFullscreen );
             bool GetFullscreen( void );
+            void SetStretchToFill( bool bStretchToFill );
+            bool GetStretchToFill( void );
 
             // View port control
             void SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode );

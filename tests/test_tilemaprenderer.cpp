@@ -112,7 +112,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( renderer.RemoveSprite( 1, sprite ) == false );
     }
 
-    TEST_CASE( "GetDrawFPS/GetWindowResizeable round-trip what their setters last set" )  {
+    TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill round-trip what their setters last set" )  {
 
         TileMapRenderer  renderer( 800, 600, "test", -1, false );
 
@@ -127,6 +127,12 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
         renderer.SetWindowResizeable( false );
         CHECK( renderer.GetWindowResizeable() == false );
+
+        renderer.SetStretchToFill( true );
+        CHECK( renderer.GetStretchToFill() == true );
+
+        renderer.SetStretchToFill( false );
+        CHECK( renderer.GetStretchToFill() == false );
     }
 
     TEST_CASE( "SetWindowResizeable before Start() only updates local state, never touches IEngine" )  {

@@ -39,6 +39,7 @@
 #define __DEFAULT_CLEAR_BACKGROUND      true
 #define __DEFAULT_RESIZEABLE_STATUS     false
 #define __DEFAULT_DRAW_FPS_STATUS       false
+#define __DEFAULT_STRETCH_TO_FILL_STATUS false
 #define __DEFAULT_VIEW_CONTROL_MODE     VIEW_CONTROL_MODE_ACTIVE
 #define __DEFAULT_EXIT_KEY              SunLight :: Input :: KEY_ESCAPE
 #define __DEFAULT_WINDOW_BK_COLOR       0xFF000000
@@ -1080,6 +1081,7 @@ namespace SunLight {
             m_bWindowResizeable           = __DEFAULT_RESIZEABLE_STATUS;
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
             m_bDrawFPS                    = __DEFAULT_DRAW_FPS_STATUS;
+            m_bStretchToFill              = __DEFAULT_STRETCH_TO_FILL_STATUS;
             m_nScrollStepWidth            = __DEFAULT_SCROLL_STEP_WIDTH;
             m_nScrollStepHeight           = __DEFAULT_SCROLL_STEP_HEIGHT;
             m_ViewControlMode             = __DEFAULT_VIEW_CONTROL_MODE;
@@ -1224,6 +1226,30 @@ namespace SunLight {
         bool TileMapRenderer :: GetDrawFPS( void )  {
 
             return m_bDrawFPS;
+        }
+
+        /**
+         * Choose how the fixed-internal-resolution render target is
+         * blitted onto the real window/screen when their sizes differ -
+         * see ITileMap::SetStretchToFill's own doc comment for the full
+         * behavior. A plain flag read every frame in Run()'s own blit
+         * math, same as m_bDrawFPS - no immediate side effect needed here
+         * (unlike m_bWindowResizeable, which pokes IEngine right away if
+         * the window's already running).
+         * @param bStretchToFill The new stretch-to-fill status;
+         */
+        void TileMapRenderer :: SetStretchToFill( bool bStretchToFill )  {
+
+            m_bStretchToFill = bStretchToFill;
+        }
+
+        /**
+         * Query whether the render target is currently being stretched to
+         * fill (see @see SetStretchToFill).
+         */
+        bool TileMapRenderer :: GetStretchToFill( void )  {
+
+            return m_bStretchToFill;
         }
 
         /**
@@ -2063,29 +2089,54 @@ namespace SunLight {
 
                     /*
                      * Blit the fixed-resolution render texture to the real
-                     * window, scaled to fit and letterboxed (black bars) to
-                     * preserve aspect ratio - recomputed from the actual
-                     * current screen size every single frame, so both
-                     * fullscreen (SetFullscreen) and live window resizing
-                     * (if m_bWindowResizeable) fall out of this one path
-                     * with no separate resize-event handling needed.
-                     * Source height is negative because render targets are
+                     * window - recomputed from the actual current screen
+                     * size every single frame, so both fullscreen
+                     * (SetFullscreen) and live window resizing (if
+                     * m_bWindowResizeable) fall out of this one path with
+                     * no separate resize-event handling needed. Source
+                     * height is negative because render targets are
                      * stored bottom-up (OpenGL convention) - this flips it
                      * back right-side up. BeginDrawing/EndDrawing/
                      * ClearBackground/WindowShouldClose stay raylib-direct,
                      * same as the rest of this window's lifecycle.
+                     *
+                     * m_bStretchToFill (see it's own doc comment on
+                     * SetStretchToFill) picks between two different dest
+                     * rectangles: the default letterboxed one uses a
+                     * single uniform fScale (the smaller of the two axis
+                     * ratios) so the whole render target fits inside the
+                     * screen with it's own aspect ratio intact, centered
+                     * with black bars filling whatever's left over on the
+                     * non-fitting axis. Stretch-to-fill instead sizes dest
+                     * to the full screen directly, with no centering
+                     * offset needed - IEngine::DrawTextureScaled (raylib's
+                     * own DrawTexturePro underneath) already maps an
+                     * arbitrary source rect onto an arbitrary dest rect
+                     * using independent X/Y scale factors on it's own, so
+                     * this needs no change to that call itself, only to
+                     * which dest rectangle gets computed here.
                      */
                     int    nScreenWidth  = SunLight :: Engines :: EngineFactory :: GetEngine().GetScreenWidth();
                     int    nScreenHeight = SunLight :: Engines :: EngineFactory :: GetEngine().GetScreenHeight();
-                    float  fScaleX       = ( float ) nScreenWidth / m_fWindowWidth;
-                    float  fScaleY       = ( float ) nScreenHeight / m_fWindowHeight;
-                    float  fScale        = ( fScaleX < fScaleY ) ? fScaleX : fScaleY;
 
                     SunLight :: Base :: stRectangle  source { 0.0f, 0.0f, m_fWindowWidth, -m_fWindowHeight };
-                    SunLight :: Base :: stRectangle  dest   { ( nScreenWidth - ( m_fWindowWidth * fScale ) ) * 0.5f,
-                                                              ( nScreenHeight - ( m_fWindowHeight * fScale ) ) * 0.5f,
-                                                              m_fWindowWidth * fScale,
-                                                              m_fWindowHeight * fScale };
+                    SunLight :: Base :: stRectangle  dest;
+
+                    if( m_bStretchToFill )  {
+                        dest = SunLight :: Base :: stRectangle { 0.0f, 0.0f,
+                                                                  ( float ) nScreenWidth,
+                                                                  ( float ) nScreenHeight };
+                    }
+                    else  {
+                        float  fScaleX = ( float ) nScreenWidth / m_fWindowWidth;
+                        float  fScaleY = ( float ) nScreenHeight / m_fWindowHeight;
+                        float  fScale  = ( fScaleX < fScaleY ) ? fScaleX : fScaleY;
+
+                        dest = SunLight :: Base :: stRectangle { ( nScreenWidth - ( m_fWindowWidth * fScale ) ) * 0.5f,
+                                                                  ( nScreenHeight - ( m_fWindowHeight * fScale ) ) * 0.5f,
+                                                                  m_fWindowWidth * fScale,
+                                                                  m_fWindowHeight * fScale };
+                    }
 
                     BeginDrawing();
                     ClearBackground( BLACK );
