@@ -231,6 +231,28 @@ namespace SunLight {
             virtual bool GetWindowResizeable( void ) = 0;
 
             /**
+             * @brief Choose how the fixed-internal-resolution render target
+             * is blitted onto the real window/screen when their sizes
+             * differ (fullscreen, or a live-resized window). false
+             * (default) preserves aspect ratio via a single uniform scale
+             * factor, letterboxing (black bars) whichever axis doesn't
+             * fill exactly. true stretches to fill the real window/screen
+             * completely instead, using independent X/Y scale factors -
+             * no black bars, but the image visibly warps whenever the
+             * window's own aspect ratio doesn't match the render target's.
+             *
+             * @param bStretchToFill true to stretch-fill (no letterboxing,
+             * may distort), false to letterbox (preserves aspect ratio);
+             */
+            virtual void SetStretchToFill( bool bStretchToFill ) = 0;
+
+            /**
+             * @brief Query whether the render target is currently being
+             * stretched to fill (see @link SetStretchToFill).
+             */
+            virtual bool GetStretchToFill( void ) = 0;
+
+            /**
              * @brief Load (or replace) the font used by @link DrawText,
              * from any backend-supported font file (at minimum TrueType/
              * OpenType; the raylib backend also auto-detects an AngelCode
