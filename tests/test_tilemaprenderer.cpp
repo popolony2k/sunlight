@@ -149,4 +149,56 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( renderer.GetWindowResizeable() == true );
         CHECK( fixture.engine.nSetWindowResizeableCalls == 0 );
     }
+
+    TEST_CASE( "DrawFilledRectangle forwards straight through to IEngine" )  {
+
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        renderer.DrawFilledRectangle( 10, 20, 30, 40, 255, 0, 0, 128 );
+
+        CHECK( fixture.engine.nDrawFilledRectangleCalls  == 1 );
+        CHECK( fixture.engine.nLastFilledRectangleX      == 10 );
+        CHECK( fixture.engine.nLastFilledRectangleY      == 20 );
+        CHECK( fixture.engine.nLastFilledRectangleWidth  == 30 );
+        CHECK( fixture.engine.nLastFilledRectangleHeight == 40 );
+        CHECK( fixture.engine.lastFilledRectangleColor.nRed   == 255 );
+        CHECK( fixture.engine.lastFilledRectangleColor.nGreen == 0 );
+        CHECK( fixture.engine.lastFilledRectangleColor.nBlue  == 0 );
+        CHECK( fixture.engine.lastFilledRectangleColor.nAlpha == 128 );
+    }
+
+    TEST_CASE( "DrawText forwards straight through to IEngine" )  {
+
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        renderer.DrawText( "score: 0", 5, 5, 16, 255, 255, 255, 255 );
+
+        CHECK( fixture.engine.nDrawTextCalls == 1 );
+        CHECK( fixture.engine.strLastDrawnText == "score: 0" );
+    }
+
+    TEST_CASE( "MeasureText forwards straight through to IEngine and returns its result" )  {
+
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        fixture.engine.nMeasureTextResult = 42;
+
+        CHECK( renderer.MeasureText( "score: 0", 16 ) == 42 );
+        CHECK( fixture.engine.nMeasureTextCalls == 1 );
+    }
+
+    TEST_CASE( "SetFont forwards straight through to IEngine and returns its result" )  {
+
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        fixture.engine.bSetFontResult = false;
+
+        CHECK( renderer.SetFont( "does-not-matter.ttf" ) == false );
+        CHECK( fixture.engine.nSetFontCalls == 1 );
+        CHECK( fixture.engine.strLastSetFontPath == "does-not-matter.ttf" );
+    }
 }

@@ -1546,6 +1546,24 @@ namespace SunLight {
         }
 
         /**
+         * @brief Draw a filled rectangle in screen space (see
+         * @see ITileMap::DrawFilledRectangle). A thin pass-through to
+         * IEngine, same shape as @see DrawText.
+         */
+        void TileMapRenderer :: DrawFilledRectangle( int nPosX,
+                                                     int nPosY,
+                                                     int nWidth,
+                                                     int nHeight,
+                                                     unsigned char nRed,
+                                                     unsigned char nGreen,
+                                                     unsigned char nBlue,
+                                                     unsigned char nAlpha )  {
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( nPosX, nPosY, nWidth, nHeight,
+                                          SunLight :: Base :: stColor { nRed, nGreen, nBlue, nAlpha } );
+        }
+
+        /**
          * @brief Measure a line of text's rendered width (see
          * @see ITileMap::MeasureText). A thin pass-through to IEngine,
          * same shape as @see DrawText.

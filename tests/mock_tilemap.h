@@ -102,6 +102,8 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
 
     void DrawText( const char*, int, int, int, unsigned char, unsigned char, unsigned char, unsigned char )  {}
 
+    void DrawFilledRectangle( int, int, int, int, unsigned char, unsigned char, unsigned char, unsigned char )  {}
+
     int MeasureText( const char*, int )  {
         return 0;
     }

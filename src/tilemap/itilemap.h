@@ -295,6 +295,37 @@ namespace SunLight {
                                    unsigned char nAlpha ) = 0;
 
             /**
+             * @brief Draw a filled, solid-color rectangle in screen space
+             * (no viewport/camera transform, same coordinate space as
+             * @link DrawText and the FPS counter) - meant for simple HUD
+             * elements (e.g. a progress/health bar) that don't warrant a
+             * whole sprite/texture asset. A thin pass-through to
+             * IEngine::DrawFilledRectangle, which already exists and is
+             * already used internally for the screen-fade overlay - this
+             * just exposes that same capability as it's own, arbitrary-
+             * position/size/color primitive rather than the fixed, full-
+             * window, single-alpha-value overlay @link ITileMap::SetScreenFade
+             * already covers.
+             *
+             * @param nPosX X coordinate of the rectangle's top-left corner;
+             * @param nPosY Y coordinate of the rectangle's top-left corner;
+             * @param nWidth Rectangle width, in pixels;
+             * @param nHeight Rectangle height, in pixels;
+             * @param nRed Fill color red channel (0-255);
+             * @param nGreen Fill color green channel (0-255);
+             * @param nBlue Fill color blue channel (0-255);
+             * @param nAlpha Fill color alpha channel (0-255);
+             */
+            virtual void DrawFilledRectangle( int nPosX,
+                                              int nPosY,
+                                              int nWidth,
+                                              int nHeight,
+                                              unsigned char nRed,
+                                              unsigned char nGreen,
+                                              unsigned char nBlue,
+                                              unsigned char nAlpha ) = 0;
+
+            /**
              * @brief Measure how wide a line of text would render, in
              * pixels, at a given font size, using whichever font is
              * currently active (see @link SetFont) - the same font @link
