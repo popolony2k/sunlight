@@ -278,6 +278,14 @@ namespace SunLight {
                            unsigned char nGreen,
                            unsigned char nBlue,
                            unsigned char nAlpha );
+            void DrawFilledRectangle( int nPosX,
+                                      int nPosY,
+                                      int nWidth,
+                                      int nHeight,
+                                      unsigned char nRed,
+                                      unsigned char nGreen,
+                                      unsigned char nBlue,
+                                      unsigned char nAlpha );
             int MeasureText( const char *szText, int nFontSize );
             int GetWindowWidth( void );
             int GetWindowHeight( void );
