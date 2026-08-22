@@ -1231,7 +1231,7 @@ namespace SunLight {
         /**
          * Choose how the fixed-internal-resolution render target is
          * blitted onto the real window/screen when their sizes differ -
-         * see ITileMap::SetStretchToFill's own doc comment for the full
+         * see IDrawSurface::SetStretchToFill's own doc comment for the full
          * behavior. A plain flag read every frame in Run()'s own blit
          * math, same as m_bDrawFPS - no immediate side effect needed here
          * (unlike m_bWindowResizeable, which pokes IEngine right away if
@@ -1253,7 +1253,7 @@ namespace SunLight {
         }
 
         /**
-         * Enter or leave fullscreen (see @see ITileMap::SetFullscreen).
+         * Enter or leave fullscreen (see @see IDrawSurface::SetFullscreen).
          * Routed through IEngine rather than raylib directly, same as
          * every other window/render primitive TileMapRenderer uses.
          * @param bFullscreen true to enter fullscreen, false for windowed;
@@ -1493,7 +1493,12 @@ namespace SunLight {
 
         /**
          * @brief Set the application window's title, replacing whatever
-         * title it was created with.
+         * title it was created with (see @see IDrawSurface::SetWindowTitle).
+         * Routed through IEngine rather than raylib directly, same as
+         * every other window/render primitive TileMapRenderer uses -
+         * raylib's own SetWindowTitle acts on the live window handle, so
+         * this only forwards the call once the window actually exists,
+         * same guard as SetWindowResizeable.
          *
          * @param strTitle The new window title;
          */
@@ -1502,7 +1507,7 @@ namespace SunLight {
             m_strTitle = strTitle;
 
             if( m_bIsStarted )
-                :: SetWindowTitle( m_strTitle.c_str() );
+                SunLight :: Engines :: EngineFactory :: GetEngine().SetWindowTitle( m_strTitle.c_str() );
         }
 
         /**
@@ -1517,7 +1522,7 @@ namespace SunLight {
 
         /**
          * @brief Load (or replace) the font used by @see DrawText (see
-         * @see ITileMap::SetFont). A thin pass-through to IEngine - unlike
+         * @see IDrawSurface::SetFont). A thin pass-through to IEngine - unlike
          * @see SetWindowResizeable, there's no pre-Start() path to support
          * here (loading a font needs the render context IEngine's backend
          * already requires), so this is always forwarded directly.
@@ -1529,7 +1534,7 @@ namespace SunLight {
 
         /**
          * @brief Draw a line of text in screen space (see
-         * @see ITileMap::DrawText). A thin pass-through to IEngine, same
+         * @see IDrawSurface::DrawText). A thin pass-through to IEngine, same
          * shape as @see SetFont.
          */
         void TileMapRenderer :: DrawText( const char *szText,
@@ -1547,7 +1552,7 @@ namespace SunLight {
 
         /**
          * @brief Draw a filled rectangle in screen space (see
-         * @see ITileMap::DrawFilledRectangle). A thin pass-through to
+         * @see IDrawSurface::DrawFilledRectangle). A thin pass-through to
          * IEngine, same shape as @see DrawText.
          */
         void TileMapRenderer :: DrawFilledRectangle( int nPosX,
@@ -1565,7 +1570,7 @@ namespace SunLight {
 
         /**
          * @brief Measure a line of text's rendered width (see
-         * @see ITileMap::MeasureText). A thin pass-through to IEngine,
+         * @see IDrawSurface::MeasureText). A thin pass-through to IEngine,
          * same shape as @see DrawText.
          */
         int TileMapRenderer :: MeasureText( const char *szText, int nFontSize )  {
@@ -1575,7 +1580,7 @@ namespace SunLight {
 
         /**
          * @brief Return the engine's own fixed design/render resolution
-         * width (see @see ITileMap::GetWindowWidth). Pure state - m_fWindowWidth
+         * width (see @see IDrawSurface::GetWindowWidth). Pure state - m_fWindowWidth
          * is set once, at construction, and never touched again (in
          * particular, never updated on a live window resize - see it's
          * own doc comment on ITileMap for why that's deliberate).

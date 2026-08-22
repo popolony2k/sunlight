@@ -465,6 +465,18 @@ namespace SunLight  {
             }
 
             /**
+             * @brief Set the application window's title (see @see
+             * IEngine::SetWindowTitle). ::SetWindowTitle acts on the live
+             * window handle (glfwSetWindowTitle underneath, on the GLFW
+             * desktop backend), so this is only meaningful once the
+             * window already exists.
+             */
+            void RaylibEngine :: SetWindowTitle( const char *szTitle )  {
+
+                ::SetWindowTitle( szTitle );
+            }
+
+            /**
              * @brief Current window/screen width, in pixels.
              */
             int RaylibEngine :: GetScreenWidth( void )  {

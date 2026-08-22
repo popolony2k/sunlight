@@ -252,6 +252,18 @@ namespace SunLight  {
             virtual void SetWindowResizeable( bool bResizeable ) = 0;
 
             /**
+             * @brief Must be implemented to set the application window's
+             * title, replacing whatever title it was created with. Only
+             * meaningful to call once the window exists - callers are
+             * responsible for not calling this before that (see
+             * TileMapRenderer::SetWindowTitle, which guards the same way
+             * SetWindowResizeable's live-toggle path does).
+             *
+             * @param szTitle The new window title;
+             */
+            virtual void SetWindowTitle( const char *szTitle ) = 0;
+
+            /**
              * @brief Must be implemented to return the current width, in
              * pixels, of the actual window/screen on chosen target engine -
              * as opposed to any fixed internal rendering resolution a

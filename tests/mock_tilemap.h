@@ -70,51 +70,13 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
         nX = 0;
         nY = 0;
     }
-    void SetWindowTitle( const std :: string& )  {}
-    void SetScreenFade( float )  {}
-    void SetFullscreen( bool )  {}
 
-    bool GetFullscreen( void )  {
-        return false;
-    }
-
-    void SetDrawFPS( bool )  {}
-
-    bool GetDrawFPS( void )  {
-        return false;
-    }
-
-    void SetWindowResizeable( bool )  {}
-
-    bool GetWindowResizeable( void )  {
-        return false;
-    }
-
-    void SetStretchToFill( bool )  {}
-
-    bool GetStretchToFill( void )  {
-        return false;
-    }
-
-    bool SetFont( const char* )  {
-        return false;
-    }
-
-    void DrawText( const char*, int, int, int, unsigned char, unsigned char, unsigned char, unsigned char )  {}
-
-    void DrawFilledRectangle( int, int, int, int, unsigned char, unsigned char, unsigned char, unsigned char )  {}
-
-    int MeasureText( const char*, int )  {
-        return 0;
-    }
-
-    int GetWindowWidth( void )  {
-        return 0;
-    }
-
-    int GetWindowHeight( void )  {
-        return 0;
-    }
+    // SetWindowTitle/SetScreenFade/SetFullscreen/GetFullscreen/SetDrawFPS/
+    // GetDrawFPS/SetWindowResizeable/GetWindowResizeable/SetStretchToFill/
+    // GetStretchToFill/SetFont/DrawText/DrawFilledRectangle/MeasureText/
+    // GetWindowWidth/GetWindowHeight moved off ITileMap onto the new
+    // IDrawSurface (see it's own header comment) - no longer part of this
+    // interface, so no longer stubbed here either.
 
     bool SetLayer( int, SunLight :: TileMap :: stLayer& )  {
         return false;

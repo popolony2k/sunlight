@@ -29,6 +29,7 @@
 #include <memory>
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
+#include "drawsurface/idrawsurface.h"
 #include "input/iinputhandler.h"
 #include "base/color.h"
 #include "base/primitives.h"
@@ -54,8 +55,13 @@ namespace SunLight {
 
         /**
          * @brief World renderer implementation to render TMX based maps.
+         * Also implements IDrawSurface directly (see it's own header
+         * comment) - the one concrete class both interfaces share, since
+         * it's the object that actually owns the window/render context
+         * both are ultimately backed by.
          */
-        class TileMapRenderer : public SunLight :: TileMap :: ITileMap  {
+        class TileMapRenderer : public SunLight :: TileMap :: ITileMap,
+                                 public SunLight :: DrawSurface :: IDrawSurface  {
 
             /**
              * Tile animation information.
