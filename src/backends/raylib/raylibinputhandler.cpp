@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "input/raylib/raylibinputhandler.h"
+#include "backends/raylib/raylibinputhandler.h"
 #include <raylib.h>
 
 namespace SunLight  {

@@ -18,7 +18,7 @@
 
 cmake_minimum_required (VERSION 3.24)
 
-project (sunlight VERSION 0.12.0)
+project (sunlight VERSION 0.13.0)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -88,6 +88,7 @@ include_directories("engines")
 include_directories("sound")
 include_directories("concurrent")
 include_directories("general")
+include_directories("backends")
 
 # Add all source files
 file( GLOB_RECURSE LIBRARY_SOURCES "./" *.cpp )

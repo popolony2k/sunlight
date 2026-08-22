@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "sound/raylib/raylibsound.h"
+#include "backends/raylib/raylibsound.h"
 
 
 namespace SunLight {

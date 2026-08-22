@@ -23,7 +23,7 @@
 #endif
 
 #if DEFAULT_ENGINE == 1    /* USES RAYLIB */
-    #include "input/raylib/raylibinputhandler.h"   
+    #include "backends/raylib/raylibinputhandler.h"
     #define __DEFAULT_INPUT_HANDLER  SunLight :: Input :: RayLib :: RayLibInputHandler
 #else
     #error "Unknown value of DEFAULT_ENGINE"
@@ -35,14 +35,28 @@
 namespace SunLight {
     namespace Input  {
 
+        static InputHandlerFactory :: CreatorFunction   s_pCreator = nullptr;
+
         /**
-         * @brief Create a Input Handler object
-         * 
-         * @return Pointer to created IInputHandler; 
+         * @brief Create a Input Handler object - the backend selected at
+         * build time, unless overridden by @see SetCreator() (tests only).
+         *
+         * @return Pointer to created IInputHandler;
          */
         std :: unique_ptr<IInputHandler> InputHandlerFactory :: CreateInputHandler( void )  {
 
+            if( s_pCreator )
+                return s_pCreator();
+
             return std :: make_unique<__DEFAULT_INPUT_HANDLER>();
+        }
+
+        /**
+         * @brief Override the backend used by @see CreateInputHandler().
+         */
+        void InputHandlerFactory :: SetCreator( CreatorFunction creator )  {
+
+            s_pCreator = creator;
         }
     }
 }
