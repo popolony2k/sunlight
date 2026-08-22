@@ -22,6 +22,7 @@
 #define __IINPUTHANDLERFACTORY_H__
 
 #include <memory>
+#include <functional>
 #include "iinputhandler.h"
 
 
@@ -32,12 +33,30 @@ namespace SunLight {
          * @brief Input handler class factory used to create
          * @see IInputHandler objects based on configured
          * backend renderer engine.
+         *
+         * Like @see SunLight :: Sound :: SoundFactory (and unlike @see
+         * SunLight :: Engines :: EngineFactory, which hands back a single
+         * shared engine instance), each call here returns a brand new
+         * @see IInputHandler.
          */
         class InputHandlerFactory  {
 
             public:
 
+            typedef std :: function<std :: unique_ptr<IInputHandler>( void )>  CreatorFunction;
+
             static std :: unique_ptr<IInputHandler> CreateInputHandler( void );
+
+            /**
+             * @brief Override the backend used by @see CreateInputHandler() -
+             * for tests only, to substitute a mock @see IInputHandler
+             * without a real input device. Pass an empty @see
+             * CreatorFunction to restore the default, build-time backend.
+             *
+             * @param creator The replacement creator function, or an empty
+             * std::function to reset back to the default backend;
+             */
+            static void SetCreator( CreatorFunction creator );
         };
      }
 }

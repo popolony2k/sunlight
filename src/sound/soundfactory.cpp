@@ -25,7 +25,7 @@
 #endif
 
 #if DEFAULT_ENGINE == 1    /* USES RAYLIB */
-    #include "sound/raylib/raylibsound.h"
+    #include "backends/raylib/raylibsound.h"
 
     #define __DEFAULT_ENGINE  SunLight :: Sound :: RayLib :: RayLibSound
 #else
