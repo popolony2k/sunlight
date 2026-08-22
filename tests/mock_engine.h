@@ -48,6 +48,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nGetApplicationDirectoryCalls = 0;
     int                                 nSetFullscreenCalls        = 0;
     int                                 nSetWindowResizeableCalls  = 0;
+    int                                 nSetWindowTitleCalls       = 0;
     int                                 nSetFontCalls              = 0;
     int                                 nDrawTextCalls             = 0;
     int                                 nMeasureTextCalls          = 0;
@@ -74,6 +75,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     bool                                bWindowResizeable          = false;
     bool                                bSetFontResult             = true;
     std :: string                       strLastSetFontPath;
+    std :: string                       strLastWindowTitle;
     std :: string                       strLastDrawnText;
     int                                 nScreenWidthResult         = 0;
     int                                 nScreenHeightResult        = 0;
@@ -145,6 +147,11 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     void SetWindowResizeable( bool bValue )  {
         nSetWindowResizeableCalls++;
         bWindowResizeable = bValue;
+    }
+
+    void SetWindowTitle( const char *szTitle )  {
+        nSetWindowTitleCalls++;
+        strLastWindowTitle = szTitle;
     }
 
     bool SetFont( const char *szFilePath )  {

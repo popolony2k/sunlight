@@ -150,6 +150,19 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( fixture.engine.nSetWindowResizeableCalls == 0 );
     }
 
+    TEST_CASE( "SetWindowTitle before Start() only updates local state, never touches IEngine" )  {
+
+        // Same gate as SetWindowResizeable above - IEngine::SetWindowTitle
+        // is only meaningful once the window exists (raylib's own
+        // SetWindowTitle acts on the live window handle).
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        renderer.SetWindowTitle( "new title" );
+
+        CHECK( fixture.engine.nSetWindowTitleCalls == 0 );
+    }
+
     TEST_CASE( "DrawFilledRectangle forwards straight through to IEngine" )  {
 
         MockEngineFixture  fixture;
