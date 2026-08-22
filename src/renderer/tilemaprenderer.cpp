@@ -1939,13 +1939,36 @@ namespace SunLight {
         }
 
         /**
-         * Add a sprite to world on top of specified layer.
-         * @param nLayerId Id of an existing Layer on tiled map whose sprite will be added;
+         * Add a sprite to world on top of specified layer (see
+         * @see ITileMap::AddSprite's own doc comment for the full "why" -
+         * mapless-rendering support, added so a sprite can exist with no
+         * tile map ever loaded at all). GetLayer(nLayerId) validates
+         * nLayerId against the currently loaded map's own real layers
+         * when one is loaded (m_pTmxMap != nullptr) - unchanged from
+         * before. When no map is loaded, there's nothing real to validate
+         * nLayerId against, so it's skipped entirely and nLayerId is
+         * accepted as a plain caller-chosen grouping key - the same role
+         * it already plays for CollisionManager::AddCollider (a fixed-
+         * size array indexed by integer id, with zero tmx dependency) and
+         * Sprite::SetParent (accepts any BaseCanvas*, no tmx dependency
+         * either). Nothing below this check treats nLayerId any
+         * differently depending on which branch let it through.
+         *
+         * That said, AddCollider's own bounds check (nLayerId must be
+         * less than MAX_COLLIDER_LAYERS) still applies either way, and is
+         * now honored rather than ignored - a mapless caller is free to
+         * pick any nLayerId as a grouping key, but one at or past
+         * MAX_COLLIDER_LAYERS fails AddSprite outright instead of
+         * silently succeeding with a sprite whose collider never actually
+         * registered with the collision manager.
+         * @param nLayerId Id of an existing Layer on tiled map whose sprite will be added
+         * (or, with no map loaded, any caller-chosen grouping id, below
+         * MAX_COLLIDER_LAYERS);
          * @param sprite Reference to the sprite that will be added;
          */
         bool TileMapRenderer :: AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
-            if( m_bIsStarted && GetLayer( nLayerId ) )  {
+            if( m_bIsStarted && ( ( m_pTmxMap == nullptr ) || GetLayer( nLayerId ) ) )  {
                 SpriteMap :: iterator itItemLayer = m_SpriteMap.find( nLayerId );
 
                 if( itItemLayer == m_SpriteMap.end() )  {
@@ -1957,9 +1980,10 @@ namespace SunLight {
                                                                  itItemLayer -> second -> end(),
                                                                  &sprite );
 
-                    if( itItem == itItemLayer -> second -> end() )  {
+                    if( ( itItem == itItemLayer -> second -> end() ) &&
+                        m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() ) )  {
+
                         sprite.SetParent( this );
-                        m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() );
                         itItemLayer -> second -> push_back( &sprite );
                         return true;
                     }

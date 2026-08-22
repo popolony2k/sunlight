@@ -248,8 +248,22 @@ namespace SunLight {
             virtual SunLight :: Collision :: ICollisionManager& GetCollisionManager( void ) = 0;
 
             /**
-             * Add a sprite to world.
-             * @param nLayerId Id of Layer to add sprite;
+             * Add a sprite to world. A layer id is a purely logical
+             * grouping key (collision-manager grouping, viewport/zoom
+             * inheritance via Sprite::SetParent) - it doesn't need to
+             * resolve against any actual Tiled layer content. When no map
+             * is currently loaded at all, nLayerId is accepted as-is (no
+             * real layer to validate it against); when a map IS loaded,
+             * nLayerId must still name one of it's real layers, exactly
+             * as before - this only relaxes the no-map case, it doesn't
+             * loosen validation once a map exists. Either way, nLayerId
+             * must also be a valid collider-manager grouping key (below
+             * MAX_COLLIDER_LAYERS) - the sprite's own collider registration
+             * failing fails this call too, rather than succeeding with a
+             * sprite whose collider silently never got registered.
+             * @param nLayerId Id of Layer to add sprite (a real layer id
+             * if a map is loaded, or any caller-chosen grouping id if not,
+             * below MAX_COLLIDER_LAYERS either way);
              * @param sprite Reference to the sprite that will be added;
              */
             virtual bool AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite ) = 0;
