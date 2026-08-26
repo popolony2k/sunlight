@@ -671,8 +671,6 @@ namespace SunLight {
                     }
                 }
             }
-
-            HandleSpriteUpdate( pLayer -> id );
         }
 
         /**
@@ -700,6 +698,30 @@ namespace SunLight {
                             // TODO: FINISH HIM !!!
                             break;
                     }
+
+                    /*
+                     * Runtime-added sprites (AddSprite/m_SpriteMap, keyed by
+                     * this layer's own id) follow a parent-child visibility
+                     * hierarchy with their container TMX layer, by design: if
+                     * the layer itself is invisible, every sprite registered
+                     * against it is hidden too, full stop - a sprite's own
+                     * Sprite::SetVisible/GetVisible only ever gets a say once
+                     * it's container layer is already visible, same as any
+                     * scene-graph-style parent/child visibility. Previously
+                     * this only ran for the L_LAYER case (from inside
+                     * DrawLayer itself), so a sprite registered against an
+                     * L_OBJGR layer id was silently never drawn at all, even
+                     * when that layer WAS visible - moved here so every layer
+                     * type honors the same hierarchy consistently, not just
+                     * tile layers. A layer meant to host sprites but show no
+                     * static content of it's own (Caravellius's own "(Empty)"
+                     * placeholder layers - see that project's own
+                     * MAP_AUTHORING.md) must therefore be authored as
+                     * genuinely visible (omit `visible`, or `visible="1"`) -
+                     * `visible="0"` now means exactly what it says, hiding
+                     * that layer's sprites along with it's tiles/objects.
+                     */
+                    HandleSpriteUpdate( pLayer -> id );
                 }
 
                 pLayer = pLayer -> next;
