@@ -36,6 +36,8 @@ namespace SunLight  {
 
                 public:
 
+                RaylibEngine( void );
+
                 SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName,
                                                                 int& nWidth,
                                                                 int& nHeight ) override;

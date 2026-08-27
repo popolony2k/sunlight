@@ -18,7 +18,7 @@
 
 cmake_minimum_required (VERSION 3.24)
 
-project (sunlight VERSION 0.15.0)
+project (sunlight VERSION 0.16.0)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -31,6 +31,12 @@ option(SUNLIGHT_DEBUG_SYMBOLS_UNIX "Build SunLight with debug symbols on Unixes 
 # 1 - RAYLIB
 #
 set(SUNLIGHT_DEFAULT_BACKEND_ENGINE 1)
+
+#
+# Setup default resource filesystem (DEFAULT_FILESYSTEM preprocessor)
+# 1 - PHYSFS
+#
+set(SUNLIGHT_DEFAULT_BACKEND_FILESYSTEM 1)
 
 if(NOT USE_LOCAL_LIBXML2)
     ####################################################################
@@ -65,10 +71,45 @@ FetchContent_MakeAvailable(tmx)
 # Comment the line below to compile raylib using newer OpenGL (eg. 3.3)
 set(GRAPHICS "GRAPHICS_API_OPENGL_21")
 
-FetchContent_Declare(raylib 
+FetchContent_Declare(raylib
                      GIT_REPOSITORY https://github.com/raysan5/raylib.git
                      GIT_TAG 5.5)
 FetchContent_MakeAvailable(raylib)
+
+####################################################################
+# PhysFS (Phase 12 prototype - archive/loose-folder resource
+# abstraction, mount-based so a real .zip and a loose directory read
+# identically to client code)
+####################################################################
+set(PHYSFS_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+
+# raylib's own CMakeLists.txt already defines a conventional "uninstall"
+# custom target - PhysFS's own would collide with it verbatim
+# (CMP0002, "target already exists") since both are pulled in via
+# FetchContent into the same top-level build. PhysFS exposes this exact
+# name as a cache variable specifically for this kind of collision -
+# rename it rather than patching PhysFS's own CMakeLists.txt.
+set(PHYSFS_TARGETNAME_UNINSTALL "physfs_uninstall" CACHE STRING "" FORCE)
+
+FetchContent_Declare(physfs
+                     GIT_REPOSITORY https://github.com/icculus/physfs.git
+                     GIT_TAG release-3.2.0)
+FetchContent_MakeAvailable(physfs)
+
+# PhysFS's own CMakeLists.txt unconditionally forces CMAKE_SKIP_RPATH ON
+# (as a CACHE variable, with FORCE) on Clang/GCC "to avoid using -rpath" -
+# since CACHE variables are global to the whole build, not scoped to the
+# subdirectory that set them, this silently disabled RPATH generation for
+# EVERY target in this entire project once PhysFS was added (raylib/tmx/
+# sunlight/scarab alike), not just PhysFS's own - confirmed live: every
+# one of those executables failed to launch afterward with "Library not
+# loaded: @rpath/...", "no LC_RPATH's found". Reset back to CMake's normal
+# default (RPATH generation enabled) rather than patching PhysFS's own
+# vendored CMakeLists.txt.
+set(CMAKE_SKIP_RPATH OFF CACHE BOOL "" FORCE)
 
 ###################################################################
 # Mandatory libraries
@@ -86,6 +127,7 @@ include_directories("tilemap")
 include_directories("scripting")
 include_directories("engines")
 include_directories("sound")
+include_directories("filesystem")
 include_directories("concurrent")
 include_directories("general")
 include_directories("backends")
@@ -138,6 +180,7 @@ if(UNIX) # AND NOT APPLE)
 endif()
 
 add_definitions(-DDEFAULT_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_ENGINE})
+add_definitions(-DDEFAULT_FILESYSTEM=${SUNLIGHT_DEFAULT_BACKEND_FILESYSTEM})
 
 add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 
@@ -155,7 +198,7 @@ find_package(ZLIB REQUIRED)
 include(FindLibXml2)
 find_package(LibXml2 REQUIRED)
 
-target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
+target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS} PhysFS::PhysFS-static)
 
 # Installation
 
