@@ -1279,10 +1279,12 @@ namespace SunLight {
          * Routed through IEngine rather than raylib directly, same as
          * every other window/render primitive TileMapRenderer uses.
          * @param bFullscreen true to enter fullscreen, false for windowed;
+         * @param strategy Which fullscreen strategy to use when entering
+         * fullscreen (ignored when bFullscreen is false);
          */
-        void TileMapRenderer :: SetFullscreen( bool bFullscreen )  {
+        void TileMapRenderer :: SetFullscreen( bool bFullscreen, SunLight :: Engines :: IEngine :: FullscreenStrategy strategy )  {
 
-            SunLight :: Engines :: EngineFactory :: GetEngine().SetFullscreen( bFullscreen );
+            SunLight :: Engines :: EngineFactory :: GetEngine().SetFullscreen( bFullscreen, strategy );
         }
 
         /**

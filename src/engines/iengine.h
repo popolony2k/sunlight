@@ -39,6 +39,14 @@ namespace SunLight  {
 
             public:
 
+            /**
+             * @brief Fullscreen strategy selectable via @see SetFullscreen.
+             */
+            enum FullscreenStrategy  {
+                FULLSCREEN_STRATEGY_REAL               = 0,  // genuine OS-level fullscreen space (default)
+                FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED = 1  // ordinary window resized to the monitor's native resolution
+            };
+
             virtual ~IEngine( void )  {}
 
             /**
@@ -219,20 +227,28 @@ namespace SunLight  {
 
             /**
              * @brief Must be implemented to enter or leave fullscreen on
-             * chosen target engine. Implementations are free to pick
-             * whichever fullscreen strategy suits their backend best (e.g.
-             * borderless-windowed at the current monitor's native
-             * resolution); callers should only rely on @see GetFullscreen
-             * reflecting the resulting state.
+             * chosen target engine, using the requested @see
+             * FullscreenStrategy (defaulting to FULLSCREEN_STRATEGY_REAL -
+             * see RaylibEngine::SetFullscreen for why that's the default
+             * and when FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED is worth
+             * falling back to instead). Callers should only rely on @see
+             * GetFullscreen reflecting the resulting state.
+             *
+             * Switching strategy while already fullscreen in the other one
+             * is unsupported - call SetFullscreen( false ) first, then
+             * re-enter fullscreen with the new strategy.
              *
              * @param bFullscreen true to enter fullscreen, false to return
              * to windowed mode;
+             * @param strategy Which fullscreen strategy to use when
+             * entering fullscreen (ignored when bFullscreen is false);
              */
-            virtual void SetFullscreen( bool bFullscreen ) = 0;
+            virtual void SetFullscreen( bool bFullscreen, FullscreenStrategy strategy = FULLSCREEN_STRATEGY_REAL ) = 0;
 
             /**
              * @brief Must be implemented to report whether the window is
-             * currently fullscreen (see @see SetFullscreen).
+             * currently fullscreen, regardless of which @see
+             * FullscreenStrategy is active (see @see SetFullscreen).
              *
              * @return true if the window is fullscreen, false if windowed;
              */

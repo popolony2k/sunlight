@@ -238,7 +238,9 @@ namespace SunLight {
             void SetClearBackground( bool bStatus );
             void SetDrawFPS( bool bDrawFPS );
             bool GetDrawFPS( void );
-            void SetFullscreen( bool bFullscreen );
+            void SetFullscreen( bool bFullscreen,
+                               SunLight :: Engines :: IEngine :: FullscreenStrategy strategy =
+                                   SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL );
             bool GetFullscreen( void );
             void SetStretchToFill( bool bStretchToFill );
             bool GetStretchToFill( void );

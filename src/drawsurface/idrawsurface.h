@@ -22,6 +22,7 @@
 #define __IDRAWSURFACE_H__
 
 #include <string>
+#include "engines/iengine.h"
 
 
 namespace SunLight {
@@ -75,22 +76,33 @@ namespace SunLight {
             virtual void SetScreenFade( float fAlpha ) = 0;
 
             /**
-             * @brief Enter or leave fullscreen (a real, OS-level
-             * fullscreen space - see RaylibEngine::SetFullscreen for why
-             * this isn't borderless-windowed). The game itself always
-             * renders at its own fixed internal resolution regardless of
-             * this setting - the renderer is responsible for scaling that
-             * up/down and letterboxing to whatever the actual window size
-             * ends up being.
+             * @brief Enter or leave fullscreen, defaulting to a real,
+             * OS-level fullscreen space (see RaylibEngine::SetFullscreen
+             * for why that's the default and when the
+             * FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED fallback is worth
+             * using instead). The game itself always renders at its own
+             * fixed internal resolution regardless of this setting - the
+             * renderer is responsible for scaling that up/down and
+             * letterboxing to whatever the actual window size ends up
+             * being.
+             *
+             * Switching strategy while already fullscreen in the other one
+             * is unsupported - call SetFullscreen( false ) first, then
+             * re-enter fullscreen with the new strategy.
              *
              * @param bFullscreen true to enter fullscreen, false to return
              * to windowed mode;
+             * @param strategy Which fullscreen strategy to use when
+             * entering fullscreen (ignored when bFullscreen is false);
              */
-            virtual void SetFullscreen( bool bFullscreen ) = 0;
+            virtual void SetFullscreen( bool bFullscreen,
+                                       SunLight :: Engines :: IEngine :: FullscreenStrategy strategy =
+                                           SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL ) = 0;
 
             /**
-             * @brief Query whether the window is currently fullscreen (see
-             * @link SetFullscreen).
+             * @brief Query whether the window is currently fullscreen,
+             * regardless of which strategy is active (see @link
+             * SetFullscreen).
              */
             virtual bool GetFullscreen( void ) = 0;
 
