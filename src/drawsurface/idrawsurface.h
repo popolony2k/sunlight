@@ -75,8 +75,9 @@ namespace SunLight {
             virtual void SetScreenFade( float fAlpha ) = 0;
 
             /**
-             * @brief Enter or leave fullscreen (borderless-windowed at the
-             * current monitor's native resolution). The game itself always
+             * @brief Enter or leave fullscreen (a real, OS-level
+             * fullscreen space - see RaylibEngine::SetFullscreen for why
+             * this isn't borderless-windowed). The game itself always
              * renders at its own fixed internal resolution regardless of
              * this setting - the renderer is responsible for scaling that
              * up/down and letterboxing to whatever the actual window size

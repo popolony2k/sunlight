@@ -426,17 +426,30 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Enter or leave fullscreen. Uses raylib's borderless-
-             * windowed mode (not the older exclusive ToggleFullscreen(),
-             * which changes the monitor's own video mode and is markedly
-             * less reliable across platforms/window managers) - the window
-             * simply resizes to the current monitor's native resolution.
+             * @brief Enter or leave fullscreen. Uses raylib's real,
+             * exclusive ToggleFullscreen() (which changes the monitor's
+             * own video mode), not the borderless-windowed mode this used
+             * to use - switched 2026-08-26 after a real, live-confirmed
+             * problem with borderless-windowed on macOS: since it's an
+             * ordinary window merely resized to cover the full screen
+             * (not a genuine OS-level fullscreen space), the macOS Dock -
+             * when set to always show rather than auto-hide - still draws
+             * on top of it, visibly covering the bottom of the window.
+             * True ToggleFullscreen() enters a real fullscreen space,
+             * which macOS itself hides the Dock/menu bar behind
+             * automatically, matching what a player actually expects from
+             * a fullscreen game. Confirmed via a live A/B test that this
+             * genuinely fixes the Dock overlap with no visible mode-switch
+             * flicker or resolution/scaling artifacts on the platform this
+             * was tested on (previously the reason borderless-windowed was
+             * chosen instead) - worth re-verifying on any platform where a
+             * true video-mode switch could still misbehave differently.
              * @param bFullscreen true to enter fullscreen, false for windowed;
              */
             void RaylibEngine :: SetFullscreen( bool bFullscreen )  {
 
-                if( bFullscreen != ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE ) )
-                    ::ToggleBorderlessWindowed();
+                if( bFullscreen != ::IsWindowState( FLAG_FULLSCREEN_MODE ) )
+                    ::ToggleFullscreen();
             }
 
             /**
@@ -445,7 +458,7 @@ namespace SunLight  {
              */
             bool RaylibEngine :: GetFullscreen( void )  {
 
-                return ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE );
+                return ::IsWindowState( FLAG_FULLSCREEN_MODE );
             }
 
             /**
