@@ -106,8 +106,45 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
         std :: filesystem :: remove( zipPath );
     }
 
-    TEST_CASE( "ReadFile/Exists on an unmounted path fail cleanly, not crash" )  {
+    TEST_CASE( "A consumer that never calls Mount still gets plain CWD-relative access" )  {
 
+        // Simulates a consumer that wires up SunLight::FileSystem's
+        // Init/read calls (eg. via RaylibEngine's texture-load callback or
+        // RayLibSound::Load) but never explicitly calls Mount() itself -
+        // this used to mean every such read failed outright (the exact
+        // gap that broke every one of sunlight's own bundled samples the
+        // first time this abstraction shipped). PhysFsFileSystem's own
+        // lazy EnsureReady() must fall back to mounting the process's
+        // current working directory automatically, so a virtual path
+        // relative to CWD still resolves - exactly like a plain
+        // fopen()/ifstream always did before this abstraction existed.
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+
+        std :: filesystem :: path  previousCwd = std :: filesystem :: current_path();
+
+        std :: filesystem :: current_path( fixture.root );
+
+        std :: vector<unsigned char>  data;
+        bool                          bRead = fs.ReadFile( "subdir/greeting.txt", data );
+
+        std :: filesystem :: current_path( previousCwd );
+
+        REQUIRE( bRead );
+        CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "ReadFile/Exists on a path that doesn't exist anywhere fail cleanly, not crash" )  {
+
+        // A genuinely bogus virtual path must still fail cleanly even
+        // after EnsureReady()'s own default CWD fallback silently mounts
+        // something (see the previous test case) - the fallback only
+        // means SOME real directory is always searchable, not that every
+        // arbitrary path suddenly resolves.
         PhysFsFileSystem  fs;
 
         REQUIRE( fs.Init( "sunlight_tests" ) );

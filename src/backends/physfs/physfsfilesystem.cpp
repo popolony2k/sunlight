@@ -68,10 +68,70 @@ namespace SunLight  {
              */
             bool PhysFsFileSystem :: Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath )  {
 
-                return ::PHYSFS_mount( strRealPath.c_str(), strMountPoint.c_str(), bAppendToPath ? 1 : 0 ) != 0;
+                bool  bMounted = ::PHYSFS_mount( strRealPath.c_str(), strMountPoint.c_str(), bAppendToPath ? 1 : 0 ) != 0;
+
+                if( bMounted )
+                    m_bAnyMounted = true;
+
+                return bMounted;
+            }
+
+            /**
+             * @brief Lazy, run-once default: if nothing has been mounted
+             * by the time the very first read happens, mounts the
+             * process's own current working directory (".") at the
+             * virtual root, so a consumer that never calls @see Mount at
+             * all still gets exactly the same behavior plain OS file
+             * access always gave before this filesystem abstraction
+             * existed - "do nothing" must never mean "every load silently
+             * fails" (this is a real fix, not a
+             * hypothetical: it's the exact gap that broke every one of
+             * sunlight's own bundled samples the first time this
+             * abstraction shipped, since none of them called Mount).
+             * A consumer wanting real archive support still calls @see
+             * Mount explicitly - with strAppendToPath=false, or simply
+             * before the first read - and that mount is what's already in
+             * place by the time this runs, so this fallback never
+             * displaces it (@see m_bAnyMounted is already true by then).
+             *
+             * CWD, not IEngine::GetApplicationDirectory() - verified live
+             * these are NOT the same thing for every consumer: sunlight's own
+             * bundled samples are documented to run as
+             * `<build-dir>/samples/.../foo_test samples/foo/` from the
+             * checkout root, so their own relative resource paths (built
+             * from argv[1]) resolve against the *invocation* directory,
+             * which is nowhere near wherever the built binary itself
+             * lives. Mounting "." at the virtual root reproduces exactly
+             * what a plain relative-path fopen()/ifstream always resolved
+             * against - CWD, unconditionally - which is what every
+             * consumer that never calls Mount() was actually relying on
+             * before this abstraction existed. (Scarab's own consumers
+             * work either way, since it explicitly Mounts its own
+             * application directory before any read happens - this
+             * fallback never even runs for it.) PHYSFS_init(nullptr) is
+             * safe here specifically because nothing in this class relies
+             * on PhysFS's own argv0-derived base-dir detection
+             * (PHYSFS_getBaseDir()) - the real mount path always comes
+             * from "." instead, so the "some Unix systems need argv[0]"
+             * caveat in PhysFS's own docs doesn't apply to this usage.
+             */
+            void PhysFsFileSystem :: EnsureReady( void )  {
+
+                if( m_bDefaultMountEnsured )
+                    return;
+
+                m_bDefaultMountEnsured = true;
+
+                if( !m_bInitialized )
+                    Init( nullptr );
+
+                if( !m_bAnyMounted )
+                    Mount( ".", "/", true );
             }
 
             bool PhysFsFileSystem :: Exists( const std :: string &strVirtualPath )  {
+
+                EnsureReady();
 
                 return ::PHYSFS_exists( strVirtualPath.c_str() ) != 0;
             }
@@ -84,6 +144,8 @@ namespace SunLight  {
              * LoadFileData() already makes.
              */
             bool PhysFsFileSystem :: ReadFile( const std :: string &strVirtualPath, std :: vector<unsigned char> &outData )  {
+
+                EnsureReady();
 
                 PHYSFS_File  *pFile = ::PHYSFS_openRead( strVirtualPath.c_str() );
 

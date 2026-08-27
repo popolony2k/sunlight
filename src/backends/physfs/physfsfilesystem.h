@@ -38,6 +38,18 @@ namespace SunLight  {
             class PhysFsFileSystem : public IFileSystem  {
 
                 bool  m_bInitialized = false;
+                bool  m_bAnyMounted = false;
+                bool  m_bDefaultMountEnsured = false;
+
+                /**
+                 * @brief Runs at most once, lazily, from @see Exists / @see
+                 * ReadFile - see those methods' own doc comments and this
+                 * method's definition for the full "why" (default fallback
+                 * mount so a consumer that never calls @see Mount still
+                 * gets plain OS-directory access, exactly as if this
+                 * filesystem abstraction didn't exist).
+                 */
+                void EnsureReady( void );
 
                 public:
 
