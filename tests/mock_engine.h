@@ -72,6 +72,8 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nLastFilledRectangleHeight = 0;
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
     bool                                bFullscreen                = false;
+    SunLight :: Engines :: IEngine :: FullscreenStrategy lastFullscreenStrategy =
+        SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL;
     bool                                bWindowResizeable          = false;
     bool                                bSetFontResult             = true;
     std :: string                       strLastSetFontPath;
@@ -135,9 +137,10 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return strApplicationDirectoryResult;
     }
 
-    void SetFullscreen( bool bValue )  {
+    void SetFullscreen( bool bValue, SunLight :: Engines :: IEngine :: FullscreenStrategy strategy = SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL )  {
         nSetFullscreenCalls++;
         bFullscreen = bValue;
+        lastFullscreenStrategy = strategy;
     }
 
     bool GetFullscreen( void )  {

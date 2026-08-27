@@ -76,7 +76,7 @@ namespace SunLight  {
 
                 std :: string GetApplicationDirectory( void ) override;
 
-                void SetFullscreen( bool bFullscreen ) override;
+                void SetFullscreen( bool bFullscreen, FullscreenStrategy strategy = FULLSCREEN_STRATEGY_REAL ) override;
                 bool GetFullscreen( void ) override;
 
                 void SetWindowResizeable( bool bResizeable ) override;

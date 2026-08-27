@@ -181,6 +181,24 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( fixture.engine.lastFilledRectangleColor.nAlpha == 128 );
     }
 
+    TEST_CASE( "SetFullscreen forwards straight through to IEngine, defaulting to the real strategy" )  {
+
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        renderer.SetFullscreen( true );
+
+        CHECK( fixture.engine.nSetFullscreenCalls == 1 );
+        CHECK( fixture.engine.bFullscreen == true );
+        CHECK( fixture.engine.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL );
+
+        renderer.SetFullscreen( false, SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
+
+        CHECK( fixture.engine.nSetFullscreenCalls == 2 );
+        CHECK( fixture.engine.bFullscreen == false );
+        CHECK( fixture.engine.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
+    }
+
     TEST_CASE( "DrawText forwards straight through to IEngine" )  {
 
         MockEngineFixture  fixture;
