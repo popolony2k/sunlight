@@ -92,6 +92,19 @@ set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 # FetchContent into the same top-level build. PhysFS exposes this exact
 # name as a cache variable specifically for this kind of collision -
 # rename it rather than patching PhysFS's own CMakeLists.txt.
+# PhysFS is fetched as a static lib (see PHYSFS_BUILD_STATIC above),
+# but it links straight into libsunlight, itself a SHARED library - on
+# Linux, GCC only makes ordinary static-lib object code
+# position-independent when this is set (unlike a shared lib target,
+# which is always PIC by default), so leaving it off produces a
+# real, CI-confirmed link failure: "relocation R_X86_64_PC32 against
+# symbol ... can not be used when making a shared object; recompile
+# with -fPIC". Setting this before physfs's own targets are created
+# (FetchContent_MakeAvailable adds them via add_subdirectory, which
+# inherits this like any other directory-scoped variable) fixes it
+# without needing to patch PhysFS's own CMakeLists.txt.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set(PHYSFS_TARGETNAME_UNINSTALL "physfs_uninstall" CACHE STRING "" FORCE)
 
 FetchContent_Declare(physfs
@@ -145,12 +158,19 @@ if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
-if(APPLE)
-  #
-  # Setup CLang to C++17 (minimum for working with some raylib defines when using APPLE)
-  #
-  set(CMAKE_CXX_STANDARD 17)
-endif()
+#
+# C++17 - originally only set for APPLE (needed for some raylib defines
+# there), but this project's own resource-filesystem code
+# (raylibsound.cpp) now uses std::filesystem::path directly, which MSVC
+# only enables at C++17 or later (confirmed live: without this,
+# raylibsound.cpp fails to compile on Windows - "The contents of
+# <filesystem> are available only with C++17 or later" - while GCC's
+# own default standard on Linux happened to already be recent enough to
+# not need this set explicitly, and Clang/APPLE already had it). Setting
+# this unconditionally, not just under if(APPLE), closes that gap for
+# every platform rather than relying on each compiler's own default.
+#
+set(CMAKE_CXX_STANDARD 17)
 
 if(UNIX) # AND NOT APPLE)
     #
