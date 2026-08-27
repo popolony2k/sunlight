@@ -234,6 +234,8 @@ namespace SunLight {
             void SetExitKey( SunLight :: Input :: KeyboardKey key );
             void SetWindowResizeable( bool bResizeable );
             bool GetWindowResizeable( void );
+            void SetTargetFPS( int nTargetFps );
+            int  GetTargetFPS( void );
             void SetWindowBackgroundColor( uint32_t nWindowBkColor );
             void SetClearBackground( bool bStatus );
             void SetDrawFPS( bool bDrawFPS );

@@ -1213,6 +1213,37 @@ namespace SunLight {
         }
 
         /**
+         * Set the renderer's own target frame rate. Safe to call both
+         * before Start() (the initial value - m_nTargetFps is applied via
+         * IEngine::SetTargetFPS at the top of Start(), resolving the -1
+         * constructor-default sentinel to __DEFAULT_FPS at that point,
+         * same shape as SetWindowResizeable's own pre-Start() path) and
+         * while the window is already running (a genuine live change, via
+         * IEngine::SetTargetFPS - ::SetTargetFPS itself is a plain runtime
+         * setter, not a SetConfigFlags-before-InitWindow one-time value).
+         * @param nTargetFps The new target frame rate, in frames per second;
+         */
+        void TileMapRenderer :: SetTargetFPS( int nTargetFps )  {
+
+            m_nTargetFps = nTargetFps;
+
+            if( m_bIsStarted )
+                SunLight :: Engines :: EngineFactory :: GetEngine().SetTargetFPS( nTargetFps );
+        }
+
+        /**
+         * Query the currently configured target FPS (see
+         * @see SetTargetFPS) - m_nTargetFps itself is resolved from the
+         * -1 constructor-default sentinel to it's real applied value
+         * (__DEFAULT_FPS) the moment Start() runs, so this never leaks
+         * that sentinel back to a caller once the window actually exists.
+         */
+        int TileMapRenderer :: GetTargetFPS( void )  {
+
+            return m_nTargetFps;
+        }
+
+        /**
          * Set the window background color. This color is used when there's no color on any layer or
          * when there's no map loaded.
          * @param nWindowBackgroundColor The background color to set;
@@ -2063,7 +2094,29 @@ namespace SunLight {
             }
 
             SetExitKey( __DEFAULT_EXIT_KEY );
-            SetTargetFPS( m_nTargetFps != -1 ? m_nTargetFps : __DEFAULT_FPS );
+
+            /*
+             * Resolves the -1 constructor-default sentinel into
+             * m_nTargetFps itself (so GetTargetFPS() never leaks it back
+             * to a caller once the window exists), then routes through
+             * IEngine instead of calling raylib's own ::SetTargetFPS
+             * directly the way this line used to (an unqualified
+             * SetTargetFPS(...) call, which - until the SetTargetFPS/
+             * GetTargetFPS pair below existed - had nothing else to
+             * resolve to but the raylib global). CLAUDE.md documents
+             * SetTargetFPS as one of a handful of window-lifecycle calls
+             * deliberately left raylib-direct pending a larger migration;
+             * this continues that migration one primitive at a time, same
+             * as SetWindowTitle's own earlier move off the exception list.
+             * Doing so here, alongside adding the new pair, also avoids a
+             * self-inflicted trap: once TileMapRenderer::SetTargetFPS
+             * exists, this same unqualified call would otherwise silently
+             * start resolving to it instead of raylib's global - with the
+             * wrong gating, since m_bIsStarted isn't set yet at this point
+             * in Start().
+             */
+            m_nTargetFps = ( m_nTargetFps != -1 ) ? m_nTargetFps : __DEFAULT_FPS;
+            SunLight :: Engines :: EngineFactory :: GetEngine().SetTargetFPS( m_nTargetFps );
 
             /*
              * Everything renders into this fixed-size offscreen target
