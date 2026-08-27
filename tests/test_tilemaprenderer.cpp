@@ -112,7 +112,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( renderer.RemoveSprite( 1, sprite ) == false );
     }
 
-    TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill round-trip what their setters last set" )  {
+    TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill/GetTargetFPS round-trip what their setters last set" )  {
 
         TileMapRenderer  renderer( 800, 600, "test", -1, false );
 
@@ -133,6 +133,12 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
         renderer.SetStretchToFill( false );
         CHECK( renderer.GetStretchToFill() == false );
+
+        renderer.SetTargetFPS( 144 );
+        CHECK( renderer.GetTargetFPS() == 144 );
+
+        renderer.SetTargetFPS( 30 );
+        CHECK( renderer.GetTargetFPS() == 30 );
     }
 
     TEST_CASE( "SetWindowResizeable before Start() only updates local state, never touches IEngine" )  {
@@ -148,6 +154,20 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
         CHECK( renderer.GetWindowResizeable() == true );
         CHECK( fixture.engine.nSetWindowResizeableCalls == 0 );
+    }
+
+    TEST_CASE( "SetTargetFPS before Start() only updates local state, never touches IEngine" )  {
+
+        // Same gate as SetWindowResizeable above - IEngine::SetTargetFPS
+        // is only meaningful once the window exists (raylib's own
+        // ::SetTargetFPS acts on the live game loop's own frame pacing).
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        renderer.SetTargetFPS( 144 );
+
+        CHECK( renderer.GetTargetFPS() == 144 );
+        CHECK( fixture.engine.nSetTargetFPSCalls == 0 );
     }
 
     TEST_CASE( "SetWindowTitle before Start() only updates local state, never touches IEngine" )  {

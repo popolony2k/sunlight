@@ -138,6 +138,28 @@ namespace SunLight {
             virtual bool GetWindowResizeable( void ) = 0;
 
             /**
+             * @brief Set the renderer's own target frame rate - the cap
+             * the game loop paces itself against, not the current
+             * measured FPS. Safe to call both before the window is
+             * created (the initial value, normally given to
+             * TileMapRenderer's own constructor instead - see it's own
+             * comment) and while it's already running (a genuine live
+             * change, taking effect immediately).
+             *
+             * @param nTargetFps The new target frame rate, in frames per second;
+             */
+            virtual void SetTargetFPS( int nTargetFps ) = 0;
+
+            /**
+             * @brief Query the currently configured target FPS (see
+             * @link SetTargetFPS) - reads back a locally cached value,
+             * since the underlying engine has no API to query a
+             * previously-set target FPS (only the live, measured
+             * GetFPS(), which this deliberately does not wrap here).
+             */
+            virtual int GetTargetFPS( void ) = 0;
+
+            /**
              * @brief Choose how the fixed-internal-resolution render target
              * is blitted onto the real window/screen when their sizes
              * differ (fullscreen, or a live-resized window). false

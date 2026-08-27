@@ -268,6 +268,30 @@ namespace SunLight  {
             virtual void SetWindowResizeable( bool bResizeable ) = 0;
 
             /**
+             * @brief Must be implemented to set the renderer's own target
+             * frame rate (the cap the game loop paces itself against, not
+             * the current measured FPS - see GetFPS() if that's what's
+             * wanted instead, which this interface deliberately does NOT
+             * wrap, since it's a live measurement rather than a
+             * configuration value any caller sets). Only meaningful to
+             * call once the window exists - callers are responsible for
+             * not calling this before that (see
+             * TileMapRenderer::SetTargetFPS, which uses it's own pre-
+             * window-creation constructor-parameter path instead for the
+             * initial value, the same class of split
+             * SetWindowResizeable's own live-toggle path already has).
+             * No getter exists on this interface - unlike GetWindowResizeable
+             * (whose backing OS-level window state can genuinely be
+             * queried), the underlying engine (raylib) has no API to read
+             * back a previously-set target FPS, only the live GetFPS()
+             * measurement - TileMapRenderer::GetTargetFPS reads back it's
+             * own cached value instead of querying this interface.
+             *
+             * @param nTargetFps The new target frame rate, in frames per second;
+             */
+            virtual void SetTargetFPS( int nTargetFps ) = 0;
+
+            /**
              * @brief Must be implemented to set the application window's
              * title, replacing whatever title it was created with. Only
              * meaningful to call once the window exists - callers are

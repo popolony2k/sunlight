@@ -80,6 +80,8 @@ namespace SunLight  {
                 bool GetFullscreen( void ) override;
 
                 void SetWindowResizeable( bool bResizeable ) override;
+
+                void SetTargetFPS( int nTargetFps ) override;
                 void SetWindowTitle( const char *szTitle ) override;
 
                 int GetScreenWidth( void ) override;

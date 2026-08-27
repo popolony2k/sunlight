@@ -501,6 +501,18 @@ namespace SunLight  {
             }
 
             /**
+             * @brief Set the renderer's own target frame rate (see @see
+             * IEngine::SetTargetFPS). ::SetTargetFPS is a plain runtime
+             * setter (not a SetConfigFlags-before-InitWindow one-time
+             * value), so this works at any point after the window already
+             * exists, same as SetWindowResizeable above.
+             */
+            void RaylibEngine :: SetTargetFPS( int nTargetFps )  {
+
+                ::SetTargetFPS( nTargetFps );
+            }
+
+            /**
              * @brief Set the application window's title (see @see
              * IEngine::SetWindowTitle). ::SetWindowTitle acts on the live
              * window handle (glfwSetWindowTitle underneath, on the GLFW
