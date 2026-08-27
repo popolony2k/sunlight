@@ -49,6 +49,41 @@ namespace SunLight  {
             virtual ~IFileSystem( void )  {}
 
             /**
+             * @brief Converts a real, OS-native path into its own legal
+             * virtual-path equivalent - normalizing '\' to '/' and
+             * stripping a Windows drive letter prefix ("C:", "D:", ...).
+             * A real path is always safe to pass as @see Mount's own
+             * strRealPath (source) argument, in whatever native format the
+             * OS gives it - but never as strMountPoint (destination): a
+             * raw Windows path's own ':' trips the underlying PhysFS
+             * backend's path-legality check outright ("filename is
+             * illegal or insecure"), a real, live-reproduced bug (a
+             * consumer mounting it's own real application directory "at
+             * itself" - Mount(realPath, realPath, ...), the natural,
+             * obvious thing to want to do - silently failed on Windows
+             * this way, never on Mac/Linux, since a POSIX absolute path
+             * never contains ':' to begin with).
+             *
+             * Idempotent - safe to call on a string that's already a
+             * legal virtual path (eg. "/", or this method's own prior
+             * output), since neither transformation touches it further.
+             * A consumer needing to mount it's own real directory "at
+             * itself" must call this explicitly and use the *same*
+             * resulting string both as Mount()'s own mountPoint argument
+             * and as the prefix for any virtual path it later constructs
+             * against that mount (eg. exposing it to a scripting layer as
+             * an "application directory" global) - Mount() itself cannot
+             * safely do this conversion internally on the caller's
+             * behalf, since ReadFile/Exists lookups against virtual paths
+             * built from the *unconverted* real path would then no longer
+             * match whatever Mount() actually mounted things at.
+             *
+             * @param strRealPath Real, OS-native path to convert;
+             * @return strRealPath's own equivalent, legal virtual path;
+             */
+            static std :: string ToVirtualPath( const std :: string &strRealPath );
+
+            /**
              * @brief Must be implemented to perform whatever one-time
              * startup the concrete backend needs before @see Mount can be
              * called - eg. PhysFS's own PHYSFS_init(). Safe to call more
