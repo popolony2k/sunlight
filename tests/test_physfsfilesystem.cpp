@@ -82,12 +82,20 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
         ScratchDirFixture  fixture;
 
         // Build a real .zip from the same fixture directory - PHYSFS_mount
-        // must not need to know or care which one it's given.
+        // must not need to know or care which one it's given. Built via
+        // `cmake -E tar ... --format=zip` (wrapped in `cmake -E chdir` to
+        // set the working directory) rather than shelling out to the
+        // `zip` CLI tool directly - `zip` isn't installed on GitHub's
+        // windows-latest runners by default (confirmed live: this test
+        // failed there with "'zip' is not recognized..."), while `cmake`
+        // itself is guaranteed to be on PATH in this exact context (the
+        // same toolchain that built and is now running this test binary).
         std :: filesystem :: path  zipPath = fixture.root.parent_path() / "sunlight_physfs_test.zip";
 
         std :: filesystem :: remove( zipPath );
 
-        std :: string  strZipCmd = "cd \"" + fixture.root.string() + "\" && zip -q -r \"" + zipPath.string() + "\" .";
+        std :: string  strZipCmd = "cmake -E chdir \"" + fixture.root.string() +
+                                    "\" cmake -E tar cf \"" + zipPath.string() + "\" --format=zip .";
 
         REQUIRE( std :: system( strZipCmd.c_str() ) == 0 );
 
