@@ -22,9 +22,15 @@ project (sunlight_tests)
 
 include(FetchContent)
 
-if(APPLE)
-    set(CMAKE_CXX_STANDARD 17)
-endif()
+# C++17 - originally only set for APPLE, but tests/test_physfsfilesystem.cpp
+# uses std::filesystem::path/current_path directly, which MSVC only
+# enables at C++17 or later (this is a sibling directory to src/, added
+# via its own separate add_subdirectory() call from the top-level
+# CMakeLists.txt - setting CMAKE_CXX_STANDARD inside src/CMakeLists.txt's
+# own scope does not propagate here, so this needs its own copy of the
+# same fix - see src/CMakeLists.txt's own comment on this for the full
+# "why").
+set(CMAKE_CXX_STANDARD 17)
 
 ####################################################################
 # doctest
