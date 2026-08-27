@@ -18,7 +18,7 @@
 
 cmake_minimum_required (VERSION 3.24)
 
-project (sunlight VERSION 0.15.0)
+project (sunlight VERSION 0.16.0)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -31,6 +31,12 @@ option(SUNLIGHT_DEBUG_SYMBOLS_UNIX "Build SunLight with debug symbols on Unixes 
 # 1 - RAYLIB
 #
 set(SUNLIGHT_DEFAULT_BACKEND_ENGINE 1)
+
+#
+# Setup default resource filesystem (DEFAULT_FILESYSTEM preprocessor)
+# 1 - PHYSFS
+#
+set(SUNLIGHT_DEFAULT_BACKEND_FILESYSTEM 1)
 
 if(NOT USE_LOCAL_LIBXML2)
     ####################################################################
@@ -65,10 +71,58 @@ FetchContent_MakeAvailable(tmx)
 # Comment the line below to compile raylib using newer OpenGL (eg. 3.3)
 set(GRAPHICS "GRAPHICS_API_OPENGL_21")
 
-FetchContent_Declare(raylib 
+FetchContent_Declare(raylib
                      GIT_REPOSITORY https://github.com/raysan5/raylib.git
                      GIT_TAG 5.5)
 FetchContent_MakeAvailable(raylib)
+
+####################################################################
+# PhysFS (Phase 12 prototype - archive/loose-folder resource
+# abstraction, mount-based so a real .zip and a loose directory read
+# identically to client code)
+####################################################################
+set(PHYSFS_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+
+# raylib's own CMakeLists.txt already defines a conventional "uninstall"
+# custom target - PhysFS's own would collide with it verbatim
+# (CMP0002, "target already exists") since both are pulled in via
+# FetchContent into the same top-level build. PhysFS exposes this exact
+# name as a cache variable specifically for this kind of collision -
+# rename it rather than patching PhysFS's own CMakeLists.txt.
+# PhysFS is fetched as a static lib (see PHYSFS_BUILD_STATIC above),
+# but it links straight into libsunlight, itself a SHARED library - on
+# Linux, GCC only makes ordinary static-lib object code
+# position-independent when this is set (unlike a shared lib target,
+# which is always PIC by default), so leaving it off produces a
+# real, CI-confirmed link failure: "relocation R_X86_64_PC32 against
+# symbol ... can not be used when making a shared object; recompile
+# with -fPIC". Setting this before physfs's own targets are created
+# (FetchContent_MakeAvailable adds them via add_subdirectory, which
+# inherits this like any other directory-scoped variable) fixes it
+# without needing to patch PhysFS's own CMakeLists.txt.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+set(PHYSFS_TARGETNAME_UNINSTALL "physfs_uninstall" CACHE STRING "" FORCE)
+
+FetchContent_Declare(physfs
+                     GIT_REPOSITORY https://github.com/icculus/physfs.git
+                     GIT_TAG release-3.2.0)
+FetchContent_MakeAvailable(physfs)
+
+# PhysFS's own CMakeLists.txt unconditionally forces CMAKE_SKIP_RPATH ON
+# (as a CACHE variable, with FORCE) on Clang/GCC "to avoid using -rpath" -
+# since CACHE variables are global to the whole build, not scoped to the
+# subdirectory that set them, this silently disabled RPATH generation for
+# EVERY target in this entire project once PhysFS was added (raylib/tmx/
+# sunlight/scarab alike), not just PhysFS's own - confirmed live: every
+# one of those executables failed to launch afterward with "Library not
+# loaded: @rpath/...", "no LC_RPATH's found". Reset back to CMake's normal
+# default (RPATH generation enabled) rather than patching PhysFS's own
+# vendored CMakeLists.txt.
+set(CMAKE_SKIP_RPATH OFF CACHE BOOL "" FORCE)
 
 ###################################################################
 # Mandatory libraries
@@ -86,6 +140,7 @@ include_directories("tilemap")
 include_directories("scripting")
 include_directories("engines")
 include_directories("sound")
+include_directories("filesystem")
 include_directories("concurrent")
 include_directories("general")
 include_directories("backends")
@@ -103,12 +158,19 @@ if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
-if(APPLE)
-  #
-  # Setup CLang to C++17 (minimum for working with some raylib defines when using APPLE)
-  #
-  set(CMAKE_CXX_STANDARD 17)
-endif()
+#
+# C++17 - originally only set for APPLE (needed for some raylib defines
+# there), but this project's own resource-filesystem code
+# (raylibsound.cpp) now uses std::filesystem::path directly, which MSVC
+# only enables at C++17 or later (confirmed live: without this,
+# raylibsound.cpp fails to compile on Windows - "The contents of
+# <filesystem> are available only with C++17 or later" - while GCC's
+# own default standard on Linux happened to already be recent enough to
+# not need this set explicitly, and Clang/APPLE already had it). Setting
+# this unconditionally, not just under if(APPLE), closes that gap for
+# every platform rather than relying on each compiler's own default.
+#
+set(CMAKE_CXX_STANDARD 17)
 
 if(UNIX) # AND NOT APPLE)
     #
@@ -138,6 +200,7 @@ if(UNIX) # AND NOT APPLE)
 endif()
 
 add_definitions(-DDEFAULT_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_ENGINE})
+add_definitions(-DDEFAULT_FILESYSTEM=${SUNLIGHT_DEFAULT_BACKEND_FILESYSTEM})
 
 add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 
@@ -155,7 +218,7 @@ find_package(ZLIB REQUIRED)
 include(FindLibXml2)
 find_package(LibXml2 REQUIRED)
 
-target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS})
+target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS} PhysFS::PhysFS-static)
 
 # Installation
 

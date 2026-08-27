@@ -19,6 +19,9 @@
  */
 
 #include "backends/raylib/raylibsound.h"
+#include "filesystem/filesystemfactory.h"
+
+#include <filesystem>
 
 
 namespace SunLight {
@@ -75,10 +78,25 @@ namespace SunLight {
             }
 
             /**
-             * @brief Implements audio data loading based on 
+             * @brief Implements audio data loading based on
              * raylib target engine;
-             * 
-             * @param strFileName The audio data file name to load; 
+             *
+             * Reads the file via SunLight::FileSystem directly rather
+             * than raylib's own path-based ::LoadSound() - confirmed by
+             * reading raudio.c's own source directly that it has it's OWN
+             * private, static copy of LoadFileData that always reads
+             * straight from the OS filesystem, bypassing
+             * SetLoadFileDataCallback entirely (unlike texture loading,
+             * which honors that hook - see RaylibEngine's own
+             * FileSystemLoadFileDataCallback comment). ::LoadSound()
+             * itself is just ::LoadSoundFromWave(::LoadWave(path))
+             * internally, so calling LoadWaveFromMemory() (which takes
+             * the raw bytes plus the file's own extension, to pick the
+             * right decoder) + LoadSoundFromWave() reproduces it exactly,
+             * just sourced from SunLight::FileSystem instead of a raw
+             * fopen().
+             *
+             * @param strFileName The audio data file name to load;
              * @return true If operation was succesfull;
              * @return false If operation was failed;
              */
@@ -87,8 +105,21 @@ namespace SunLight {
                 if( m_Loaded )
                   Unload();
 
-                m_Sound = ::LoadSound( strFileName.c_str() );
+                std :: vector<unsigned char>  data;
+
+                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strFileName, data ) )  {
+                    m_Loaded = false;
+
+                    return false;
+                }
+
+                std :: string  strExtension = std :: filesystem :: path( strFileName ).extension().string();
+                Wave           wave         = ::LoadWaveFromMemory( strExtension.c_str(), data.data(), ( int ) data.size() );
+
+                m_Sound = ::LoadSoundFromWave( wave );
                 m_Loaded = ( m_Sound.stream.buffer != NULL );
+
+                ::UnloadWave( wave );
 
                 return m_Loaded;
             }

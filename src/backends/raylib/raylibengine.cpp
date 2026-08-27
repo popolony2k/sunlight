@@ -19,6 +19,10 @@
  */
 
 #include "backends/raylib/raylibengine.h"
+#include "filesystem/filesystemfactory.h"
+
+#include <cstring>
+#include <vector>
 
 // Extra spacing (in pixels) DrawTextEx adds between characters, on top of
 // whatever a font's own glyph metrics already provide - 0 means "use the
@@ -29,6 +33,70 @@
 namespace SunLight  {
     namespace Engines  {
         namespace Raylib  {
+
+            /**
+             * @brief raylib's own SetLoadFileDataCallback trampoline -
+             * redirects every raylib-internal file load that goes through
+             * the PUBLIC, hookable LoadFileData() (utils.c) - confirmed
+             * by reading raylib's own source that texture loading
+             * (rtextures.c) does - through
+             * SunLight::FileSystem::FileSystemFactory instead of raylib's
+             * own default fopen()-based reader. Whatever's mounted there
+             * (a real loose directory today, potentially a real archive
+             * later) is what texture loads actually read from; nothing
+             * here decides that policy.
+             *
+             * NOT every raylib loader honors this hook - raudio.c (sound)
+             * has it's OWN private, static copy of LoadFileData that
+             * always reads straight from the OS filesystem, confirmed by
+             * reading it's own source directly - sound loading needs a
+             * different fix entirely (reading via IFileSystem directly,
+             * then LoadWaveFromMemory), not this callback (see
+             * RayLibSound::Load).
+             *
+             * Allocates the returned buffer via raylib's own MemAlloc()
+             * (not new/malloc directly) so that UnloadFileData()'s
+             * matching RL_FREE() - called by every one of raylib's own
+             * loaders once they're done with the buffer - frees it
+             * correctly regardless of whether raylib is configured with
+             * it's own custom allocator.
+             * @param szFileName The path being requested - whatever the
+             * original LoadTexture/LoadImage/etc. call was given verbatim;
+             * @param pDataSize Set to the number of bytes returned;
+             * @return A MemAlloc'd copy of the file's contents, or nullptr
+             * if it doesn't exist/couldn't be read (same failure shape as
+             * raylib's own default LoadFileData);
+             */
+            static unsigned char* FileSystemLoadFileDataCallback( const char *szFileName, int *pDataSize )  {
+
+                std :: vector<unsigned char>  data;
+
+                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( szFileName, data ) )  {
+                    *pDataSize = 0;
+
+                    return nullptr;
+                }
+
+                unsigned char  *pBuffer = ( unsigned char * ) ::MemAlloc( ( unsigned int ) data.size() );
+
+                memcpy( pBuffer, data.data(), data.size() );
+
+                *pDataSize = ( int ) data.size();
+
+                return pBuffer;
+            }
+
+            /**
+             * @brief Registers @see FileSystemLoadFileDataCallback so
+             * every texture load routes through SunLight::FileSystem from
+             * construction onward - safe/idempotent regardless of whether
+             * anything has actually been mounted yet (an unmounted read
+             * simply fails, same as any other missing-file case).
+             */
+            RaylibEngine :: RaylibEngine( void )  {
+
+                ::SetLoadFileDataCallback( FileSystemLoadFileDataCallback );
+            }
 
             /**
              * @brief Draw part of a texture (defined by a rectangle) with rotation and scale tiled into dest

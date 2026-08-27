@@ -21,6 +21,7 @@
 #include "engines/enginefactory.h"
 #include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
+#include "filesystem/filesystemfactory.h"
 #include "tilemaprenderer.h"
 #include <raylib.h>
 #include <memory.h>
@@ -28,6 +29,7 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <vector>
 
 /*
  * Engine defaults.
@@ -1797,7 +1799,40 @@ namespace SunLight {
         bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
 
             if( m_bIsStarted )  {
-                m_pTmxMap = ::tmx_load( szTmxMapFile );
+                /*
+                 * Reads the .tmx XML itself through SunLight::FileSystem
+                 * rather than libtmx's own path-based ::tmx_load(), which
+                 * fopen()s directly - one whole-file ReadFile() up front
+                 * (same "load it all up front" pattern already used for
+                 * textures/sound), then tmx_rcmgr_load_buffer_vpath()
+                 * (NOT the plain tmx_load_buffer()) to actually parse it.
+                 *
+                 * A real, segfault-causing bug found live going straight
+                 * to tmx_load_buffer() first: it's own public signature
+                 * takes no vpath at all, unlike tmx_load()'s own path
+                 * argument - internally, every relative reference inside
+                 * the map (a <tileset source="..."> or <imagelayer>'s own
+                 * <image source="...">) gets resolved against this vpath
+                 * via mk_absolute_path() (tmx_utils.c) - passing none
+                 * means every such reference resolves to just it's own
+                 * bare relative path, with no base directory at all,
+                 * which then reached TextureLoaderCallback's own
+                 * IEngine::LoadTexture call already missing the context
+                 * needed to find it. tmx_rcmgr_load_buffer_vpath() is
+                 * libtmx's own sanctioned way to load from memory while
+                 * still supplying that vpath explicitly - confirmed safe
+                 * to call with rc_mgr=NULL (no tileset/template caching)
+                 * by reading it's own source: tmx_load() itself passes
+                 * rc_mgr=NULL internally the exact same way.
+                 */
+                std :: vector<unsigned char>  data;
+
+                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( szTmxMapFile, data ) )  {
+                    fprintf( stderr, "Cannot load map: [%s] could not be read\n", szTmxMapFile );
+                    return false;
+                }
+
+                m_pTmxMap = ::tmx_rcmgr_load_buffer_vpath( nullptr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
 
                 if( !m_pTmxMap ) {
                     ::tmx_perror( "Cannot load map" );
