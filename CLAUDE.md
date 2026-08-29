@@ -101,3 +101,9 @@ Both were caught by reading the actual vendored source (`build/_deps/raylib-src/
 ## Git workflow
 
 `main` is protected on GitHub: direct pushes are rejected ("Changes must be made through a pull request") and merging requires at least one approving review. Push a feature branch, open a PR with `gh pr create`, and either wait for a human review or merge with `gh pr merge --squash --delete-branch --admin` (GitHub blocks self-approval of your own PR via `gh pr review --approve`, so the admin override is the only way a solo maintainer can merge without a second reviewer). The `gh` CLI is installed and authenticated on this machine.
+
+## CI/CD
+
+`.github/workflows/ci.yml` builds + runs the test suite on every push/PR to `main`, across `ubuntu-latest`, `windows-latest`, and **two** macOS runners - `macos-latest` (Apple Silicon/arm64) and `macos-15-intel` (genuine x86_64 hardware, not emulation). `macos-latest` alone isn't enough coverage: GitHub's own hosted-runner reference confirms it resolves to an arm64 image today, so an Intel-only regression would otherwise go uncaught. `macos-15-intel` is a standard, identically-priced GitHub-hosted runner label (free/unlimited on this public repo, same as every other standard runner) - not a paid-only tier.
+
+`.github/workflows/release.yml` (tag-triggered, `on: push: tags: ['v*']`) packages and publishes a GitHub Release for every `v*` tag, with one archive per platform: `linux-x64`, `windows-x64`, and now two macOS entries - `macos-arm64` and `macos-x64` - built by `macos-latest` and `macos-15-intel` respectively. Every build step in this workflow is gated on `runner.os` (the OS family, e.g. `!= 'Windows'`), never on architecture specifically, so both macOS entries share the exact same steps with no special-casing needed.

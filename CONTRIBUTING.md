@@ -90,8 +90,9 @@ git workflow) if you're making a larger change.
 1. Fork the repository (or push a branch directly if you have write access).
 2. Open a pull request against `main` describing what changed and why.
 3. Make sure the CI checks (`build (ubuntu-latest)`, `build (macos-latest)`,
-   `build (windows-latest)`) pass — they build the library, both samples, and
-   the test suite on all three platforms.
+   `build (macos-15-intel)`, `build (windows-latest)`) pass — they build the
+   library, both samples, and the test suite on all four runners (Linux,
+   macOS arm64, macOS x86_64, and Windows).
 4. `main` requires at least one approving review before merging.
 
 ## Releasing
@@ -104,10 +105,11 @@ git push origin v0.2.0
 ```
 
 Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds and
-`cmake --install`s the library (headers + shared libs, no samples/tests) on Linux, macOS, and
-Windows, packages each as `sunlight-vX.Y.Z-<platform>.{tar.gz,zip}`, and publishes a GitHub
-Release with those three archives attached and release notes generated automatically from the
-PRs merged since the previous tag.
+`cmake --install`s the library (headers + shared libs, no samples/tests) on Linux, macOS
+(arm64 and x86_64, built separately), and Windows, packages each as
+`sunlight-vX.Y.Z-<platform>.{tar.gz,zip}`, and publishes a GitHub Release with those four
+archives (`linux-x64`, `macos-arm64`, `macos-x64`, `windows-x64`) attached and release notes
+generated automatically from the PRs merged since the previous tag.
 
 The version number itself is a manual choice (this project isn't on automated/Conventional-Commit
 versioning) — follow [Semantic Versioning](https://semver.org/): bump `PATCH` for fixes, `MINOR`
