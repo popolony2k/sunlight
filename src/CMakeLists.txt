@@ -18,7 +18,7 @@
 
 cmake_minimum_required (VERSION 3.24)
 
-project (sunlight VERSION 0.17.1)
+project (sunlight VERSION 0.17.2)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -223,6 +223,21 @@ target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::Lib
 # Installation
 
 target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> $<INSTALL_INTERFACE:include>)
+
+# CMake's default INSTALL_RPATH is empty, so a plain install(TARGETS) below
+# bakes in NO rpath at all into the installed libsunlight/libtmx (raylib
+# needs no fix - nothing it depends on lives in another target's own build
+# dir) - confirmed empirically: `otool -l` on a real `cmake --install` output
+# shows zero LC_RPATH load commands, and actually dlopen()-ing the installed
+# libsunlight.dylib fails immediately ("Library not loaded: @rpath/
+# libraylib.550.dylib ... Reason: no LC_RPATH's found"), even though the
+# exact same file works fine read straight out of the build tree (where
+# CMake's default *build-tree* rpath - correct, but never meant to survive
+# install - still applies). @loader_path/$ORIGIN tell the installed library
+# to look for @rpath-referenced dependencies in its own install directory,
+# which is exactly where install(TARGETS) above already puts all of them.
+set_target_properties(sunlight tmx PROPERTIES
+  INSTALL_RPATH "@loader_path;$ORIGIN")
 
 # raylib/tmx are fetched from source, not find_package-imported. install(EXPORT)
 # would require the whole transitive dependency graph (raylib -> glfw -> ...)
