@@ -40,6 +40,9 @@ namespace SunLight  {
             if( ( strVirtual.size() >= 2 ) && ( strVirtual[1] == ':' ) )
                 strVirtual = strVirtual.substr( 2 );
 
+            if( ( strVirtual.size() >= 2 ) && ( strVirtual[0] == '.' ) && ( strVirtual[1] == '/' ) )
+                strVirtual = strVirtual.substr( 2 );
+
             return strVirtual;
         }
     }

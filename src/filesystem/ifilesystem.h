@@ -50,33 +50,48 @@ namespace SunLight  {
 
             /**
              * @brief Converts a real, OS-native path into its own legal
-             * virtual-path equivalent - normalizing '\' to '/' and
-             * stripping a Windows drive letter prefix ("C:", "D:", ...).
-             * A real path is always safe to pass as @see Mount's own
-             * strRealPath (source) argument, in whatever native format the
-             * OS gives it - but never as strMountPoint (destination): a
-             * raw Windows path's own ':' trips the underlying PhysFS
-             * backend's path-legality check outright ("filename is
-             * illegal or insecure"), a real, live-reproduced bug (a
-             * consumer mounting it's own real application directory "at
-             * itself" - Mount(realPath, realPath, ...), the natural,
-             * obvious thing to want to do - silently failed on Windows
-             * this way, never on Mac/Linux, since a POSIX absolute path
-             * never contains ':' to begin with).
+             * virtual-path equivalent - normalizing '\' to '/', stripping
+             * a Windows drive letter prefix ("C:", "D:", ...), and
+             * stripping a leading "./". A real path is always safe to
+             * pass as @see Mount's own strRealPath (source) argument, in
+             * whatever native format the OS gives it - but never as
+             * strMountPoint (destination), and never as @see ReadFile/
+             * @see Exists's own strVirtualPath: PhysFS's own path
+             * sanitizer (verified directly in it's own source) rejects
+             * both a raw ':' anywhere in the string, and a "." path
+             * segment specifically - which a leading "./" always produces
+             * - as outright illegal, not just a mount-point restriction.
+             *
+             * The "./" case is a real, live-reproduced bug distinct from
+             * the drive-letter one: raylib's own LoadBMFont (rtext.c)
+             * builds a multi-file AngelCode BMFont's atlas image path via
+             * GetDirectoryPath(fileName), which - confirmed directly in
+             * raylib's own source - always prepends "./" to the result
+             * whenever fileName has no drive letter and doesn't already
+             * start with '/' (the common, relative-path case). A
+             * SetFont("resources/fonts/foo.fnt") call therefore reaches
+             * RaylibEngine's own FileSystemLoadFileDataCallback asking to
+             * read "./resources/fonts/foo.png" - which PHYSFS_openRead()
+             * silently rejects, with no trace at all (that total silence
+             * is itself the diagnostic tell), falling back to raylib's
+             * default font with no visible error. Single-file TTF/OTF
+             * fonts are unaffected - no such internally-constructed
+             * secondary path exists for them.
              *
              * Idempotent - safe to call on a string that's already a
              * legal virtual path (eg. "/", or this method's own prior
-             * output), since neither transformation touches it further.
-             * A consumer needing to mount it's own real directory "at
-             * itself" must call this explicitly and use the *same*
-             * resulting string both as Mount()'s own mountPoint argument
-             * and as the prefix for any virtual path it later constructs
-             * against that mount (eg. exposing it to a scripting layer as
-             * an "application directory" global) - Mount() itself cannot
-             * safely do this conversion internally on the caller's
-             * behalf, since ReadFile/Exists lookups against virtual paths
-             * built from the *unconverted* real path would then no longer
-             * match whatever Mount() actually mounted things at.
+             * output), since none of these transformations touch it
+             * further. A consumer needing to mount it's own real
+             * directory "at itself" must call this explicitly and use the
+             * *same* resulting string both as Mount()'s own mountPoint
+             * argument and as the prefix for any virtual path it later
+             * constructs against that mount (eg. exposing it to a
+             * scripting layer as an "application directory" global) -
+             * Mount() itself cannot safely do this conversion internally
+             * on the caller's behalf, since ReadFile/Exists lookups
+             * against virtual paths built from the *unconverted* real
+             * path would then no longer match whatever Mount() actually
+             * mounted things at.
              *
              * @param strRealPath Real, OS-native path to convert;
              * @return strRealPath's own equivalent, legal virtual path;
