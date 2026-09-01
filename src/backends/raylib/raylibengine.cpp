@@ -60,6 +60,22 @@ namespace SunLight  {
              * loaders once they're done with the buffer - frees it
              * correctly regardless of whether raylib is configured with
              * it's own custom allocator.
+             *
+             * Routes szFileName through IFileSystem::ToVirtualPath()
+             * before reading it - not just a courtesy for a caller-
+             * supplied real path, but a genuine necessity here: raylib's
+             * own LoadBMFont (rtext.c) constructs a multi-file AngelCode
+             * BMFont's atlas image path internally via
+             * GetDirectoryPath(fileName), which always prepends "./" to
+             * relative paths (confirmed directly in raylib's own source).
+             * That "./"-prefixed request reaches this callback verbatim -
+             * ToVirtualPath() strips it, same as it already strips a
+             * Windows drive letter, since PhysFS's own path sanitizer
+             * rejects a leading "./" outright (a "." path segment is
+             * explicitly illegal there, not just a whole-string special
+             * case) - without this, the atlas silently fails to load and
+             * raylib falls back to it's own default font, with no trace
+             * at all.
              * @param szFileName The path being requested - whatever the
              * original LoadTexture/LoadImage/etc. call was given verbatim;
              * @param pDataSize Set to the number of bytes returned;
@@ -70,8 +86,9 @@ namespace SunLight  {
             static unsigned char* FileSystemLoadFileDataCallback( const char *szFileName, int *pDataSize )  {
 
                 std :: vector<unsigned char>  data;
+                std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
 
-                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( szFileName, data ) )  {
+                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strVirtualPath, data ) )  {
                     *pDataSize = 0;
 
                     return nullptr;
