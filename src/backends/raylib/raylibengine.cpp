@@ -104,15 +104,66 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Registers @see FileSystemLoadFileDataCallback so
-             * every texture load routes through SunLight::FileSystem from
-             * construction onward - safe/idempotent regardless of whether
-             * anything has actually been mounted yet (an unmounted read
-             * simply fails, same as any other missing-file case).
+             * @brief raylib's own SetLoadFileTextCallback trampoline - the
+             * sibling of @see FileSystemLoadFileDataCallback for text
+             * reads, hooking LoadFileText() (utils.c) rather than
+             * LoadFileData(). A genuine, distinct gap otherwise: raylib's
+             * own LoadBMFont (rtext.c) reads a multi-file AngelCode
+             * BMFont's own .fnt file - it's text content, not it's binary
+             * atlas image - via LoadFileText(), which (confirmed directly
+             * in utils.c) falls back to a raw fopen(fileName, "rt") when
+             * no callback is registered here, same as LoadFileData()
+             * does for the binary path. That fallback works fine for a
+             * loose directory (the file's really on disk either way) but
+             * silently fails once the game's content lives inside a
+             * mounted archive instead - the .fnt file is never found,
+             * LoadBMFont returns an empty Font immediately, no trace at
+             * all. @see FileSystemLoadFileDataCallback's own
+             * ToVirtualPath() routing fixed the atlas image half of this
+             * same multi-file BMFont load (v0.17.3); this fixes the other
+             * half, the .fnt file itself.
+             *
+             * Allocates via raylib's own MemAlloc() (not new/malloc
+             * directly), +1 byte for the null terminator LoadFileText's
+             * own contract requires, so that UnloadFileText()'s matching
+             * RL_FREE() frees it correctly.
+             * @param szFileName The path being requested, whatever the
+             * original LoadFileText/LoadBMFont/etc. call was given
+             * verbatim;
+             * @return A MemAlloc'd, null-terminated copy of the file's
+             * text content, or nullptr if it doesn't exist/couldn't be
+             * read (same failure shape as raylib's own default
+             * LoadFileText);
+             */
+            static char* FileSystemLoadFileTextCallback( const char *szFileName )  {
+
+                std :: vector<unsigned char>  data;
+                std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
+
+                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strVirtualPath, data ) )
+                    return nullptr;
+
+                char  *pText = ( char * ) ::MemAlloc( ( unsigned int ) data.size() + 1 );
+
+                memcpy( pText, data.data(), data.size() );
+
+                pText[ data.size() ] = '\0';
+
+                return pText;
+            }
+
+            /**
+             * @brief Registers @see FileSystemLoadFileDataCallback and
+             * @see FileSystemLoadFileTextCallback so every texture/text
+             * load routes through SunLight::FileSystem from construction
+             * onward - safe/idempotent regardless of whether anything has
+             * actually been mounted yet (an unmounted read simply fails,
+             * same as any other missing-file case).
              */
             RaylibEngine :: RaylibEngine( void )  {
 
                 ::SetLoadFileDataCallback( FileSystemLoadFileDataCallback );
+                ::SetLoadFileTextCallback( FileSystemLoadFileTextCallback );
             }
 
             /**
