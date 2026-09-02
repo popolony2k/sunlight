@@ -169,9 +169,30 @@ namespace SunLight  {
                 if( nRead != nSize )
                     return false;
 
+                // Apply the optional post-read filter, if one is
+                // registered - see IFileSystem::SetReadFilter's own doc
+                // comment. Only reached after a fully successful raw
+                // read; a missing/unreadable file already returned false
+                // above, so the filter never sees that case.
+                if( m_ReadFilter )  {
+                    std :: vector<unsigned char>  filtered;
+
+                    if( m_ReadFilter( data, filtered ) )
+                        data = std :: move( filtered );
+                }
+
                 outData = std :: move( data );
 
                 return true;
+            }
+
+            /**
+             * @brief See @see IFileSystem::SetReadFilter's own doc
+             * comment for the full rationale.
+             */
+            void PhysFsFileSystem :: SetReadFilter( ReadFilterCallback callback )  {
+
+                m_ReadFilter = std :: move( callback );
             }
         }
     }
