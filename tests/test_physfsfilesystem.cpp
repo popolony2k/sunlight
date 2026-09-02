@@ -19,6 +19,7 @@
  */
 
 #include <doctest/doctest.h>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include "backends/physfs/physfsfilesystem.h"
@@ -175,5 +176,111 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
 
         fs.Shutdown();
         fs.Shutdown();  // second call, already shut down
+    }
+
+    TEST_CASE( "ReadFile with no filter set returns the unchanged raw bytes" )  {
+
+        // Baseline - SetReadFilter is never called here, so ReadFile must
+        // behave exactly as it always did before this hook existed.
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "/subdir/greeting.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "A filter that returns true substitutes the read bytes" )  {
+
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );
+
+        fs.SetReadFilter( []( const std :: vector<unsigned char> &in, std :: vector<unsigned char> &out )  {
+            out.assign( in.rbegin(), in.rend() );  // trivial, verifiable transform: reverse the bytes
+            return true;
+        } );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "/subdir/greeting.txt", data ) );
+
+        std :: string  strExpected = "hello from physfs";
+        std :: reverse( strExpected.begin(), strExpected.end() );
+
+        CHECK( std :: string( data.begin(), data.end() ) == strExpected );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "A filter that returns false leaves the original bytes untouched" )  {
+
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );
+
+        fs.SetReadFilter( []( const std :: vector<unsigned char> &, std :: vector<unsigned char> & )  {
+            return false;  // declines to substitute anything
+        } );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "/subdir/greeting.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "A registered filter is never invoked for a failed raw read" )  {
+
+        PhysFsFileSystem  fs;
+        bool               bFilterCalled = false;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+
+        fs.SetReadFilter( [&bFilterCalled]( const std :: vector<unsigned char> &, std :: vector<unsigned char> & )  {
+            bFilterCalled = true;
+            return false;
+        } );
+
+        std :: vector<unsigned char>  data;
+
+        CHECK_FALSE( fs.ReadFile( "/nothing/mounted/here.txt", data ) );
+        CHECK_FALSE( bFilterCalled );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "SetReadFilter with an empty callback clears a previously-set one" )  {
+
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );
+
+        fs.SetReadFilter( []( const std :: vector<unsigned char> &, std :: vector<unsigned char> &out )  {
+            out = { 'X' };
+            return true;
+        } );
+
+        fs.SetReadFilter( SunLight :: FileSystem :: IFileSystem :: ReadFilterCallback() );  // clear it
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "/subdir/greeting.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
+
+        fs.Shutdown();
     }
 }

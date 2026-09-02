@@ -23,6 +23,7 @@
 
 #include <string>
 #include <vector>
+#include <functional>
 
 
 namespace SunLight  {
@@ -46,7 +47,36 @@ namespace SunLight  {
 
             public:
 
+            /**
+             * @brief Optional post-read transform: given the raw bytes
+             * @see ReadFile just read, may replace them with something
+             * else before they reach the caller. Returns true if it
+             * replaced outData with new content, false to leave the
+             * original bytes untouched. IFileSystem has no opinion on
+             * what a registered callback does - eg. a consumer can use
+             * this to transparently decrypt content packed with it's own
+             * build-time shared secret, with sunlight itself carrying no
+             * crypto dependency or awareness of what the callback does. A
+             * consumer that never calls @see SetReadFilter never has this
+             * called at all, and @see ReadFile behaves exactly as it
+             * always has.
+             */
+            typedef std :: function<bool( const std :: vector<unsigned char> &in, std :: vector<unsigned char> &out )>  ReadFilterCallback;
+
             virtual ~IFileSystem( void )  {}
+
+            /**
+             * @brief Must be implemented to register an optional filter
+             * applied to every @see ReadFile result, after the raw bytes
+             * are read but before they reach the caller. Unset (the
+             * default) means @see ReadFile behaves exactly as before this
+             * hook existed - fully backward compatible; only invoked
+             * after a fully successful raw read, never for a missing/
+             * unreadable file (that still fails exactly as before).
+             * @param callback The filter to apply, or an empty
+             * ReadFilterCallback to clear a previously-set one;
+             */
+            virtual void SetReadFilter( ReadFilterCallback callback ) = 0;
 
             /**
              * @brief Converts a real, OS-native path into its own legal

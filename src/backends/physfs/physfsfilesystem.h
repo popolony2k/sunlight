@@ -37,9 +37,10 @@ namespace SunLight  {
              */
             class PhysFsFileSystem : public IFileSystem  {
 
-                bool  m_bInitialized = false;
-                bool  m_bAnyMounted = false;
-                bool  m_bDefaultMountEnsured = false;
+                bool                m_bInitialized = false;
+                bool                m_bAnyMounted = false;
+                bool                m_bDefaultMountEnsured = false;
+                ReadFilterCallback  m_ReadFilter;  // empty (unset) by default
 
                 /**
                  * @brief Runs at most once, lazily, from @see Exists / @see
@@ -59,6 +60,7 @@ namespace SunLight  {
                 bool Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath ) override;
                 bool Exists( const std :: string &strVirtualPath ) override;
                 bool ReadFile( const std :: string &strVirtualPath, std :: vector<unsigned char> &outData ) override;
+                void SetReadFilter( ReadFilterCallback callback ) override;
             };
         }
     }
