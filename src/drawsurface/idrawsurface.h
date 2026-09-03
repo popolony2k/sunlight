@@ -138,6 +138,27 @@ namespace SunLight {
             virtual bool GetWindowResizeable( void ) = 0;
 
             /**
+             * @brief Requests the render loop exit on it's next check -
+             * the programmatic equivalent of the user pressing the
+             * configured exit key or clicking the window's close button.
+             * Takes effect at the start of the next Run() loop iteration,
+             * not immediately; safe to call from anywhere Run()'s
+             * per-frame listener callbacks reach (HandleUserUpdate, etc.).
+             * Purely local state, same as @link SetDrawFPS/@link
+             * SetScreenFade - there's no IEngine primitive to route this
+             * through, since raylib itself never exposes a way to set
+             * it's own close flag programmatically (only read it, via
+             * WindowShouldClose()).
+             */
+            virtual void RequestExit( void ) = 0;
+
+            /**
+             * @brief Query whether @link RequestExit has been called
+             * since the renderer was last started.
+             */
+            virtual bool GetExitRequested( void ) = 0;
+
+            /**
              * @brief Set the renderer's own target frame rate - the cap
              * the game loop paces itself against, not the current
              * measured FPS. Safe to call both before the window is

@@ -112,9 +112,14 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( renderer.RemoveSprite( 1, sprite ) == false );
     }
 
-    TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill/GetTargetFPS round-trip what their setters last set" )  {
+    TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill/GetTargetFPS/GetExitRequested round-trip what their setters last set" )  {
 
         TileMapRenderer  renderer( 800, 600, "test", -1, false );
+
+        CHECK( renderer.GetExitRequested() == false );
+
+        renderer.RequestExit();
+        CHECK( renderer.GetExitRequested() == true );
 
         renderer.SetDrawFPS( true );
         CHECK( renderer.GetDrawFPS() == true );

@@ -111,6 +111,7 @@ namespace SunLight {
             tmx_map                                    *m_pTmxMap;
             bool                                       m_bClearBackground;
             bool                                       m_bIsStarted;
+            bool                                       m_bExitRequested;
             bool                                       m_bWindowResizeable;
             bool                                       m_bDrawFPS;
             bool                                       m_bStretchToFill;
@@ -234,6 +235,8 @@ namespace SunLight {
             void SetExitKey( SunLight :: Input :: KeyboardKey key );
             void SetWindowResizeable( bool bResizeable );
             bool GetWindowResizeable( void );
+            void RequestExit( void );
+            bool GetExitRequested( void );
             void SetTargetFPS( int nTargetFps );
             int  GetTargetFPS( void );
             void SetWindowBackgroundColor( uint32_t nWindowBkColor );

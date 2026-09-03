@@ -1102,6 +1102,7 @@ namespace SunLight {
             m_pTmxMap                     = NULL;
             m_pRenderTexture              = nullptr;
             m_bIsStarted                  = false;
+            m_bExitRequested              = false;
             m_bWindowResizeable           = __DEFAULT_RESIZEABLE_STATUS;
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
             m_bDrawFPS                    = __DEFAULT_DRAW_FPS_STATUS;
@@ -1212,6 +1213,28 @@ namespace SunLight {
         bool TileMapRenderer :: GetWindowResizeable( void )  {
 
             return m_bWindowResizeable;
+        }
+
+        /**
+         * Requests the render loop exit on it's next check (see
+         * @see IDrawSurface::RequestExit). Purely local state - unlike
+         * most of IDrawSurface, there's no IEngine call to route this
+         * through, since raylib itself has no public way to set it's own
+         * close flag, only read it via WindowShouldClose(). Consulted by
+         * Run()'s own loop condition.
+         */
+        void TileMapRenderer :: RequestExit( void )  {
+
+            m_bExitRequested = true;
+        }
+
+        /**
+         * Query whether @see RequestExit has been called since the
+         * renderer was last started.
+         */
+        bool TileMapRenderer :: GetExitRequested( void )  {
+
+            return m_bExitRequested;
         }
 
         /**
@@ -2130,6 +2153,12 @@ namespace SunLight {
 
             SetExitKey( __DEFAULT_EXIT_KEY );
 
+            // Reset any exit request left over from a previous Start()/
+            // Run()/Stop() cycle - a stopped-then-restarted renderer
+            // isn't stuck permanently exited (see RequestExit's own doc
+            // comment).
+            m_bExitRequested = false;
+
             /*
              * Resolves the -1 constructor-default sentinel into
              * m_nTargetFps itself (so GetTargetFPS() never leaks it back
@@ -2205,12 +2234,20 @@ namespace SunLight {
         }
 
         /**
-         * Run renderer.
+         * Run renderer. Loops until either the hardware exit key/window
+         * close button fires (WindowShouldClose()) or a caller/listener
+         * called @see RequestExit - checked once per iteration, not
+         * immediately, so a RequestExit() call from inside this frame's
+         * own HandleUserUpdate/etc. still lets the frame finish drawing
+         * before the loop actually exits. Either way, this function only
+         * returns - it never calls CloseWindow() itself; that's still
+         * @see Stop's job alone, unconditionally, regardless of which
+         * condition broke the loop.
          */
         bool TileMapRenderer :: Run( void )  {
 
             if( m_bIsStarted )  {
-                while ( !WindowShouldClose() ) {
+                while ( !WindowShouldClose() && !m_bExitRequested ) {
                     SunLight :: Engines :: EngineFactory :: GetEngine().BeginRenderTarget( m_pRenderTexture );
                     if( GetVisible() )  {
                         RenderMap();
