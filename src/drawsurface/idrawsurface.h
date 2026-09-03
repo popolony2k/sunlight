@@ -23,6 +23,7 @@
 
 #include <string>
 #include "engines/iengine.h"
+#include "input/iinputhandler.h"
 
 
 namespace SunLight {
@@ -157,6 +158,32 @@ namespace SunLight {
              * since the renderer was last started.
              */
             virtual bool GetExitRequested( void ) = 0;
+
+            /**
+             * @brief Set which key, when pressed, triggers the default
+             * quit-the-application behavior (WindowShouldClose()
+             * returning true) - the same observable effect @link
+             * RequestExit triggers programmatically, but driven by the
+             * backend's own per-frame key check instead. KEY_ESCAPE by
+             * default (set the first time the renderer is Start()ed).
+             * Pass KEY_NULL to disable this entirely (matching raylib's
+             * own SetExitKey(0) convention) - useful for a game that
+             * wants ESC to mean something else (a back/cancel action in
+             * its own menu system) rather than an immediate, un-
+             * interceptable quit.
+             *
+             * @param key The key that should trigger quit-on-press, or
+             * KEY_NULL to disable this behavior entirely;
+             */
+            virtual void SetExitKey( SunLight :: Input :: KeyboardKey key ) = 0;
+
+            /**
+             * @brief Query which key currently triggers quit-on-press
+             * (see @link SetExitKey) - reads back a locally cached
+             * value, since the underlying engine has no API to query a
+             * previously-set exit key (SetExitKey is write-only there).
+             */
+            virtual SunLight :: Input :: KeyboardKey GetExitKey( void ) = 0;
 
             /**
              * @brief Set the renderer's own target frame rate - the cap

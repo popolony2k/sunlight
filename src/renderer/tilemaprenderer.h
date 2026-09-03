@@ -112,6 +112,7 @@ namespace SunLight {
             bool                                       m_bClearBackground;
             bool                                       m_bIsStarted;
             bool                                       m_bExitRequested;
+            SunLight :: Input :: KeyboardKey           m_ExitKey;
             bool                                       m_bWindowResizeable;
             bool                                       m_bDrawFPS;
             bool                                       m_bStretchToFill;
@@ -233,6 +234,7 @@ namespace SunLight {
 
             // Window behavior
             void SetExitKey( SunLight :: Input :: KeyboardKey key );
+            SunLight :: Input :: KeyboardKey GetExitKey( void );
             void SetWindowResizeable( bool bResizeable );
             bool GetWindowResizeable( void );
             void RequestExit( void );
