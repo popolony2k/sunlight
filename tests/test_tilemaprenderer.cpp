@@ -112,7 +112,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( renderer.RemoveSprite( 1, sprite ) == false );
     }
 
-    TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill/GetTargetFPS/GetExitRequested round-trip what their setters last set" )  {
+    TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill/GetTargetFPS/GetExitRequested/GetExitKey round-trip what their setters last set" )  {
 
         TileMapRenderer  renderer( 800, 600, "test", -1, false );
 
@@ -120,6 +120,18 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
         renderer.RequestExit();
         CHECK( renderer.GetExitRequested() == true );
+
+        // GetExitKey() before Start() reads back the constructor's own
+        // default (KEY_ESCAPE, the same default Start() itself applies
+        // via SetExitKey - see __DEFAULT_EXIT_KEY), not an unset/zero
+        // value - this is purely local state, no window needed.
+        CHECK( renderer.GetExitKey() == SunLight :: Input :: KEY_ESCAPE );
+
+        renderer.SetExitKey( SunLight :: Input :: KEY_NULL );
+        CHECK( renderer.GetExitKey() == SunLight :: Input :: KEY_NULL );
+
+        renderer.SetExitKey( SunLight :: Input :: KEY_ESCAPE );
+        CHECK( renderer.GetExitKey() == SunLight :: Input :: KEY_ESCAPE );
 
         renderer.SetDrawFPS( true );
         CHECK( renderer.GetDrawFPS() == true );

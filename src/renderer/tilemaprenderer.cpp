@@ -1103,6 +1103,7 @@ namespace SunLight {
             m_pRenderTexture              = nullptr;
             m_bIsStarted                  = false;
             m_bExitRequested              = false;
+            m_ExitKey                     = __DEFAULT_EXIT_KEY;
             m_bWindowResizeable           = __DEFAULT_RESIZEABLE_STATUS;
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
             m_bDrawFPS                    = __DEFAULT_DRAW_FPS_STATUS;
@@ -1186,7 +1187,19 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetExitKey( SunLight :: Input :: KeyboardKey key )  {
 
+            m_ExitKey = key;
+
             ::SetExitKey( ( KeyboardKey ) key );
+        }
+
+        /**
+         * Query which key currently triggers quit-on-press (see @see
+         * SetExitKey) - reads back the locally cached value set above,
+         * since raylib's own SetExitKey has no matching getter.
+         */
+        SunLight :: Input :: KeyboardKey TileMapRenderer :: GetExitKey( void )  {
+
+            return m_ExitKey;
         }
 
         /**
