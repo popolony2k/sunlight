@@ -19,6 +19,7 @@
  */
 
 #include "collisionmanager.h"
+#include "collision/colliderregistry.h"
 #include <algorithm>
 #include <vector>
 
@@ -84,7 +85,7 @@ namespace SunLight {
                                               SunLight :: Collision :: Collider* pCollider )  {
 
             if( nColliderLayerId < m_ColliderLayerList.size() )  {
-                m_ColliderLayerList[nColliderLayerId] -> push_back( pCollider );
+                m_ColliderLayerList[nColliderLayerId] -> push_back( pCollider -> GetHandle() );
 
                 return true;
             }
@@ -108,7 +109,7 @@ namespace SunLight {
                 ColliderList   *pColliderList = m_ColliderLayerList[nColliderLayerId].get();
                 ColliderList :: iterator itItem = std :: find( pColliderList -> begin(),
                                                             pColliderList -> end(),
-                                                            pCollider );
+                                                            pCollider -> GetHandle() );
 
                 if( itItem != pColliderList -> end() )
                     pColliderList -> erase( itItem );
@@ -236,7 +237,7 @@ namespace SunLight {
         }
 
         /**
-         * Check whether pCollider is still present in pColliderList.
+         * Check whether handle is still present in pColliderList.
          * Used by Update() to re-validate a snapshotted collider right
          * before firing an event for it, since an earlier listener call
          * within the same Update() may have already removed it (e.g. a
@@ -245,12 +246,12 @@ namespace SunLight {
          * convention every listener must implement itself into a guarantee
          * the manager enforces.
          * @param pColliderList The live layer list to check against;
-         * @param pCollider The collider to look for;
+         * @param handle The collider handle to look for;
          */
         bool CollisionManager :: IsColliderRegistered( ColliderList *pColliderList,
-                                                        SunLight :: Collision :: Collider *pCollider )  {
+                                                        const ColliderHandle& handle )  {
 
-            return std :: find( pColliderList -> begin(), pColliderList -> end(), pCollider ) != pColliderList -> end();
+            return std :: find( pColliderList -> begin(), pColliderList -> end(), handle ) != pColliderList -> end();
         }
 
         /**
@@ -261,6 +262,8 @@ namespace SunLight {
          */
         void CollisionManager :: Update( void )  {
 
+            ColliderRegistry&  registry = ColliderRegistry :: Instance();
+
             /*
             * Check collisions between colliders only.
             *
@@ -270,26 +273,41 @@ namespace SunLight {
             * despawning what it just hit) may call RemoveCollider() on the
             * very list being walked here, which invalidates std::deque
             * iterators mid-iteration (UB, observed as a real SIGSEGV). Snapshot
-            * each side into a local vector before iterating so a same-frame
-            * removal can't invalidate the iteration. This assumes a Collider*
-            * captured here stays safely dereferenceable for the rest of this
-            * call even after being removed from the list (true as long as
-            * listeners don't delete the Collider object itself during Update).
+            * each side into a local vector of ColliderHandle (not Collider*)
+            * before iterating so a same-frame removal can't invalidate the
+            * iteration.
             *
-            * Re-validating membership just before firing (below) additionally
-            * guards against firing a stale/duplicate event for a collider an
-            * earlier listener call already removed from this same rule this
-            * Update() - that pointer is still safe to dereference (per the
-            * assumption above), it's just no longer logically part of this
-            * check, so callers don't each need their own re-entry guard for
-            * "did I already handle this despawned entity this frame".
+            * Each handle is resolved through ColliderRegistry right before
+            * it's dereferenced. Resolve() returns nullptr if the collider it
+            * refers to has since been destroyed - e.g. a listener earlier in
+            * this same Update() reacted to a hit by deleting the Sprite/
+            * Collider outright rather than merely unregistering it - so a
+            * stale handle is safely skipped instead of dereferencing freed
+            * memory.
+            *
+            * Re-validating list membership just before firing (below)
+            * separately guards against firing a stale/duplicate event for a
+            * collider that's still alive but was already removed from this
+            * rule by an earlier listener call this Update() - so callers
+            * don't each need their own re-entry guard for "did I already
+            * handle this despawned entity this frame".
             */
             for( auto& pPair : m_ColliderToColliderRuleList )  {
-                std :: vector<Collider*>  firstSnapshot( pPair -> first -> begin(), pPair -> first -> end() );
-                std :: vector<Collider*>  secondSnapshot( pPair -> second -> begin(), pPair -> second -> end() );
+                std :: vector<ColliderHandle>  firstSnapshot( pPair -> first -> begin(), pPair -> first -> end() );
+                std :: vector<ColliderHandle>  secondSnapshot( pPair -> second -> begin(), pPair -> second -> end() );
 
-                for( Collider *pFirst : firstSnapshot )  {
-                    for( Collider *pSecond : secondSnapshot )  {
+                for( const ColliderHandle& firstHandle : firstSnapshot )  {
+                    Collider  *pFirst = registry.Resolve( firstHandle );
+
+                    if( !pFirst )
+                        continue;
+
+                    for( const ColliderHandle& secondHandle : secondSnapshot )  {
+                        Collider  *pSecond = registry.Resolve( secondHandle );
+
+                        if( !pSecond )
+                            continue;
+
                         // Collider-to-Collider overload (not the
                         // stDimension2D one) so both sides' own SetInset
                         // shrink apply - passing pSecond->GetDimension2D()
@@ -298,8 +316,8 @@ namespace SunLight {
                         // ever ran through GetEffectiveRect (see Hit(
                         // Collider&)'s own doc comment in collider.cpp).
                         if( pFirst -> Hit( *pSecond ) &&
-                            IsColliderRegistered( pPair -> first, pFirst ) &&
-                            IsColliderRegistered( pPair -> second, pSecond ) )  {
+                            IsColliderRegistered( pPair -> first, firstHandle ) &&
+                            IsColliderRegistered( pPair -> second, secondHandle ) )  {
                             FireOnCollision( pFirst, pSecond );
                         }
                     }
@@ -309,13 +327,18 @@ namespace SunLight {
             /*
             * Check collisions between colliders against static
             * layer objects defined as collision on layer map.
-            * Same snapshot and re-validation rationale as above applies to
-            * pPair->first here.
+            * Same snapshot, resolve and re-validation rationale as above
+            * applies to pPair->first here.
             */
             for( auto& pPair : m_ColliderToTileLayerRuleList )  {
-                std :: vector<Collider*>  firstSnapshot( pPair -> first -> begin(), pPair -> first -> end() );
+                std :: vector<ColliderHandle>  firstSnapshot( pPair -> first -> begin(), pPair -> first -> end() );
 
-                for( Collider *pFirst : firstSnapshot )  {
+                for( const ColliderHandle& firstHandle : firstSnapshot )  {
+                    Collider  *pFirst = registry.Resolve( firstHandle );
+
+                    if( !pFirst )
+                        continue;
+
                     SunLight :: TileMap :: stTile      tile;
                     SunLight :: TileMap :: stLayer     layer;
 
@@ -326,7 +349,7 @@ namespace SunLight {
                         if( m_pParent -> TileMapToTileMatrix( spritePos.pos, tilePos ) ) {
                             if( m_pParent -> GetTile( tilePos, layer, tile ) &&
                                 pFirst -> Hit( tile ) &&
-                                IsColliderRegistered( pPair -> first, pFirst ) )  {
+                                IsColliderRegistered( pPair -> first, firstHandle ) )  {
                                 FireOnCollision(pFirst, &tile );
                             }
                         }

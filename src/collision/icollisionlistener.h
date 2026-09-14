@@ -39,16 +39,18 @@ namespace SunLight {
          * same-frame removal is safe and will not fire a duplicate/stale
          * event for the removed collider.
          *
-         * A listener must NOT, however, synchronously destroy (delete) the
-         * Collider object itself — or the object that owns it (e.g. the
-         * Sprite) — from within OnCollision(). Doing so frees memory that
-         * Update() may still be about to touch later in the same call
-         * (other pending pairs can still reference the same collider), and
-         * nothing in CollisionManager can currently detect that the pointer
-         * has gone stale. Defer actual destruction to the end of the frame
-         * (e.g. mark-for-deletion + sweep after Update() returns), or use
-         * a pooling/recycling strategy that never frees the underlying
-         * object while the engine may still hold a pointer to it.
+         * A listener may also synchronously destroy (delete) the Collider
+         * object itself — or the object that owns it (e.g. the Sprite) —
+         * from within OnCollision(). CollisionManager tracks colliders via
+         * ColliderHandle and resolves each one through ColliderRegistry
+         * right before dereferencing it; a handle whose Collider has since
+         * been destroyed resolves to nullptr and is safely skipped for the
+         * remainder of that Update() call, rather than dereferencing freed
+         * memory. See ColliderRegistry for the mechanics. The only
+         * requirement is that destruction goes through the Collider's
+         * actual destructor (normal `delete`) — reusing its storage via
+         * placement-new without destructing first bypasses this safety net,
+         * as with any C++ object.
          */
         class ICollisionListener  {
 

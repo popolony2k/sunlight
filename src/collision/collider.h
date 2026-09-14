@@ -22,6 +22,7 @@
 #define __COLLIDER_H__
 
 #include "canvas/basecanvas.h"
+#include "colliderhandle.h"
 
 
 namespace SunLight {
@@ -30,6 +31,11 @@ namespace SunLight {
         /**
          * @brief Collider implementation.
          *
+         * Every Collider registers itself with ColliderRegistry on
+         * construction and retires itself on destruction, so
+         * CollisionManager can hold a safe-to-store ColliderHandle instead
+         * of a raw pointer as its long-lived identity - see
+         * ColliderRegistry for why that matters.
          */
         class Collider : public SunLight :: Canvas :: BaseCanvas {
 
@@ -37,6 +43,8 @@ namespace SunLight {
             float  m_fInsetTop;
             float  m_fInsetRight;
             float  m_fInsetBottom;
+
+            ColliderHandle  m_Handle;
 
             bool RectRect( float fRect1X,
                         float fRect1Y,
@@ -89,6 +97,10 @@ namespace SunLight {
                            float fTopPct,
                            float fRightPct,
                            float fBottomPct );
+
+            const ColliderHandle& GetHandle( void ) const  {
+                return m_Handle;
+            }
         };
     }
 }
