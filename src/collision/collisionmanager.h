@@ -54,10 +54,12 @@ namespace SunLight {
             CollisionListenerList             m_Listeners;
 
 
-            void FireOnCollision( SunLight :: Collision :: Collider *pFirst, 
+            void FireOnCollision( SunLight :: Collision :: Collider *pFirst,
                                   SunLight :: Collision :: Collider *pSecond );
-            void FireOnCollision( SunLight :: Collision :: Collider *pFirst, 
+            void FireOnCollision( SunLight :: Collision :: Collider *pFirst,
                                   SunLight :: TileMap :: stTile* pSecond );
+            bool IsColliderRegistered( ColliderList *pColliderList,
+                                       SunLight :: Collision :: Collider *pCollider );
 
             public:
 

@@ -48,6 +48,42 @@ namespace  {
             tileHits.push_back( pFirst );
         }
     };
+
+    /**
+     * @brief Reacts to its first collider-to-collider hit by removing a
+     * different, not-yet-checked collider from the manager - the same
+     * "despawn what I just hit" shape a real game's on-hit handler takes,
+     * used to exercise CollisionManager::Update()'s same-frame-removal
+     * handling (see the "does not fire a stale hit" test case below).
+     */
+    class RemovingCollisionListener : public ICollisionListener  {
+
+        CollisionManager  &m_Manager;
+        int               m_nLayerIdToRemoveFrom;
+        Collider          *m_pColliderToRemove;
+        bool              m_bHasFired = false;
+
+        public:
+
+        std :: vector<std :: pair<Collider*, Collider*>>  colliderHits;
+
+        RemovingCollisionListener( CollisionManager &manager, int nLayerIdToRemoveFrom, Collider *pColliderToRemove )
+            : m_Manager( manager ), m_nLayerIdToRemoveFrom( nLayerIdToRemoveFrom ), m_pColliderToRemove( pColliderToRemove )  {
+        }
+
+        void OnCollision( Collider *pFirst, Collider *pSecond )  {
+
+            colliderHits.push_back( { pFirst, pSecond } );
+
+            if( !m_bHasFired )  {
+                m_bHasFired = true;
+                m_Manager.RemoveCollider( m_nLayerIdToRemoveFrom, m_pColliderToRemove );
+            }
+        }
+
+        void OnCollision( Collider *pFirst, stTile *pSecond )  {
+        }
+    };
 }
 
 TEST_SUITE( "collision/CollisionManager" )  {
@@ -174,6 +210,68 @@ TEST_SUITE( "collision/CollisionManager" )  {
         manager.Update();
 
         CHECK( listener.colliderHits.empty() );
+    }
+
+    TEST_CASE( "Update does not fire a stale hit for a collider an OnCollision callback "
+               "already removed this same Update() call" )  {
+
+        // Regression coverage for a real SIGSEGV (root-caused and verified
+        // against this exact call site by the Caravellius session, a
+        // downstream consumer of this engine): Update() used to range-
+        // iterate the live per-layer std::deque<Collider*> directly, and
+        // FireOnCollision() calls every ICollisionListener::OnCollision
+        // synchronously, in the same call stack. A listener reacting to a
+        // hit by despawning what it just hit - the single most ordinary
+        // thing a game does in a hit handler - called RemoveCollider() on
+        // the exact deque Update() was still iterating; std::deque::erase()
+        // in the middle invalidates all of its iterators, including the
+        // range-for's own captured end(), making continued iteration UB.
+        //
+        // This test can't reproduce the UB itself deterministically without
+        // a sanitizer (that was verified separately, out-of-band, with
+        // ASan: heap-use-after-free pre-fix, clean post-fix - see the PR
+        // description). What it does verify deterministically, with no
+        // sanitizer needed, is the actual guarantee the fix adds:
+        // Update() snapshots its working lists before iterating (so a
+        // same-frame removal can't invalidate that iteration) and
+        // re-validates membership right before firing (so a collider
+        // removed by an earlier listener call this same Update() doesn't
+        // get a stale/duplicate event fired for it afterwards). Colliders
+        // are never deleted here (RemoveCollider only unregisters a
+        // pointer, it doesn't destroy the object - see
+        // ICollisionListener's own doc comment), so pre-fix code stays
+        // memory-safe in this small, 3-element scenario and the two
+        // behaviors differ on a plain, portable logical assertion: without
+        // the fix, colliderC still gets a hit fired for it; with the fix,
+        // it doesn't.
+        MockTileMap                     tileMap;
+        CollisionManager                manager( &tileMap );
+        Collider                        colliderA, colliderB, colliderC, colliderD;
+        stDimension2D                   dim { { 0, 0 }, { 50, 50 } };  // all mutually overlapping
+
+        colliderA.SetDimension2D( dim );
+        colliderB.SetDimension2D( dim );
+        colliderC.SetDimension2D( dim );
+        colliderD.SetDimension2D( dim );
+
+        // Layer 1 insertion order matters: B is checked first (triggering
+        // the removal), C is the not-yet-checked victim, D comes after C
+        // to prove iteration keeps going correctly past the removal rather
+        // than stopping short or skipping unrelated entries.
+        manager.AddCollider( 0, &colliderA );
+        manager.AddCollider( 1, &colliderB );
+        manager.AddCollider( 1, &colliderC );
+        manager.AddCollider( 1, &colliderD );
+        manager.AddColliderToColliderRule( 0, 1 );
+
+        RemovingCollisionListener  listener( manager, 1, &colliderC );
+        manager.AddCollisionListener( &listener );
+
+        manager.Update();
+
+        REQUIRE( listener.colliderHits.size() == 2 );
+        CHECK( listener.colliderHits[0].second == &colliderB );
+        CHECK( listener.colliderHits[1].second == &colliderD );  // C skipped, D still reached
     }
 
     TEST_CASE( "AddColliderToTileRule requires the tile layer to exist on the parent map" )  {

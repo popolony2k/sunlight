@@ -28,8 +28,27 @@ namespace SunLight {
     namespace Collision  {
 
         /**
-         * @brief Collision listener interface. 
-         * 
+         * @brief Collision listener interface.
+         *
+         * IMPORTANT: OnCollision() is invoked synchronously from within
+         * CollisionManager::Update(), while it is still iterating the
+         * colliders involved. A listener may safely unregister a collider
+         * in reaction to a hit (e.g. via CollisionManager::RemoveCollider()
+         * / TileMapRenderer::RemoveSprite()) — Update() snapshots its
+         * working lists and re-validates membership before firing, so
+         * same-frame removal is safe and will not fire a duplicate/stale
+         * event for the removed collider.
+         *
+         * A listener must NOT, however, synchronously destroy (delete) the
+         * Collider object itself — or the object that owns it (e.g. the
+         * Sprite) — from within OnCollision(). Doing so frees memory that
+         * Update() may still be about to touch later in the same call
+         * (other pending pairs can still reference the same collider), and
+         * nothing in CollisionManager can currently detect that the pointer
+         * has gone stale. Defer actual destruction to the end of the frame
+         * (e.g. mark-for-deletion + sweep after Update() returns), or use
+         * a pooling/recycling strategy that never frees the underlying
+         * object while the engine may still hold a pointer to it.
          */
         class ICollisionListener  {
 
