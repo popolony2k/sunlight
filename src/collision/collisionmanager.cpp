@@ -20,6 +20,7 @@
 
 #include "collisionmanager.h"
 #include <algorithm>
+#include <vector>
 
 
 namespace SunLight {
@@ -93,6 +94,10 @@ namespace SunLight {
 
         /**
          * Add a collider from manager;
+         * Safe to call from within an ICollisionListener::OnCollision()
+         * callback fired by this same Update() call: Update() re-validates
+         * membership before firing, so a same-frame removal here will not
+         * produce a stale/duplicate event for pCollider.
          * @param nColliderLayerId collider layer id to remove the collider;
          * @param pCollider Pointer to collider to remove;
          */
@@ -231,6 +236,24 @@ namespace SunLight {
         }
 
         /**
+         * Check whether pCollider is still present in pColliderList.
+         * Used by Update() to re-validate a snapshotted collider right
+         * before firing an event for it, since an earlier listener call
+         * within the same Update() may have already removed it (e.g. a
+         * listener despawning what it just hit). This turns "don't fire a
+         * duplicate/stale hit for an already-removed collider" from a
+         * convention every listener must implement itself into a guarantee
+         * the manager enforces.
+         * @param pColliderList The live layer list to check against;
+         * @param pCollider The collider to look for;
+         */
+        bool CollisionManager :: IsColliderRegistered( ColliderList *pColliderList,
+                                                        SunLight :: Collision :: Collider *pCollider )  {
+
+            return std :: find( pColliderList -> begin(), pColliderList -> end(), pCollider ) != pColliderList -> end();
+        }
+
+        /**
          * Check if there are collisions between objects managed by
          * this collision manager.
          * Must be called every time is needed to check for all objects
@@ -240,10 +263,33 @@ namespace SunLight {
 
             /*
             * Check collisions between colliders only.
+            *
+            * NOTE: pPair->first/second are the live per-layer collider deques
+            * that AddCollider/RemoveCollider mutate. FireOnCollision() calls
+            * listeners synchronously, and a listener reacting to a hit (e.g.
+            * despawning what it just hit) may call RemoveCollider() on the
+            * very list being walked here, which invalidates std::deque
+            * iterators mid-iteration (UB, observed as a real SIGSEGV). Snapshot
+            * each side into a local vector before iterating so a same-frame
+            * removal can't invalidate the iteration. This assumes a Collider*
+            * captured here stays safely dereferenceable for the rest of this
+            * call even after being removed from the list (true as long as
+            * listeners don't delete the Collider object itself during Update).
+            *
+            * Re-validating membership just before firing (below) additionally
+            * guards against firing a stale/duplicate event for a collider an
+            * earlier listener call already removed from this same rule this
+            * Update() - that pointer is still safe to dereference (per the
+            * assumption above), it's just no longer logically part of this
+            * check, so callers don't each need their own re-entry guard for
+            * "did I already handle this despawned entity this frame".
             */
             for( auto& pPair : m_ColliderToColliderRuleList )  {
-                for( Collider *pFirst : *pPair -> first )  {
-                    for( Collider *pSecond : *pPair -> second )  {
+                std :: vector<Collider*>  firstSnapshot( pPair -> first -> begin(), pPair -> first -> end() );
+                std :: vector<Collider*>  secondSnapshot( pPair -> second -> begin(), pPair -> second -> end() );
+
+                for( Collider *pFirst : firstSnapshot )  {
+                    for( Collider *pSecond : secondSnapshot )  {
                         // Collider-to-Collider overload (not the
                         // stDimension2D one) so both sides' own SetInset
                         // shrink apply - passing pSecond->GetDimension2D()
@@ -251,7 +297,9 @@ namespace SunLight {
                         // inset entirely, since only pFirst's side was
                         // ever ran through GetEffectiveRect (see Hit(
                         // Collider&)'s own doc comment in collider.cpp).
-                        if( pFirst -> Hit( *pSecond ) )  {
+                        if( pFirst -> Hit( *pSecond ) &&
+                            IsColliderRegistered( pPair -> first, pFirst ) &&
+                            IsColliderRegistered( pPair -> second, pSecond ) )  {
                             FireOnCollision( pFirst, pSecond );
                         }
                     }
@@ -261,9 +309,13 @@ namespace SunLight {
             /*
             * Check collisions between colliders against static
             * layer objects defined as collision on layer map.
+            * Same snapshot and re-validation rationale as above applies to
+            * pPair->first here.
             */
             for( auto& pPair : m_ColliderToTileLayerRuleList )  {
-                for( Collider *pFirst : *pPair -> first )  {
+                std :: vector<Collider*>  firstSnapshot( pPair -> first -> begin(), pPair -> first -> end() );
+
+                for( Collider *pFirst : firstSnapshot )  {
                     SunLight :: TileMap :: stTile      tile;
                     SunLight :: TileMap :: stLayer     layer;
 
@@ -273,7 +325,8 @@ namespace SunLight {
 
                         if( m_pParent -> TileMapToTileMatrix( spritePos.pos, tilePos ) ) {
                             if( m_pParent -> GetTile( tilePos, layer, tile ) &&
-                                pFirst -> Hit( tile ) )  {
+                                pFirst -> Hit( tile ) &&
+                                IsColliderRegistered( pPair -> first, pFirst ) )  {
                                 FireOnCollision(pFirst, &tile );
                             }
                         }
