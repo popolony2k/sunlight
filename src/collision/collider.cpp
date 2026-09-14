@@ -19,6 +19,7 @@
  */
 
 #include "collider.h"
+#include "colliderregistry.h"
 #include <cstring>
 
 // Disable data loss warning on windows
@@ -70,13 +71,21 @@ namespace SunLight {
             m_fInsetTop    = 0.0f;
             m_fInsetRight  = 0.0f;
             m_fInsetBottom = 0.0f;
+
+            m_Handle = ColliderRegistry :: Instance().Register( this );
         }
 
         /**
          * Destructor. Finalize all class data.
+         * Retiring the handle here - as the last thing to happen while
+         * this object is still valid memory - is what lets
+         * ColliderRegistry::Resolve() safely report "no longer alive" for
+         * this collider afterwards, without anyone having to dereference
+         * this (possibly about to be freed) object to find that out.
          */
         Collider :: ~Collider( void )  {
 
+            ColliderRegistry :: Instance().Retire( m_Handle );
         }
 
         /**

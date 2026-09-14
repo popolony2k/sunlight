@@ -25,6 +25,7 @@
 #include <array>
 #include <memory>
 #include "collision/icollisionmanager.h"
+#include "collision/colliderhandle.h"
 #include "tilemap/itilemap.h"
 
 #define MAX_COLLIDER_LAYERS   255
@@ -34,12 +35,17 @@ namespace SunLight {
     namespace Collision  {
 
         /**
-         * @brief CollisionManager implementation. 
-         * 
+         * @brief CollisionManager implementation.
+         *
+         * Colliders are tracked internally by ColliderHandle rather than by
+         * raw Collider* - see ColliderRegistry for why: it lets Update()
+         * tell a still-alive collider apart from one whose owning object
+         * was destroyed mid-Update() by a listener callback, without ever
+         * dereferencing a possibly-freed pointer to find out.
          */
         class CollisionManager : public SunLight :: Base :: Object, public ICollisionManager  {
 
-            typedef std :: deque<Collider*>  ColliderList;
+            typedef std :: deque<ColliderHandle>  ColliderList;
             typedef std :: array<std :: unique_ptr<ColliderList>, MAX_COLLIDER_LAYERS> ColliderLayerList;
             typedef std :: deque<ICollisionListener*> CollisionListenerList;
             typedef std :: pair<ColliderList*, ColliderList*> ColliderPair;
@@ -59,7 +65,7 @@ namespace SunLight {
             void FireOnCollision( SunLight :: Collision :: Collider *pFirst,
                                   SunLight :: TileMap :: stTile* pSecond );
             bool IsColliderRegistered( ColliderList *pColliderList,
-                                       SunLight :: Collision :: Collider *pCollider );
+                                       const ColliderHandle& handle );
 
             public:
 

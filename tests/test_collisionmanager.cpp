@@ -84,6 +84,38 @@ namespace  {
         void OnCollision( Collider *pFirst, stTile *pSecond )  {
         }
     };
+
+    /**
+     * @brief Reacts to its first collider-to-collider hit by outright
+     * `delete`-ing pSecond - no RemoveCollider() call at all, simulating a
+     * host application that frees a despawned entity directly rather than
+     * unregistering-then-freeing (or pooling it). Exercises
+     * ColliderRegistry: the deleted Collider's handle stays registered in
+     * the manager's layer list (nothing ever called RemoveCollider), so a
+     * later Update() must resolve it to nullptr and skip it instead of
+     * touching freed memory.
+     */
+    class DeletingCollisionListener : public ICollisionListener  {
+
+        bool  m_bHasFired = false;
+
+        public:
+
+        std :: vector<std :: pair<Collider*, Collider*>>  colliderHits;
+
+        void OnCollision( Collider *pFirst, Collider *pSecond )  {
+
+            colliderHits.push_back( { pFirst, pSecond } );
+
+            if( !m_bHasFired )  {
+                m_bHasFired = true;
+                delete pSecond;
+            }
+        }
+
+        void OnCollision( Collider *pFirst, stTile *pSecond )  {
+        }
+    };
 }
 
 TEST_SUITE( "collision/CollisionManager" )  {
@@ -272,6 +304,59 @@ TEST_SUITE( "collision/CollisionManager" )  {
         REQUIRE( listener.colliderHits.size() == 2 );
         CHECK( listener.colliderHits[0].second == &colliderB );
         CHECK( listener.colliderHits[1].second == &colliderD );  // C skipped, D still reached
+    }
+
+    TEST_CASE( "Update skips a collider a listener deleted outright, across later Update() calls" )  {
+
+        // Regression coverage for ColliderRegistry - a defense-in-depth
+        // follow-up to the same-frame-removal fix above. That fix assumes
+        // a listener only ever unregisters a collider (RemoveCollider,
+        // which doesn't destroy the object), never destroys it directly.
+        // Nothing enforced that assumption; a listener that instead does a
+        // raw `delete` on what it just hit - no RemoveCollider() call at
+        // all, simulating a host application freeing a despawned entity
+        // outright rather than pooling/unregistering-then-freeing it -
+        // would leave the manager's layer list holding a dangling pointer,
+        // read on a later Update() pass. Verified against a real,
+        // deterministic ASan-caught heap-use-after-free pre-#3 (and a
+        // clean run post-#3) by the Caravellius session, using this exact
+        // scenario shape; see the PR description for that report.
+        //
+        // Like the test above, the *portable* assertion this makes doesn't
+        // need a sanitizer: colliderB is heap-allocated and never freed by
+        // this test itself (only by the listener's own `delete`), so if
+        // Update() ever dereferences its handle after that delete, that's
+        // a real heap-use-after-free independent of whether it happens to
+        // crash in this particular run - ColliderRegistry::Resolve() is
+        // what has to turn that into a clean, deterministic skip instead.
+        MockTileMap             tileMap;
+        CollisionManager        manager( &tileMap );
+        DeletingCollisionListener  listener;
+        Collider                colliderA;
+        Collider                *pColliderB = new Collider();
+        stDimension2D            dim { { 0, 0 }, { 50, 50 } };  // overlapping
+
+        colliderA.SetDimension2D( dim );
+        pColliderB -> SetDimension2D( dim );
+
+        manager.AddCollider( 0, &colliderA );
+        manager.AddCollider( 1, pColliderB );
+        manager.AddColliderToColliderRule( 0, 1 );
+        manager.AddCollisionListener( &listener );
+
+        manager.Update();  // A vs B collide; listener deletes B, no RemoveCollider() call
+
+        REQUIRE( listener.colliderHits.size() == 1 );
+        CHECK( listener.colliderHits[0].second == pColliderB );
+
+        // B's handle is still registered in layer 1's list (nothing ever
+        // called RemoveCollider) but the object behind it no longer
+        // exists. These calls must not crash, and must not fire any
+        // further event for B.
+        manager.Update();
+        manager.Update();
+
+        CHECK( listener.colliderHits.size() == 1 );
     }
 
     TEST_CASE( "AddColliderToTileRule requires the tile layer to exist on the parent map" )  {
