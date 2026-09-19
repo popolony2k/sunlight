@@ -81,6 +81,8 @@ namespace SunLight  {
                 void SetFullscreen( bool bFullscreen, FullscreenStrategy strategy = FULLSCREEN_STRATEGY_REAL ) override;
                 bool GetFullscreen( void ) override;
 
+                double GetElapsedTime( void ) override;
+
                 void SetWindowResizeable( bool bResizeable ) override;
 
                 void SetTargetFPS( int nTargetFps ) override;

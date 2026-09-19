@@ -20,6 +20,10 @@ here — see the git log for that period.
   leaking into `TextureCanvas`/`TileMapRenderer` headers.
 - `IEngine::GetApplicationDirectory()` for resolving resource paths relative
   to the running executable instead of a hardcoded, machine-specific path.
+- `IEngine::GetElapsedTime()` (raylib `GetTime()`) and its
+  `IDrawSurface`/`TileMapRenderer` pass-through: high-resolution, monotonic
+  wall-clock seconds, independent of the fixed per-tick `dt` — for timing
+  logic that must not stretch when the game loop can't sustain its target FPS.
 - `TileMapRenderer::SetWindowTitle()` for changing the window title after
   construction.
 - Right-stick analog handling for `GAMEPAD_BUTTON_RIGHT_FACE_*` events,

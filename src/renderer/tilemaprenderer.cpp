@@ -1366,6 +1366,16 @@ namespace SunLight {
         }
 
         /**
+         * Query real, wall-clock elapsed time in seconds (see
+         * @see IDrawSurface::GetElapsedTime). Forwarded straight to
+         * IEngine, same as GetFullscreen above.
+         */
+        double TileMapRenderer :: GetElapsedTime( void )  {
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().GetElapsedTime();
+        }
+
+        /**
          * Set the view port control mode;
          * Viewport control mode (active and reactive)
          * Active, the view port reacts to a single key pressing continuously;
