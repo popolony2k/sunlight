@@ -255,6 +255,21 @@ namespace SunLight  {
             virtual bool GetFullscreen( void ) = 0;
 
             /**
+             * @brief Must be implemented to report real, wall-clock
+             * elapsed time in seconds since the target engine's own timer
+             * started (for raylib, its GetTime() - counted from window
+             * initialisation). High-resolution, monotonic, and independent
+             * of the fixed per-tick dt the game loop otherwise runs on, so
+             * it keeps advancing at real-world speed even when the loop
+             * can't sustain its target FPS. Only meaningful once the
+             * window exists - callers are responsible for not relying on
+             * it before then.
+             *
+             * @return Elapsed real time, in seconds;
+             */
+            virtual double GetElapsedTime( void ) = 0;
+
+            /**
              * @brief Must be implemented to allow or disallow the user
              * resizing the window by dragging it's edges/corners, on an
              * already-created window. Only meaningful to call once the

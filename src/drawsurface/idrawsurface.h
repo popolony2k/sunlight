@@ -108,6 +108,18 @@ namespace SunLight {
             virtual bool GetFullscreen( void ) = 0;
 
             /**
+             * @brief Query real, wall-clock elapsed time in seconds since
+             * the engine's own timer started (window initialisation).
+             * High-resolution and monotonic, and - unlike the fixed
+             * per-tick dt handed to the game loop's update callbacks -
+             * independent of the actual frame rate, so time-based logic
+             * (typewriter reveals, cue timelines) anchored to it stays
+             * correct on machines that can't sustain the target FPS. Only
+             * meaningful once the window exists.
+             */
+            virtual double GetElapsedTime( void ) = 0;
+
+            /**
              * @brief Show or hide the on-screen FPS counter, drawn at the
              * top-left corner of the window every frame.
              *

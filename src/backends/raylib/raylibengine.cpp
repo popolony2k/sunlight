@@ -621,6 +621,17 @@ namespace SunLight  {
             }
 
             /**
+             * @brief Report real, wall-clock elapsed time in seconds (see
+             * @see IEngine::GetElapsedTime). ::GetTime is raylib's own
+             * high-resolution monotonic timer, counted from window
+             * initialisation.
+             */
+            double RaylibEngine :: GetElapsedTime( void )  {
+
+                return ::GetTime();
+            }
+
+            /**
              * @brief Allow or disallow live window resizing on an
              * already-created window (see @see IEngine::SetWindowResizeable).
              * SetWindowState/ClearWindowState (unlike SetConfigFlags, which

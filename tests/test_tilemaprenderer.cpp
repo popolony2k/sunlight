@@ -236,6 +236,23 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( fixture.engine.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
     }
 
+    TEST_CASE( "GetElapsedTime forwards straight through to IEngine, unchanged" )  {
+
+        MockEngineFixture  fixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+
+        CHECK( renderer.GetElapsedTime() == doctest :: Approx( 0.0 ) );
+
+        fixture.engine.dElapsedTimeResult = 1.2345;
+        CHECK( renderer.GetElapsedTime() == doctest :: Approx( 1.2345 ) );
+
+        // Sub-second resolution is the whole point of this primitive
+        // (os.time()-style whole seconds are too coarse for per-character
+        // pacing), so make sure a small step isn't truncated on the way.
+        fixture.engine.AdvanceElapsedTime( 0.016 );
+        CHECK( renderer.GetElapsedTime() == doctest :: Approx( 1.2505 ) );
+    }
+
     TEST_CASE( "DrawText forwards straight through to IEngine" )  {
 
         MockEngineFixture  fixture;

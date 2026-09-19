@@ -73,6 +73,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nLastFilledRectangleHeight = 0;
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
     bool                                bFullscreen                = false;
+    double                              dElapsedTimeResult         = 0.0;
     SunLight :: Engines :: IEngine :: FullscreenStrategy lastFullscreenStrategy =
         SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL;
     bool                                bWindowResizeable          = false;
@@ -147,6 +148,16 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
 
     bool GetFullscreen( void )  {
         return bFullscreen;
+    }
+
+    // Settable (set dElapsedTimeResult directly, or AdvanceElapsedTime) so
+    // elapsed-time-dependent logic can be exercised deterministically.
+    double GetElapsedTime( void )  {
+        return dElapsedTimeResult;
+    }
+
+    void AdvanceElapsedTime( double dSeconds )  {
+        dElapsedTimeResult += dSeconds;
     }
 
     void SetWindowResizeable( bool bValue )  {
