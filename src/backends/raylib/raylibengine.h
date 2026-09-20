@@ -37,6 +37,7 @@ namespace SunLight  {
                 public:
 
                 RaylibEngine( void );
+                ~RaylibEngine( void );
 
                 SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName,
                                                                 int& nWidth,
@@ -74,8 +75,6 @@ namespace SunLight  {
 
                 int MeasureText( const char *szText, int nFontSize ) override;
 
-                void OnWindowClosing( void ) override;
-
                 std :: string GetApplicationDirectory( void ) override;
 
                 void ClearBackground( SunLight :: Base :: stColor color ) override;
@@ -93,6 +92,17 @@ namespace SunLight  {
                                         SunLight :: Base :: stColor tint ) override;
 
                 private:
+
+                // Releases this class's own GPU-context-tied state - just
+                // the custom font tracking, at the moment. Registered as a
+                // close handler on the backend's window (see the
+                // constructor), so it runs right before the window/context
+                // is destroyed.
+                void ReleaseWindowState( void );
+
+                // Id of this engine's close handler on the default
+                // backend window (see IWindow::AddCloseHandler).
+                int   m_nCloseHandlerId   = 0;
 
                 // Shared by DrawText/MeasureText - the font either of them
                 // should use right now (see m_CurrentFont's own comment).

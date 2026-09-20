@@ -52,7 +52,6 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nDrawTextCalls             = 0;
     int                                 nMeasureTextCalls          = 0;
     int                                 nMeasureTextResult         = 0;
-    int                                 nOnWindowClosingCalls      = 0;
     int                                 nLoadRenderTargetCalls     = 0;
     int                                 nUnloadRenderTargetCalls   = 0;
     int                                 nBeginRenderTargetCalls    = 0;
@@ -144,10 +143,6 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int MeasureText( const char*, int )  {
         nMeasureTextCalls++;
         return nMeasureTextResult;
-    }
-
-    void OnWindowClosing( void )  {
-        nOnWindowClosingCalls++;
     }
 
     void ClearBackground( SunLight :: Base :: stColor color )  {

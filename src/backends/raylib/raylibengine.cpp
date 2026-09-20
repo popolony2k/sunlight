@@ -20,6 +20,7 @@
 
 #include "backends/raylib/raylibengine.h"
 #include "filesystem/filesystemfactory.h"
+#include "window/windowfactory.h"
 
 #include <cstring>
 #include <vector>
@@ -164,6 +165,23 @@ namespace SunLight  {
 
                 ::SetLoadFileDataCallback( FileSystemLoadFileDataCallback );
                 ::SetLoadFileTextCallback( FileSystemLoadFileTextCallback );
+
+                // Subscribe to this backend's OWN window (GetDefaultWindow,
+                // not the test-overridable GetWindow - see its doc comment)
+                // so the custom font is released right before the window's
+                // GL context is destroyed. Constructing the engine is what
+                // first constructs that window when nothing else has yet, so
+                // the window is always destroyed after this engine at exit.
+                m_nCloseHandlerId = SunLight :: Window :: WindowFactory :: GetDefaultWindow().AddCloseHandler(
+                                        [this]( void ) { ReleaseWindowState(); } );
+            }
+
+            /**
+             * @brief Unsubscribe from the window's close event.
+             */
+            RaylibEngine :: ~RaylibEngine( void )  {
+
+                SunLight :: Window :: WindowFactory :: GetDefaultWindow().RemoveCloseHandler( m_nCloseHandlerId );
             }
 
             /**
@@ -456,9 +474,9 @@ namespace SunLight  {
 
             /**
              * @brief Release this class's own GPU-context-tied state
-             * before the window/context goes away (see @see
-             * IEngine::OnWindowClosing) - just the custom font tracking,
-             * at the moment. Deliberately does NOT call ::UnloadFont here
+             * before the window/context goes away (fired by the window's
+             * close handlers, see the constructor) - just the custom font
+             * tracking, at the moment. Deliberately does NOT call ::UnloadFont here
              * first - not because the context is already gone (it isn't:
              * this runs before CloseWindow() is even called, so the GL
              * context is still fully valid at this point, an explicit
@@ -472,7 +490,7 @@ namespace SunLight  {
              * ever called again) doesn't inherit a stale handle pointing
              * at a texture that no longer exists.
              */
-            void RaylibEngine :: OnWindowClosing( void )  {
+            void RaylibEngine :: ReleaseWindowState( void )  {
 
                 m_CurrentFont       = Font {};
                 m_bCustomFontLoaded = false;

@@ -48,6 +48,15 @@ namespace SunLight {
             if( s_pOverrideWindow )
                 return *s_pOverrideWindow;
 
+            return GetDefaultWindow();
+        }
+
+        /**
+         * @brief Get the build-time backend's window, ignoring @see
+         * SetWindow().
+         */
+        IWindow& WindowFactory :: GetDefaultWindow( void )  {
+
             static __DEFAULT_WINDOW window;
 
             return window;

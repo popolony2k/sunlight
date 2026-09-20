@@ -97,8 +97,8 @@ namespace SunLight {
              * entering fullscreen (ignored when bFullscreen is false);
              */
             virtual void SetFullscreen( bool bFullscreen,
-                                       SunLight :: Engines :: IEngine :: FullscreenStrategy strategy =
-                                           SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL ) = 0;
+                                       SunLight :: Window :: FullscreenStrategy strategy =
+                                           SunLight :: Window :: FULLSCREEN_STRATEGY_REAL ) = 0;
 
             /**
              * @brief Query whether the window is currently fullscreen,

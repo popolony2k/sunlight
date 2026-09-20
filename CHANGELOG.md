@@ -19,11 +19,19 @@ here — see the git log for that period.
   `IEngine` onto a new `IWindow` (`src/window/`, with `WindowFactory` and
   `backends/raylib/RaylibWindow`): `SetFullscreen`/`GetFullscreen`,
   `SetWindowResizeable`, `SetTargetFPS`, `SetWindowTitle`,
-  `GetScreenWidth`/`GetScreenHeight` and `GetElapsedTime`. `IEngine::OnWindowClosing`
-  stays on `IEngine` (it is the engine's own teardown hook, not a window
-  operation), and `IEngine::FullscreenStrategy` stays defined there so
-  `IDrawSurface`'s public signatures - and every consumer using them - are
-  source-compatible. `IEngine` gained `ClearBackground` and `DrawFPS`.
+  `GetScreenWidth`/`GetScreenHeight` and `GetElapsedTime`. `IEngine` gained
+  `ClearBackground` and `DrawFPS`.
+- **Breaking (backend implementers only):** `IEngine::OnWindowClosing` is gone.
+  "The window is about to close" is now a window event:
+  `IWindow::AddCloseHandler`/`RemoveCloseHandler`, fired by `IWindow::Close`
+  right before the render context is destroyed (shared list semantics in
+  `CloseHandlerList`). `RaylibEngine` subscribes to release its custom font;
+  `TileMapRenderer::Stop` just closes the window. `WindowFactory::GetDefaultWindow`
+  (ignores the test override) is what an engine subscribes through.
+- `FullscreenStrategy` and its `FULLSCREEN_STRATEGY_*` values moved to
+  `SunLight::Window`. `IEngine::FullscreenStrategy`/`IEngine::FULLSCREEN_STRATEGY_*`
+  remain as same-type aliases (deprecated, to be removed once consumers have
+  migrated), so existing code compiles unchanged.
 - `TileMapRenderer`'s `Start()`/`Run()`/`Stop()` no longer call raylib directly
   (window create/close, exit key, should-close, begin/end frame all go through
   `IWindow`), and `tilemaprenderer.cpp` no longer includes `<raylib.h>`.

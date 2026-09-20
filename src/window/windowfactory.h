@@ -44,6 +44,17 @@ namespace SunLight {
             static IWindow& GetWindow( void );
 
             /**
+             * @brief Get the build-time backend's own window, IGNORING any
+             * @see SetWindow override. For a backend's engine to subscribe
+             * to ITS OWN window's events (see IWindow::AddCloseHandler):
+             * registering through the overridable GetWindow() instead
+             * would attach an engine created while a test's mock window is
+             * installed to that (soon destroyed) mock. Production code
+             * outside a backend's own engine should use GetWindow().
+             */
+            static IWindow& GetDefaultWindow( void );
+
+            /**
              * @brief Override the window returned by @see GetWindow() - for
              * tests only, to substitute a mock @see IWindow without a real
              * display. Pass nullptr to restore the default, build-time

@@ -43,11 +43,33 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Destroy the window (and its GL context).
+             * @brief Destroy the window (and its GL context). Fires the
+             * registered close handlers first, while the context is still
+             * fully valid (CloseWindow() itself is what tears it down), so
+             * a handler can safely release context-tied state.
              */
             void RaylibWindow :: Close( void )  {
 
+                m_CloseHandlers.Fire();
+
                 ::CloseWindow();
+            }
+
+            /**
+             * @brief Register a handler fired by Close() (see
+             * IWindow::AddCloseHandler).
+             */
+            int RaylibWindow :: AddCloseHandler( const std :: function<void( void )> &handler )  {
+
+                return m_CloseHandlers.Add( handler );
+            }
+
+            /**
+             * @brief Unregister a handler (see IWindow::RemoveCloseHandler).
+             */
+            void RaylibWindow :: RemoveCloseHandler( int nId )  {
+
+                m_CloseHandlers.Remove( nId );
             }
 
             /**
@@ -125,9 +147,9 @@ namespace SunLight  {
              * @param strategy Which fullscreen strategy to use when
              * entering fullscreen (ignored when bFullscreen is false);
              */
-            void RaylibWindow :: SetFullscreen( bool bFullscreen, SunLight :: Engines :: IEngine :: FullscreenStrategy strategy )  {
+            void RaylibWindow :: SetFullscreen( bool bFullscreen, SunLight :: Window :: FullscreenStrategy strategy )  {
 
-                if( strategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED )  {
+                if( strategy == SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED )  {
                     if( bFullscreen != ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE ) )
                         ::ToggleBorderlessWindowed();
                 }

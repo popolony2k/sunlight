@@ -1351,7 +1351,7 @@ namespace SunLight {
          * @param strategy Which fullscreen strategy to use when entering
          * fullscreen (ignored when bFullscreen is false);
          */
-        void TileMapRenderer :: SetFullscreen( bool bFullscreen, SunLight :: Engines :: IEngine :: FullscreenStrategy strategy )  {
+        void TileMapRenderer :: SetFullscreen( bool bFullscreen, SunLight :: Window :: FullscreenStrategy strategy )  {
 
             SunLight :: Window :: WindowFactory :: GetWindow().SetFullscreen( bFullscreen, strategy );
         }
@@ -2231,14 +2231,12 @@ namespace SunLight {
                     m_pRenderTexture = nullptr;
                 }
 
-                // Give the backend a chance to release any GPU-context-tied
-                // state it privately keeps (e.g. a custom font loaded via
-                // SetFont) before the window (and with it the context that
-                // state belongs to) is closed - see
-                // IEngine::OnWindowClosing's own comment for why this
-                // can't just be inferred/skipped.
-                SunLight :: Engines :: EngineFactory :: GetEngine().OnWindowClosing();
-
+                // Closing the window fires its close handlers first (see
+                // IWindow::AddCloseHandler), which is where a backend engine
+                // releases any GPU-context-tied state it privately keeps
+                // (e.g. a custom font loaded via SetFont) while that
+                // context is still valid - nothing to call on the engine
+                // from here.
                 SunLight :: Window :: WindowFactory :: GetWindow().Close();
                 m_bIsStarted = false;
             }

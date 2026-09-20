@@ -130,7 +130,6 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         renderer.Stop();
 
-        CHECK( engineFixture.engine.nOnWindowClosingCalls == 0 );
         CHECK( windowFixture.window.nCloseCalls == 0 );
     }
 
@@ -358,27 +357,35 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
         renderer.Stop();
     }
 
-    TEST_CASE( "Stop notifies listeners, releases the render target, lets the engine clean up, then closes the window - in that order" )  {
+    TEST_CASE( "Stop notifies listeners, releases the render target, then closes the window, firing its close handlers before it closes" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
         TileMapRenderer    renderer( 800, 600, "test", -1, false );
         CountingListener   listener;
+        int                nHandlerCalls              = 0;
+        int                nCloseCallsSeenByHandler   = -1;
 
         renderer.AddTileMapListener( &listener );
-        windowFixture.window.pEngineOnWindowClosingCalls = &engineFixture.engine.nOnWindowClosingCalls;
+
+        // What a backend engine does to release context-tied state (see
+        // IWindow::AddCloseHandler).
+        windowFixture.window.AddCloseHandler( [&]( void )  {
+            nHandlerCalls++;
+            nCloseCallsSeenByHandler = windowFixture.window.nCloseCalls;
+        } );
 
         REQUIRE( renderer.Start() == true );
         renderer.Stop();
 
         CHECK( listener.nStops == 1 );
         CHECK( engineFixture.engine.nUnloadRenderTargetCalls == 1 );
-        CHECK( engineFixture.engine.nOnWindowClosingCalls == 1 );
         CHECK( windowFixture.window.nCloseCalls == 1 );
 
-        // The engine's own pre-close hook had already run by the time the
-        // window actually closed (see IEngine::OnWindowClosing).
-        CHECK( windowFixture.window.nEngineOnWindowClosingSeenAtClose == 1 );
+        // The handler ran exactly once, and before the window counted
+        // itself closed.
+        CHECK( nHandlerCalls == 1 );
+        CHECK( nCloseCallsSeenByHandler == 0 );
     }
 
     TEST_CASE( "Stop is idempotent for the window - a second Stop never closes it twice" )  {
@@ -392,7 +399,6 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
         renderer.Stop();
 
         CHECK( windowFixture.window.nCloseCalls == 1 );
-        CHECK( engineFixture.engine.nOnWindowClosingCalls == 1 );
     }
 
     TEST_CASE( "A stopped renderer can be started again, creating a fresh window and render target" )  {
