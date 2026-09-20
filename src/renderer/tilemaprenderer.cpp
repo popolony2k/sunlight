@@ -32,18 +32,12 @@
 #include <vector>
 
 /*
- * Engine defaults.
+ * Engine defaults (the per-renderer ones - window size, resizeable,
+ * exit key, scroll steps, ... - live in RendererConfig).
  */
 #define __DEFAULT_FPS                   30
-#define __DEFAULT_SCROLL_STEP_WIDTH     -1
-#define __DEFAULT_SCROLL_STEP_HEIGHT    -1
 #define __DEFAULT_VISIBLE_STATUS        true
 #define __DEFAULT_CLEAR_BACKGROUND      true
-#define __DEFAULT_RESIZEABLE_STATUS     false
-#define __DEFAULT_DRAW_FPS_STATUS       false
-#define __DEFAULT_STRETCH_TO_FILL_STATUS false
-#define __DEFAULT_VIEW_CONTROL_MODE     VIEW_CONTROL_MODE_ACTIVE
-#define __DEFAULT_EXIT_KEY              SunLight :: Input :: KEY_ESCAPE
 #define __DEFAULT_WINDOW_BK_COLOR       0xFF000000
 
 
@@ -1075,6 +1069,9 @@ namespace SunLight {
 
         /**
          * Constructor. Initialize all class data.
+         * Kept for source compatibility: builds the equivalent
+         * RendererConfig and delegates to the RendererConfig constructor,
+         * so both paths produce identical renderers.
          * @param fWidth Screen renderer width;
          * @param fHeight Screen renderer height;
          * @param szTitle Screen renderer title;
@@ -1088,29 +1085,52 @@ namespace SunLight {
                                             const char *szTitle,
                                             int nTargetFps,
                                             bool bUseDefaultKeyHandler) :
+                                            TileMapRenderer( [&]( void ) {
+                                                SunLight :: Renderer :: RendererConfig  config;
+
+                                                config.fWidth                = fWidth;
+                                                config.fHeight               = fHeight;
+                                                config.strTitle              = szTitle;
+                                                config.nTargetFps            = nTargetFps;
+                                                config.bUseDefaultKeyHandler = bUseDefaultKeyHandler;
+
+                                                return config;
+                                            }() )  {
+        }
+
+        /**
+         * Constructor. Initialize all class data from a RendererConfig.
+         * Assumes a config that passed RendererConfig::Validate() - use
+         * @see Create for the checked path. The backend field is not
+         * consulted here: the backend in use is whatever the build-time
+         * factories hand out (see RendererConfig::IsBackendAvailable for
+         * what can be selected).
+         * @param config The renderer configuration;
+         */
+        TileMapRenderer :: TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config ) :
                                             m_CollisionManager( this )  {
 
-            GetDimension2D().size.nWidth  = ( int ) fWidth;
-            GetDimension2D().size.nHeight = ( int ) fHeight;
+            GetDimension2D().size.nWidth  = ( int ) config.fWidth;
+            GetDimension2D().size.nHeight = ( int ) config.fHeight;
             m_nMapWidth                   = 0;
             m_nMapHeight                  = 0;
-            m_fWindowWidth                = fWidth;
-            m_fWindowHeight               = fHeight;
-            m_nTargetFps                  = nTargetFps;
-            m_strTitle                    = szTitle;
+            m_fWindowWidth                = config.fWidth;
+            m_fWindowHeight               = config.fHeight;
+            m_nTargetFps                  = config.nTargetFps;
+            m_strTitle                    = config.strTitle;
             m_fScreenFadeAlpha            = 0.0f;
             m_pTmxMap                     = NULL;
             m_pRenderTexture              = nullptr;
             m_bIsStarted                  = false;
             m_bExitRequested              = false;
-            m_ExitKey                     = __DEFAULT_EXIT_KEY;
-            m_bWindowResizeable           = __DEFAULT_RESIZEABLE_STATUS;
+            m_ExitKey                     = config.exitKey;
+            m_bWindowResizeable           = config.bResizeable;
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
-            m_bDrawFPS                    = __DEFAULT_DRAW_FPS_STATUS;
-            m_bStretchToFill              = __DEFAULT_STRETCH_TO_FILL_STATUS;
-            m_nScrollStepWidth            = __DEFAULT_SCROLL_STEP_WIDTH;
-            m_nScrollStepHeight           = __DEFAULT_SCROLL_STEP_HEIGHT;
-            m_ViewControlMode             = __DEFAULT_VIEW_CONTROL_MODE;
+            m_bDrawFPS                    = config.bDrawFPS;
+            m_bStretchToFill              = config.bStretchToFill;
+            m_nScrollStepWidth            = config.nScrollStepWidth;
+            m_nScrollStepHeight           = config.nScrollStepHeight;
+            m_ViewControlMode             = config.viewControlMode;
             m_nWindowBackgroundColor      = __DEFAULT_WINDOW_BK_COLOR;
             m_pInputHandler               = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
             m_pNullInputEventHandler      = nullptr;
@@ -1124,7 +1144,15 @@ namespace SunLight {
             ResetZoom();
             SetVisible( __DEFAULT_VISIBLE_STATUS );
 
-            if( bUseDefaultKeyHandler )  {
+            // Same order the classic setup used: zoom position first,
+            // then the viewport rectangle.
+            if( config.nZoomPos )
+                GetViewport().SetZoom( *config.nZoomPos );
+
+            if( config.viewport )
+                GetViewport().SetDimension2D( *config.viewport );
+
+            if( config.bUseDefaultKeyHandler )  {
                 InitalizeDefaultUserInputHandlers();
             }
          
@@ -1137,6 +1165,22 @@ namespace SunLight {
                 tmx_img_free_func = TextureFreeCallback;
                 m_bInitialized    = true;
             }
+        }
+
+        /**
+         * Checked creation: validate the config, then build the renderer.
+         * @param config The renderer configuration;
+         * @param pError Receives the reason on failure (may be null);
+         * @return The new renderer, or nullptr if the config is invalid
+         * (e.g. a backend that isn't compiled into this build);
+         */
+        std :: unique_ptr<TileMapRenderer> TileMapRenderer :: Create( const SunLight :: Renderer :: RendererConfig &config,
+                                                                      std :: string *pError )  {
+
+            if( !config.Validate( pError ) )
+                return nullptr;
+
+            return std :: make_unique<TileMapRenderer>( config );
         }
 
         /**
@@ -2172,7 +2216,11 @@ namespace SunLight {
                 return false;
             }
 
-            SetExitKey( __DEFAULT_EXIT_KEY );
+            // Apply the configured exit key (ESC unless the caller chose
+            // another - via RendererConfig or SetExitKey, before or after
+            // an earlier Start()), so a choice made before Start() sticks
+            // instead of being overwritten with the default.
+            SetExitKey( m_ExitKey );
 
             // Reset any exit request left over from a previous Start()/
             // Run()/Stop() cycle - a stopped-then-restarted renderer

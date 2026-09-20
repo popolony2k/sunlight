@@ -32,12 +32,27 @@ here — see the git log for that period.
   `SunLight::Window`. `IEngine::FullscreenStrategy`/`IEngine::FULLSCREEN_STRATEGY_*`
   remain as same-type aliases (deprecated, to be removed once consumers have
   migrated), so existing code compiles unchanged.
+- `Start()` now applies the renderer's configured exit key (`RendererConfig::exitKey`
+  / the last `SetExitKey`) instead of always resetting it to ESC, so a key chosen
+  before `Start()` - or before a restart - sticks. Behaviour change only for code
+  that called `SetExitKey` before `Start()` and relied on it being overwritten.
 - `TileMapRenderer`'s `Start()`/`Run()`/`Stop()` no longer call raylib directly
   (window create/close, exit key, should-close, begin/end frame all go through
   `IWindow`), and `tilemaprenderer.cpp` no longer includes `<raylib.h>`.
 
 ### Added
 
+- `RendererConfig` (`src/renderer/rendererconfig.h`): one value struct for
+  everything a renderer needs at creation - backend enum
+  (`RENDERER_BACKEND_DEFAULT`/`RAYLIB`/`NULL`/`LAST`), size, title, target FPS,
+  resizeable, draw-FPS, stretch-to-fill, default key handler, exit key, view
+  control mode, scroll steps, optional viewport and zoom - with `Validate()`,
+  `IsBackendAvailable()` and `BackendName()`. `TileMapRenderer(const RendererConfig&)`
+  builds from it; the checked `TileMapRenderer::Create(config, &error)` returns
+  `nullptr` plus a message for an invalid config (e.g. a backend not compiled
+  in - `RENDERER_BACKEND_NULL` is part of the contract but not implemented yet).
+  The classic `TileMapRenderer(width, height, title, fps, useDefaultKeyHandler)`
+  constructor is kept and delegates to it. `ViewControlMode` now lives in that header.
 - `tests/mock_window.h` (`MockWindow`/`MockWindowFixture`) and
   `tests/test_tilemaprenderer_lifecycle.cpp`: `Start()`/`Run()`/`Stop()` are now
   unit-tested end to end - window creation arguments, exit key/target FPS

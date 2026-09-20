@@ -30,6 +30,7 @@
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "drawsurface/idrawsurface.h"
+#include "renderer/rendererconfig.h"
 #include "input/iinputhandler.h"
 #include "base/color.h"
 #include "base/primitives.h"
@@ -42,16 +43,6 @@ namespace SunLight {
          * Primitive structures definition.
          */
         typedef SunLight :: Base :: stVector2D    stVector;
-
-        /**
-         * View port control mode (active and reactive)
-         * Active, the view port reacts to a single key pressing continuously;
-         * Reactive, the view port reacts only for each key pressing;
-         */
-        enum ViewControlMode  {
-            VIEW_CONTROL_MODE_ACTIVE,
-            VIEW_CONTROL_MODE_REACTIVE
-        };
 
         /**
          * @brief World renderer implementation to render TMX based maps.
@@ -226,7 +217,15 @@ namespace SunLight {
                              const char* szTitle,
                              int nTargetFps = -1,
                              bool bUseDefaultKeyHandler = true );
+            explicit TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config );
             virtual ~TileMapRenderer( void );
+
+            // Checked creation: validates the config (see
+            // RendererConfig::Validate) and returns nullptr, with a message
+            // in *pError, instead of building a renderer from a config that
+            // can't work (e.g. a backend not compiled into this build).
+            static std :: unique_ptr<TileMapRenderer> Create( const SunLight :: Renderer :: RendererConfig &config,
+                                                              std :: string *pError = nullptr );
 
             // World user listener interaction
             void AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener );
