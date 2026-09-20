@@ -224,6 +224,18 @@ target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::Lib
 
 target_include_directories(sunlight INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> $<INSTALL_INTERFACE:include>)
 
+#
+# sunlight's PUBLIC headers require C++17 (RendererConfig uses std::optional,
+# IEngine's deprecated FullscreenStrategy constants are inline static
+# constexpr members), so say so on the target: every target that links
+# sunlight - the samples, the tests, a downstream game - then compiles with
+# at least C++17 automatically. The CMAKE_CXX_STANDARD set above only applies
+# to targets created in THIS directory scope (confirmed live: the samples
+# target sits in a sibling directory and, on MSVC, whose default standard is
+# older, failed with "'optional': is not a member of 'std'" until this).
+#
+target_compile_features(sunlight PUBLIC cxx_std_17)
+
 # CMake's default INSTALL_RPATH is empty, so a plain install(TARGETS) below
 # bakes in NO rpath at all into the installed libsunlight/libtmx (raylib
 # needs no fix - nothing it depends on lives in another target's own build
