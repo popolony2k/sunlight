@@ -19,9 +19,8 @@
  */
 
 #include "texturemap.h"
-#include <chrono>
+#include "general/clock.h"
 
-using namespace std :: chrono;
 
 
 namespace SunLight {
@@ -50,11 +49,10 @@ namespace SunLight {
                                        int64_t nDelayMilli )  {
 
             std :: unique_ptr<stTextureData>  pData = std :: make_unique<stTextureData>();
-            steady_clock :: time_point        now   = steady_clock :: now();
 
             pData -> pTexture    = pTexture;
             pData -> nDelayMilli = nDelayMilli;
-            pData -> nNextTime   = duration_cast<milliseconds>( now.time_since_epoch() ).count();
+            pData -> nNextTime   = SunLight :: General :: Clock :: NowMilliseconds();
             pData -> nNextTime+=nDelayMilli;
 
             m_TextureList.push_back( std :: move( pData ) );
@@ -87,8 +85,7 @@ namespace SunLight {
             if( bCircularMode )  {
                 if( m_TextureList.size() > 0 )  {
                     if( ( * m_itTexture ) -> nDelayMilli != -1 )  {
-                        steady_clock :: time_point now = steady_clock :: now();
-                        int64_t nTimeMilli = duration_cast<milliseconds>( now.time_since_epoch() ).count();
+                        int64_t nTimeMilli = SunLight :: General :: Clock :: NowMilliseconds();
 
                         if( nTimeMilli < ( * m_itTexture ) -> nNextTime )  {
                             return false;

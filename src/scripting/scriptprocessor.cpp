@@ -19,9 +19,8 @@
  */
 
 #include "scripting/scriptprocessor.h"
-#include <chrono>
+#include "general/clock.h"
 
-using namespace std :: chrono;
 
 
 namespace SunLight {
@@ -160,7 +159,7 @@ namespace SunLight {
 
                         case  WAIT_CMD :  {
                             OneParmCommand   *pParm = ( OneParmCommand * ) m_CommandQueue[m_nCurrentCommandIndex];
-                            uint64_t         nTime  = duration_cast<milliseconds> ( steady_clock :: now().time_since_epoch() ).count();
+                            uint64_t         nTime  = ( uint64_t ) SunLight :: General :: Clock :: NowMilliseconds();
 
                             m_nWaitMilli = ( m_nWaitMilli != 0 ? m_nWaitMilli : nTime + pParm -> nParm );
 

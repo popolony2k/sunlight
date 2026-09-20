@@ -29,9 +29,10 @@ here — see the git log for that period.
   `TileMapRenderer::Stop` just closes the window. `WindowFactory::GetDefaultWindow`
   (ignores the test override) is what an engine subscribes through.
 - `FullscreenStrategy` and its `FULLSCREEN_STRATEGY_*` values moved to
-  `SunLight::Window`. `IEngine::FullscreenStrategy`/`IEngine::FULLSCREEN_STRATEGY_*`
-  remain as same-type aliases (deprecated, to be removed once consumers have
-  migrated), so existing code compiles unchanged.
+  `SunLight::Window`. The `IEngine::FullscreenStrategy`/`IEngine::FULLSCREEN_STRATEGY_*`
+  aliases kept for one release (v0.24.0) are now removed - the only known
+  consumer (Scarab) has migrated. **Breaking** for code still spelling the
+  old `IEngine::` names.
 - `Start()` now applies the renderer's configured exit key (`RendererConfig::exitKey`
   / the last `SetExitKey`) instead of always resetting it to ESC, so a key chosen
   before `Start()` - or before a restart - sticks. Behaviour change only for code
@@ -42,6 +43,14 @@ here — see the git log for that period.
 
 ### Added
 
+- `SunLight::General::Clock` (`src/general/clock.h`): a process-global, injectable
+  source of "now" in milliseconds (`Clock::NowMilliseconds()`, `Clock::SetClock(IClock*)`;
+  real monotonic clock by default). `ScriptProcessor`'s `WAIT_CMD`, `TextureMap`'s
+  sprite frame timing and `TileMapRenderer`'s tile animation now read it instead of
+  `steady_clock` directly, so a virtual clock (headless/test runs) can drive all of
+  them at once and long waits/animations need no real time. Behaviour is unchanged
+  unless a clock is installed. The real-thread `Timer` deliberately still uses real
+  time. Install a clock before creating anything that timestamps against it.
 - `RendererConfig` (`src/renderer/rendererconfig.h`): one value struct for
   everything a renderer needs at creation - backend enum
   (`RENDERER_BACKEND_DEFAULT`/`RAYLIB`/`NULL`/`LAST`), size, title, target FPS,

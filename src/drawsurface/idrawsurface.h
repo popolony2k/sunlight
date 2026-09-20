@@ -23,6 +23,7 @@
 
 #include <string>
 #include "engines/iengine.h"
+#include "window/iwindow.h"
 #include "input/iinputhandler.h"
 
 
