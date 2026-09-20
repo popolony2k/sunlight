@@ -21,12 +21,23 @@
 #ifndef __IWINDOW_H__
 #define __IWINDOW_H__
 
-#include "engines/iengine.h"
+#include <functional>
 #include "input/iinputhandler.h"
 
 
 namespace SunLight  {
     namespace Window  {
+
+        /**
+         * @brief Fullscreen strategy selectable via IWindow::SetFullscreen
+         * (and IDrawSurface::SetFullscreen). Declared here, with the
+         * window it configures; IEngine keeps same-type aliases under the
+         * old IEngine:: names for source compatibility (deprecated).
+         */
+        enum FullscreenStrategy  {
+            FULLSCREEN_STRATEGY_REAL               = 0,  // genuine OS-level fullscreen space (default)
+            FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED = 1  // ordinary window resized to the monitor's native resolution
+        };
 
         /**
          * @brief Backend window/frame-loop generic interface - everything
@@ -46,6 +57,12 @@ namespace SunLight  {
          * IEngine from another isn't a supported combination, since a
          * backend's engine typically depends on state its own window
          * created (e.g. raylib's GL context).
+         *
+         * "The window is about to close" is a window event (see @see
+         * AddCloseHandler): an engine that keeps state tied to the
+         * window's render context subscribes to it and releases that state
+         * itself, instead of the window (or the renderer) having to know
+         * about, or reach into, the engine.
          */
         class IWindow  {
 
@@ -73,11 +90,11 @@ namespace SunLight  {
 
             /**
              * @brief Must be implemented to destroy the window created by
-             * @see Create, releasing the render context with it. Callers
-             * are responsible for giving IEngine its own chance to release
-             * context-tied state first (see IEngine::OnWindowClosing) and
-             * for not using any IEngine draw/resource call afterward
-             * until a new window exists again.
+             * @see Create, releasing the render context with it. Fires the
+             * registered close handlers first (see @see AddCloseHandler),
+             * while the context is still valid. Callers must not use any
+             * IEngine draw/resource call afterward until a new window
+             * exists again.
              */
             virtual void Close( void ) = 0;
 
@@ -104,6 +121,32 @@ namespace SunLight  {
              * @param key The exit key, or KEY_NULL to disable it;
              */
             virtual void SetExitKey( SunLight :: Input :: KeyboardKey key ) = 0;
+
+            /**
+             * @brief Must be implemented to register a handler fired every
+             * time the window is about to be closed by @see Close - right
+             * BEFORE the window/render context is destroyed, so the
+             * handler can still safely release anything tied to that
+             * context (e.g. a backend engine's custom font). Handlers
+             * persist across Create()/Close() cycles and fire on each
+             * Close(), in registration order; see CloseHandlerList for
+             * the exact firing semantics every backend shares (handlers
+             * may Add/Remove during a fire and must not throw).
+             * The handler (and whatever it captures) must stay valid until
+             * it is removed with @see RemoveCloseHandler.
+             *
+             * @param handler The handler to call;
+             * @return An id to pass to RemoveCloseHandler (always > 0);
+             */
+            virtual int AddCloseHandler( const std :: function<void( void )> &handler ) = 0;
+
+            /**
+             * @brief Must be implemented to unregister a handler added by
+             * @see AddCloseHandler. Unknown/already-removed ids are ignored.
+             *
+             * @param nId The id AddCloseHandler returned;
+             */
+            virtual void RemoveCloseHandler( int nId ) = 0;
 
             /**
              * @brief Must be implemented to begin a frame: everything the
@@ -138,8 +181,7 @@ namespace SunLight  {
              * entering fullscreen (ignored when bFullscreen is false);
              */
             virtual void SetFullscreen( bool bFullscreen,
-                                        SunLight :: Engines :: IEngine :: FullscreenStrategy strategy =
-                                            SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL ) = 0;
+                                        FullscreenStrategy strategy = FULLSCREEN_STRATEGY_REAL ) = 0;
 
             /**
              * @brief Must be implemented to report whether the window is

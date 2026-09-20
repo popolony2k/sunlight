@@ -228,13 +228,13 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
         CHECK( fixture.window.nSetFullscreenCalls == 1 );
         CHECK( fixture.window.bFullscreen == true );
-        CHECK( fixture.window.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL );
+        CHECK( fixture.window.lastFullscreenStrategy == SunLight :: Window :: FULLSCREEN_STRATEGY_REAL );
 
-        renderer.SetFullscreen( false, SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
+        renderer.SetFullscreen( false, SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
 
         CHECK( fixture.window.nSetFullscreenCalls == 2 );
         CHECK( fixture.window.bFullscreen == false );
-        CHECK( fixture.window.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
+        CHECK( fixture.window.lastFullscreenStrategy == SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
     }
 
     TEST_CASE( "GetElapsedTime forwards straight through to IWindow, unchanged" )  {

@@ -23,6 +23,7 @@
 
 #include "raylib.h"
 #include "window/iwindow.h"
+#include "window/closehandlerlist.h"
 
 namespace SunLight  {
     namespace Window  {
@@ -42,12 +43,14 @@ namespace SunLight  {
                 void Close( void ) override;
                 bool ShouldClose( void ) override;
                 void SetExitKey( SunLight :: Input :: KeyboardKey key ) override;
+                int AddCloseHandler( const std :: function<void( void )> &handler ) override;
+                void RemoveCloseHandler( int nId ) override;
                 void BeginFrame( void ) override;
                 void EndFrame( void ) override;
 
                 void SetFullscreen( bool bFullscreen,
-                                    SunLight :: Engines :: IEngine :: FullscreenStrategy strategy =
-                                        SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL ) override;
+                                    SunLight :: Window :: FullscreenStrategy strategy =
+                                        SunLight :: Window :: FULLSCREEN_STRATEGY_REAL ) override;
                 bool GetFullscreen( void ) override;
 
                 double GetElapsedTime( void ) override;
@@ -58,6 +61,10 @@ namespace SunLight  {
 
                 int GetScreenWidth( void ) override;
                 int GetScreenHeight( void ) override;
+
+                private:
+
+                SunLight :: Window :: CloseHandlerList  m_CloseHandlers;
             };
         }
     }

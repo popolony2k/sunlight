@@ -97,8 +97,8 @@ namespace SunLight {
              * entering fullscreen (ignored when bFullscreen is false);
              */
             virtual void SetFullscreen( bool bFullscreen,
-                                       SunLight :: Engines :: IEngine :: FullscreenStrategy strategy =
-                                           SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL ) = 0;
+                                       SunLight :: Window :: FullscreenStrategy strategy =
+                                           SunLight :: Window :: FULLSCREEN_STRATEGY_REAL ) = 0;
 
             /**
              * @brief Query whether the window is currently fullscreen,
@@ -177,7 +177,9 @@ namespace SunLight {
              * returning true) - the same observable effect @link
              * RequestExit triggers programmatically, but driven by the
              * backend's own per-frame key check instead. KEY_ESCAPE by
-             * default (set the first time the renderer is Start()ed).
+             * default. The chosen key is applied every time the renderer
+             * is Start()ed, so a choice made before Start() (or via
+             * RendererConfig) sticks rather than being overwritten.
              * Pass KEY_NULL to disable this entirely (matching raylib's
              * own SetExitKey(0) convention) - useful for a game that
              * wants ESC to mean something else (a back/cancel action in

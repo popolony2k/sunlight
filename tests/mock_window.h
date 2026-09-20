@@ -23,6 +23,7 @@
 
 #include "window/iwindow.h"
 #include "window/windowfactory.h"
+#include "window/closehandlerlist.h"
 #include <string>
 
 /**
@@ -63,17 +64,17 @@ class MockWindow : public SunLight :: Window :: IWindow  {
     std :: string                       strLastCreateTitle;
     bool                                bLastCreateResizeable      = false;
     SunLight :: Input :: KeyboardKey    lastExitKey                = SunLight :: Input :: KEY_NULL;
-    SunLight :: Engines :: IEngine :: FullscreenStrategy lastFullscreenStrategy =
-        SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL;
+    SunLight :: Window :: FullscreenStrategy lastFullscreenStrategy =
+        SunLight :: Window :: FULLSCREEN_STRATEGY_REAL;
     bool                                bWindowResizeable          = false;
     int                                 nLastTargetFps             = 0;
     std :: string                       strLastWindowTitle;
 
-    // If set, Close() snapshots this counter (typically a MockEngine's
-    // nOnWindowClosingCalls) so a test can prove the engine's own
-    // pre-close hook ran BEFORE the window was closed.
-    const int                           *pEngineOnWindowClosingCalls = nullptr;
-    int                                 nEngineOnWindowClosingSeenAtClose = -1;
+    // Same close-handler semantics as every real backend (see
+    // CloseHandlerList). Close() fires the handlers BEFORE it counts
+    // itself in nCloseCalls, so a handler that reads nCloseCalls sees the
+    // pre-close value - i.e. proof it ran before the window closed.
+    SunLight :: Window :: CloseHandlerList  closeHandlers;
 
     bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable )  {
         nCreateCalls++;
@@ -85,10 +86,16 @@ class MockWindow : public SunLight :: Window :: IWindow  {
     }
 
     void Close( void )  {
+        closeHandlers.Fire();
         nCloseCalls++;
+    }
 
-        if( pEngineOnWindowClosingCalls )
-            nEngineOnWindowClosingSeenAtClose = *pEngineOnWindowClosingCalls;
+    int AddCloseHandler( const std :: function<void( void )> &handler )  {
+        return closeHandlers.Add( handler );
+    }
+
+    void RemoveCloseHandler( int nId )  {
+        closeHandlers.Remove( nId );
     }
 
     bool ShouldClose( void )  {
@@ -110,7 +117,7 @@ class MockWindow : public SunLight :: Window :: IWindow  {
         nEndFrameCalls++;
     }
 
-    void SetFullscreen( bool bValue, SunLight :: Engines :: IEngine :: FullscreenStrategy strategy = SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL )  {
+    void SetFullscreen( bool bValue, SunLight :: Window :: FullscreenStrategy strategy = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL )  {
         nSetFullscreenCalls++;
         bFullscreen = bValue;
         lastFullscreenStrategy = strategy;

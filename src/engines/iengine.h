@@ -24,6 +24,7 @@
 #include <string>
 #include "base/color.h"
 #include "base/primitives.h"
+#include "window/iwindow.h"
 
 
 namespace SunLight  {
@@ -40,18 +41,21 @@ namespace SunLight  {
             public:
 
             /**
-             * @brief Fullscreen strategy selectable via
-             * IWindow::SetFullscreen (and IDrawSurface::SetFullscreen).
-             * Still defined here, even though SetFullscreen itself now
-             * lives on IWindow, purely so IDrawSurface's public
-             * signature - and every consumer already spelling these as
-             * IEngine::FULLSCREEN_STRATEGY_* - stays source-compatible
-             * across that move.
+             * @brief DEPRECATED aliases - the fullscreen strategy now
+             * lives with the window it configures, in
+             * SunLight::Window (FullscreenStrategy,
+             * FULLSCREEN_STRATEGY_REAL, FULLSCREEN_STRATEGY_BORDERLESS_
+             * WINDOWED). These are the SAME type and values under their
+             * old names, kept so existing consumers spelling
+             * IEngine::FULLSCREEN_STRATEGY_* keep compiling; to be removed
+             * once they have migrated.
              */
-            enum FullscreenStrategy  {
-                FULLSCREEN_STRATEGY_REAL               = 0,  // genuine OS-level fullscreen space (default)
-                FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED = 1  // ordinary window resized to the monitor's native resolution
-            };
+            typedef SunLight :: Window :: FullscreenStrategy  FullscreenStrategy;
+
+            static constexpr FullscreenStrategy  FULLSCREEN_STRATEGY_REAL =
+                SunLight :: Window :: FULLSCREEN_STRATEGY_REAL;
+            static constexpr FullscreenStrategy  FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED =
+                SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED;
 
             virtual ~IEngine( void )  {}
 
@@ -195,28 +199,6 @@ namespace SunLight  {
              * @return The text's rendered width, in pixels;
              */
             virtual int MeasureText( const char *szText, int nFontSize ) = 0;
-
-            /**
-             * @brief Must be implemented to release any GPU-context-tied
-             * state this backend privately keeps (only a custom font
-             * loaded via @see SetFont, at the moment - see RaylibEngine's
-             * own implementation for why this exists), right before the
-             * window/render context is actually destroyed. This is NOT a
-             * general resource-teardown hook - textures/render targets
-             * loaded through this interface are still each caller's own
-             * responsibility to Unload; this exists purely for state a
-             * backend keeps privately that its own public API otherwise
-             * gives callers no way to release (SetFont has no matching
-             * "UnsetFont"), so it doesn't outlive the context it was
-             * created in.
-             *
-             * Called exactly once per window lifecycle, by
-             * TileMapRenderer::Stop(), immediately before the window/
-             * context is closed - implementations must not touch any
-             * backend draw/resource call after this point until a new
-             * window/context exists again.
-             */
-            virtual void OnWindowClosing( void ) = 0;
 
             /**
              * @brief Must be implemented to return the directory the running
