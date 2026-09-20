@@ -26,7 +26,7 @@
 #include "tilemaprenderer.h"
 #include <memory.h>
 #include <cstring>
-#include <chrono>
+#include "general/clock.h"
 #include <cmath>
 #include <algorithm>
 #include <vector>
@@ -46,7 +46,6 @@
  */
 #define __MAX_OPACITY_LEVEL            0xFF
 
-using namespace std :: chrono;
 
 
 namespace SunLight {
@@ -600,8 +599,7 @@ namespace SunLight {
                         * Perform tile animation
                         */
                         if( pTile -> animation_len )  {
-                            steady_clock :: time_point now     = steady_clock :: now();
-                            int64_t                    nMillis = duration_cast<milliseconds>( now.time_since_epoch() ).count();
+                            int64_t                    nMillis = SunLight :: General :: Clock :: NowMilliseconds();
                             __stTileAnimInfo           *pAnimInfo = ( __stTileAnimInfo * ) pTile -> user_data.pointer;
                             tmx_tileset_list           *pTilesetList;
 

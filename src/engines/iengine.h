@@ -24,7 +24,6 @@
 #include <string>
 #include "base/color.h"
 #include "base/primitives.h"
-#include "window/iwindow.h"
 
 
 namespace SunLight  {
@@ -39,23 +38,6 @@ namespace SunLight  {
         class IEngine  {
 
             public:
-
-            /**
-             * @brief DEPRECATED aliases - the fullscreen strategy now
-             * lives with the window it configures, in
-             * SunLight::Window (FullscreenStrategy,
-             * FULLSCREEN_STRATEGY_REAL, FULLSCREEN_STRATEGY_BORDERLESS_
-             * WINDOWED). These are the SAME type and values under their
-             * old names, kept so existing consumers spelling
-             * IEngine::FULLSCREEN_STRATEGY_* keep compiling; to be removed
-             * once they have migrated.
-             */
-            typedef SunLight :: Window :: FullscreenStrategy  FullscreenStrategy;
-
-            static constexpr FullscreenStrategy  FULLSCREEN_STRATEGY_REAL =
-                SunLight :: Window :: FULLSCREEN_STRATEGY_REAL;
-            static constexpr FullscreenStrategy  FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED =
-                SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED;
 
             virtual ~IEngine( void )  {}
 

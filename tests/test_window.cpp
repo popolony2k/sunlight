@@ -20,15 +20,13 @@
 
 /*
  * Window-module pieces that need no window: the shared close-handler list
- * every IWindow backend delegates to, and the compatibility aliases the
- * fullscreen strategy left behind on IEngine when it moved to IWindow.
+ * every IWindow backend delegates to, and the fullscreen strategy enum.
  */
 
 #include <doctest/doctest.h>
 #include <string>
-#include <type_traits>
 #include "window/closehandlerlist.h"
-#include "engines/iengine.h"
+#include "window/iwindow.h"
 
 using SunLight :: Window :: CloseHandlerList;
 
@@ -141,16 +139,8 @@ TEST_SUITE( "window/CloseHandlerList" )  {
 
 TEST_SUITE( "window/FullscreenStrategy" )  {
 
-    TEST_CASE( "The deprecated IEngine names are the very same type and values as the SunLight::Window ones" )  {
+    TEST_CASE( "The strategies are distinct and REAL is the zero/default value" )  {
 
-        static_assert( std :: is_same<SunLight :: Engines :: IEngine :: FullscreenStrategy,
-                                      SunLight :: Window :: FullscreenStrategy> :: value,
-                       "IEngine::FullscreenStrategy must alias SunLight::Window::FullscreenStrategy" );
-
-        CHECK( SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL == SunLight :: Window :: FULLSCREEN_STRATEGY_REAL );
-        CHECK( SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED == SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
-
-        // Distinct strategies, and REAL is the zero/default value.
         CHECK( SunLight :: Window :: FULLSCREEN_STRATEGY_REAL == 0 );
         CHECK( SunLight :: Window :: FULLSCREEN_STRATEGY_REAL != SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
     }
