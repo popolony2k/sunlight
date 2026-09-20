@@ -562,129 +562,27 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Enter or leave fullscreen. Defaults to raylib's real,
-             * exclusive ToggleFullscreen() (which changes the monitor's
-             * own video mode) rather than the borderless-windowed mode
-             * this used to use unconditionally - switched 2026-08-26 after
-             * a real, live-confirmed problem with borderless-windowed on
-             * macOS: since it's an ordinary window merely resized to
-             * cover the full screen (not a genuine OS-level fullscreen
-             * space), the macOS Dock - when set to always show rather
-             * than auto-hide - still draws on top of it, visibly covering
-             * the bottom of the window. True ToggleFullscreen() enters a
-             * real fullscreen space, which macOS itself hides the
-             * Dock/menu bar behind automatically, matching what a player
-             * actually expects from a fullscreen game. Confirmed via a
-             * live A/B test that this genuinely fixes the Dock overlap
-             * with no visible mode-switch flicker or resolution/scaling
-             * artifacts on the platform this was tested on.
-             *
-             * FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED is kept available as
-             * a fallback: unlike real ToggleFullscreen() (which switches
-             * the monitor's actual video mode to the window's current
-             * size, per GLFW's own glfwSetWindowMonitor() documentation),
-             * borderless-windowed explicitly resizes to the monitor's
-             * native resolution instead - safer on any platform/window
-             * manager where a true video-mode switch misbehaves,
-             * especially if the window's own size doesn't already match
-             * the player's monitor.
-             *
-             * Switching strategy while already fullscreen in the other
-             * one is unsupported (see IEngine::SetFullscreen) - both
-             * raylib toggles assume theirs is the only active fullscreen
-             * strategy, so mixing them without returning to windowed mode
-             * first can leave stale window flags set.
-             * @param bFullscreen true to enter fullscreen, false for windowed;
-             * @param strategy Which fullscreen strategy to use when
-             * entering fullscreen (ignored when bFullscreen is false);
+             * @brief Fill whatever is currently being drawn into (the
+             * window's own frame, or a render target between
+             * BeginRenderTarget/EndRenderTarget) with a solid color - a
+             * direct pass-through to raylib's own ::ClearBackground, which
+             * acts on the currently bound framebuffer either way.
+             * @param color The color to fill with;
              */
-            void RaylibEngine :: SetFullscreen( bool bFullscreen, FullscreenStrategy strategy )  {
+            void RaylibEngine :: ClearBackground( SunLight :: Base :: stColor color )  {
 
-                if( strategy == FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED )  {
-                    if( bFullscreen != ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE ) )
-                        ::ToggleBorderlessWindowed();
-                }
-                else  {
-                    if( bFullscreen != ::IsWindowState( FLAG_FULLSCREEN_MODE ) )
-                        ::ToggleFullscreen();
-                }
+                ::ClearBackground( Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }
 
             /**
-             * @brief Query whether the window is currently fullscreen,
-             * regardless of which strategy is active (see @see
-             * SetFullscreen).
+             * @brief Draw raylib's own built-in FPS counter at the given
+             * position (::DrawFPS).
+             * @param nPosX X coordinate to draw the counter at;
+             * @param nPosY Y coordinate to draw the counter at;
              */
-            bool RaylibEngine :: GetFullscreen( void )  {
+            void RaylibEngine :: DrawFPS( int nPosX, int nPosY )  {
 
-                return ::IsWindowState( FLAG_FULLSCREEN_MODE ) || ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE );
-            }
-
-            /**
-             * @brief Report real, wall-clock elapsed time in seconds (see
-             * @see IEngine::GetElapsedTime). ::GetTime is raylib's own
-             * high-resolution monotonic timer, counted from window
-             * initialisation.
-             */
-            double RaylibEngine :: GetElapsedTime( void )  {
-
-                return ::GetTime();
-            }
-
-            /**
-             * @brief Allow or disallow live window resizing on an
-             * already-created window (see @see IEngine::SetWindowResizeable).
-             * SetWindowState/ClearWindowState (unlike SetConfigFlags, which
-             * only takes effect if set before InitWindow) act directly on
-             * the live window handle, so this works in either direction at
-             * any point after the window already exists.
-             */
-            void RaylibEngine :: SetWindowResizeable( bool bResizeable )  {
-
-                if( bResizeable )
-                    ::SetWindowState( FLAG_WINDOW_RESIZABLE );
-                else
-                    ::ClearWindowState( FLAG_WINDOW_RESIZABLE );
-            }
-
-            /**
-             * @brief Set the renderer's own target frame rate (see @see
-             * IEngine::SetTargetFPS). ::SetTargetFPS is a plain runtime
-             * setter (not a SetConfigFlags-before-InitWindow one-time
-             * value), so this works at any point after the window already
-             * exists, same as SetWindowResizeable above.
-             */
-            void RaylibEngine :: SetTargetFPS( int nTargetFps )  {
-
-                ::SetTargetFPS( nTargetFps );
-            }
-
-            /**
-             * @brief Set the application window's title (see @see
-             * IEngine::SetWindowTitle). ::SetWindowTitle acts on the live
-             * window handle (glfwSetWindowTitle underneath, on the GLFW
-             * desktop backend), so this is only meaningful once the
-             * window already exists.
-             */
-            void RaylibEngine :: SetWindowTitle( const char *szTitle )  {
-
-                ::SetWindowTitle( szTitle );
-            }
-
-            /**
-             * @brief Current window/screen width, in pixels.
-             */
-            int RaylibEngine :: GetScreenWidth( void )  {
-
-                return ::GetScreenWidth();
-            }
-
-            /**
-             * @brief Current window/screen height, in pixels.
-             */
-            int RaylibEngine :: GetScreenHeight( void )  {
-
-                return ::GetScreenHeight();
+                ::DrawFPS( nPosX, nPosY );
             }
 
             /**

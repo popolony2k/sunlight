@@ -78,18 +78,8 @@ namespace SunLight  {
 
                 std :: string GetApplicationDirectory( void ) override;
 
-                void SetFullscreen( bool bFullscreen, FullscreenStrategy strategy = FULLSCREEN_STRATEGY_REAL ) override;
-                bool GetFullscreen( void ) override;
-
-                double GetElapsedTime( void ) override;
-
-                void SetWindowResizeable( bool bResizeable ) override;
-
-                void SetTargetFPS( int nTargetFps ) override;
-                void SetWindowTitle( const char *szTitle ) override;
-
-                int GetScreenWidth( void ) override;
-                int GetScreenHeight( void ) override;
+                void ClearBackground( SunLight :: Base :: stColor color ) override;
+                void DrawFPS( int nPosX, int nPosY ) override;
 
                 SunLight :: Base :: TextureHandle LoadRenderTarget( int nWidth, int nHeight ) override;
                 void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;

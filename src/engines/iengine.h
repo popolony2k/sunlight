@@ -40,7 +40,13 @@ namespace SunLight  {
             public:
 
             /**
-             * @brief Fullscreen strategy selectable via @see SetFullscreen.
+             * @brief Fullscreen strategy selectable via
+             * IWindow::SetFullscreen (and IDrawSurface::SetFullscreen).
+             * Still defined here, even though SetFullscreen itself now
+             * lives on IWindow, purely so IDrawSurface's public
+             * signature - and every consumer already spelling these as
+             * IEngine::FULLSCREEN_STRATEGY_* - stays source-compatible
+             * across that move.
              */
             enum FullscreenStrategy  {
                 FULLSCREEN_STRATEGY_REAL               = 0,  // genuine OS-level fullscreen space (default)
@@ -226,117 +232,29 @@ namespace SunLight  {
             virtual std :: string GetApplicationDirectory( void ) = 0;
 
             /**
-             * @brief Must be implemented to enter or leave fullscreen on
-             * chosen target engine, using the requested @see
-             * FullscreenStrategy (defaulting to FULLSCREEN_STRATEGY_REAL -
-             * see RaylibEngine::SetFullscreen for why that's the default
-             * and when FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED is worth
-             * falling back to instead). Callers should only rely on @see
-             * GetFullscreen reflecting the resulting state.
+             * @brief Must be implemented to fill whatever is currently
+             * being drawn into - the window's own frame, or a render
+             * target between @see BeginRenderTarget and @see
+             * EndRenderTarget - entirely with a solid color. Lives here
+             * rather than on IWindow because it acts on the current draw
+             * target (which may be an offscreen render target, not the
+             * window at all), the same way every other draw call on this
+             * interface does.
              *
-             * Switching strategy while already fullscreen in the other one
-             * is unsupported - call SetFullscreen( false ) first, then
-             * re-enter fullscreen with the new strategy.
-             *
-             * @param bFullscreen true to enter fullscreen, false to return
-             * to windowed mode;
-             * @param strategy Which fullscreen strategy to use when
-             * entering fullscreen (ignored when bFullscreen is false);
+             * @param color The color to fill with (including alpha);
              */
-            virtual void SetFullscreen( bool bFullscreen, FullscreenStrategy strategy = FULLSCREEN_STRATEGY_REAL ) = 0;
+            virtual void ClearBackground( SunLight :: Base :: stColor color ) = 0;
 
             /**
-             * @brief Must be implemented to report whether the window is
-             * currently fullscreen, regardless of which @see
-             * FullscreenStrategy is active (see @see SetFullscreen).
+             * @brief Must be implemented to draw the backend's own
+             * on-screen frames-per-second counter at the given position,
+             * in whatever is currently being drawn into (same target
+             * rule as @see ClearBackground).
              *
-             * @return true if the window is fullscreen, false if windowed;
+             * @param nPosX X coordinate to draw the counter at;
+             * @param nPosY Y coordinate to draw the counter at;
              */
-            virtual bool GetFullscreen( void ) = 0;
-
-            /**
-             * @brief Must be implemented to report real, wall-clock
-             * elapsed time in seconds since the target engine's own timer
-             * started (for raylib, its GetTime() - counted from window
-             * initialisation). High-resolution, monotonic, and independent
-             * of the fixed per-tick dt the game loop otherwise runs on, so
-             * it keeps advancing at real-world speed even when the loop
-             * can't sustain its target FPS. Only meaningful once the
-             * window exists - callers are responsible for not relying on
-             * it before then.
-             *
-             * @return Elapsed real time, in seconds;
-             */
-            virtual double GetElapsedTime( void ) = 0;
-
-            /**
-             * @brief Must be implemented to allow or disallow the user
-             * resizing the window by dragging it's edges/corners, on an
-             * already-created window. Only meaningful to call once the
-             * window exists - callers are responsible for not calling this
-             * before that (see TileMapRenderer::SetWindowResizeable, which
-             * uses it's own pre-window-creation config-flag path instead
-             * for the initial state).
-             *
-             * @param bResizeable true to allow resizing, false to disallow it;
-             */
-            virtual void SetWindowResizeable( bool bResizeable ) = 0;
-
-            /**
-             * @brief Must be implemented to set the renderer's own target
-             * frame rate (the cap the game loop paces itself against, not
-             * the current measured FPS - see GetFPS() if that's what's
-             * wanted instead, which this interface deliberately does NOT
-             * wrap, since it's a live measurement rather than a
-             * configuration value any caller sets). Only meaningful to
-             * call once the window exists - callers are responsible for
-             * not calling this before that (see
-             * TileMapRenderer::SetTargetFPS, which uses it's own pre-
-             * window-creation constructor-parameter path instead for the
-             * initial value, the same class of split
-             * SetWindowResizeable's own live-toggle path already has).
-             * No getter exists on this interface - unlike GetWindowResizeable
-             * (whose backing OS-level window state can genuinely be
-             * queried), the underlying engine (raylib) has no API to read
-             * back a previously-set target FPS, only the live GetFPS()
-             * measurement - TileMapRenderer::GetTargetFPS reads back it's
-             * own cached value instead of querying this interface.
-             *
-             * @param nTargetFps The new target frame rate, in frames per second;
-             */
-            virtual void SetTargetFPS( int nTargetFps ) = 0;
-
-            /**
-             * @brief Must be implemented to set the application window's
-             * title, replacing whatever title it was created with. Only
-             * meaningful to call once the window exists - callers are
-             * responsible for not calling this before that (see
-             * TileMapRenderer::SetWindowTitle, which guards the same way
-             * SetWindowResizeable's live-toggle path does).
-             *
-             * @param szTitle The new window title;
-             */
-            virtual void SetWindowTitle( const char *szTitle ) = 0;
-
-            /**
-             * @brief Must be implemented to return the current width, in
-             * pixels, of the actual window/screen on chosen target engine -
-             * as opposed to any fixed internal rendering resolution a
-             * caller may be using, this always reflects the real, current
-             * (and possibly just resized) window size.
-             *
-             * @return Current window/screen width, in pixels;
-             */
-            virtual int GetScreenWidth( void ) = 0;
-
-            /**
-             * @brief Must be implemented to return the current height, in
-             * pixels, of the actual window/screen on chosen target engine
-             * (see @see GetScreenWidth).
-             *
-             * @return Current window/screen height, in pixels;
-             */
-            virtual int GetScreenHeight( void ) = 0;
+            virtual void DrawFPS( int nPosX, int nPosY ) = 0;
 
             /**
              * @brief Must be implemented to allocate an offscreen render

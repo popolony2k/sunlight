@@ -13,7 +13,28 @@ here — see the git log for that period.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (backend implementers only):** the window operations moved off
+  `IEngine` onto a new `IWindow` (`src/window/`, with `WindowFactory` and
+  `backends/raylib/RaylibWindow`): `SetFullscreen`/`GetFullscreen`,
+  `SetWindowResizeable`, `SetTargetFPS`, `SetWindowTitle`,
+  `GetScreenWidth`/`GetScreenHeight` and `GetElapsedTime`. `IEngine::OnWindowClosing`
+  stays on `IEngine` (it is the engine's own teardown hook, not a window
+  operation), and `IEngine::FullscreenStrategy` stays defined there so
+  `IDrawSurface`'s public signatures - and every consumer using them - are
+  source-compatible. `IEngine` gained `ClearBackground` and `DrawFPS`.
+- `TileMapRenderer`'s `Start()`/`Run()`/`Stop()` no longer call raylib directly
+  (window create/close, exit key, should-close, begin/end frame all go through
+  `IWindow`), and `tilemaprenderer.cpp` no longer includes `<raylib.h>`.
+
 ### Added
+
+- `tests/mock_window.h` (`MockWindow`/`MockWindowFixture`) and
+  `tests/test_tilemaprenderer_lifecycle.cpp`: `Start()`/`Run()`/`Stop()` are now
+  unit-tested end to end - window creation arguments, exit key/target FPS
+  defaults, frame bracketing, letterbox/stretch blit math, deferred
+  `RequestExit`, teardown ordering, restart.
 
 - `IEngine` backend abstraction (`src/engines/`) — all raylib draw calls now
   go through a swappable interface + `EngineFactory`, instead of raylib types

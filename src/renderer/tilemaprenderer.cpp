@@ -19,11 +19,11 @@
  */
 
 #include "engines/enginefactory.h"
+#include "window/windowfactory.h"
 #include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
 #include "filesystem/filesystemfactory.h"
 #include "tilemaprenderer.h"
-#include <raylib.h>
 #include <memory.h>
 #include <cstring>
 #include <chrono>
@@ -738,14 +738,14 @@ namespace SunLight {
             if( m_bClearBackground )  {
                 SunLight :: Base :: stColor  bkColor = IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor );
 
-                ClearBackground( Color { bkColor.nRed, bkColor.nGreen, bkColor.nBlue, bkColor.nAlpha } );
+                SunLight :: Engines :: EngineFactory :: GetEngine().ClearBackground( bkColor );
             }
 
             if( m_pTmxMap )
                 DrawAllLayers( m_pTmxMap -> ly_head );
 
             if( m_bDrawFPS )
-                DrawFPS( 0, 0 );
+                SunLight :: Engines :: EngineFactory :: GetEngine().DrawFPS( 0, 0 );
         }
 
         /**
@@ -1181,15 +1181,15 @@ namespace SunLight {
 
         /**
          * Set exit key to leave the renderer when it is in running state;
-         * @param key The key code representing the exit key (check raylib
-         * KeyboardKey enum);
+         * @param key The key code representing the exit key (see
+         * SunLight::Input::KeyboardKey);
          * The default exit is ESC Key;
          */
         void TileMapRenderer :: SetExitKey( SunLight :: Input :: KeyboardKey key )  {
 
             m_ExitKey = key;
 
-            ::SetExitKey( ( KeyboardKey ) key );
+            SunLight :: Window :: WindowFactory :: GetWindow().SetExitKey( key );
         }
 
         /**
@@ -1207,7 +1207,7 @@ namespace SunLight {
          * (the initial state, applied via SetConfigFlags right before
          * InitWindow - see Start()) and while the window is already
          * running (a genuine live toggle, in either direction, via
-         * IEngine::SetWindowResizeable - SetConfigFlags itself only takes
+         * IWindow::SetWindowResizeable - SetConfigFlags itself only takes
          * effect pre-InitWindow, so it can't be reused for that case).
          * @param bResizeable The new resizeable status for window;
          */
@@ -1216,7 +1216,7 @@ namespace SunLight {
             m_bWindowResizeable = bResizeable;
 
             if( m_bIsStarted )
-                SunLight :: Engines :: EngineFactory :: GetEngine().SetWindowResizeable( bResizeable );
+                SunLight :: Window :: WindowFactory :: GetWindow().SetWindowResizeable( bResizeable );
         }
 
         /**
@@ -1231,7 +1231,7 @@ namespace SunLight {
         /**
          * Requests the render loop exit on it's next check (see
          * @see IDrawSurface::RequestExit). Purely local state - unlike
-         * most of IDrawSurface, there's no IEngine call to route this
+         * most of IDrawSurface, there's no IEngine/IWindow call to route this
          * through, since raylib itself has no public way to set it's own
          * close flag, only read it via WindowShouldClose(). Consulted by
          * Run()'s own loop condition.
@@ -1253,11 +1253,11 @@ namespace SunLight {
         /**
          * Set the renderer's own target frame rate. Safe to call both
          * before Start() (the initial value - m_nTargetFps is applied via
-         * IEngine::SetTargetFPS at the top of Start(), resolving the -1
+         * IWindow::SetTargetFPS at the top of Start(), resolving the -1
          * constructor-default sentinel to __DEFAULT_FPS at that point,
          * same shape as SetWindowResizeable's own pre-Start() path) and
          * while the window is already running (a genuine live change, via
-         * IEngine::SetTargetFPS - ::SetTargetFPS itself is a plain runtime
+         * IWindow::SetTargetFPS - ::SetTargetFPS itself is a plain runtime
          * setter, not a SetConfigFlags-before-InitWindow one-time value).
          * @param nTargetFps The new target frame rate, in frames per second;
          */
@@ -1266,7 +1266,7 @@ namespace SunLight {
             m_nTargetFps = nTargetFps;
 
             if( m_bIsStarted )
-                SunLight :: Engines :: EngineFactory :: GetEngine().SetTargetFPS( nTargetFps );
+                SunLight :: Window :: WindowFactory :: GetWindow().SetTargetFPS( nTargetFps );
         }
 
         /**
@@ -1325,7 +1325,7 @@ namespace SunLight {
          * see IDrawSurface::SetStretchToFill's own doc comment for the full
          * behavior. A plain flag read every frame in Run()'s own blit
          * math, same as m_bDrawFPS - no immediate side effect needed here
-         * (unlike m_bWindowResizeable, which pokes IEngine right away if
+         * (unlike m_bWindowResizeable, which pokes IWindow right away if
          * the window's already running).
          * @param bStretchToFill The new stretch-to-fill status;
          */
@@ -1345,15 +1345,15 @@ namespace SunLight {
 
         /**
          * Enter or leave fullscreen (see @see IDrawSurface::SetFullscreen).
-         * Routed through IEngine rather than raylib directly, same as
-         * every other window/render primitive TileMapRenderer uses.
+         * Routed through IWindow rather than raylib directly, same as
+         * every other window primitive TileMapRenderer uses.
          * @param bFullscreen true to enter fullscreen, false for windowed;
          * @param strategy Which fullscreen strategy to use when entering
          * fullscreen (ignored when bFullscreen is false);
          */
         void TileMapRenderer :: SetFullscreen( bool bFullscreen, SunLight :: Engines :: IEngine :: FullscreenStrategy strategy )  {
 
-            SunLight :: Engines :: EngineFactory :: GetEngine().SetFullscreen( bFullscreen, strategy );
+            SunLight :: Window :: WindowFactory :: GetWindow().SetFullscreen( bFullscreen, strategy );
         }
 
         /**
@@ -1362,17 +1362,17 @@ namespace SunLight {
          */
         bool TileMapRenderer :: GetFullscreen( void )  {
 
-            return SunLight :: Engines :: EngineFactory :: GetEngine().GetFullscreen();
+            return SunLight :: Window :: WindowFactory :: GetWindow().GetFullscreen();
         }
 
         /**
          * Query real, wall-clock elapsed time in seconds (see
          * @see IDrawSurface::GetElapsedTime). Forwarded straight to
-         * IEngine, same as GetFullscreen above.
+         * IWindow, same as GetFullscreen above.
          */
         double TileMapRenderer :: GetElapsedTime( void )  {
 
-            return SunLight :: Engines :: EngineFactory :: GetEngine().GetElapsedTime();
+            return SunLight :: Window :: WindowFactory :: GetWindow().GetElapsedTime();
         }
 
         /**
@@ -1597,8 +1597,8 @@ namespace SunLight {
         /**
          * @brief Set the application window's title, replacing whatever
          * title it was created with (see @see IDrawSurface::SetWindowTitle).
-         * Routed through IEngine rather than raylib directly, same as
-         * every other window/render primitive TileMapRenderer uses -
+         * Routed through IWindow rather than raylib directly, same as
+         * every other window primitive TileMapRenderer uses -
          * raylib's own SetWindowTitle acts on the live window handle, so
          * this only forwards the call once the window actually exists,
          * same guard as SetWindowResizeable.
@@ -1610,7 +1610,7 @@ namespace SunLight {
             m_strTitle = strTitle;
 
             if( m_bIsStarted )
-                SunLight :: Engines :: EngineFactory :: GetEngine().SetWindowTitle( m_strTitle.c_str() );
+                SunLight :: Window :: WindowFactory :: GetWindow().SetWindowTitle( m_strTitle.c_str() );
         }
 
         /**
@@ -2162,14 +2162,12 @@ namespace SunLight {
          */
         bool TileMapRenderer :: Start( void )  {
 
-            if( m_bWindowResizeable )
-                SetConfigFlags( FLAG_WINDOW_RESIZABLE );
+            SunLight :: Window :: IWindow  &window = SunLight :: Window :: WindowFactory :: GetWindow();
 
-            InitWindow( ( int ) m_fWindowWidth,
-                        ( int ) m_fWindowHeight,
-                        m_strTitle.c_str() );
-
-            if( !IsWindowReady() ) {
+            if( !window.Create( ( int ) m_fWindowWidth,
+                                ( int ) m_fWindowHeight,
+                                m_strTitle.c_str(),
+                                m_bWindowResizeable ) )  {
                 ::tmx_perror( "Cannot create a window" );
                 return false;
             }
@@ -2185,25 +2183,14 @@ namespace SunLight {
             /*
              * Resolves the -1 constructor-default sentinel into
              * m_nTargetFps itself (so GetTargetFPS() never leaks it back
-             * to a caller once the window exists), then routes through
-             * IEngine instead of calling raylib's own ::SetTargetFPS
-             * directly the way this line used to (an unqualified
-             * SetTargetFPS(...) call, which - until the SetTargetFPS/
-             * GetTargetFPS pair below existed - had nothing else to
-             * resolve to but the raylib global). CLAUDE.md documents
-             * SetTargetFPS as one of a handful of window-lifecycle calls
-             * deliberately left raylib-direct pending a larger migration;
-             * this continues that migration one primitive at a time, same
-             * as SetWindowTitle's own earlier move off the exception list.
-             * Doing so here, alongside adding the new pair, also avoids a
-             * self-inflicted trap: once TileMapRenderer::SetTargetFPS
-             * exists, this same unqualified call would otherwise silently
-             * start resolving to it instead of raylib's global - with the
-             * wrong gating, since m_bIsStarted isn't set yet at this point
-             * in Start().
+             * to a caller once the window exists), then applies it
+             * straight through IWindow. Deliberately NOT through the
+             * member SetTargetFPS(), which only forwards once
+             * m_bIsStarted is true - that flag isn't set yet at this
+             * point in Start().
              */
             m_nTargetFps = ( m_nTargetFps != -1 ) ? m_nTargetFps : __DEFAULT_FPS;
-            SunLight :: Engines :: EngineFactory :: GetEngine().SetTargetFPS( m_nTargetFps );
+            window.SetTargetFPS( m_nTargetFps );
 
             /*
              * Everything renders into this fixed-size offscreen target
@@ -2246,31 +2233,34 @@ namespace SunLight {
 
                 // Give the backend a chance to release any GPU-context-tied
                 // state it privately keeps (e.g. a custom font loaded via
-                // SetFont) before CloseWindow() tears down the context that
-                // state belongs to - see IEngine::OnWindowClosing's own
-                // comment for why this can't just be inferred/skipped.
+                // SetFont) before the window (and with it the context that
+                // state belongs to) is closed - see
+                // IEngine::OnWindowClosing's own comment for why this
+                // can't just be inferred/skipped.
                 SunLight :: Engines :: EngineFactory :: GetEngine().OnWindowClosing();
 
-                CloseWindow();
+                SunLight :: Window :: WindowFactory :: GetWindow().Close();
                 m_bIsStarted = false;
             }
         }
 
         /**
          * Run renderer. Loops until either the hardware exit key/window
-         * close button fires (WindowShouldClose()) or a caller/listener
+         * close button fires (IWindow::ShouldClose()) or a caller/listener
          * called @see RequestExit - checked once per iteration, not
          * immediately, so a RequestExit() call from inside this frame's
          * own HandleUserUpdate/etc. still lets the frame finish drawing
          * before the loop actually exits. Either way, this function only
-         * returns - it never calls CloseWindow() itself; that's still
+         * returns - it never closes the window itself; that's still
          * @see Stop's job alone, unconditionally, regardless of which
          * condition broke the loop.
          */
         bool TileMapRenderer :: Run( void )  {
 
             if( m_bIsStarted )  {
-                while ( !WindowShouldClose() && !m_bExitRequested ) {
+                SunLight :: Window :: IWindow  &window = SunLight :: Window :: WindowFactory :: GetWindow();
+
+                while ( !window.ShouldClose() && !m_bExitRequested ) {
                     SunLight :: Engines :: EngineFactory :: GetEngine().BeginRenderTarget( m_pRenderTexture );
                     if( GetVisible() )  {
                         RenderMap();
@@ -2315,9 +2305,10 @@ namespace SunLight {
                      * no separate resize-event handling needed. Source
                      * height is negative because render targets are
                      * stored bottom-up (OpenGL convention) - this flips it
-                     * back right-side up. BeginDrawing/EndDrawing/
-                     * ClearBackground/WindowShouldClose stay raylib-direct,
-                     * same as the rest of this window's lifecycle.
+                     * back right-side up. The frame itself is bracketed by
+                     * IWindow::BeginFrame/EndFrame; everything drawn inside
+                     * it goes through IEngine, same as the offscreen pass
+                     * above.
                      *
                      * m_bStretchToFill (see it's own doc comment on
                      * SetStretchToFill) picks between two different dest
@@ -2335,8 +2326,8 @@ namespace SunLight {
                      * this needs no change to that call itself, only to
                      * which dest rectangle gets computed here.
                      */
-                    int    nScreenWidth  = SunLight :: Engines :: EngineFactory :: GetEngine().GetScreenWidth();
-                    int    nScreenHeight = SunLight :: Engines :: EngineFactory :: GetEngine().GetScreenHeight();
+                    int    nScreenWidth  = window.GetScreenWidth();
+                    int    nScreenHeight = window.GetScreenHeight();
 
                     SunLight :: Base :: stRectangle  source { 0.0f, 0.0f, m_fWindowWidth, -m_fWindowHeight };
                     SunLight :: Base :: stRectangle  dest;
@@ -2357,12 +2348,12 @@ namespace SunLight {
                                                                   m_fWindowHeight * fScale };
                     }
 
-                    BeginDrawing();
-                    ClearBackground( BLACK );
+                    window.BeginFrame();
+                    SunLight :: Engines :: EngineFactory :: GetEngine().ClearBackground( BLACK_COLOR );
                     SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureScaled(
                                           SunLight :: Engines :: EngineFactory :: GetEngine().GetRenderTargetTexture( m_pRenderTexture ),
                                           source, dest, WHITE_COLOR );
-                    EndDrawing();
+                    window.EndFrame();
                 }
 
                 return true;
