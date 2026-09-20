@@ -73,9 +73,11 @@ which track in-engine feature/bug work.
   return stable, usable references standalone. Investigated and ruled out testing
   the map-loading pipeline itself (parsing a real `.tmx` through a `MockEngine`,
   no rendering needed): `LoadMap()` returns `false` immediately unless `m_bIsStarted`
-  is already `true`, which only happens after `Start()`'s real `InitWindow()` call
-  succeeds - unreachable on a headless CI runner, so that slice was scoped out
-  rather than built on a foundation that can't run in CI.
+  is already `true`, which used to only happen after `Start()`'s real `InitWindow()` call
+  succeeded - unreachable on a headless CI runner, so that slice was scoped out.
+  Since the window lifecycle moved behind `IWindow`, `Start()` succeeds against a
+  `MockWindow` (see `tests/test_tilemaprenderer_lifecycle.cpp`), so that slice is now
+  reachable in CI; it just hasn't been written yet.
 - ~~No `CONTRIBUTING.md`, `SECURITY.md`, or `CHANGELOG.md`~~ — `CONTRIBUTING.md`
   covers building/testing, the code conventions from `CLAUDE.md`, and the PR
   workflow. `SECURITY.md` points reporters at GitHub's private vulnerability
@@ -118,11 +120,11 @@ which track in-engine feature/bug work.
 - Tests cover pure-logic code (`Viewport`, `Collider`, `Helper`, `base/primitives.h`,
   `ScriptProcessor`), `SoundManager` (via a mock `ISound`), `TextureCanvas`, `Sprite`
   (both via a mock `IEngine`), and `CollisionManager` (via a mock `ITileMap`, see
-  above). `TileMapRenderer` has only thin coverage (its pre-`Start()` guard
-  contract, see above) - the map-loading pipeline and everything past it needs a
-  real window (`Start()`'s `InitWindow()` call), so it's unreachable without a
-  display, and `Run()`'s input/update/collision dispatch loop is `private`/`inline`,
-  only reachable through that same real window loop.
+  above). `TileMapRenderer`'s pre-`Start()` guard contract and its
+  `Start()`/`Run()`/`Stop()` lifecycle (via `MockWindow` + `MockEngine`) are covered;
+  the map-loading pipeline (parsing a real `.tmx` through the mocks) and `Run()`'s
+  input/update/collision dispatch (`private`/`inline`, only reachable through the
+  frame loop, which is now drivable) still have no direct tests.
 - ~~No sample demonstrates `SoundManager` or `ScriptProcessor`~~ — `samples/scriptprocessor`
   covers both together: a scripted "stage intro" cutscene exercising every `ScriptProcessor`
   control-flow command (`WAIT_CMD`, `WAIT_SPRITES_QUEUE_EMPTY`, `LOOP_CMD`/`END_LOOP_CMD`,

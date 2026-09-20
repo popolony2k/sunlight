@@ -46,10 +46,8 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nDrawTextureTiledCalls     = 0;
     int                                 nDrawFilledRectangleCalls  = 0;
     int                                 nGetApplicationDirectoryCalls = 0;
-    int                                 nSetFullscreenCalls        = 0;
-    int                                 nSetWindowResizeableCalls  = 0;
-    int                                 nSetTargetFPSCalls         = 0;
-    int                                 nSetWindowTitleCalls       = 0;
+    int                                 nClearBackgroundCalls      = 0;
+    int                                 nDrawFPSCalls              = 0;
     int                                 nSetFontCalls              = 0;
     int                                 nDrawTextCalls             = 0;
     int                                 nMeasureTextCalls          = 0;
@@ -72,18 +70,10 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nLastFilledRectangleWidth  = 0;
     int                                 nLastFilledRectangleHeight = 0;
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
-    bool                                bFullscreen                = false;
-    double                              dElapsedTimeResult         = 0.0;
-    SunLight :: Engines :: IEngine :: FullscreenStrategy lastFullscreenStrategy =
-        SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL;
-    bool                                bWindowResizeable          = false;
-    int                                 nLastTargetFps             = 0;
     bool                                bSetFontResult             = true;
     std :: string                       strLastSetFontPath;
-    std :: string                       strLastWindowTitle;
     std :: string                       strLastDrawnText;
-    int                                 nScreenWidthResult         = 0;
-    int                                 nScreenHeightResult        = 0;
+    SunLight :: Base :: stColor         lastClearBackgroundColor   { 0, 0, 0, 0 };
     SunLight :: Base :: TextureHandle   hLoadRenderTargetResult    = ( SunLight :: Base :: TextureHandle )  0x2;
     SunLight :: Base :: TextureHandle   hLastUnloadedRenderTarget  = nullptr;
     SunLight :: Base :: TextureHandle   hLastBegunRenderTarget     = nullptr;
@@ -140,41 +130,6 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return strApplicationDirectoryResult;
     }
 
-    void SetFullscreen( bool bValue, SunLight :: Engines :: IEngine :: FullscreenStrategy strategy = SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL )  {
-        nSetFullscreenCalls++;
-        bFullscreen = bValue;
-        lastFullscreenStrategy = strategy;
-    }
-
-    bool GetFullscreen( void )  {
-        return bFullscreen;
-    }
-
-    // Settable (set dElapsedTimeResult directly, or AdvanceElapsedTime) so
-    // elapsed-time-dependent logic can be exercised deterministically.
-    double GetElapsedTime( void )  {
-        return dElapsedTimeResult;
-    }
-
-    void AdvanceElapsedTime( double dSeconds )  {
-        dElapsedTimeResult += dSeconds;
-    }
-
-    void SetWindowResizeable( bool bValue )  {
-        nSetWindowResizeableCalls++;
-        bWindowResizeable = bValue;
-    }
-
-    void SetTargetFPS( int nTargetFps )  {
-        nSetTargetFPSCalls++;
-        nLastTargetFps = nTargetFps;
-    }
-
-    void SetWindowTitle( const char *szTitle )  {
-        nSetWindowTitleCalls++;
-        strLastWindowTitle = szTitle;
-    }
-
     bool SetFont( const char *szFilePath )  {
         nSetFontCalls++;
         strLastSetFontPath = szFilePath;
@@ -195,12 +150,13 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         nOnWindowClosingCalls++;
     }
 
-    int GetScreenWidth( void )  {
-        return nScreenWidthResult;
+    void ClearBackground( SunLight :: Base :: stColor color )  {
+        nClearBackgroundCalls++;
+        lastClearBackgroundColor = color;
     }
 
-    int GetScreenHeight( void )  {
-        return nScreenHeightResult;
+    void DrawFPS( int, int )  {
+        nDrawFPSCalls++;
     }
 
     SunLight :: Base :: TextureHandle LoadRenderTarget( int nWidth, int nHeight )  {

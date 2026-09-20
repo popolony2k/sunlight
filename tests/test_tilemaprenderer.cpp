@@ -19,22 +19,22 @@
  */
 
 /*
- * TileMapRenderer's window lifecycle (Start()/Run()/Stop()) calls raylib's
- * InitWindow()/WindowShouldClose()/BeginDrawing()/EndDrawing() directly, so
- * it needs a real display and isn't unit-testable here (see
- * doc/MISSING_FEATURES.md). What IS safely testable without ever calling
- * Start(): every entry point that gates on m_bIsStarted or a loaded
- * m_pTmxMap (LoadMap, AddSprite, RemoveSprite, GetMapInfo, GetLayer,
- * SetLayer, TileMapToTileMatrix) is documented to fail gracefully rather
- * than crash when called too early - this file locks that contract in,
- * plus the handful of accessors (GetInputHandler, GetCollisionManager)
- * that work standalone.
+ * This file covers TileMapRenderer's pre-Start() contract: every entry
+ * point that gates on m_bIsStarted or a loaded m_pTmxMap (LoadMap,
+ * AddSprite, RemoveSprite, GetMapInfo, GetLayer, SetLayer,
+ * TileMapToTileMatrix) is documented to fail gracefully rather than crash
+ * when called too early - this file locks that contract in, plus the
+ * handful of accessors (GetInputHandler, GetCollisionManager) that work
+ * standalone, plus the plain pass-throughs to IEngine/IWindow. The window
+ * lifecycle itself (Start()/Run()/Stop()) is covered separately, against
+ * MockWindow + MockEngine, in test_tilemaprenderer_lifecycle.cpp.
  */
 
 #include <doctest/doctest.h>
 #include "renderer/tilemaprenderer.h"
 #include "sprite/sprite.h"
 #include "mock_engine.h"
+#include "mock_window.h"
 
 using namespace SunLight :: Renderer;
 using namespace SunLight :: TileMap;
@@ -114,7 +114,8 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
     TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill/GetTargetFPS/GetExitRequested/GetExitKey round-trip what their setters last set" )  {
 
-        TileMapRenderer  renderer( 800, 600, "test", -1, false );
+        MockWindowFixture  windowFixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1, false );
 
         CHECK( renderer.GetExitRequested() == false );
 
@@ -158,46 +159,46 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( renderer.GetTargetFPS() == 30 );
     }
 
-    TEST_CASE( "SetWindowResizeable before Start() only updates local state, never touches IEngine" )  {
+    TEST_CASE( "SetWindowResizeable before Start() only updates local state, never touches IWindow" )  {
 
-        // IEngine::SetWindowResizeable is only meaningful once the window
+        // IWindow::SetWindowResizeable is only meaningful once the window
         // exists (see its own doc comment) - this locks in the m_bIsStarted
         // gate that keeps TileMapRenderer from calling it too early, using
-        // MockEngineFixture rather than a real window/display.
-        MockEngineFixture  fixture;
+        // MockWindowFixture rather than a real window/display.
+        MockWindowFixture  fixture;
         TileMapRenderer    renderer( 800, 600, "test", -1, false );
 
         renderer.SetWindowResizeable( true );
 
         CHECK( renderer.GetWindowResizeable() == true );
-        CHECK( fixture.engine.nSetWindowResizeableCalls == 0 );
+        CHECK( fixture.window.nSetWindowResizeableCalls == 0 );
     }
 
-    TEST_CASE( "SetTargetFPS before Start() only updates local state, never touches IEngine" )  {
+    TEST_CASE( "SetTargetFPS before Start() only updates local state, never touches IWindow" )  {
 
-        // Same gate as SetWindowResizeable above - IEngine::SetTargetFPS
+        // Same gate as SetWindowResizeable above - IWindow::SetTargetFPS
         // is only meaningful once the window exists (raylib's own
         // ::SetTargetFPS acts on the live game loop's own frame pacing).
-        MockEngineFixture  fixture;
+        MockWindowFixture  fixture;
         TileMapRenderer    renderer( 800, 600, "test", -1, false );
 
         renderer.SetTargetFPS( 144 );
 
         CHECK( renderer.GetTargetFPS() == 144 );
-        CHECK( fixture.engine.nSetTargetFPSCalls == 0 );
+        CHECK( fixture.window.nSetTargetFPSCalls == 0 );
     }
 
-    TEST_CASE( "SetWindowTitle before Start() only updates local state, never touches IEngine" )  {
+    TEST_CASE( "SetWindowTitle before Start() only updates local state, never touches IWindow" )  {
 
-        // Same gate as SetWindowResizeable above - IEngine::SetWindowTitle
+        // Same gate as SetWindowResizeable above - IWindow::SetWindowTitle
         // is only meaningful once the window exists (raylib's own
         // SetWindowTitle acts on the live window handle).
-        MockEngineFixture  fixture;
+        MockWindowFixture  fixture;
         TileMapRenderer    renderer( 800, 600, "test", -1, false );
 
         renderer.SetWindowTitle( "new title" );
 
-        CHECK( fixture.engine.nSetWindowTitleCalls == 0 );
+        CHECK( fixture.window.nSetWindowTitleCalls == 0 );
     }
 
     TEST_CASE( "DrawFilledRectangle forwards straight through to IEngine" )  {
@@ -218,38 +219,38 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( fixture.engine.lastFilledRectangleColor.nAlpha == 128 );
     }
 
-    TEST_CASE( "SetFullscreen forwards straight through to IEngine, defaulting to the real strategy" )  {
+    TEST_CASE( "SetFullscreen forwards straight through to IWindow, defaulting to the real strategy" )  {
 
-        MockEngineFixture  fixture;
+        MockWindowFixture  fixture;
         TileMapRenderer    renderer( 800, 600, "test", -1, false );
 
         renderer.SetFullscreen( true );
 
-        CHECK( fixture.engine.nSetFullscreenCalls == 1 );
-        CHECK( fixture.engine.bFullscreen == true );
-        CHECK( fixture.engine.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL );
+        CHECK( fixture.window.nSetFullscreenCalls == 1 );
+        CHECK( fixture.window.bFullscreen == true );
+        CHECK( fixture.window.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_REAL );
 
         renderer.SetFullscreen( false, SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
 
-        CHECK( fixture.engine.nSetFullscreenCalls == 2 );
-        CHECK( fixture.engine.bFullscreen == false );
-        CHECK( fixture.engine.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
+        CHECK( fixture.window.nSetFullscreenCalls == 2 );
+        CHECK( fixture.window.bFullscreen == false );
+        CHECK( fixture.window.lastFullscreenStrategy == SunLight :: Engines :: IEngine :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED );
     }
 
-    TEST_CASE( "GetElapsedTime forwards straight through to IEngine, unchanged" )  {
+    TEST_CASE( "GetElapsedTime forwards straight through to IWindow, unchanged" )  {
 
-        MockEngineFixture  fixture;
+        MockWindowFixture  fixture;
         TileMapRenderer    renderer( 800, 600, "test", -1, false );
 
         CHECK( renderer.GetElapsedTime() == doctest :: Approx( 0.0 ) );
 
-        fixture.engine.dElapsedTimeResult = 1.2345;
+        fixture.window.dElapsedTimeResult = 1.2345;
         CHECK( renderer.GetElapsedTime() == doctest :: Approx( 1.2345 ) );
 
         // Sub-second resolution is the whole point of this primitive
         // (os.time()-style whole seconds are too coarse for per-character
         // pacing), so make sure a small step isn't truncated on the way.
-        fixture.engine.AdvanceElapsedTime( 0.016 );
+        fixture.window.AdvanceElapsedTime( 0.016 );
         CHECK( renderer.GetElapsedTime() == doctest :: Approx( 1.2505 ) );
     }
 
