@@ -76,8 +76,19 @@ class MockWindow : public SunLight :: Window :: IWindow  {
     // pre-close value - i.e. proof it ran before the window closed.
     SunLight :: Window :: CloseHandlerList  closeHandlers;
 
-    bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable )  {
+    bool                                bLastCreateFullscreen      = false;
+    SunLight :: Window :: FullscreenStrategy lastCreateStrategy = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL;
+
+    bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
+                 bool bFullscreenAtCreate = false,
+                 SunLight :: Window :: FullscreenStrategy strategy = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL )  {
         nCreateCalls++;
+        bLastCreateFullscreen = bFullscreenAtCreate;
+        lastCreateStrategy    = strategy;
+        if( bFullscreenAtCreate && bCreateResult )  {
+            bFullscreen            = true;
+            lastFullscreenStrategy = strategy;
+        }
         nLastCreateWidth      = nWidth;
         nLastCreateHeight     = nHeight;
         strLastCreateTitle    = szTitle;
@@ -125,6 +136,10 @@ class MockWindow : public SunLight :: Window :: IWindow  {
 
     bool GetFullscreen( void )  {
         return bFullscreen;
+    }
+
+    SunLight :: Window :: FullscreenStrategy GetFullscreenStrategy( void )  {
+        return ( bFullscreen ? lastFullscreenStrategy : SunLight :: Window :: FULLSCREEN_STRATEGY_REAL );
     }
 
     // Settable (set dElapsedTimeResult directly, or AdvanceElapsedTime) so

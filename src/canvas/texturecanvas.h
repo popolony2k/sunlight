@@ -30,7 +30,10 @@ namespace SunLight {
     namespace Canvas  {
 
         /**
-         * @brief Enumeration describing all valid animation modes.
+         * @brief Enumeration describing all valid animation modes. On a sheet of N frames, the tile shown at each
+         * successive step: AUTOMATIC_CIRCULAR 1 2 .. N-1 0 1 .. (each frame once, period N); AUTOMATIC_RIGHT_LEFT a
+         * ping-pong that shows each end ONCE, 0 1 .. N-1 N-2 .. 1 0 1 .. (period 2N-2); ANIMATE_RIGHT/LEFT/CENTER
+         * move one tile per step to the last frame / frame 0 / the center frame and stay there; MANUAL never moves.
          */
         enum AnimationMode  {
             TEXTURE_ANIMATION_MODE_MANUAL = 0,

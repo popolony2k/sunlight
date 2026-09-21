@@ -109,6 +109,13 @@ namespace SunLight {
             virtual bool GetFullscreen( void ) = 0;
 
             /**
+             * @brief The fullscreen strategy in effect: meaningful only
+             * while @see GetFullscreen is true; while windowed it answers
+             * FULLSCREEN_STRATEGY_REAL, the default.
+             */
+            virtual SunLight :: Window :: FullscreenStrategy GetFullscreenStrategy( void ) = 0;
+
+            /**
              * @brief Query real, wall-clock elapsed time in seconds since
              * the engine's own timer started (window initialisation).
              * High-resolution and monotonic, and - unlike the fixed

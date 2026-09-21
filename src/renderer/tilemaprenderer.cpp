@@ -1517,6 +1517,8 @@ namespace SunLight {
             m_bExitRequested              = false;
             m_ExitKey                     = config.exitKey;
             m_bWindowResizeable           = config.bResizeable;
+            m_bStartFullscreen            = config.bFullscreen;
+            m_StartFullscreenStrategy     = config.fullscreenStrategy;
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
             m_bDrawFPS                    = config.bDrawFPS;
             m_bStretchToFill              = config.bStretchToFill;
@@ -1921,6 +1923,15 @@ namespace SunLight {
         bool TileMapRenderer :: GetFullscreen( void )  {
 
             return SunLight :: Window :: WindowFactory :: GetWindow().GetFullscreen();
+        }
+
+        /**
+         * The fullscreen strategy in effect (see @see
+         * IDrawSurface::GetFullscreenStrategy), straight from IWindow.
+         */
+        SunLight :: Window :: FullscreenStrategy TileMapRenderer :: GetFullscreenStrategy( void )  {
+
+            return SunLight :: Window :: WindowFactory :: GetWindow().GetFullscreenStrategy();
         }
 
         /**
@@ -2956,10 +2967,14 @@ namespace SunLight {
 
             SunLight :: Window :: IWindow  &window = SunLight :: Window :: WindowFactory :: GetWindow();
 
+            // Born fullscreen when configured (RendererConfig::bFullscreen): the window backend applies it
+            // as part of creating the window - the same state SetFullscreen would give, without a windowed phase.
             if( !window.Create( ( int ) m_fWindowWidth,
                                 ( int ) m_fWindowHeight,
                                 m_strTitle.c_str(),
-                                m_bWindowResizeable ) )  {
+                                m_bWindowResizeable,
+                                m_bStartFullscreen,
+                                m_StartFullscreenStrategy ) )  {
                 ::tmx_perror( "Cannot create a window" );
                 return false;
             }

@@ -134,6 +134,8 @@ namespace SunLight {
             bool                                       m_bExitRequested;
             SunLight :: Input :: KeyboardKey           m_ExitKey;
             bool                                       m_bWindowResizeable;
+            bool                                       m_bStartFullscreen;
+            SunLight :: Window :: FullscreenStrategy   m_StartFullscreenStrategy;
             bool                                       m_bDrawFPS;
             bool                                       m_bStretchToFill;
             unsigned                                   m_nMaxFrames;
@@ -311,6 +313,7 @@ namespace SunLight {
                                SunLight :: Window :: FullscreenStrategy strategy =
                                    SunLight :: Window :: FULLSCREEN_STRATEGY_REAL );
             bool GetFullscreen( void );
+            SunLight :: Window :: FullscreenStrategy GetFullscreenStrategy( void );
             double GetElapsedTime( void );
             void SetStretchToFill( bool bStretchToFill );
             bool GetStretchToFill( void );

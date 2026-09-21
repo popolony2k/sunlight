@@ -24,6 +24,7 @@
 #include <optional>
 #include <string>
 #include "input/iinputhandler.h"
+#include "window/iwindow.h"
 #include "tilemap/tilemapdefs.h"
 
 
@@ -111,6 +112,12 @@ namespace SunLight {
             // Key that makes the window ask to close; KEY_NULL disables it.
             // Applied at every Start(), so it sticks across restarts.
             SunLight :: Input :: KeyboardKey          exitKey               = SunLight :: Input :: KEY_ESCAPE;
+
+            // Whether the window comes up ALREADY fullscreen (no windowed phase first) and with which
+            // strategy - applied at every Start(), exactly like IDrawSurface::SetFullscreen( true,
+            // strategy ) on the created window would. The null backend accepts and ignores both.
+            bool                                      bFullscreen           = false;
+            SunLight :: Window :: FullscreenStrategy  fullscreenStrategy    = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL;
 
             ViewControlMode                           viewControlMode       = VIEW_CONTROL_MODE_ACTIVE;
             int                                       nScrollStepWidth      = -1;   // -1 = map tile width

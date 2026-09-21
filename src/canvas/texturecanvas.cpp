@@ -246,32 +246,57 @@ namespace SunLight {
 
                     switch( m_AnimationMode )  {
                         case TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR :
-                            m_nCurrentTile = ( m_nCurrentTile >= m_nTextureWidth ? 0 :
+                            /*
+                             * Every frame once per cycle: step to the next one, and go back to the first
+                             * when the NEXT position would fall outside the sheet. (It used to wrap only
+                             * once the position had reached the sheet's width, i.e. it first stepped one
+                             * frame PAST the last real one - a source rectangle outside the texture -
+                             * every cycle.)
+                             */
+                            m_nCurrentTile = ( ( m_nCurrentTile + ( int ) m_nTileSize ) >= m_nTextureWidth ? 0 :
                                             m_nCurrentTile + m_nTileSize );
                             break;
                         case TEXTURE_ANIMATION_MODE_AUTOMATIC_RIGHT_LEFT :
+                            /*
+                             * A ping-pong over frames 0 .. N - 1 that shows each END ONCE: 0 1 2 3 2 1 0 1 2 ...
+                             * (period 2N - 2). m_nActiveTileIndex is the frame the NEXT step shows, and the
+                             * direction turns round on the step that shows an end. (The previous version held
+                             * its ends unevenly - 0 1 2 3 3 2 1 0 0 0 1 ...: the last frame twice, frame 0 three
+                             * times, period 2N + 1 - because its turn-round steps re-showed the frame they turned
+                             * on and the next pass started by showing frame 0 again.) A sheet of fewer than two
+                             * frames has nothing to bounce between and stays on frame 0.
+                             */
                             if( m_nTileSize != 0 )  {
-                                if( m_bAnimationRight )  {
-                                    if( m_nActiveTileIndex < ( m_nTextureWidth / m_nTileSize ) )  {
-                                        m_nCurrentTile = ( m_nTileSize * m_nActiveTileIndex );
-                                        m_nActiveTileIndex++;
-                                    }
-                                    else  {
-                                        if( m_nActiveTileIndex > 0 )  {
-                                            m_bAnimationRight = false;
-                                            m_nActiveTileIndex--;
-                                            m_nCurrentTile = ( m_nTileSize * m_nActiveTileIndex );
-                                        }
-                                    }
+                                unsigned int  nFrames = ( unsigned int ) ( m_nTextureWidth / ( int ) m_nTileSize );
+
+                                if( nFrames < 2 )  {
+                                    m_nActiveTileIndex = 0;
+                                    m_nCurrentTile     = 0;
+                                    m_bAnimationRight  = true;
                                 }
                                 else  {
-                                    if( m_nActiveTileIndex > 0 )  {
-                                        m_nActiveTileIndex--;
-                                        m_nCurrentTile = ( m_nTileSize * m_nActiveTileIndex );
+                                    if( m_nActiveTileIndex >= nFrames )
+                                        m_nActiveTileIndex = nFrames - 1;
+
+                                    m_nCurrentTile = ( m_nTileSize * m_nActiveTileIndex );
+
+                                    if( m_bAnimationRight )  {
+                                        if( ( m_nActiveTileIndex + 1 ) >= nFrames )  {
+                                            m_bAnimationRight = false;
+                                            m_nActiveTileIndex--;
+                                        }
+                                        else  {
+                                            m_nActiveTileIndex++;
+                                        }
                                     }
                                     else  {
-                                        m_nCurrentTile = 0;
-                                        m_bAnimationRight = true;
+                                        if( m_nActiveTileIndex == 0 )  {
+                                            m_bAnimationRight = true;
+                                            m_nActiveTileIndex++;
+                                        }
+                                        else  {
+                                            m_nActiveTileIndex--;
+                                        }
                                     }
                                 }
                             }

@@ -15,6 +15,39 @@ here — see the git log for that period.
 
 ### Fixed
 
+- **Two animation modes stepped through the wrong frames** (audited by caravellius-a5 against the code; the
+  frame sequences below are what the real library draws, measured before and after):
+  - **`TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR` stepped one frame PAST the last one every cycle.** It
+    wrapped to frame 0 only once the position had *reached* the sheet's width, so on a sheet of N frames it
+    also drew a source rectangle entirely outside the sheet (`[N]` below) once per cycle. It now wraps when
+    the *next* position would fall outside the sheet: every frame once per cycle, period N. (The first
+    `Update()` still shows frame 1, not frame 0 - unchanged.)
+  - **`TEXTURE_ANIMATION_MODE_AUTOMATIC_RIGHT_LEFT` held its two ends unevenly**: the last frame twice and
+    frame 0 THREE times in a row (period 2N + 1), because its turn-round steps re-showed the frame they
+    turned on and the next pass began by showing frame 0 again. It is now a true ping-pong that shows each
+    end once (period 2N - 2, the classic 0 1 2 3 2 1 0 1 ...); a sheet of fewer than two frames stays on
+    frame 0. Chosen by the owner after comparing the current version, "hold each end twice" and this one
+    side by side on the real Alien/Galileo/player-option sheets.
+  Tile shown at each successive step (N = frames on the sheet, starting index 0):
+
+  | Mode | N | Before | After |
+  |---|---|---|---|
+  | CIRCULAR | 3 | 1 2 [3] 0 1 2 [3] 0 | 1 2 0 1 2 0 1 2 0 |
+  | CIRCULAR | 4 | 1 2 3 [4] 0 1 2 3 [4] 0 | 1 2 3 0 1 2 3 0 1 2 3 0 |
+  | CIRCULAR | 5 | 1 2 3 4 [5] 0 1 2 3 4 [5] 0 | 1 2 3 4 0 1 2 3 4 0 |
+  | CIRCULAR | 8 | 1 2 3 4 5 6 7 [8] 0 1 2 … | 1 2 3 4 5 6 7 0 1 2 3 … |
+  | RIGHT_LEFT | 3 | 0 1 2 2 1 0 0 0 1 2 2 1 0 0 0 | 0 1 2 1 0 1 2 1 0 1 2 1 |
+  | RIGHT_LEFT | 4 | 0 1 2 3 3 2 1 0 0 0 1 2 3 3 2 1 0 0 0 | 0 1 2 3 2 1 0 1 2 3 2 1 0 |
+  | RIGHT_LEFT | 5 | 0 1 2 3 4 4 3 2 1 0 0 0 1 2 3 4 4 … | 0 1 2 3 4 3 2 1 0 1 2 3 4 3 2 1 0 |
+  | RIGHT_LEFT | 8 | 0 1 … 7 7 6 … 1 0 0 0 1 … | 0 1 … 7 6 5 4 3 2 1 0 1 … |
+
+  `ANIMATE_RIGHT`, `ANIMATE_LEFT`, `ANIMATE_CENTER` and `MANUAL` are unchanged (pinned by a test per mode).
+  Behaviour change to expect: a CIRCULAR cycle is one step shorter, and a RIGHT_LEFT cycle is 2N - 2 steps
+  instead of 2N + 1 (e.g. 6 instead of 9 on a 4-frame sheet, so it runs faster at the same delay). Sprite
+  animation trace over all six modes, several tile sizes, positions, clocks and delays: MANUAL and the three
+  `ANIMATE_*` modes byte-identical to the previous release; CIRCULAR and RIGHT_LEFT differ in 39 of 102 traced
+  cases each.
+
 - **`TextureMap` no longer keeps a `std::deque` iterator as its cursor (use-after-free once a sequence had
   thousands of entries).** The cursor - the texture currently shown - was a deque iterator set when the FIRST
   texture was added and kept across every later `push_back`, which the standard invalidates: once the deque
@@ -93,6 +126,32 @@ here — see the git log for that period.
   archive.
 
 ### Added
+
+- **Fullscreen at window creation.** `RendererConfig::bFullscreen` (default `false`) and
+  `RendererConfig::fullscreenStrategy` (`FULLSCREEN_STRATEGY_REAL` by default, or
+  `FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED`) make the window come up ALREADY fullscreen instead of opening
+  windowed and being switched afterwards (asked for by Caravellius/Scarab, whose `main.lua` opened windowed,
+  loaded every module and only then called `SetFullscreen`). They are handed to `IWindow::Create`, which
+  gained two defaulted parameters (`bool bFullscreen = false, FullscreenStrategy strategy = REAL`), applied at
+  every `Start()` like the exit key, and validated (`RendererConfig::Validate` / `TileMapRenderer::Create`
+  reject a strategy outside the enum with `unknown fullscreen strategy value N`, even when fullscreen is
+  off). On the raylib backend the window is switched with exactly the call
+  `SetFullscreen( true, strategy )` makes, inside `Create()` and so before the first frame - so each strategy,
+  macOS's real fullscreen included, ends in the same state as switching an open window (same monitor, same
+  video-mode switch, same letterboxed result; the engine still renders at its fixed internal resolution).
+  `BORDERLESS_WINDOWED` is created hidden and shown once switched (no windowed flash). `REAL` is created
+  VISIBLE and switched at once (at most a brief windowed window): on macOS, tested by hand through Scarab,
+  a window that entered real fullscreen while HIDDEN came up as a mirrored desktop that never rendered,
+  while the same call on a visible window works - exactly what Caravellius' `Display.init()` does today. Raylib's own creation-time
+  `FLAG_FULLSCREEN_MODE` is deliberately NOT used: it picks its own video mode (the closest one at least as
+  large as the requested size), and `FLAG_BORDERLESS_WINDOWED_MODE` is not applied at creation at all.
+  `GetFullscreen()` reports the state right after `Create()`/`Start()`. The null backend accepts and
+  IGNORES both (never an error, `GetFullscreen()` stays false), so one configuration runs headless and
+  windowed alike. New: `IWindow::GetFullscreenStrategy()` and `IDrawSurface::GetFullscreenStrategy()`
+  (`TileMapRenderer` passes it through) - the strategy in effect, meaningful only while fullscreen, `REAL`
+  while windowed. New pure virtuals / a changed signature on `IWindow` and `IDrawSurface` (only the raylib
+  and null windows and the test mock implement them). Nothing changes with the defaults. The raylib path
+  needs a real display and is verified by hand on each platform.
 
 - **Sequences can be inspected and changed after they were built** (asked for by scarab-df):
   `Sprite::GetTextureSequenceSize(seq)` (entry count, -1 for an unknown sequence),
