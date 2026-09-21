@@ -924,7 +924,16 @@ namespace SunLight {
         void TileMapRenderer :: DrawAllLayers( tmx_layer *pLayer ) {
 
             while( pLayer ) {
-                if( pLayer -> visible ) {
+
+                /*
+                 * The active view's layer mask (IView::ShowLayer): a layer it
+                 * does not show is skipped whole - its content, its children
+                 * if it is a group, and its sprites, exactly like a layer with
+                 * visible="0" but for this view only. m_pActiveView is the
+                 * view of the pass being drawn (RenderMap makes it so); an
+                 * unmasked view shows every layer.
+                 */
+                if( pLayer -> visible && m_pActiveView -> IsLayerShown( ( int ) pLayer -> id ) ) {
                     switch( pLayer -> type )  {
                         case L_GROUP :
                             DrawAllLayers( pLayer -> content.group_head ); // recursive call
@@ -933,7 +942,15 @@ namespace SunLight {
                             DrawObjects( pLayer );
                             break;
                         case L_IMAGE :
-                            DrawImageLayer( pLayer );
+                            /*
+                             * An image layer is drawn straight at the screen origin, with no
+                             * camera and no viewport clipping - fine for the default view, but
+                             * in another view it would land on top of whatever is at the screen's
+                             * top-left corner, outside the view's own rectangle. So only the
+                             * default view draws them.
+                             */
+                            if( m_pActiveView == m_pDefaultView.get() )
+                                DrawImageLayer( pLayer );
                             break;
                         case L_LAYER :
                             DrawLayer( pLayer );
@@ -973,18 +990,92 @@ namespace SunLight {
         }
 
         /**
+         * The background color a view's clear uses: its explicit one, or the
+         * loaded map's own, or the window background color when there is no map.
+         */
+        SunLight :: Base :: stColor TileMapRenderer :: BackgroundColorOf( View &view )  {
+
+            if( view.m_bExplicitBackground )
+                return view.m_Background;
+
+            return IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor );
+        }
+
+        /**
+         * The multi-view part of the frame: one pass per visible view, in
+         * draw order (ascending order, then ascending id - std::stable_sort
+         * over the default view first and the others in creation order, i.e.
+         * ascending id already). Each pass makes its view the active one
+         * (so every existing draw routine - tile clipping, zoom, camera,
+         * the sprites' own viewport lookup - just sees that view's
+         * viewport and camera), optionally fills the view's rectangle with
+         * its background (the default view does not: the frame clear done by
+         * RenderMap already covers it), and draws the layers the view's mask
+         * lets through. Everything goes into the one render target the
+         * frame already draws into, so a later view paints over an earlier
+         * one where they overlap. The default view is always made active
+         * again at the end, ready for input handling and the rest of the
+         * frame.
+         */
+        void TileMapRenderer :: DrawViewPasses( void )  {
+
+            View  *pDefault = m_pDefaultView.get();
+
+            m_FrameAdvancedSprites.clear();
+            m_PassViews.clear();
+
+            if( pDefault -> m_bVisible )
+                m_PassViews.push_back( pDefault );
+
+            for( std :: unique_ptr<View> &pView : m_ExtraViews )  {
+                if( pView -> m_bVisible )
+                    m_PassViews.push_back( pView.get() );
+            }
+
+            std :: stable_sort( m_PassViews.begin(), m_PassViews.end(),
+                                []( View *pLeft, View *pRight ) { return pLeft -> m_nDrawOrder < pRight -> m_nDrawOrder; } );
+
+            for( View *pView : m_PassViews )  {
+                ActivateView( pView );
+
+                if( ( pView != pDefault ) && pView -> m_bClear )  {
+                    SunLight :: TileMap :: stDimension2D  &rect = pView -> m_pViewport -> GetDimension2D();
+
+                    SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( rect.pos.x,
+                                                                                              rect.pos.y,
+                                                                                              rect.size.nWidth,
+                                                                                              rect.size.nHeight,
+                                                                                              BackgroundColorOf( *pView ) );
+                }
+
+                DrawAllLayers( m_pTmxMap -> ly_head );
+            }
+
+            ActivateView( pDefault );
+        }
+
+        /**
          * Render all map objects.
          */
         void TileMapRenderer :: RenderMap( void ) {
 
-            if( m_bClearBackground )  {
-                SunLight :: Base :: stColor  bkColor = IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor );
+            if( m_bClearBackground )
+                SunLight :: Engines :: EngineFactory :: GetEngine().ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
 
-                SunLight :: Engines :: EngineFactory :: GetEngine().ClearBackground( bkColor );
+            if( m_pTmxMap )  {
+                if( m_ExtraViews.empty() )  {
+                    /*
+                     * The single-view frame - every renderer that never calls CreateView -
+                     * is this one call, as it always was (the default view's mask and
+                     * visibility are the only new inputs, and default to "show all").
+                     */
+                    if( m_pDefaultView -> m_bVisible )
+                        DrawAllLayers( m_pTmxMap -> ly_head );
+                }
+                else  {
+                    DrawViewPasses();
+                }
             }
-
-            if( m_pTmxMap )
-                DrawAllLayers( m_pTmxMap -> ly_head );
 
             if( m_bDrawFPS )
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawFPS( 0, 0 );
@@ -1282,7 +1373,22 @@ namespace SunLight {
             // Handle sprite animation
             if( itSpriteMap != m_SpriteMap.end() )  {
                 for( SunLight :: Sprite :: Sprite* pSprite : *itSpriteMap -> second )  {
+                    if( m_ExtraViews.empty() )  {
                         pSprite -> Update();
+                    }
+                    else  {
+                        /*
+                         * Several passes may draw this sprite in one frame (one per view
+                         * showing its layer): its animation state must still advance only
+                         * once, in the first pass that reaches it, and every later pass just
+                         * draws the frame that pass settled on (Update() is exactly Advance()
+                         * then Draw() - see Sprite::Advance/Draw).
+                         */
+                        if( m_FrameAdvancedSprites.insert( pSprite ).second )
+                            pSprite -> Update();
+                        else
+                            pSprite -> Draw();
+                    }
                 }   
             }
         }
@@ -1645,6 +1751,15 @@ namespace SunLight {
         void TileMapRenderer :: SetClearBackground( bool bStatus )  {
 
             m_bClearBackground = bStatus;
+        }
+
+        /**
+         * Whether the frame's whole-window background clear is enabled (see
+         * @see SetClearBackground) - the default view's own "clear" flag.
+         */
+        bool TileMapRenderer :: GetClearBackground( void )  {
+
+            return m_bClearBackground;
         }
 
         /**

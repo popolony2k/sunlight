@@ -22,6 +22,7 @@
 #define __VIEW_H__
 
 #include <memory>
+#include <set>
 #include "tilemap/iview.h"
 #include "base/primitives.h"
 
@@ -67,6 +68,17 @@ namespace SunLight {
             std :: unique_ptr<SunLight :: Base :: Viewport>  m_pOwnedViewport;
             State                                  m_State;
 
+            // Drawing state (see IView). m_bClear / m_bExplicitBackground /
+            // m_Background are read for the default view only when it is asked;
+            // the frame's own clear is the renderer's (m_bClearBackground).
+            bool                                   m_bVisible;
+            int                                    m_nDrawOrder;
+            bool                                   m_bClear;
+            bool                                   m_bExplicitBackground;
+            SunLight :: Base :: stColor            m_Background;
+            bool                                   m_bMaskIsWhitelist;    // false: m_MaskIds are the HIDDEN layers; true: the SHOWN ones
+            std :: set<int>                        m_MaskIds;
+
             template<class Function>
             void Run( Function function );
 
@@ -92,6 +104,21 @@ namespace SunLight {
 
             void SetScrollStepSize( int nStepWidth, int nStepHeight ) override;
             void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) override;
+
+            void SetVisible( bool bVisible ) override;
+            bool GetVisible( void ) override;
+            void SetDrawOrder( int nOrder ) override;
+            int GetDrawOrder( void ) override;
+            void SetClearBackground( bool bClear ) override;
+            bool GetClearBackground( void ) override;
+            void SetBackgroundColor( const SunLight :: Base :: stColor &color ) override;
+            void UseMapBackgroundColor( void ) override;
+            void ShowLayer( int nLayerId, bool bShow ) override;
+            bool ShowLayer( const char *szLayerName, bool bShow ) override;
+            void ShowOnlyLayers( const std :: vector<int> &layerIds ) override;
+            void ShowAllLayers( void ) override;
+            bool IsLayerShown( int nLayerId ) override;
+            bool FitToMap( void ) override;
 
             bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
                                       SunLight :: TileMap :: stMatrixPosition& pos ) override;

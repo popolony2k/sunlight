@@ -583,4 +583,34 @@ TEST_SUITE( "base/Viewport" )  {
         CHECK( dst.pos.x == 0 );
         CHECK( dst.size.nWidth == 70 );
     }
+
+    TEST_CASE( "GetZoomLimits reads back what SetMinZoom/SetMaxZoom set - both inclusive - and the full scale by default" )  {
+
+        Viewport   vp;
+        unsigned   nMin = 99, nMax = 99;
+
+        vp.GetZoomLimits( nMin, nMax );
+        CHECK( nMin == ZOOM_POS_MIN );
+        CHECK( nMax == ZOOM_POS_MAX );
+
+        vp.SetMinZoom( 10 );
+        vp.SetMaxZoom( 20 );
+        vp.GetZoomLimits( nMin, nMax );
+        CHECK( nMin == 10 );
+        CHECK( nMax == 20 );
+
+        // A rejected request changes nothing, and reads back unchanged.
+        vp.SetMaxZoom( 5 );                      // below the minimum
+        vp.SetMinZoom( ZOOM_POS_COUNT );         // off the scale
+        vp.GetZoomLimits( nMin, nMax );
+        CHECK( nMin == 10 );
+        CHECK( nMax == 20 );
+
+        // Widened again, up to the very last valid position.
+        vp.SetMinZoom( ZOOM_POS_MIN );
+        vp.SetMaxZoom( ZOOM_POS_MAX );
+        vp.GetZoomLimits( nMin, nMax );
+        CHECK( nMin == ZOOM_POS_MIN );
+        CHECK( nMax == ZOOM_POS_MAX );
+    }
 }

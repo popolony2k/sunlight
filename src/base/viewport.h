@@ -100,6 +100,7 @@ namespace SunLight  {
             virtual void SetPreferredZoom( unsigned nZoomPos );
             virtual void SetMinZoom( unsigned nMinPos );
             virtual void SetMaxZoom( unsigned nMaxPos );
+            virtual void GetZoomLimits( unsigned &nMinPos, unsigned &nMaxPos );
             virtual void SetZoom( unsigned nZoomPos );
             virtual void ResetZoom( void );
             virtual void ZoomIn( void );

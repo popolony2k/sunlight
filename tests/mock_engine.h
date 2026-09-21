@@ -61,6 +61,20 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nEndRenderTargetCalls      = 0;
     int                                 nDrawTextureScaledCalls    = 0;
 
+    // Every draw-ish call in order, for tests that care about WHICH pass drew what and in what order
+    // (the multi-view frame): kind + the rectangle it was given (x, y, w, h; zeros where it has none).
+    struct Event  {
+        enum Kind  { CLEAR, FILL, TILE, FPS };
+
+        Kind   kind;
+        float  x, y, w, h;
+        float  scale;
+        float  srcX;                 // TILE only: the source rectangle's x
+        void   *handle;              // TILE only: the texture drawn
+        SunLight :: Base :: stColor  color;   // CLEAR and FILL only
+    };
+    std :: vector<Event>                events;
+
     std :: string                       strLastLoadTextureFileName;
     SunLight :: Base :: TextureHandle   hLastUnloadedTexture = nullptr;
     SunLight :: Base :: TextureHandle   hLastDrawnTexture    = nullptr;
@@ -113,6 +127,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
                             float scale,
                             SunLight :: Base :: stColor tint )  {
         nDrawTextureTiledCalls++;
+        events.push_back( Event { Event :: TILE, dest.x, dest.y, dest.width, dest.height, scale, source.x, hTexture, SunLight :: Base :: stColor { 0, 0, 0, 0 } } );
         hLastDrawnTexture = hTexture;
         lastDrawTextureTiledSource = source;
         lastDrawTextureTiledDest   = dest;
@@ -121,6 +136,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
 
     void DrawFilledRectangle( int nPosX, int nPosY, int nWidth, int nHeight, SunLight :: Base :: stColor color )  {
         nDrawFilledRectangleCalls++;
+        events.push_back( Event { Event :: FILL, ( float ) nPosX, ( float ) nPosY, ( float ) nWidth, ( float ) nHeight, 0.0f, 0.0f, nullptr, color } );
         nLastFilledRectangleX      = nPosX;
         nLastFilledRectangleY      = nPosY;
         nLastFilledRectangleWidth  = nWidth;
@@ -151,11 +167,13 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
 
     void ClearBackground( SunLight :: Base :: stColor color )  {
         nClearBackgroundCalls++;
+        events.push_back( Event { Event :: CLEAR, 0, 0, 0, 0, 0.0f, 0.0f, nullptr, color } );
         lastClearBackgroundColor = color;
     }
 
     void DrawFPS( int, int )  {
         nDrawFPSCalls++;
+        events.push_back( Event { Event :: FPS, 0, 0, 0, 0, 0.0f, 0.0f, nullptr, SunLight :: Base :: stColor { 0, 0, 0, 0 } } );
     }
 
     SunLight :: Base :: TextureHandle LoadRenderTarget( int nWidth, int nHeight )  {
