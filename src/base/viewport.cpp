@@ -23,11 +23,9 @@
 
 
 /*
- * Zoom defaults.
+ * Zoom defaults (the scale itself - step, positions, default position - is
+ * the public ZOOM_* constants in viewport.h).
  */
-#define __DEFAULT_MAP_ZOOM_SCALE_STEP   0.0625f
-#define __DEFAULT_PREFERRED_ZOOM_POS    ( ( unsigned )( ( 1 / __DEFAULT_MAP_ZOOM_SCALE_STEP ) - 1 ) )
-#define __MAX_ZOOM_DEPTH                256
 #define __DEFAULT_USER_ZOOM_STATUS      true
 
 
@@ -43,15 +41,15 @@ namespace SunLight  {
             /*
             * Fill all zoom factor list.
             */
-            for( int nCount = 0; nCount < __MAX_ZOOM_DEPTH; nCount++ )  {
-                m_vZoomFactorList.push_back(fZoomStep+=__DEFAULT_MAP_ZOOM_SCALE_STEP );
+            for( unsigned nCount = 0; nCount < ZOOM_POS_COUNT; nCount++ )  {
+                m_vZoomFactorList.push_back(fZoomStep+=ZOOM_STEP );
             }
 
             m_pProps = &m_Props;
-            m_ZoomBorderLimits.first     = 0;
-            m_ZoomBorderLimits.second    = __MAX_ZOOM_DEPTH;
+            m_ZoomBorderLimits.first     = ZOOM_POS_MIN;
+            m_ZoomBorderLimits.second    = ZOOM_POS_COUNT;
 
-            SetPreferredZoom( __DEFAULT_PREFERRED_ZOOM_POS );
+            SetPreferredZoom( ZOOM_POS_DEFAULT );
 
             m_pProps -> bEnabledUserZoom  = __DEFAULT_USER_ZOOM_STATUS;
             m_pProps -> nCurrentZoomPos   = m_pProps -> nPreferredZoomPos;
@@ -165,16 +163,22 @@ namespace SunLight  {
 
         /**
          * @brief Get the Zoom Factor based on position passed as parameter.
-         * 
-         * @param nZoomPos The zoom to be retrieved;
-         * @return float the zoom factor;
+         * Read-only: it reports the factor of the position asked for, and
+         * never changes the viewport's own current zoom.
+         *
+         * @param nZoomPos The zoom position to be retrieved;
+         * @return float the zoom factor of that position, or - if the
+         * position is outside the allowed range (see SetMinZoom/
+         * SetMaxZoom; the upper bound is exclusive) - the factor of the
+         * preferred position (see SetPreferredZoom);
          */
         float Viewport :: GetZoomFactor( unsigned int nZoomPos )  {
 
             if( ( nZoomPos >= m_ZoomBorderLimits.first ) &&  ( nZoomPos < m_ZoomBorderLimits.second ) )  {
-                return m_vZoomFactorList[m_pProps -> nCurrentZoomPos];               
+                return m_vZoomFactorList[nZoomPos];
             }
 
+            // Outside the allowed range: the preferred position's factor.
             return m_vZoomFactorList[m_pProps -> nPreferredZoomPos];
         }
 

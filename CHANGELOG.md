@@ -13,7 +13,27 @@ here — see the git log for that period.
 
 ## [Unreleased]
 
+### Added
+
+- Public zoom-scale constants in `base/viewport.h` (`SunLight::Base`): `ZOOM_STEP`
+  (0.0625), `ZOOM_POS_MIN` (0), `ZOOM_POS_COUNT` (256 - the number of positions and the
+  EXCLUSIVE upper bound), `ZOOM_POS_MAX` (255 - the last valid position),
+  `ZOOM_POS_DEFAULT` (15, whose factor is 1.0), `ZOOM_FACTOR_MIN` (0.0625) and
+  `ZOOM_FACTOR_MAX` (16.0). A position `p` has the factor `(p + 1) x ZOOM_STEP`; the
+  step is a power of two, so every factor is exact in a float. `Viewport` is now
+  built from these (the private `#define` copies are gone), so a consumer validating
+  a zoom - e.g. a factor-based renderer creation - reads the numbers here instead of
+  hardcoding a copy that can drift.
+
 ### Fixed
+
+- `Viewport::GetZoomFactor( nZoomPos )` ignored its argument: for an in-range
+  position it returned the factor of the CURRENT zoom position instead of the one
+  asked for (e.g. asking for position 60 while at the default 15 returned 1.0, not
+  3.8125). It now returns the factor of the requested position; an out-of-range
+  position still falls back to the preferred position's factor. No caller in
+  sunlight, its tests, samples or Scarab used it, so nothing changed in practice
+  (the renderer and `TextureCanvas` scale by `GetZoomProperties().fZoomFactor`).
 
 - The null backend's virtual time drifted: `VirtualClock` summed `1/fps` per frame
   (300 frames read 4.999999999999988, 5040 read 83.99999999999652 - all 300

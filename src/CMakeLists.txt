@@ -18,7 +18,7 @@
 
 cmake_minimum_required (VERSION 3.24)
 
-project (sunlight VERSION 0.26.1)
+project (sunlight VERSION 0.27.0)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
