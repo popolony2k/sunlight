@@ -135,6 +135,11 @@ namespace SunLight {
             Run( [this, nStepWidth, nStepHeight]() { m_pRenderer -> SetScrollStepSize( nStepWidth, nStepHeight ); } );
         }
 
+        void View :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
+
+            Run( [this, &nStepWidth, &nStepHeight]() { m_pRenderer -> GetScrollStepSize( nStepWidth, nStepHeight ); } );
+        }
+
         bool View :: TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
                                           SunLight :: TileMap :: stMatrixPosition& pos )  {
 

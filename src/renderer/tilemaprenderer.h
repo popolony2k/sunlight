@@ -303,6 +303,7 @@ namespace SunLight {
             // View port control
             void SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode );
             void SetScrollStepSize( int nStepWidth, int nStepHeight );
+            void GetScrollStepSize( int &nStepWidth, int &nStepHeight );
 
             // GamePad handling
             void AddGamePad( int nGamePadId );

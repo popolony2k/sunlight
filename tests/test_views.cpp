@@ -333,4 +333,63 @@ TEST_SUITE( "renderer/views" )  {
 
         pRenderer -> Stop();
     }
+
+    TEST_CASE( "GetScrollStepSize reads back each view's own step: unresolved as -1, then the map's tile size, or what was set" )  {
+
+        MemoryFileSystemFixture  fixture;
+        fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 0, 0, 200, 200 ), 15, false );
+        SunLight :: TileMap :: IView        &defaultView = pRenderer -> GetDefaultView();
+        int                                 nId = pRenderer -> CreateView( Rect( 0, 0, 200, 200 ) );
+        SunLight :: TileMap :: IView        &other = *pRenderer -> GetView( nId );
+        int                                 nW = 0, nH = 0;
+
+        // Nothing loaded yet: both are still "the map's tile size, not known yet".
+        defaultView.GetScrollStepSize( nW, nH );
+        CHECK( nW == -1 );
+        CHECK( nH == -1 );
+        other.GetScrollStepSize( nW, nH );
+        CHECK( nW == -1 );
+        CHECK( nH == -1 );
+
+        // A set value reads back, per view, without touching the other one.
+        other.SetScrollStepSize( 3, 5 );
+        other.GetScrollStepSize( nW, nH );
+        CHECK( nW == 3 );
+        CHECK( nH == 5 );
+        defaultView.GetScrollStepSize( nW, nH );
+        CHECK( nW == -1 );
+        CHECK( nH == -1 );
+
+        // Loading the map resolves the -1 ones (both views) and leaves the explicit one alone.
+        REQUIRE( pRenderer -> LoadMap( "maps/square.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+
+        defaultView.GetScrollStepSize( nW, nH );
+        CHECK( nW == 16 );
+        CHECK( nH == 16 );
+        other.GetScrollStepSize( nW, nH );
+        CHECK( nW == 3 );
+        CHECK( nH == 5 );
+
+        // The renderer's own getter is the default view's.
+        pRenderer -> SetScrollStepSize( 7, 9 );
+        defaultView.GetScrollStepSize( nW, nH );
+        CHECK( nW == 7 );
+        CHECK( nH == 9 );
+        pRenderer -> GetScrollStepSize( nW, nH );
+        CHECK( nW == 7 );
+        CHECK( nH == 9 );
+
+        // And what it reads back is what MoveCamera* actually moves by.
+        other.SetCameraPosition( 100, 100 );
+        other.MoveCameraLeft();
+
+        int  nX = 0, nY = 0;
+
+        other.GetCameraPosition( nX, nY );
+        CHECK( nX == 100 + 3 );
+
+        pRenderer -> Stop();
+    }
 }

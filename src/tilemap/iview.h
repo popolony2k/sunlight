@@ -119,6 +119,20 @@ namespace SunLight {
             virtual void SetScrollStepSize( int nStepWidth, int nStepHeight ) = 0;
 
             /**
+             * @brief Read this view's scroll step size back: what @see
+             * SetScrollStepSize last stored, or the map's tile size once a
+             * map has been loaded and the step was "-1". Before any map is
+             * loaded a step that was never set (or set to -1) still reads
+             * -1 - "the map's tile size, not known yet" - so the value is
+             * exactly what the view would move by on the next MoveCamera*
+             * call, or the -1 that means it is not resolved yet.
+             *
+             * @param nStepWidth Output parameter receiving the horizontal step;
+             * @param nStepHeight Output parameter receiving the vertical step;
+             */
+            virtual void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) = 0;
+
+            /**
              * @brief Convert a coordinate in THIS view (screen space,
              * through its viewport, zoom and camera) to the tile matrix
              * position under it (see ITileMap::TileMapToTileMatrix, which

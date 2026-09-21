@@ -91,6 +91,7 @@ namespace SunLight {
             void GetCameraPosition( int &nX, int &nY ) override;
 
             void SetScrollStepSize( int nStepWidth, int nStepHeight ) override;
+            void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) override;
 
             bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
                                       SunLight :: TileMap :: stMatrixPosition& pos ) override;
