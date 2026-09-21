@@ -57,6 +57,9 @@ namespace SunLight {
             // canvas' position is in MAP coordinates instead: it is drawn where the map is drawn at that
             // position - the camera of whichever view draws it is added first, exactly as for a map tile -
             // so one canvas is correct in every view whatever its zoom and camera.
+            // COLLISION: a collider uses its owner's dimension as is, so the collider of a world-space
+            // sprite is in MAP coordinates and one of a screen-relative sprite is not - do not put both
+            // kinds in one collision rule (ColliderToColliderRule).
             virtual void SetWorldSpace( bool bWorldSpace );
             bool IsWorldSpace( void );
 

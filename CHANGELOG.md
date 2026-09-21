@@ -94,12 +94,17 @@ here — see the git log for that period.
   sprite, added before or after, and is **off by default**: nothing changes for existing code (sprite
   animation trace and camera/alignment trace byte-identical to the previous release, 219,133 and
   1,747,235 lines). New: `BaseCanvas::GetCameraOffset` (the camera of the view being drawn, answered by
-  the renderer), `Canvas::IsOnScreen`/`Sprite::IsOnScreen`. Colliders are not affected: a collider uses
-  its sprite's dimension as is, which for a world-space sprite is in map coordinates.
+  the renderer), `Canvas::IsOnScreen`/`Sprite::IsOnScreen` (outside a draw pass it answers for the default
+  view, the active one). **Collision:** colliders are not affected - a collider uses its sprite's dimension
+  as is, so the collider of a world-space sprite is in map coordinates; do not mix world-space and
+  screen-relative sprites in one collision rule. `AddTextureSequence` re-applies the sprite's mode to the
+  canvas on every call (it still appends a new entry each time it is given the same canvas, as it always
+  has), and `Sprite::Unload()` leaves the mode alone.
   Related fix in the multi-view frame: a sprite advances once per frame in the FIRST pass in which it is
   on screen (it used to advance in the first pass that reached it even where it was off screen, wasting
   the step while a later view showed it - which world-space sprites make common). A sprite reached by
   the passes but on screen in none is advanced once at the end of the frame, as a single view would.
+  Single-view frames (no extra view) are untouched: they still run `Update()` exactly as before.
 
 - `samples/multiview` sample (`multiview_test`): the same map and the same character (Sunny) in three
   places at once - a main view, a minimap and a close-up whose camera follows Sunny and scrolls when it

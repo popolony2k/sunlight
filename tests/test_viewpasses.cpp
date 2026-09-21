@@ -1063,6 +1063,79 @@ TEST_SUITE( "renderer/viewpasses" )  {
         CHECK( bSingle == true );                                  // (3 steps from the first canvas ends on the second)
         CHECK( bMulti == bSingle );
     }
+    TEST_CASE( "AddTextureSequence re-applies the sprite's world-space mode to the canvas on EVERY call, so a recycled canvas cannot keep an old mode" )  {
+
+        SunLight :: Sprite :: Sprite         sprite;
+        SunLight :: Canvas :: TextureCanvas  canvas;
+
+        // A canvas that arrives with the mode ON (a previous life) is brought in line with a sprite that has it OFF...
+        canvas.SetWorldSpace( true );
+        sprite.AddTextureSequence( 0, &canvas );
+        CHECK( canvas.IsWorldSpace() == false );
+
+        // ...and the other way round, again and again for the same canvas.
+        sprite.SetWorldSpace( true );
+        canvas.SetWorldSpace( false );
+        sprite.AddTextureSequence( 0, &canvas );
+        CHECK( canvas.IsWorldSpace() == true );
+        sprite.AddTextureSequence( 0, &canvas );
+        CHECK( canvas.IsWorldSpace() == true );
+    }
+
+    TEST_CASE( "Sprite::Unload() does not decide the world-space mode: the sprite keeps it, and canvases added afterwards inherit it" )  {
+
+        MockEngineFixture                    fixture;
+        SunLight :: Canvas :: TextureCanvas  canvas, again;
+        SunLight :: Sprite :: Sprite         sprite;
+
+        fixture.engine.nLoadTextureWidth  = 32;
+        fixture.engine.nLoadTextureHeight = 32;
+        REQUIRE( canvas.Load( "a.png" ) == true );
+
+        sprite.SetWorldSpace( true );
+        sprite.AddTextureSequence( 0, &canvas );
+        sprite.Unload();
+
+        CHECK( sprite.IsWorldSpace() == true );
+
+        sprite.AddTextureSequence( 0, &again );
+        CHECK( again.IsWorldSpace() == true );
+    }
+
+    TEST_CASE( "Outside a draw pass, IsOnScreen answers for the DEFAULT view - the active one - and follows its camera" )  {
+
+        Scene      scene;
+        SpriteRig  rig( scene, 1 );
+
+        // An extra view whose camera would give a different answer for the same map position.
+        int  nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+        scene.pRenderer -> GetView( nId ) -> SetCameraPosition( 400, 400 );
+
+        rig.sprite.SetWorldSpace( true );
+
+        // Default view: viewport (10, 10, 100, 100), zoom 1, camera 0. Map (32, 32) is inside it; map (500, 500) is far past it.
+        rig.sprite.GetDimension2D().pos.x = 32;
+        rig.sprite.GetDimension2D().pos.y = 32;
+        CHECK( rig.sprite.IsOnScreen() == true );
+
+        rig.sprite.GetDimension2D().pos.x = 500;
+        rig.sprite.GetDimension2D().pos.y = 500;
+        CHECK( rig.sprite.IsOnScreen() == false );                 // (the extra view, camera 400, would show it)
+
+        // Scroll the DEFAULT view onto it.
+        scene.pRenderer -> SetCameraPosition( 480, 480 );
+        CHECK( rig.sprite.IsOnScreen() == true );
+
+        // A hidden sprite is never on screen.
+        rig.sprite.SetVisible( false );
+        CHECK( rig.sprite.IsOnScreen() == false );
+
+        // And the answer is the same after a frame was drawn (the passes leave the default view active).
+        rig.sprite.SetVisible( true );
+        scene.RunFrames( 1 );
+        CHECK( rig.sprite.IsOnScreen() == true );
+    }
 }
 
 TEST_SUITE( "renderer/viewhandles" )  {
