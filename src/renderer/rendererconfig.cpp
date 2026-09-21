@@ -29,10 +29,9 @@ namespace SunLight {
     namespace Renderer  {
 
         /**
-         * @brief Whether a backend is compiled into this build. Only
-         * raylib exists today (DEFAULT_ENGINE == 1); RENDERER_BACKEND_NULL
-         * is part of the enum contract already but has no implementation
-         * yet, so selecting it is a clear error, not a silent fallback.
+         * @brief Whether a backend is compiled into this build. raylib
+         * exists when DEFAULT_ENGINE == 1; the null backend has no
+         * dependencies, so it is part of every build.
          */
         bool RendererConfig :: IsBackendAvailable( RendererBackend backend )  {
 
@@ -42,6 +41,9 @@ namespace SunLight {
 
                 case RENDERER_BACKEND_RAYLIB :
                     return ( DEFAULT_ENGINE == 1 );
+
+                case RENDERER_BACKEND_NULL :
+                    return true;
 
                 default :
                     return false;

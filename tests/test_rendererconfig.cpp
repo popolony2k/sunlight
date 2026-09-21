@@ -58,27 +58,25 @@ TEST_SUITE( "renderer/RendererConfig" )  {
         CHECK( strError.empty() );
     }
 
-    TEST_CASE( "DEFAULT and RAYLIB backends are available in this build; NULL and the sentinel are not" )  {
+    TEST_CASE( "DEFAULT, RAYLIB and NULL backends are available in this build; the sentinel and junk values are not" )  {
 
         CHECK( RendererConfig :: IsBackendAvailable( RENDERER_BACKEND_DEFAULT ) == true );
         CHECK( RendererConfig :: IsBackendAvailable( RENDERER_BACKEND_RAYLIB ) == true );
-
-        // NULL is part of the enum contract but has no implementation yet.
-        CHECK( RendererConfig :: IsBackendAvailable( RENDERER_BACKEND_NULL ) == false );
+        CHECK( RendererConfig :: IsBackendAvailable( RENDERER_BACKEND_NULL ) == true );
 
         CHECK( RendererConfig :: IsBackendAvailable( RENDERER_BACKEND_LAST ) == false );
         CHECK( RendererConfig :: IsBackendAvailable( ( RendererBackend ) 99 ) == false );
         CHECK( RendererConfig :: IsBackendAvailable( ( RendererBackend ) -1 ) == false );
     }
 
-    TEST_CASE( "Validate rejects an unavailable backend, an unknown value and a non-positive size, with a message" )  {
+    TEST_CASE( "Validate rejects an unknown backend value and a non-positive size, with a message" )  {
 
         RendererConfig  config;
         std :: string   strError;
 
         config.backend = RENDERER_BACKEND_NULL;
-        CHECK( config.Validate( &strError ) == false );
-        CHECK( strError == "renderer backend 'null' is not available in this build" );
+        CHECK( config.Validate( &strError ) == true );
+        CHECK( strError.empty() );
 
         config.backend = RENDERER_BACKEND_LAST;
         CHECK( config.Validate( &strError ) == false );
@@ -106,7 +104,7 @@ TEST_SUITE( "renderer/RendererConfig" )  {
         RendererConfig  bad;
         std :: string   strError;
 
-        bad.backend = RENDERER_BACKEND_NULL;
+        bad.backend = RENDERER_BACKEND_LAST;
 
         CHECK( TileMapRenderer :: Create( bad, &strError ) == nullptr );
         CHECK( strError.empty() == false );
@@ -293,14 +291,24 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
                byHand.GetViewport().GetZoomProperties().fZoomFactor );
     }
 
-    TEST_CASE( "Left unset, viewport and zoom keep the renderer's own defaults" )  {
+    TEST_CASE( "Left unset, the viewport covers the whole render area and the zoom keeps its default" )  {
 
         TileMapRenderer  fromConfig( ( RendererConfig() ) );
         TileMapRenderer  classic( 800, 600, "SunLight", -1, true );
 
         CHECK( fromConfig.GetViewport().GetZoomProperties().nCurrentZoomPos ==
                classic.GetViewport().GetZoomProperties().nCurrentZoomPos );
-        CHECK( fromConfig.GetViewport().GetDimension2D().size.nWidth ==
-               classic.GetViewport().GetDimension2D().size.nWidth );
+
+        // A zero-sized viewport used to make LoadMap divide by zero.
+        SunLight :: TileMap :: stDimension2D  &vp = fromConfig.GetViewport().GetDimension2D();
+
+        CHECK( vp.pos.x == 0 );
+        CHECK( vp.pos.y == 0 );
+        CHECK( vp.size.nWidth == 800 );
+        CHECK( vp.size.nHeight == 600 );
+
+        // The classic constructor delegates, so it gets the same default.
+        CHECK( classic.GetViewport().GetDimension2D().size.nWidth == 800 );
+        CHECK( classic.GetViewport().GetDimension2D().size.nHeight == 600 );
     }
 }
