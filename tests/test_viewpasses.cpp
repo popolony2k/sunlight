@@ -724,6 +724,48 @@ TEST_SUITE( "renderer/viewpasses" )  {
         }
     }
 
+    TEST_CASE( "A sprite placed at (map position - the view's camera) is drawn exactly where the map is drawn at that position: the rule samples/multiview relies on" )  {
+
+        Scene      scene;
+        SpriteRig  rig( scene, 1 );
+        int        nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+        // The extra view: zoom 2.0, scrolled so that map point (16, 16) is at its top-left.
+        SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
+
+        view.GetViewport().SetZoom( 31 );
+        view.SetCameraPosition( 16, 16 );
+
+        // Sunny stands on map point (32, 32) - a tile corner. In this view that is (32 - 16, 32 - 16) from its origin.
+        rig.sprite.GetDimension2D().pos.x = 32 - 16;
+        rig.sprite.GetDimension2D().pos.y = 32 - 16;
+
+        scene.RunFrames( 1 );
+
+        // Where this view drew the sprite, and where it drew the map tile whose corner is map point (32, 32).
+        bool   bSprite = false, bTile = false;
+        float  fSpriteX = 0, fSpriteY = 0, fTileX = 0, fTileY = 0;
+
+        for( const Event &evt : scene.engine().events )  {
+            if( ( evt.kind != Event :: TILE ) || ( evt.x < 200.0f ) )
+                continue;                                                  // only the extra view
+
+            if( evt.handle == ( void * ) 0x77 )  {
+                bSprite = true;  fSpriteX = evt.x;  fSpriteY = evt.y;
+            }
+            else if( ( evt.x == 332.0f ) && ( evt.y == 42.0f ) )  {        // 300 + ( 32 - 16 ) * 2, 10 + ( 32 - 16 ) * 2
+                bTile = true;  fTileX = evt.x;  fTileY = evt.y;
+            }
+        }
+
+        REQUIRE( bSprite );
+        REQUIRE( bTile );
+        CHECK( fSpriteX == fTileX );
+        CHECK( fSpriteY == fTileY );
+        CHECK( fSpriteX == 332.0f );
+        CHECK( fSpriteY == 42.0f );
+    }
+
     TEST_CASE( "A sprite on a layer no view shows stands still; a layer masked from one view still animates for the others" )  {
 
         Scene      scene;

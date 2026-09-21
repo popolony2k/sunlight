@@ -82,10 +82,13 @@ here — see the git log for that period.
 
 ### Added
 
-- `samples/multiview` sample (`multiview_test`): the same map in three places at once - a main view, a
-  minimap (`FitToMap`, sprite layer masked out, translucent background) and a close-up with its own
-  camera and zoom - with keys to show/hide views, mask a layer and change draw order. Samples only: not
-  part of any release archive.
+- `samples/multiview` sample (`multiview_test`): the same map and the same character (Sunny) in three
+  places at once - a main view, a minimap and a close-up whose camera follows Sunny and scrolls when it
+  reaches the view's border - with keys to walk Sunny, zoom the close-up, show/hide views, mask a layer and
+  change draw order. A sprite is positioned relative to the view that draws it and ignores the view's
+  camera, so the sample keeps one Sunny per view (each on its own nearly-empty layer, each view's layer mask
+  showing only its own) and places each at Sunny's map position minus that view's camera - a rule now
+  covered by a unit test. Samples only: not part of any release archive.
 
 - **Extra views are now DRAWN: the multi-view frame.** Each visible view gets its own pass over the
   same map into the one render target, in draw order, painter's style (a later view paints over an
