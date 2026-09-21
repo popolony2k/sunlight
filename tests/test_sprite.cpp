@@ -424,4 +424,149 @@ TEST_SUITE( "sprite/Sprite" )  {
         pCanvas.reset();                                 // the canvas unloads itself...
         CHECK( fixture.engine.nUnloadTextureCalls == 1 );
     }                                                    // ...and the sprite's destructor must not touch it again
+
+    TEST_CASE( "GetTextureSequenceSize counts the entries of a sequence: -1 for an unknown one, and a canvas added twice counts twice" )  {
+
+        Sprite         sprite;
+        TextureCanvas  first, second;
+
+        CHECK( sprite.GetTextureSequenceSize( 0 ) == -1 );
+
+        sprite.AddTextureSequence( 0, &first );
+        CHECK( sprite.GetTextureSequenceSize( 0 ) == 1 );
+        sprite.AddTextureSequence( 0, &second );
+        CHECK( sprite.GetTextureSequenceSize( 0 ) == 2 );
+        sprite.AddTextureSequence( 0, &first );                     // the same canvas again: another entry, as it always was
+        CHECK( sprite.GetTextureSequenceSize( 0 ) == 3 );
+        CHECK( sprite.GetTextureSequenceSize( 7 ) == -1 );
+    }
+
+    TEST_CASE( "SetTextureSequenceDelay changes the pace of a sequence from now on, and refuses an unknown sequence" )  {
+
+        MockClockFixture  clockFixture;
+        Sprite            sprite;
+        TextureCanvas     first, second;
+
+        clockFixture.clock.nNow = 1000;
+        sprite.AddTextureSequence( 0, &first, 200 );                // due at 1200
+        sprite.AddTextureSequence( 0, &second, 200 );
+        sprite.SetActiveTextureSequence( 0 );
+        sprite.SetVisible( true );
+
+        clockFixture.clock.nNow = 1199;
+        sprite.Advance();
+        CHECK( sprite.GetActiveTexture() == &first );
+
+        CHECK( sprite.SetTextureSequenceDelay( 0, 40 ) == true );   // the current frame is now due at 1199 + 40 = 1239
+
+        clockFixture.clock.nNow = 1238;
+        sprite.Advance();
+        CHECK( sprite.GetActiveTexture() == &first );
+
+        clockFixture.clock.nNow = 1239;
+        sprite.Advance();
+        CHECK( sprite.GetActiveTexture() == &second );
+
+        // The new delay is the pace of the following frames as well.
+        clockFixture.clock.nNow = 1278;
+        sprite.Advance();
+        CHECK( sprite.GetActiveTexture() == &second );
+        clockFixture.clock.nNow = 1279;
+        sprite.Advance();
+        CHECK( sprite.GetActiveTexture() == &first );
+
+        CHECK( sprite.SetTextureSequenceDelay( 9, 40 ) == false );
+    }
+
+    TEST_CASE( "SetTextureSequenceDelay is safe on every reconfigure: the same delay changes nothing, and the shown entry never changes" )  {
+
+        MockClockFixture  clockFixture;
+        Sprite            sprite;
+        TextureCanvas     first, second;
+
+        clockFixture.clock.nNow = 1000;
+        sprite.AddTextureSequence( 0, &first, 100 );                // due at 1100
+        sprite.AddTextureSequence( 0, &second, 100 );
+        sprite.SetActiveTextureSequence( 0 );
+        sprite.SetVisible( true );
+
+        clockFixture.clock.nNow = 1090;
+
+        for( int nCall = 0; nCall < 5; nCall++ )  {
+            CHECK( sprite.SetTextureSequenceDelay( 0, 100 ) == true );
+            CHECK( sprite.GetActiveTexture() == &first );          // never moves what is shown
+        }
+
+        clockFixture.clock.nNow = 1100;                             // still due when it always was
+        sprite.Advance();
+        CHECK( sprite.GetActiveTexture() == &second );
+    }
+
+    TEST_CASE( "ClearTextureSequence removes a sequence's entries, unparents its canvases, keeps them loaded, and lets them be added again" )  {
+
+        MockEngineFixture  fixture;
+        TextureCanvas      canvas;
+        Sprite             sprite;
+
+        fixture.engine.hLoadTextureResult = ( TextureHandle ) 0xBEEF;
+        fixture.engine.nLoadTextureWidth  = 32;
+        fixture.engine.nLoadTextureHeight = 32;
+        REQUIRE( canvas.Load( "a.png" ) == true );
+
+        sprite.AddTextureSequence( 0, &canvas );
+        CHECK( canvas.GetParent() == &sprite );
+
+        CHECK( sprite.ClearTextureSequence( 0 ) == true );
+        CHECK( sprite.GetTextureSequenceSize( 0 ) == -1 );
+        CHECK( canvas.GetParent() == nullptr );                     // released, like Sprite::Unload does
+        CHECK( fixture.engine.nUnloadTextureCalls == 0 );           // ...but NOT unloaded: the canvas is the caller's
+        CHECK( canvas.Unload() == true );                           // still loaded
+        CHECK( canvas.Load( "a.png" ) == true );
+
+        CHECK( sprite.ClearTextureSequence( 0 ) == false );         // already gone
+        CHECK( sprite.ClearTextureSequence( 5 ) == false );
+
+        // Reusable: added again, one entry, parented again.
+        sprite.AddTextureSequence( 0, &canvas );
+        CHECK( sprite.GetTextureSequenceSize( 0 ) == 1 );
+        CHECK( canvas.GetParent() == &sprite );
+    }
+
+    TEST_CASE( "Clearing the ACTIVE sequence leaves no active sequence; clearing another one leaves the active one alone" )  {
+
+        MockEngineFixture  fixture;
+        TextureCanvas      canvasA, canvasB;
+        Sprite             sprite;
+
+        fixture.engine.nLoadTextureWidth  = 32;
+        fixture.engine.nLoadTextureHeight = 32;
+        REQUIRE( canvasA.Load( "a.png" ) == true );
+        REQUIRE( canvasB.Load( "b.png" ) == true );
+
+        sprite.AddTextureSequence( 0, &canvasA );
+        sprite.AddTextureSequence( 1, &canvasB );
+        sprite.SetVisible( true );
+        REQUIRE( sprite.SetActiveTextureSequence( 1 ) == true );
+
+        // Another sequence: the active one is untouched (its map iterator stays valid).
+        CHECK( sprite.ClearTextureSequence( 0 ) == true );
+        CHECK( sprite.GetActiveTextureSequence() == 1 );
+        CHECK( sprite.GetActiveTexture() == &canvasB );
+
+        // The active one: nothing active afterwards, and every frame step is a safe no-op.
+        CHECK( sprite.ClearTextureSequence( 1 ) == true );
+        CHECK( sprite.GetActiveTextureSequence() == -1 );
+        CHECK( sprite.GetActiveTexture() == nullptr );
+        CHECK( sprite.IsOnScreen() == false );
+
+        sprite.Advance();
+        sprite.Draw();
+        sprite.Update();
+        CHECK( fixture.engine.nDrawTextureTiledCalls == 0 );
+
+        // A new active sequence can be chosen again.
+        sprite.AddTextureSequence( 2, &canvasA );
+        CHECK( sprite.SetActiveTextureSequence( 2 ) == true );
+        CHECK( sprite.GetActiveTexture() == &canvasA );
+    }
 }

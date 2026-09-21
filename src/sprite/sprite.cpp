@@ -150,6 +150,70 @@ namespace SunLight {
          * Set the active sprite sequence animation.
          * @param nSequence The sequence id to activate;
          */
+        /**
+         * The number of entries of a sequence.
+         * @param nSequence The sequence id;
+         * @return The entry count, or -1 for an unknown sequence;
+         */
+        int Sprite :: GetTextureSequenceSize( int nSequence )  {
+
+            TextureSequenceList :: iterator  itItem = m_Sequences.find( nSequence );
+
+            return ( itItem == m_Sequences.end() ? -1 : ( int ) itItem -> second -> GetTextureCount() );
+        }
+
+        /**
+         * Set the delay of every entry of a sequence (see TextureMap::SetDelay).
+         * @param nSequence The sequence id;
+         * @param nDelayMilli The new delay in milliseconds, or -1 for none;
+         * @return false for an unknown sequence;
+         */
+        bool Sprite :: SetTextureSequenceDelay( int nSequence, int64_t nDelayMilli )  {
+
+            TextureSequenceList :: iterator  itItem = m_Sequences.find( nSequence );
+
+            if( itItem == m_Sequences.end() )
+                return false;
+
+            itItem -> second -> SetDelay( nDelayMilli );
+
+            return true;
+        }
+
+        /**
+         * Remove every entry of a sequence, releasing (not unloading) its canvases.
+         * The canvases that were following this sprite or its parent are unparented
+         * exactly as Unload() does. m_itActiveSequence is a std::map iterator, which
+         * only the erased element's own iterator does not survive - so only when the
+         * cleared sequence IS the active one is the active sequence dropped.
+         * @param nSequence The sequence id;
+         * @return false for an unknown sequence;
+         */
+        bool Sprite :: ClearTextureSequence( int nSequence )  {
+
+            TextureSequenceList :: iterator  itItem = m_Sequences.find( nSequence );
+
+            if( itItem == m_Sequences.end() )
+                return false;
+
+            itItem -> second -> ForEachTexture( [this]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+                if( pTexture -> GetParent() && ( ( pTexture -> GetParent() == this ) || ( pTexture -> GetParent() == GetParent() ) ) )
+                    pTexture -> SetParent( nullptr );
+            } );
+
+            if( m_bIsValidActiveSequence && ( m_itActiveSequence == itItem ) )  {
+                m_bIsValidActiveSequence = false;
+                m_bFrameHeld             = false;
+            }
+
+            m_Sequences.erase( itItem );
+
+            if( !m_bIsValidActiveSequence )
+                m_itActiveSequence = m_Sequences.end();
+
+            return true;
+        }
+
         bool Sprite :: SetActiveTextureSequence( int nSequence )  {
 
             m_itActiveSequence = m_Sequences.find( nSequence );
