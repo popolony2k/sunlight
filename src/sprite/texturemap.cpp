@@ -30,6 +30,7 @@ namespace SunLight {
          */
         TextureMap :: TextureMap( void )  {
 
+            m_nCursor = 0;
         }
 
         /**
@@ -66,7 +67,7 @@ namespace SunLight {
          */
         bool TextureMap :: First( void )  {
 
-            m_itTexture = m_TextureList.begin();
+            m_nCursor = 0;
 
             return ( m_TextureList.size() > 0 );
         }
@@ -83,6 +84,40 @@ namespace SunLight {
         }
 
         /**
+         * @return The number of textures on the list;
+         */
+        size_t TextureMap :: GetTextureCount( void ) const  {
+
+            return m_TextureList.size();
+        }
+
+        /**
+         * Change the delay of every texture on the list. The texture the cursor is on
+         * is rescheduled from now, so a new pace applies from the next step instead of
+         * after whatever the old delay had scheduled; the others are scheduled when the
+         * cursor reaches them, as always. Only the delays and that one schedule change -
+         * never the cursor. If every texture ALREADY has this delay nothing at all
+         * changes, not even the schedule: a caller that reconfigures a sequence over and
+         * over with the same delay must not keep postponing its next step.
+         * A delay of -1 means "no timing": the frame is HELD by design - see Next.
+         * @param nDelayMilli The new delay, in milliseconds;
+         */
+        void TextureMap :: SetDelay( int64_t nDelayMilli )  {
+
+            bool  bChanged = false;
+
+            for( std :: unique_ptr<stTextureData> &pData : m_TextureList )  {
+                if( pData -> nDelayMilli != nDelayMilli )  {
+                    pData -> nDelayMilli = nDelayMilli;
+                    bChanged = true;
+                }
+            }
+
+            if( bChanged && ( m_TextureList.size() > 0 ) && ( nDelayMilli != -1 ) )
+                m_TextureList[m_nCursor] -> nNextTime = SunLight :: General :: Clock :: NowMilliseconds() + nDelayMilli;
+        }
+
+        /**
          * Get the next texture on list.
          * @param bCircularMode Navigate on list using circular mode;
          * WARNING: Be careful because this is a circular list.
@@ -93,42 +128,42 @@ namespace SunLight {
          */
         bool TextureMap :: Next( bool bCircularMode )  {
 
+            // Nothing to step to on an empty list (with an iterator cursor this was undefined behaviour).
+            if( m_TextureList.size() == 0 )
+                return false;
+
             if( bCircularMode )  {
-                if( m_TextureList.size() > 0 )  {
-                    if( ( * m_itTexture ) -> nDelayMilli != -1 )  {
-                        int64_t nTimeMilli = SunLight :: General :: Clock :: NowMilliseconds();
+                if( m_TextureList[m_nCursor] -> nDelayMilli != -1 )  {
+                    int64_t nTimeMilli = SunLight :: General :: Clock :: NowMilliseconds();
 
-                        if( nTimeMilli < ( * m_itTexture ) -> nNextTime )  {
-                            return false;
-                        }
-
-                        m_itTexture++;
-
-                        if( m_itTexture == m_TextureList.end() )  {
-                            m_itTexture = m_TextureList.begin();
-                        }
-
-                        ( * m_itTexture ) -> nNextTime = ( nTimeMilli +
-                                                        ( * m_itTexture ) -> nDelayMilli );
-                        return true;
-                    }
-                    else  {
-                        m_itTexture++;
-
-                        if( m_itTexture == m_TextureList.end() )  {
-                            m_itTexture = m_TextureList.begin();
-                            return false;
-                        }
+                    if( nTimeMilli < m_TextureList[m_nCursor] -> nNextTime )  {
+                        return false;
                     }
 
+                    m_nCursor++;
+
+                    if( m_nCursor == m_TextureList.size() )  {
+                        m_nCursor = 0;
+                    }
+
+                    m_TextureList[m_nCursor] -> nNextTime = ( nTimeMilli +
+                                                              m_TextureList[m_nCursor] -> nDelayMilli );
                     return true;
                 }
+                else  {
+                    m_nCursor++;
 
-                return false;
+                    if( m_nCursor == m_TextureList.size() )  {
+                        m_nCursor = 0;
+                        return false;
+                    }
+                }
+
+                return true;
             }
             else  {
-                m_itTexture++;
-                return ( m_itTexture != m_TextureList.end() );
+                m_nCursor++;
+                return ( m_nCursor != m_TextureList.size() );
             }
         }
 
@@ -137,7 +172,7 @@ namespace SunLight {
          */
         TextureMap :: stTextureData& TextureMap :: GetTextureData( void )  {
 
-            return **m_itTexture;
+            return *m_TextureList[m_nCursor];
         }
     }
 }

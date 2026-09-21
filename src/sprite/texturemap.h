@@ -56,6 +56,14 @@ namespace SunLight {
             // Visits every texture without touching the animation cursor (First/Next move it).
             void ForEachTexture( const std :: function<void( SunLight :: Canvas :: TextureCanvas* )> &visit ) const;
 
+            // How many textures the list holds.
+            size_t GetTextureCount( void ) const;
+
+            // Set the delay of EVERY texture on the list, and restart the current texture's timing from now
+            // (its next step is due nDelayMilli from now). Never moves the cursor, and does nothing at all when
+            // every texture already has this delay. -1 means "no timing": the frame is held by design (see Next).
+            void SetDelay( int64_t nDelayMilli );
+
             bool First( void );
             bool Next( bool bCircularMode = true );
             TextureMap :: stTextureData& GetTextureData( void );
@@ -65,7 +73,12 @@ namespace SunLight {
             typedef std :: deque<std :: unique_ptr<stTextureData>> TextureList;
 
             TextureList               m_TextureList;
-            TextureList :: iterator   m_itTexture;
+
+            // The current texture: an INDEX into m_TextureList, not an iterator. A std::deque invalidates
+            // every iterator on push_back, and this cursor lives across AddTexture calls (it is set when
+            // the first texture is added and kept while more are appended): an iterator here read freed
+            // memory once the deque had outgrown its block map. An index stays valid across appends.
+            size_t                    m_nCursor;
         };
     }
 }

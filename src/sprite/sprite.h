@@ -60,6 +60,29 @@ namespace SunLight {
             void AddTextureSequence( int nSequence,
                                      SunLight :: Canvas :: TextureCanvas* pTexture,
                                      int64_t nDelayMilli = -1 );
+            // Sequences can be changed after they were built - a texture is only ever APPENDED by
+            // AddTextureSequence, so without these a sequence cannot get a new pace or be rebuilt.
+            //
+            // The number of entries (textures) of a sequence, or -1 if there is no such sequence. A canvas
+            // given to AddTextureSequence twice is two entries.
+            int GetTextureSequenceSize( int nSequence );
+
+            // Set the delay of EVERY entry of a sequence, in milliseconds. The entry being shown is rescheduled
+            // from now, so the new pace applies from the next step. It never touches which entry is shown or the
+            // canvases' animation state, and it changes NOTHING when the sequence already has that delay - safe to
+            // call on every reconfigure. -1 means "no timing": a HELD frame by design (a single-entry sequence with
+            // delay -1 never steps, so it never animates; give it a real delay to animate). false if there is no
+            // such sequence.
+            bool SetTextureSequenceDelay( int nSequence, int64_t nDelayMilli );
+
+            // Remove every entry of a sequence. The canvases are released, not destroyed or unloaded: they stay
+            // loaded and can be added again (AddTextureSequence), and - as with Unload() - the ones that
+            // followed this sprite or its parent are unparented, since nothing can reach them through the sprite
+            // any more. If the sequence was the ACTIVE one the sprite has no active sequence afterwards
+            // (GetActiveTextureSequence() is -1, nothing is drawn or advanced) until SetActiveTextureSequence is
+            // called; clearing another sequence leaves the active one alone. false if there is no such sequence.
+            bool ClearTextureSequence( int nSequence );
+
             bool SetActiveTextureSequence( int nSequence );
             int GetActiveTextureSequence( void );
             SunLight :: Canvas :: TextureCanvas* GetActiveTexture( void );

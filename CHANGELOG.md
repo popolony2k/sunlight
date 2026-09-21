@@ -15,6 +15,18 @@ here — see the git log for that period.
 
 ### Fixed
 
+- **`TextureMap` no longer keeps a `std::deque` iterator as its cursor (use-after-free once a sequence had
+  thousands of entries).** The cursor - the texture currently shown - was a deque iterator set when the FIRST
+  texture was added and kept across every later `push_back`, which the standard invalidates: once the deque
+  had outgrown its internal block map, the next `Next()` from that cursor read freed memory (AddressSanitizer:
+  `heap-use-after-free` in the iterator's `operator++`; below about a block's worth of entries it happened to
+  work, and a `First()` re-point hid it in most flows). It is an index now, with identical stepping - the
+  sprite animation trace (219,133 lines) and camera trace (1,747,235 lines) are byte-identical to the previous
+  release. `Next()` on an empty list is now a plain `false` (it dereferenced a singular iterator). Found by
+  scarab-df, whose recycled pool slots re-add the same canvas on every configure and so grow a sequence by
+  one entry per recycle; reproduced with a scratch program under ASAN, pinned by a test that fails on the old
+  code even without ASAN (the walk visits the wrong entries).
+
 - **A sprite and its renderer can now be destroyed in either order, registered or not.** The renderer
   kept a raw pointer to every sprite registered with `AddSprite` (advanced and drawn every frame, unloaded
   at `Stop()`), and each sprite - with its collider and canvases - kept a raw pointer to the renderer as
@@ -81,6 +93,23 @@ here — see the git log for that period.
   archive.
 
 ### Added
+
+- **Sequences can be inspected and changed after they were built** (asked for by scarab-df):
+  `Sprite::GetTextureSequenceSize(seq)` (entry count, -1 for an unknown sequence),
+  `Sprite::SetTextureSequenceDelay(seq, delay)` (the delay of EVERY entry; the entry being shown is
+  rescheduled from now so the new pace applies from the next step; it never moves which entry is shown or
+  any canvas' animation state, and it changes NOTHING when the sequence already has that delay, so it is
+  safe to call on every reconfigure) and `Sprite::ClearTextureSequence(seq)` (removes every entry; the
+  canvases are released - unparented like `Sprite::Unload()` does - but NOT unloaded or destroyed and can
+  be added again; clearing the ACTIVE sequence leaves the sprite with no active sequence, i.e.
+  `GetActiveTextureSequence()` is -1 and nothing is drawn or advanced until `SetActiveTextureSequence` is
+  called, clearing another one leaves the active sequence alone). Until now `AddTextureSequence` could only
+  append, so a pace could not be changed and a sequence could not be rebuilt - and re-adding the same canvas
+  on every reconfigure (a recycled pool slot) added another entry each time, growing the list and changing
+  the animation pace (`TextureMap::Next` steps entry to entry with each entry's own delay). Also
+  `TextureMap::GetTextureCount()` and `TextureMap::SetDelay()`. Documented: a delay of **-1 means "no timing",
+  a HELD frame by design** (a single-entry sequence with delay -1 never steps, so it never animates).
+  `AddTextureSequence` itself is unchanged: given the same canvas twice it still appends two entries.
 
 - **World-space sprites: `Sprite::SetWorldSpace(true)`** (also `BaseCanvas::SetWorldSpace`/`IsWorldSpace`).
   A sprite's position has always been relative to the view that draws it: it is drawn at
