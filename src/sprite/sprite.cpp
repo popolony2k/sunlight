@@ -131,6 +131,7 @@ namespace SunLight {
             }
 
             pTexture -> SetVisible( GetVisible() );
+            pTexture -> SetWorldSpace( IsWorldSpace() );
             pTexture -> SetParent( pParent );
             pTexture -> SetDimension2DPtr( &spritePos );
 
@@ -202,6 +203,37 @@ namespace SunLight {
         * Set the visible status of a drawing entity.
         * @param bVisible The new visible status;
         */
+        /**
+         * Switch this sprite - and every canvas it holds - between positions
+         * relative to the view that draws it (false, the default) and MAP
+         * positions (true). Canvases added later inherit the mode, like
+         * their visibility.
+         * @param bWorldSpace The new mode;
+         */
+        void Sprite :: SetWorldSpace( bool bWorldSpace )  {
+
+            Canvas :: SetWorldSpace( bWorldSpace );
+
+            for( auto &pair : m_Sequences )  {
+                pair.second -> ForEachTexture( [bWorldSpace]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+                    pTexture -> SetWorldSpace( bWorldSpace );
+                } );
+            }
+        }
+
+        /**
+         * Whether the active texture passes the viewport test that gates
+         * Advance() and Draw() right now (see TextureCanvas::IsOnScreen): the
+         * sprite is visible and has a valid active sequence.
+         */
+        bool Sprite :: IsOnScreen( void )  {
+
+            if( GetVisible() && m_bIsValidActiveSequence )
+                return m_itActiveSequence -> second -> GetTextureData().pTexture -> IsOnScreen();
+
+            return false;
+        }
+
         void Sprite :: SetVisible( bool bVisible )  {
 
             TextureSequenceList :: iterator itItem;

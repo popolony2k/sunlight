@@ -33,6 +33,7 @@
 #include "mock_engine.h"
 #include "mock_window.h"
 #include "mock_filesystem.h"
+#include "mock_clock.h"
 
 using namespace SunLight :: Renderer;
 typedef SunLight :: TileMap :: ITileMap  ITM;
@@ -788,6 +789,352 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
         for( int nFrame = 0; nFrame < 3; nFrame++ )
             CHECK( frames[nFrame].size() == 0 );
+    }
+
+    // The sprite's draws for one frame, as (dest x, dest y, source x), texture handle 0x77 (see SpriteRig).
+    struct SpriteDraw  { float x, y, srcX; };
+
+    std :: vector<SpriteDraw> SpriteDraws( Scene &scene )  {
+        std :: vector<SpriteDraw>  draws;
+
+        for( const Event &evt : scene.engine().events )
+            if( ( evt.kind == Event :: TILE ) && ( evt.handle == ( void * ) 0x77 ) )
+                draws.push_back( SpriteDraw { evt.x, evt.y, evt.srcX } );
+
+        return draws;
+    }
+
+    // Where the map's own tile whose corner is at MAP point (nMapX, nMapY) was drawn - the only tile draws with
+    // that destination in the given screen rectangle.
+    bool TileAt( Scene &scene, float fX, float fY )  {
+        for( const Event &evt : scene.engine().events )
+            if( ( evt.kind == Event :: TILE ) && ( evt.handle != ( void * ) 0x77 ) && ( evt.x == fX ) && ( evt.y == fY ) )
+                return true;
+
+        return false;
+    }
+
+    TEST_CASE( "A world-space sprite is drawn where the map is drawn at its position, in EVERY view: one sprite, different zoom and camera per view" )  {
+
+        Scene      scene;
+        SpriteRig  rig( scene, 1 );
+        int        nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+        // The extra view: zoom 2.0, scrolled so that map point (16, 16) is at its top-left. The default view: zoom 1, camera 0.
+        SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
+
+        view.GetViewport().SetZoom( 31 );
+        view.SetCameraPosition( 16, 16 );
+
+        // ONE sprite, standing on map point (32, 32) - a tile corner.
+        rig.sprite.SetWorldSpace( true );
+        rig.sprite.GetDimension2D().pos.x = 32;
+        rig.sprite.GetDimension2D().pos.y = 32;
+
+        scene.RunFrames( 1 );
+
+        std :: vector<SpriteDraw>  draws = SpriteDraws( scene );
+
+        REQUIRE( draws.size() == 2 );                              // once per view
+
+        // Default view (origin 10, 10; zoom 1; camera 0): 10 + 32. Extra view (origin 300, 10; zoom 2; camera 16, 16): 300 + ( 32 - 16 ) * 2.
+        CHECK( draws[0].x == 42.0f );
+        CHECK( draws[0].y == 42.0f );
+        CHECK( draws[1].x == 332.0f );
+        CHECK( draws[1].y == 42.0f );
+
+        // ... which is exactly where each view drew the map's own tile at that point.
+        CHECK( TileAt( scene, 42.0f, 42.0f ) );
+        CHECK( TileAt( scene, 332.0f, 42.0f ) );
+    }
+
+    TEST_CASE( "Without SetWorldSpace nothing changes: the sprite stays relative to each view and ignores its camera" )  {
+
+        Scene      scene;
+        SpriteRig  rig( scene, 1 );
+        int        nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+        SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
+
+        view.GetViewport().SetZoom( 31 );
+        view.SetCameraPosition( 16, 16 );                          // would move a world-space sprite
+
+        CHECK( rig.sprite.IsWorldSpace() == false );
+
+        scene.RunFrames( 1 );
+
+        std :: vector<SpriteDraw>  draws = SpriteDraws( scene );
+
+        REQUIRE( draws.size() == 2 );
+        CHECK( draws[0].x == 30.0f );                             // 10 + 20 (SpriteRig puts it at 20, 20)
+        CHECK( draws[1].x == 340.0f );                            // 300 + 20 * 2
+        CHECK( draws[1].y == 50.0f );                             // 10 + 20 * 2
+    }
+
+    TEST_CASE( "SetWorldSpace reaches every canvas of the sprite, before and after it was added, and back" )  {
+
+        SunLight :: Sprite :: Sprite         sprite;
+        SunLight :: Canvas :: TextureCanvas  early, late;
+
+        sprite.AddTextureSequence( 0, &early );
+        sprite.SetWorldSpace( true );
+        sprite.AddTextureSequence( 1, &late );                     // inherits, like its visibility
+
+        CHECK( sprite.IsWorldSpace() == true );
+        CHECK( early.IsWorldSpace() == true );
+        CHECK( late.IsWorldSpace() == true );
+
+        sprite.SetWorldSpace( false );
+
+        CHECK( sprite.IsWorldSpace() == false );
+        CHECK( early.IsWorldSpace() == false );
+        CHECK( late.IsWorldSpace() == false );
+    }
+
+    TEST_CASE( "GetCameraOffset: none without a renderer above; the active view's camera (negated map point at the top-left) with one" )  {
+
+        Scene  scene;
+
+        SunLight :: Sprite :: Sprite  loose;
+        float                         fX = 99.0f, fY = 99.0f;
+
+        loose.GetCameraOffset( fX, fY );
+        CHECK( fX == 0.0f );
+        CHECK( fY == 0.0f );
+
+        SpriteRig  rig( scene, 1 );
+
+        scene.pRenderer -> SetCameraPosition( 20, 30 );
+        rig.sprite.GetCameraOffset( fX, fY );
+        CHECK( fX == -20.0f );
+        CHECK( fY == -30.0f );
+    }
+
+    TEST_CASE( "A world-space sprite off screen in the first pass but on screen in a later one animates once per frame, exactly as when it is always on screen" )  {
+
+        std :: vector<std :: vector<float>>  reference;
+        std :: vector<std :: vector<float>>  multi;
+
+        auto  frames = []( Scene &scene, int nFrames )  {
+            std :: vector<std :: vector<float>>  result;
+
+            for( int nFrame = 0; nFrame < nFrames; nFrame++ )  {
+                scene.RunFrames( 1 );
+
+                std :: vector<float>  draws;
+
+                for( const SpriteDraw &draw : SpriteDraws( scene ) )
+                    draws.push_back( draw.srcX );
+
+                result.push_back( draws );
+            }
+
+            return result;
+        };
+
+        {   // Reference: one view, the sprite on screen throughout.
+            Scene      scene;
+            SpriteRig  rig( scene, 1 );
+
+            rig.sprite.SetWorldSpace( true );
+            rig.sprite.GetDimension2D().pos.x = 30;
+            rig.sprite.GetDimension2D().pos.y = 30;
+            reference = frames( scene, 8 );
+        }
+
+        {   // Same sprite far to the right / below the default view; the extra view is scrolled onto it.
+            Scene      scene;
+            SpriteRig  rig( scene, 1 );
+            int        nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+            rig.sprite.SetWorldSpace( true );
+            rig.sprite.GetDimension2D().pos.x = 200;
+            rig.sprite.GetDimension2D().pos.y = 200;
+            scene.pRenderer -> GetView( nId ) -> SetCameraPosition( 170, 170 );
+
+            multi = frames( scene, 8 );
+        }
+
+        for( int nFrame = 0; nFrame < 8; nFrame++ )  {
+            INFO( "frame " << nFrame );
+            REQUIRE( reference[nFrame].size() == 1 );
+            REQUIRE( multi[nFrame].size() == 1 );                  // drawn by the extra view only
+            CHECK( multi[nFrame][0] == reference[nFrame][0] );
+        }
+
+        CHECK( reference[0][0] != reference[1][0] );               // and it does animate
+    }
+
+    TEST_CASE( "A world-space sprite on screen in NO view stands still, and picks up where it stood when a view scrolls onto it" )  {
+
+        std :: vector<float>  reference;
+        std :: vector<float>  multi;
+
+        {   // Reference: on screen from the first frame.
+            Scene      scene;
+            SpriteRig  rig( scene, 1 );
+
+            rig.sprite.SetWorldSpace( true );
+            rig.sprite.GetDimension2D().pos.x = 30;
+            rig.sprite.GetDimension2D().pos.y = 30;
+
+            for( int nFrame = 0; nFrame < 4; nFrame++ )  {
+                scene.RunFrames( 1 );
+                reference.push_back( SpriteDraws( scene ).at( 0 ).srcX );
+            }
+        }
+
+        {
+            Scene      scene;
+            SpriteRig  rig( scene, 1 );
+            int        nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+            rig.sprite.SetWorldSpace( true );
+            rig.sprite.GetDimension2D().pos.x = 200;
+            rig.sprite.GetDimension2D().pos.y = 200;
+
+            // Five frames with the sprite outside both views: nothing is drawn, and the canvas does not step.
+            for( int nFrame = 0; nFrame < 5; nFrame++ )  {
+                scene.RunFrames( 1 );
+                CHECK( SpriteDraws( scene ).size() == 0 );
+            }
+
+            scene.pRenderer -> GetView( nId ) -> SetCameraPosition( 170, 170 );
+
+            for( int nFrame = 0; nFrame < 4; nFrame++ )  {
+                scene.RunFrames( 1 );
+                multi.push_back( SpriteDraws( scene ).at( 0 ).srcX );
+            }
+        }
+
+        REQUIRE( multi.size() == reference.size() );
+
+        for( size_t nFrame = 0; nFrame < reference.size(); nFrame++ )  {
+            INFO( "frame " << nFrame );
+            CHECK( multi[nFrame] == reference[nFrame] );
+        }
+    }
+    TEST_CASE( "A sprite reached by the passes but on screen in NONE still steps its frame choice once per frame, exactly as in a single view" )  {
+
+        // Two canvases in one sequence, 10 ms each, the clock moving 20 ms per frame: every Sprite::Advance() moves to the other.
+        auto  activeIsSecond = []( bool bWithExtraView, int nFrames )  {
+            MockClockFixture  clockFixture;
+            Scene             scene;
+
+            scene.engine().hLoadTextureResult = ( SunLight :: Base :: TextureHandle ) 0x77;
+            scene.engine().nLoadTextureWidth  = 64;
+            scene.engine().nLoadTextureHeight = 16;
+
+            SunLight :: Canvas :: TextureCanvas  first, second;
+            SunLight :: Sprite :: Sprite         sprite;
+
+            REQUIRE( first.Load( "a.png" ) == true );
+            REQUIRE( second.Load( "b.png" ) == true );
+
+            sprite.SetWorldSpace( true );
+            sprite.GetDimension2D().pos.x = 300;                   // far outside the default view (and outside the extra one)
+            sprite.GetDimension2D().pos.y = 300;
+            sprite.AddTextureSequence( 0, &first, 10 );
+            sprite.AddTextureSequence( 0, &second, 10 );
+            sprite.SetActiveTextureSequence( 0 );
+            sprite.SetVisible( true );
+
+            REQUIRE( scene.pRenderer -> AddSprite( 1, sprite ) == true );
+
+            if( bWithExtraView )
+                scene.pRenderer -> CreateView( g_SideRect );
+
+            for( int nFrame = 0; nFrame < nFrames; nFrame++ )  {
+                clockFixture.clock.Advance( 20 );
+                scene.RunFrames( 1 );
+                CHECK( SpriteDraws( scene ).size() == 0 );         // off screen everywhere: nothing drawn
+            }
+
+            bool  bSecond = ( sprite.GetActiveTexture() == &second );
+
+            scene.pRenderer -> RemoveSprite( 1, sprite );
+
+            return bSecond;
+        };
+
+        bool  bSingle = activeIsSecond( false, 3 );                // single view: Update() every frame, unconditionally
+        bool  bMulti  = activeIsSecond( true, 3 );
+
+        CHECK( bSingle == true );                                  // (3 steps from the first canvas ends on the second)
+        CHECK( bMulti == bSingle );
+    }
+    TEST_CASE( "AddTextureSequence re-applies the sprite's world-space mode to the canvas on EVERY call, so a recycled canvas cannot keep an old mode" )  {
+
+        SunLight :: Sprite :: Sprite         sprite;
+        SunLight :: Canvas :: TextureCanvas  canvas;
+
+        // A canvas that arrives with the mode ON (a previous life) is brought in line with a sprite that has it OFF...
+        canvas.SetWorldSpace( true );
+        sprite.AddTextureSequence( 0, &canvas );
+        CHECK( canvas.IsWorldSpace() == false );
+
+        // ...and the other way round, again and again for the same canvas.
+        sprite.SetWorldSpace( true );
+        canvas.SetWorldSpace( false );
+        sprite.AddTextureSequence( 0, &canvas );
+        CHECK( canvas.IsWorldSpace() == true );
+        sprite.AddTextureSequence( 0, &canvas );
+        CHECK( canvas.IsWorldSpace() == true );
+    }
+
+    TEST_CASE( "Sprite::Unload() does not decide the world-space mode: the sprite keeps it, and canvases added afterwards inherit it" )  {
+
+        MockEngineFixture                    fixture;
+        SunLight :: Canvas :: TextureCanvas  canvas, again;
+        SunLight :: Sprite :: Sprite         sprite;
+
+        fixture.engine.nLoadTextureWidth  = 32;
+        fixture.engine.nLoadTextureHeight = 32;
+        REQUIRE( canvas.Load( "a.png" ) == true );
+
+        sprite.SetWorldSpace( true );
+        sprite.AddTextureSequence( 0, &canvas );
+        sprite.Unload();
+
+        CHECK( sprite.IsWorldSpace() == true );
+
+        sprite.AddTextureSequence( 0, &again );
+        CHECK( again.IsWorldSpace() == true );
+    }
+
+    TEST_CASE( "Outside a draw pass, IsOnScreen answers for the DEFAULT view - the active one - and follows its camera" )  {
+
+        Scene      scene;
+        SpriteRig  rig( scene, 1 );
+
+        // An extra view whose camera would give a different answer for the same map position.
+        int  nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+        scene.pRenderer -> GetView( nId ) -> SetCameraPosition( 400, 400 );
+
+        rig.sprite.SetWorldSpace( true );
+
+        // Default view: viewport (10, 10, 100, 100), zoom 1, camera 0. Map (32, 32) is inside it; map (500, 500) is far past it.
+        rig.sprite.GetDimension2D().pos.x = 32;
+        rig.sprite.GetDimension2D().pos.y = 32;
+        CHECK( rig.sprite.IsOnScreen() == true );
+
+        rig.sprite.GetDimension2D().pos.x = 500;
+        rig.sprite.GetDimension2D().pos.y = 500;
+        CHECK( rig.sprite.IsOnScreen() == false );                 // (the extra view, camera 400, would show it)
+
+        // Scroll the DEFAULT view onto it.
+        scene.pRenderer -> SetCameraPosition( 480, 480 );
+        CHECK( rig.sprite.IsOnScreen() == true );
+
+        // A hidden sprite is never on screen.
+        rig.sprite.SetVisible( false );
+        CHECK( rig.sprite.IsOnScreen() == false );
+
+        // And the answer is the same after a frame was drawn (the passes leave the default view active).
+        rig.sprite.SetVisible( true );
+        scene.RunFrames( 1 );
+        CHECK( rig.sprite.IsOnScreen() == true );
     }
 }
 

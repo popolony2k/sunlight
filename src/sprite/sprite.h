@@ -69,6 +69,21 @@ namespace SunLight {
 
             void SetVisible( bool bVisible );
 
+            // World space (see BaseCanvas::SetWorldSpace): the sprite's position is a MAP position, drawn
+            // where the map is drawn at that position by every view. Applies to every canvas added
+            // to the sprite, before or after (AddTextureSequence re-applies the sprite's mode to the canvas
+            // on every call, so a canvas reused from an earlier life cannot keep an old one). Off by default.
+            // Unload() does not touch it: the mode is the sprite's, not the textures'.
+            void SetWorldSpace( bool bWorldSpace );
+
+            // Whether the ACTIVE texture passes the viewport test that gates Advance() and Draw() in the
+            // view being drawn (the sprite is visible, has an active sequence, and the texture's rectangle is
+            // not entirely past the viewport's far edges - one entirely before its origin still passes, as it
+            // always has for Advance(), with a zero-size clip). Outside a draw pass the view being drawn is
+            // the DEFAULT view (the passes leave it active), so this answers for the default view's viewport
+            // and camera.
+            bool IsOnScreen( void );
+
             void Move( SunLight :: TileMap :: stCoordinate2D& step );
 
             void Advance( void );

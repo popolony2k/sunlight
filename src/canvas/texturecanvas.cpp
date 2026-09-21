@@ -182,6 +182,51 @@ namespace SunLight {
         }
 
         /**
+         * Where this canvas is on screen right now, in the view being drawn:
+         * dm receives its rectangle relative to that view - its own dimension,
+         * moved by the view's camera when the canvas is in WORLD space (the
+         * same arithmetic a map tile gets in TileMapRenderer::DrawTile, so a
+         * canvas placed at a tile's map position lands exactly on that tile) -
+         * and clip the part of it inside the view's viewport, zoomed and
+         * offset to the render target (see Viewport::GetClippedRect).
+         * @param dm Receives the canvas' rectangle in the view's space;
+         * @param clip Receives the visible, scaled part;
+         * @return false if none of it is inside the viewport;
+         */
+        bool TextureCanvas :: GetScreenRect( SunLight :: TileMap :: stDimension2D &dm,
+                                             SunLight :: TileMap :: stDimension2D &clip )  {
+
+            dm = GetDimension2D();
+
+            if( IsWorldSpace() )  {
+                float  fOffsetX = 0.0f;
+                float  fOffsetY = 0.0f;
+
+                GetCameraOffset( fOffsetX, fOffsetY );
+
+                dm.pos.x = ( int ) ( dm.pos.x + fOffsetX );
+                dm.pos.y = ( int ) ( dm.pos.y + fOffsetY );
+            }
+
+            return GetViewport().GetClippedRect( dm, clip );
+        }
+
+        /**
+         * Whether the viewport test that gates Advance() and Draw() passes now,
+         * in the view being drawn: visible, and the rectangle not entirely past
+         * the viewport's far edges (Viewport::GetClippedRect - a rectangle
+         * entirely before the origin passes it with a zero-size clip, which is
+         * what Advance() has always done with it).
+         */
+        bool TextureCanvas :: IsOnScreen( void )  {
+
+            SunLight :: TileMap :: stDimension2D  dm;
+            SunLight :: TileMap :: stDimension2D  clip;
+
+            return ( GetVisible() && GetScreenRect( dm, clip ) );
+        }
+
+        /**
          * Advance this canvas' animation by one step - the STATE half of a
          * frame (the animation mode's frame index), without drawing anything.
          * Meant to run once per frame per canvas; @see Draw is the half that
@@ -194,11 +239,10 @@ namespace SunLight {
         void TextureCanvas :: Advance( void )  {
 
             if( GetVisible() )  {
-                SunLight :: Base :: Viewport&       vp   = GetViewport();
-                SunLight :: TileMap :: stDimension2D& dm   = GetDimension2D();
+                SunLight :: TileMap :: stDimension2D  dm;
                 SunLight :: TileMap :: stDimension2D  clip;
 
-                if( vp.GetClippedRect( dm, clip ) ) {
+                if( GetScreenRect( dm, clip ) ) {
 
                     switch( m_AnimationMode )  {
                         case TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR :
@@ -287,10 +331,10 @@ namespace SunLight {
             if( GetVisible() )  {
                 SunLight :: Base :: Viewport&       vp   = GetViewport();
                 SunLight :: TileMap :: stDimension2D& vpDm = vp.GetDimension2D();
-                SunLight :: TileMap :: stDimension2D& dm   = GetDimension2D();
+                SunLight :: TileMap :: stDimension2D  dm;
                 SunLight :: TileMap :: stDimension2D  clip;
 
-                if( vp.GetClippedRect( dm, clip ) ) {
+                if( GetScreenRect( dm, clip ) ) {
 
                     /*
                     * All cut operations are calculated considering the
