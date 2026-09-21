@@ -37,7 +37,6 @@ class World {
     std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasSunny;
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteMonkey;
     std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasMonkey;
-    std :: string m_strBasePath;
 
     void MoveSunnyUp( SunLight :: Input :: ControllerType type, int nId );
     void MoveSunnyDown( SunLight :: Input :: ControllerType type, int nId );

@@ -53,7 +53,6 @@ class World : public SunLight :: Scripting :: IScriptListener,
     std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasMonkey;
     SunLight :: Scripting :: ScriptProcessor                    m_Script;
     SunLight :: Sound :: SoundManager                           m_SoundManager;
-    std :: string m_strBasePath;
 
     // Per-sprite "slide onto screen" animation state.
     bool  m_bSunnySliding;

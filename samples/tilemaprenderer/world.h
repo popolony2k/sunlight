@@ -32,7 +32,6 @@
 class World {
 
     std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
-    std :: string m_strBasePath;
 
     void MoveCameraUp( SunLight :: Input :: ControllerType type, int nId );    
     void MoveCameraDown( SunLight :: Input :: ControllerType type, int nId );

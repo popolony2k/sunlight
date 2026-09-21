@@ -157,8 +157,8 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 
 bool World :: LoadSprites( void ) {
 
-    if( m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IDLE ) &&
-        m_pCanvasMonkey -> Load( m_strBasePath + __MONKEY_IMAGE ) ) {
+    if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) &&
+        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) ) {
         SunLight :: TileMap :: stDimension2D    dimSunny;
         SunLight :: TileMap :: stDimension2D    dimMonkey;
 
@@ -210,7 +210,6 @@ bool World :: LoadSprites( void ) {
  */
 World :: World( std :: string strBasePath )  {
 
-    m_strBasePath = strBasePath;
     m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
                                                                                __DISPLAY_H,
                                                                                __GAME_NAME,
@@ -277,7 +276,7 @@ bool World :: Run( void )  {
     m_pRenderer -> SetDrawFPS( __ENABLE_FPS_SHOW_LABEL );
     m_pRenderer -> Start();
 
-    strMapFile = m_strBasePath + __TMX_MAP_FILE;
+    strMapFile = __TMX_MAP_FILE;
 
     if( !m_pRenderer -> LoadMap( strMapFile.c_str(), __DEFAULT_MAP_ALIGNMENT ) )  {
         fprintf( stderr, "Error loading map\n" );
