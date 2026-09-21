@@ -392,4 +392,34 @@ TEST_SUITE( "renderer/views" )  {
 
         pRenderer -> Stop();
     }
+
+    TEST_CASE( "MoveCameraUp/Left with no map loaded do nothing instead of crashing (renderer, default view and an extra view)" )  {
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 10, 10, 300, 300 ), 15, false );
+        int                                 nId = pRenderer -> CreateView( Rect( 400, 10, 100, 100 ) );
+        SunLight :: TileMap :: IView        &other = *pRenderer -> GetView( nId );
+        SunLight :: TileMap :: IView        &defaultView = pRenderer -> GetDefaultView();
+        int                                 nX = -1, nY = -1;
+
+        pRenderer -> SetScrollStepSize( 4, 4 );
+        other.SetScrollStepSize( 4, 4 );
+        pRenderer -> SetCameraPosition( 0, 0 );
+        other.SetCameraPosition( 0, 0 );
+
+        pRenderer -> MoveCameraUp();
+        pRenderer -> MoveCameraLeft();
+        defaultView.MoveCameraUp();
+        defaultView.MoveCameraLeft();
+        other.MoveCameraUp();
+        other.MoveCameraLeft();
+
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nX == 0 );
+        CHECK( nY == 0 );
+        other.GetCameraPosition( nX, nY );
+        CHECK( nX == 0 );
+        CHECK( nY == 0 );
+
+        pRenderer -> Stop();
+    }
 }

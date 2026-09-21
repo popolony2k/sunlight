@@ -15,6 +15,12 @@ here — see the git log for that period.
 
 ### Fixed
 
+- **`MoveCameraUp()` / `MoveCameraLeft()` crashed (segfault) when no map was loaded** - on the renderer
+  and, through it, on any view (`IView::MoveCameraUp/Left`). Their scroll limit is worked out from the
+  map's tile size, and they dereferenced the (null) map without checking. They now do nothing while no
+  map is loaded. (`MoveCameraDown/Right` never touched the map and are unchanged.) Found by the Scarab
+  view API work, where a script may call `camera_move_up()` before loading a map.
+
 - **A map's external tilesets (`.tsx`) and object templates (`.tx`) are now read through
   `SunLight::FileSystem`.** libtmx opened them itself, straight from the OS relative to the working
   directory, so they bypassed the filesystem layer: a map with an external tileset failed to load
