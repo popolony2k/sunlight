@@ -1595,11 +1595,63 @@ namespace SunLight {
 
             UnloadMap();
 
+            /*
+             * Every sprite that still has this renderer as its parent (registered or removed with
+             * RemoveSprite - see m_ParentedSprites) is let go: after this destructor its parent pointer
+             * would point at a dead renderer, and so would that of its collider and of the canvases that
+             * followed it (Sprite::SetParent moves them). A sprite that was destroyed earlier already
+             * told us (ChildRemoved) and is not in the set. Iterated over a copy: SetParent calls back
+             * into ChildRemoved, which erases from the set.
+             */
+            std :: set<SunLight :: Sprite :: Sprite*>  parentedSprites = m_ParentedSprites;
+
+            for( SunLight :: Sprite :: Sprite *pSprite : parentedSprites )  {
+                if( pSprite -> GetParent() == this )
+                    pSprite -> SetParent( nullptr );
+            }
+
+            m_ParentedSprites.clear();
+
             if( !m_pNullBackend )
                 s_nLiveDefaultBackendRenderers--;
             m_TileMapListenerList.clear();
             m_KeyInputEventHandlerList.clear();
             m_GPadInputEventHandlerList.clear();
+        }
+
+        /**
+         * A child of this renderer - a sprite registered with AddSprite, or
+         * removed with RemoveSprite but still parented to us - is being
+         * destroyed or moved to another parent (Sprite::~Sprite and
+         * Sprite::SetParent call this): forget it, so that neither the frame
+         * loop (HandleSpriteUpdate), Stop (UnloadSprites) nor the collision
+         * manager is left holding a pointer to it. Layers are searched by
+         * pointer identity, so a sprite registered on several layers is
+         * removed from all of them; its collider comes out of each layer's
+         * collision list too (the manager holds it by handle, so even a
+         * stale entry would resolve to nothing, but it is not left behind).
+         * @param pChild The child leaving, as its BaseCanvas;
+         */
+        void TileMapRenderer :: ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild )  {
+
+            for( std :: set<SunLight :: Sprite :: Sprite*> :: iterator itSprite = m_ParentedSprites.begin(); itSprite != m_ParentedSprites.end(); itSprite++ )  {
+                SunLight :: Sprite :: Sprite  *pSprite = *itSprite;
+
+                if( static_cast<SunLight :: Canvas :: BaseCanvas*>( pSprite ) == pChild )  {
+                    for( std :: pair<const int, SpriteList*> &layer : m_SpriteMap )  {
+                        SpriteList :: iterator itItem = std :: find( layer.second -> begin(), layer.second -> end(), pSprite );
+
+                        if( itItem != layer.second -> end() )  {
+                            m_CollisionManager.RemoveCollider( layer.first, &pSprite -> GetCollider() );
+                            layer.second -> erase( itItem );
+                        }
+                    }
+
+                    m_ParentedSprites.erase( itSprite );
+
+                    return;
+                }
+            }
         }
 
         /**
@@ -2787,6 +2839,7 @@ namespace SunLight {
                         m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() ) )  {
 
                         sprite.SetParent( this );
+                        m_ParentedSprites.insert( &sprite );
                         itItemLayer -> second -> push_back( &sprite );
                         return true;
                     }

@@ -99,6 +99,11 @@ namespace SunLight {
             std :: unique_ptr<SunLight :: Input :: IInputHandler>  m_pInputHandler;
             GamePadList                                m_GamePadList;
             SpriteMap                                  m_SpriteMap;
+
+            // Every sprite this renderer is the PARENT of (set by AddSprite, kept by RemoveSprite as it
+            // always was): the sprites whose parent pointer would dangle if this renderer went away, and
+            // the ones that must tell it when they are destroyed (ChildRemoved). A superset of m_SpriteMap.
+            std :: set<SunLight :: Sprite :: Sprite*>  m_ParentedSprites;
             TileMapListenerList                        m_TileMapListenerList;
             InputEventHandlerList                      m_KeyInputEventHandlerList;
             InputEventHandlerList                      m_GPadInputEventHandlerList;
@@ -269,6 +274,9 @@ namespace SunLight {
                              bool bUseDefaultKeyHandler = true );
             explicit TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config );
             virtual ~TileMapRenderer( void );
+
+            // A sprite that is destroyed, or moved to another parent, calls this on the parent it is leaving.
+            void ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild );
 
             // Checked creation: validates the config (see
             // RendererConfig::Validate) and returns nullptr, with a message

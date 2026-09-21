@@ -50,6 +50,15 @@ namespace SunLight {
         }
 
         /**
+         * A child is being destroyed or moved to another parent: nothing to
+         * do here, a parent that keeps pointers to its children overrides this.
+         * @param pChild The child that is leaving;
+         */
+        void BaseCanvas :: ChildRemoved( BaseCanvas *pChild )  {
+
+        }
+
+        /**
          * Return the parent object of this object;
          */
         BaseCanvas* BaseCanvas :: GetParent( void )  {

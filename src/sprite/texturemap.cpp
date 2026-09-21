@@ -72,6 +72,17 @@ namespace SunLight {
         }
 
         /**
+         * Visit every texture on the list, in order, without moving the
+         * animation cursor (@see First and @see Next do).
+         * @param visit Called with each texture;
+         */
+        void TextureMap :: ForEachTexture( const std :: function<void( SunLight :: Canvas :: TextureCanvas* )> &visit ) const  {
+
+            for( const std :: unique_ptr<stTextureData> &pData : m_TextureList )
+                visit( pData -> pTexture );
+        }
+
+        /**
          * Get the next texture on list.
          * @param bCircularMode Navigate on list using circular mode;
          * WARNING: Be careful because this is a circular list.

@@ -60,7 +60,45 @@ namespace SunLight {
          */
         Sprite :: ~Sprite( void )  {
 
+            // Tell the parent (the renderer, once registered with AddSprite) this sprite is going away, so
+            // that it stops holding a pointer to it - see SetParent.
+            if( GetParent() )
+                GetParent() -> ChildRemoved( this );
+
             m_Sequences.clear();
+        }
+
+        /**
+         * Change this sprite's parent. A parent may keep raw pointers to its
+         * children (TileMapRenderer keeps the sprites registered with
+         * AddSprite, to advance and draw them every frame), so the parent
+         * being LEFT is told (@see BaseCanvas::ChildRemoved) and forgets
+         * this sprite. The canvases that were following the old parent are
+         * moved to the new one - AddTextureSequence parents a canvas to the
+         * sprite's parent if it has one, else to the sprite itself, so those
+         * are the canvases that would otherwise keep a pointer to a parent
+         * that no longer knows about them (and may be destroyed): they get
+         * the new parent, or this sprite when there is none. A canvas
+         * parented to the sprite itself is left alone.
+         * @param pParent The new parent, or nullptr for none;
+         */
+        void Sprite :: SetParent( SunLight :: Canvas :: BaseCanvas *pParent )  {
+
+            SunLight :: Canvas :: BaseCanvas  *pOldParent = GetParent();
+
+            if( pOldParent && ( pOldParent != pParent ) )
+                pOldParent -> ChildRemoved( this );
+
+            Canvas :: SetParent( pParent );
+
+            if( pOldParent && ( pOldParent != pParent ) )  {
+                for( auto &pair : m_Sequences )  {
+                    pair.second -> ForEachTexture( [this, pOldParent, pParent]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+                        if( pTexture -> GetParent() == pOldParent )
+                            pTexture -> SetParent( pParent ? pParent : this );
+                    } );
+                }
+            }
         }
 
         /**
@@ -251,7 +289,14 @@ namespace SunLight {
         }
 
         /**
-        * Unload all loaded sprites on this object.
+        * Unload all loaded sprites on this object, and let go of them: the
+        * sequence list is emptied, so the canvases that were following this
+        * sprite or its parent (AddTextureSequence parents a canvas to one or
+        * the other) are unparented here - after this call nothing can reach
+        * them through the sprite any more, and one that still pointed at a
+        * parent that is about to be destroyed (the renderer, which unloads
+        * every sprite registered with it when it stops or is destroyed)
+        * would be left dangling.
         */
         void Sprite :: Unload( void )  {
 
@@ -259,7 +304,12 @@ namespace SunLight {
                 for( auto& pair : m_Sequences )  {
                     if( pair.second -> First() )  {
                         do  {
-                            pair.second -> GetTextureData().pTexture -> Unload();
+                            SunLight :: Canvas :: TextureCanvas  *pTexture = pair.second -> GetTextureData().pTexture;
+
+                            pTexture -> Unload();
+
+                            if( pTexture -> GetParent() && ( ( pTexture -> GetParent() == this ) || ( pTexture -> GetParent() == GetParent() ) ) )
+                                pTexture -> SetParent( nullptr );
                         } while( pair.second -> Next( false ) );
                     }
                 }

@@ -64,6 +64,9 @@ namespace SunLight {
             int GetActiveTextureSequence( void );
             SunLight :: Canvas :: TextureCanvas* GetActiveTexture( void );
 
+            // Also tells the previous parent (ChildRemoved) and moves the canvases that were following it.
+            void SetParent( SunLight :: Canvas :: BaseCanvas *pParent );
+
             void SetVisible( bool bVisible );
 
             void Move( SunLight :: TileMap :: stCoordinate2D& step );

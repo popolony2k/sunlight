@@ -21,6 +21,7 @@
 #ifndef __TEXTUREMAP_H__
 #define __TEXTUREMAP_H__
 
+#include <functional>
 #include <memory>
 #include <queue>
 #include <string>
@@ -51,6 +52,9 @@ namespace SunLight {
             virtual ~TextureMap( void );
 
             void AddTexture( SunLight :: Canvas :: TextureCanvas *pTexture, int64_t nDelayMilli = -1 );
+
+            // Visits every texture without touching the animation cursor (First/Next move it).
+            void ForEachTexture( const std :: function<void( SunLight :: Canvas :: TextureCanvas* )> &visit ) const;
 
             bool First( void );
             bool Next( bool bCircularMode = true );

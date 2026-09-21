@@ -15,6 +15,25 @@ here — see the git log for that period.
 
 ### Fixed
 
+- **A sprite and its renderer can now be destroyed in either order, registered or not.** The renderer
+  kept a raw pointer to every sprite registered with `AddSprite` (advanced and drawn every frame, unloaded
+  at `Stop()`), and each sprite - with its collider and canvases - kept a raw pointer to the renderer as
+  its parent, with nothing telling either side when the other went away: a sprite destroyed while still
+  registered was a use-after-free in the very next frame (found by AddressSanitizer:
+  `heap-use-after-free` in `HandleSpriteUpdate`), and a sprite outliving its renderer kept a dangling
+  parent (`GetVisible()`/`GetViewport()` read a dead object). Now they unregister from each other: a
+  sprite that is destroyed or given another parent calls the new `BaseCanvas::ChildRemoved` on the parent
+  it leaves (`Sprite::~Sprite`, and the new `Sprite::SetParent` override), and the renderer forgets it
+  (layer lists and collision manager); when the renderer is destroyed it lets go of every sprite it still
+  parents - the registered ones and the ones removed with `RemoveSprite`, which keep their parent exactly
+  as before - so their parent pointers, their colliders' and their canvases' become null / point at the
+  sprite. `Sprite::Unload()` now also unparents the canvases it releases (it empties the list, after which
+  nothing could repoint them); the renderer unloads every registered sprite when it stops or is
+  destroyed, so this is what keeps a canvas parented to the renderer from outliving it with a dangling
+  parent. `AddSprite`/`RemoveSprite` and every other signature are unchanged, no ownership moved (the
+  caller still owns sprites and canvases). Behaviour note: a sprite added to a second renderer is
+  forgotten by the first (it used to stay registered in both). Verified byte-for-byte: the sprite
+  animation trace and the camera/alignment trace are identical to the previous release.
 - **`~Sprite` no longer unloads the canvases it was given - it no longer touches them at all.**
   `AddTextureSequence` only stores raw pointers to canvases the CALLER owns, but the destructor walked
   them to unload their textures, so a canvas that was already destroyed (declared after its sprite, or
@@ -23,12 +42,11 @@ here — see the git log for that period.
   `stack-use-after-scope` in `TextureCanvas::Unload`), invisible in a normal run because the canvas had
   nothing loaded. A canvas frees its own texture when it is destroyed, so nothing leaks; the visible
   difference is only that a canvas outliving its sprite keeps its texture until it is destroyed itself,
-  instead of losing it when the sprite dies. The explicit `Sprite::Unload()` is unchanged (Scarab's
-  `SpritePool::Clear()` relies on it). The destructor still empties the sprite's own sequence list, so
-  a sprite destroyed while still registered with a renderer stays as benign for the renderer's later
-  `Stop()` as it was. Rule, now documented at `AddTextureSequence`: the caller keeps the canvases alive
-  while the sprite uses them and does not use one after the sprite is destroyed. The whole suite is now
-  clean under AddressSanitizer (see CLAUDE.md for how to run it).
+  instead of losing it when the sprite dies. The explicit `Sprite::Unload()` still unloads them all
+  (Scarab's `SpritePool::Clear()` relies on it). The destructor still empties the sprite's own sequence
+  list. Rule, now documented at `AddTextureSequence`: the caller keeps the canvases alive while the
+  sprite uses them and does not use one after the sprite is destroyed. The whole suite is now clean
+  under AddressSanitizer (see CLAUDE.md for how to run it).
 
 - **`MoveCameraUp()` / `MoveCameraLeft()` crashed (segfault) when no map was loaded** - on the renderer
   and, through it, on any view (`IView::MoveCameraUp/Left`). Their scroll limit is worked out from the
