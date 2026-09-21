@@ -30,6 +30,7 @@ namespace SunLight {
 
             m_itActiveSequence = m_Sequences.begin();
             m_bIsValidActiveSequence = ( m_itActiveSequence != m_Sequences.end() );
+            m_bFrameHeld = false;
         }
 
         /**
@@ -159,26 +160,72 @@ namespace SunLight {
         }
 
         /**
-        * Implements the draw update method used to draw a sprite
-        * object;
+        * The STATE half of a sprite's frame: let the active texture map pick
+        * its frame for the current time, and advance that texture's own
+        * animation one step - without drawing. Meant to run once per frame;
+        * @see Draw may then run any number of times (e.g. once per view)
+        * without stepping anything a second time.
+        *
+        * When the texture map did not step to a new frame this frame (its
+        * current one is not due to change yet) the frame is HELD: the canvas
+        * is advanced with tile size 0, which stops its tile animation from
+        * stepping, and @see Draw applies the same trick to show the held
+        * frame.
         */
-        void Sprite :: Update( void )  {
+        void Sprite :: Advance( void )  {
+
+            m_bFrameHeld = false;
 
             if( GetVisible() && m_bIsValidActiveSequence )  {
-                bool                                bDisableFrameUpdate = !m_itActiveSequence -> second -> Next();
-                SunLight :: Canvas :: TextureCanvas *pTextureCanvas     = m_itActiveSequence -> second -> GetTextureData().pTexture;
+                m_bFrameHeld = !m_itActiveSequence -> second -> Next();
+
+                SunLight :: Canvas :: TextureCanvas *pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
                 unsigned int  nTileSize;
 
-                if( bDisableFrameUpdate )  {
+                if( m_bFrameHeld )  {
                     nTileSize = pTextureCanvas -> GetTileSize();
                     pTextureCanvas -> SetTileSize( 0 );
                 }
 
-                pTextureCanvas -> Update();
+                pTextureCanvas -> Advance();
 
-                if( bDisableFrameUpdate )
+                if( m_bFrameHeld )
                     pTextureCanvas -> SetTileSize( nTileSize );
             }
+        }
+
+        /**
+        * The DRAWING half of a sprite's frame: draw the active texture in
+        * its current state. Changes no animation state (it never asks the
+        * texture map for a new frame), so it is safe to call repeatedly for
+        * one frame. Draws the held frame the same way Advance() left it.
+        */
+        void Sprite :: Draw( void )  {
+
+            if( GetVisible() && m_bIsValidActiveSequence )  {
+                SunLight :: Canvas :: TextureCanvas *pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
+                unsigned int  nTileSize;
+
+                if( m_bFrameHeld )  {
+                    nTileSize = pTextureCanvas -> GetTileSize();
+                    pTextureCanvas -> SetTileSize( 0 );
+                }
+
+                pTextureCanvas -> Draw();
+
+                if( m_bFrameHeld )
+                    pTextureCanvas -> SetTileSize( nTileSize );
+            }
+        }
+
+        /**
+        * Implements the draw update method used to draw a sprite
+        * object: @see Advance followed by @see Draw.
+        */
+        void Sprite :: Update( void )  {
+
+            Advance();
+            Draw();
         }
 
         /**

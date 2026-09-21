@@ -182,36 +182,23 @@ namespace SunLight {
         }
 
         /**
-         * Implements the draw update method used to draw a sprite
-         * object;
+         * Advance this canvas' animation by one step - the STATE half of a
+         * frame (the animation mode's frame index), without drawing anything.
+         * Meant to run once per frame per canvas; @see Draw is the half that
+         * may run any number of times for the same state (e.g. once per view).
+         * Advances only while the canvas is visible and at least partly inside
+         * the current viewport, exactly as @see Update always did, so an
+         * off-screen animation stands still. Always clears the "just reset"
+         * flag at the end.
          */
-        void TextureCanvas :: Update( void )  {
+        void TextureCanvas :: Advance( void )  {
 
             if( GetVisible() )  {
                 SunLight :: Base :: Viewport&       vp   = GetViewport();
-                SunLight :: TileMap :: stDimension2D& vpDm = vp.GetDimension2D();
                 SunLight :: TileMap :: stDimension2D& dm   = GetDimension2D();
                 SunLight :: TileMap :: stDimension2D  clip;
 
                 if( vp.GetClippedRect( dm, clip ) ) {
-
-                    /*
-                    * All cut operations are calculated considering the
-                    * base texture that is non-scaled.
-                    * GetClippedArea fClipW, fClipH results used in cut operation
-                    * have a zoom factor applied to its results, so "removing" this
-                    * "noise" is needed by dividing it's results by zoom factor.
-                    * This is needed because when texture reaches canvas boundaries
-                    * the texture is cut in a wrong position.
-                    */
-                    SunLight :: Base :: stColor& color       = GetColor();
-                    float                        fZoomFactor = vp.GetZoomProperties().fZoomFactor;
-                    int                          nClipX      = ( clip.pos.x == vpDm.pos.x ?
-                                                                 ( int ) std :: abs( ( clip.size.nWidth / fZoomFactor ) -
-                                                                 dm.size.nWidth ) : 0 );
-                    int                          nClipY      = ( clip.pos.y == vpDm.pos.y ?
-                                                                 ( int ) std :: abs( ( clip.size.nHeight / fZoomFactor ) -
-                                                                 dm.size.nHeight ) : 0 );
 
                     switch( m_AnimationMode )  {
                         case TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR :
@@ -283,6 +270,45 @@ namespace SunLight {
                             }
                             break;
                     }
+                }
+            }
+
+            m_bIsResetting = false;
+        }
+
+        /**
+         * Draw the canvas in its CURRENT animation state - no state is
+         * changed, so it is safe to call repeatedly (a second view, a
+         * redraw) and always draws the same frame. Draws only while visible
+         * and at least partly inside the current viewport.
+         */
+        void TextureCanvas :: Draw( void )  {
+
+            if( GetVisible() )  {
+                SunLight :: Base :: Viewport&       vp   = GetViewport();
+                SunLight :: TileMap :: stDimension2D& vpDm = vp.GetDimension2D();
+                SunLight :: TileMap :: stDimension2D& dm   = GetDimension2D();
+                SunLight :: TileMap :: stDimension2D  clip;
+
+                if( vp.GetClippedRect( dm, clip ) ) {
+
+                    /*
+                    * All cut operations are calculated considering the
+                    * base texture that is non-scaled.
+                    * GetClippedArea fClipW, fClipH results used in cut operation
+                    * have a zoom factor applied to its results, so "removing" this
+                    * "noise" is needed by dividing it's results by zoom factor.
+                    * This is needed because when texture reaches canvas boundaries
+                    * the texture is cut in a wrong position.
+                    */
+                    SunLight :: Base :: stColor& color       = GetColor();
+                    float                        fZoomFactor = vp.GetZoomProperties().fZoomFactor;
+                    int                          nClipX      = ( clip.pos.x == vpDm.pos.x ?
+                                                                 ( int ) std :: abs( ( clip.size.nWidth / fZoomFactor ) -
+                                                                 dm.size.nWidth ) : 0 );
+                    int                          nClipY      = ( clip.pos.y == vpDm.pos.y ?
+                                                                 ( int ) std :: abs( ( clip.size.nHeight / fZoomFactor ) -
+                                                                 dm.size.nHeight ) : 0 );
 
                     SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled(
                                                           m_hTexture,
@@ -302,8 +328,17 @@ namespace SunLight {
                                                           color );
                 }
             }
+        }
 
-            m_bIsResetting = false;
+        /**
+         * Implements the draw update method used to draw a sprite
+         * object: advance the animation one step, then draw it - exactly
+         * @see Advance followed by @see Draw.
+         */
+        void TextureCanvas :: Update( void )  {
+
+            Advance();
+            Draw();
         }
     }
 }
