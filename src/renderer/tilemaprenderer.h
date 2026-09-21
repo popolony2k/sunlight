@@ -115,6 +115,12 @@ namespace SunLight {
             std :: string                              m_strTitle;
             float                                      m_fScreenFadeAlpha;
             tmx_map                                    *m_pTmxMap;
+
+            // Owns the map's EXTERNAL tilesets (.tsx) and object templates
+            // (.tx) - read through SunLight::FileSystem and handed to libtmx
+            // as buffers (see LoadMap). nullptr when the map has none. Must
+            // outlive m_pTmxMap and be freed after it (see UnloadMap).
+            tmx_resource_manager                       *m_pTmxRcMgr;
             bool                                       m_bClearBackground;
             bool                                       m_bIsStarted;
             bool                                       m_bExitRequested;
