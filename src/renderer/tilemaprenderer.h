@@ -47,6 +47,8 @@ namespace SunLight {
 namespace SunLight {
     namespace Renderer  {
 
+        class View;
+
         /**
          * Primitive structures definition.
          */
@@ -139,6 +141,22 @@ namespace SunLight {
             // window-resizing are handled, since both just mean "the real
             // screen size differs from this".
             SunLight :: Base :: TextureHandle          m_pRenderTexture;
+
+            // Views (see SunLight::TileMap::IView). The DEFAULT view (id 0)
+            // owns what the renderer always had - camera, scroll step and
+            // root viewport - and is the ACTIVE one whenever nothing else is:
+            // m_CameraPos / m_nScrollStep* above are the ACTIVE view's
+            // working state, swapped in and out by ActivateView (which
+            // View's operations and the draw passes use), so all the existing
+            // camera/zoom code serves every view unchanged.
+            std :: unique_ptr<View>                    m_pDefaultView;
+            std :: vector<std :: unique_ptr<View>>     m_ExtraViews;
+            View                                       *m_pActiveView;
+            int                                        m_nNextViewId;
+
+            friend class View;
+
+            View* ActivateView( View *pView );
 
             // TmxLib overrides
             static void* TextureLoaderCallback( const char *szFileName );
@@ -274,6 +292,13 @@ namespace SunLight {
             double GetElapsedTime( void );
             void SetStretchToFill( bool bStretchToFill );
             bool GetStretchToFill( void );
+
+            // Views
+            SunLight :: TileMap :: IView& GetDefaultView( void );
+            int CreateView( const SunLight :: TileMap :: stDimension2D& rect );
+            SunLight :: TileMap :: IView* GetView( int nViewId );
+            bool RemoveView( int nViewId );
+            int GetViewCount( void );
 
             // View port control
             void SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode );

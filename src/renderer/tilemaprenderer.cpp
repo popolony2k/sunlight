@@ -21,6 +21,7 @@
 #include "engines/enginefactory.h"
 #include "window/windowfactory.h"
 #include "backends/null/nullbackend.h"
+#include "renderer/view.h"
 #include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
 #include "filesystem/filesystemfactory.h"
@@ -1378,6 +1379,12 @@ namespace SunLight {
             m_fScreenFadeAlpha            = 0.0f;
             m_pTmxMap                     = NULL;
             m_pTmxRcMgr                   = nullptr;
+
+            // The default view (id 0) uses this renderer's own root viewport in place and
+            // starts out active - see ActivateView.
+            m_pDefaultView                = std :: make_unique<View>( this, 0, &GetViewport() );
+            m_pActiveView                 = m_pDefaultView.get();
+            m_nNextViewId                 = 1;
             m_pRenderTexture              = nullptr;
             m_bIsStarted                  = false;
             m_bExitRequested              = false;
@@ -1712,6 +1719,114 @@ namespace SunLight {
         double TileMapRenderer :: GetElapsedTime( void )  {
 
             return SunLight :: Window :: WindowFactory :: GetWindow().GetElapsedTime();
+        }
+
+        /**
+         * Make a view the ACTIVE one: park the current active view's working state (camera,
+         * scroll step) in it, load the new view's into the renderer's working members, and point
+         * the root viewport at the new view's - after which every piece of existing camera, zoom
+         * and drawing code, and every sprite (which finds its viewport through this renderer, its
+         * parent), works on that view. Returns the previously active view so the caller can put it
+         * back; activating the already-active view changes nothing.
+         * @param pView The view to activate;
+         */
+        View* TileMapRenderer :: ActivateView( View *pView )  {
+
+            View  *pPrevious = m_pActiveView;
+
+            if( ( pView == nullptr ) || ( pView == pPrevious ) )
+                return pPrevious;
+
+            pPrevious -> m_State.camera            = m_CameraPos;
+            pPrevious -> m_State.nScrollStepWidth  = m_nScrollStepWidth;
+            pPrevious -> m_State.nScrollStepHeight = m_nScrollStepHeight;
+
+            m_CameraPos         = pView -> m_State.camera;
+            m_nScrollStepWidth  = pView -> m_State.nScrollStepWidth;
+            m_nScrollStepHeight = pView -> m_State.nScrollStepHeight;
+
+            SetViewport( pView -> m_pViewport );
+            m_pActiveView = pView;
+
+            return pPrevious;
+        }
+
+        /**
+         * The default view (id 0) - see @see SunLight::TileMap::ITileMap::GetDefaultView.
+         */
+        SunLight :: TileMap :: IView& TileMapRenderer :: GetDefaultView( void )  {
+
+            return *m_pDefaultView;
+        }
+
+        /**
+         * Create an additional view over the same world (see @see
+         * SunLight::TileMap::ITileMap::CreateView). It starts with its camera at the origin,
+         * the default zoom, and a scroll step of the loaded map's tile size (or "the tile size
+         * of whatever map is loaded next" if none is yet).
+         * @param rect The rectangle of the render target it is shown in - [pos, pos + size);
+         */
+        int TileMapRenderer :: CreateView( const SunLight :: TileMap :: stDimension2D& rect )  {
+
+            std :: unique_ptr<View>  pView = std :: make_unique<View>( this, m_nNextViewId, nullptr );
+
+            pView -> m_pViewport -> SetDimension2D( rect );
+
+            if( m_pTmxMap )  {
+                pView -> m_State.nScrollStepWidth  = m_pTmxMap -> tile_width;
+                pView -> m_State.nScrollStepHeight = m_pTmxMap -> tile_height;
+            }
+
+            m_ExtraViews.push_back( std :: move( pView ) );
+
+            return m_nNextViewId++;
+        }
+
+        /**
+         * Get a view by id (0 = the default view), or nullptr.
+         */
+        SunLight :: TileMap :: IView* TileMapRenderer :: GetView( int nViewId )  {
+
+            if( nViewId == 0 )
+                return m_pDefaultView.get();
+
+            for( std :: unique_ptr<View> &pView : m_ExtraViews )  {
+                if( pView -> GetId() == nViewId )
+                    return pView.get();
+            }
+
+            return nullptr;
+        }
+
+        /**
+         * Remove a view created by CreateView. The default view can't be removed.
+         */
+        bool TileMapRenderer :: RemoveView( int nViewId )  {
+
+            if( nViewId == 0 )
+                return false;
+
+            for( std :: vector<std :: unique_ptr<View>> :: iterator itView = m_ExtraViews.begin(); itView != m_ExtraViews.end(); itView++ )  {
+                if( ( * itView ) -> GetId() == nViewId )  {
+                    // Never leave a removed view as the active one.
+                    if( m_pActiveView == itView -> get() )
+                        ActivateView( m_pDefaultView.get() );
+
+                    m_ExtraViews.erase( itView );
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * The number of views, the default view included.
+         */
+        int TileMapRenderer :: GetViewCount( void )  {
+
+            return ( int ) m_ExtraViews.size() + 1;
         }
 
         /**
@@ -2346,6 +2461,16 @@ namespace SunLight {
                                                             m_nScrollStepWidth ),
                                    ( m_nScrollStepHeight < 0 ? m_pTmxMap -> tile_height :
                                                             m_nScrollStepHeight ) );
+
+                // The same for every other view (their state is parked in the View while the
+                // default one is active): "-1" means the tile size of the map they now show.
+                for( std :: unique_ptr<View> &pView : m_ExtraViews )  {
+                    if( pView -> m_State.nScrollStepWidth < 0 )
+                        pView -> m_State.nScrollStepWidth = m_pTmxMap -> tile_width;
+
+                    if( pView -> m_State.nScrollStepHeight < 0 )
+                        pView -> m_State.nScrollStepHeight = m_pTmxMap -> tile_height;
+                }
 
                 return true;
             }
