@@ -82,6 +82,38 @@ namespace SunLight  {
         }
 
         /**
+         * Query whether user zoom is enabled (see @see SetEnableUserZoom).
+         */
+        bool Viewport :: GetEnableUserZoom( void )  {
+
+            return m_pProps -> bEnabledUserZoom;
+        }
+
+        /**
+         * Pull the current and preferred zoom positions (and the current
+         * factor) back inside the configured [min, max] limits, after they
+         * changed - a limit change must never leave the viewport sitting on
+         * a position outside its own allowed range.
+         */
+        void Viewport :: ClampZoomToLimits( void )  {
+
+            unsigned  nMin = m_ZoomBorderLimits.first;
+            unsigned  nMax = m_ZoomBorderLimits.second - 1;   // second is the exclusive bound
+
+            if( m_pProps -> nPreferredZoomPos < nMin )
+                m_pProps -> nPreferredZoomPos = nMin;
+            else if( m_pProps -> nPreferredZoomPos > nMax )
+                m_pProps -> nPreferredZoomPos = nMax;
+
+            if( m_pProps -> nCurrentZoomPos < nMin )
+                m_pProps -> nCurrentZoomPos = nMin;
+            else if( m_pProps -> nCurrentZoomPos > nMax )
+                m_pProps -> nCurrentZoomPos = nMax;
+
+            m_pProps -> fZoomFactor = m_vZoomFactorList[m_pProps -> nCurrentZoomPos];
+        }
+
+        /**
          * Set the preferred zoom to be used when engine apply
          * reset operations.
          * @param nZoomPos The new preferred zoom;
@@ -93,23 +125,43 @@ namespace SunLight  {
         }
 
         /**
-         * Set the minimum zoom border limit;
-         * @param nMinPos The new minimum zoom limit;
+         * Set the minimum zoom border limit: the lowest zoom POSITION the
+         * viewport may be at (inclusive). Validated against the ABSOLUTE
+         * scale [ZOOM_POS_MIN, ZOOM_POS_MAX] - not against the current
+         * limits - so a limit can be widened again as well as narrowed. A
+         * request that is off the scale, or that would put the minimum
+         * above the current maximum, is rejected and changes nothing. The
+         * current and preferred positions are clamped into the new range.
+         * @param nMinPos The new minimum zoom position;
          */
         void Viewport :: SetMinZoom( unsigned nMinPos )  {
 
-            if( ( nMinPos >= m_ZoomBorderLimits.first ) &&  ( nMinPos < m_ZoomBorderLimits.second ) )
+            // second is the exclusive bound, so "nMinPos <= max" is "< second".
+            if( ( nMinPos >= ZOOM_POS_MIN ) && ( nMinPos <= ZOOM_POS_MAX ) &&
+                ( nMinPos < m_ZoomBorderLimits.second ) )  {
                 m_ZoomBorderLimits.first = nMinPos;
+                ClampZoomToLimits();
+            }
         }
 
         /**
-         * Set the maximum zoom border limit;
-         * @param nMaxPos The new maximum zoom limit;
+         * Set the maximum zoom border limit: the highest zoom POSITION the
+         * viewport may be at (INCLUSIVE - SetMaxZoom( ZOOM_POS_MAX ) leaves
+         * the whole scale usable, consistent with SetZoom and the other
+         * position-taking calls). Validated against the ABSOLUTE scale
+         * [ZOOM_POS_MIN, ZOOM_POS_MAX], so a limit can be widened again as
+         * well as narrowed; a request that is off the scale, or that would
+         * put the maximum below the current minimum, is rejected and
+         * changes nothing. The current and preferred positions are clamped
+         * into the new range.
+         * @param nMaxPos The new maximum zoom position;
          */
         void Viewport :: SetMaxZoom( unsigned nMaxPos )  {
 
-            if( ( nMaxPos >= m_ZoomBorderLimits.first ) &&  ( nMaxPos < m_ZoomBorderLimits.second ) )
-                m_ZoomBorderLimits.second = nMaxPos;
+            if( ( nMaxPos <= ZOOM_POS_MAX ) && ( nMaxPos >= m_ZoomBorderLimits.first ) )  {
+                m_ZoomBorderLimits.second = nMaxPos + 1;    // stored as the exclusive bound
+                ClampZoomToLimits();
+            }
         }
 
         /**
@@ -169,8 +221,9 @@ namespace SunLight  {
          * @param nZoomPos The zoom position to be retrieved;
          * @return float the zoom factor of that position, or - if the
          * position is outside the allowed range (see SetMinZoom/
-         * SetMaxZoom; the upper bound is exclusive) - the factor of the
-         * preferred position (see SetPreferredZoom);
+         * SetMaxZoom - both bounds are inclusive; by default the whole
+         * scale, ZOOM_POS_MIN..ZOOM_POS_MAX) - the factor of the preferred
+         * position (see SetPreferredZoom);
          */
         float Viewport :: GetZoomFactor( unsigned int nZoomPos )  {
 

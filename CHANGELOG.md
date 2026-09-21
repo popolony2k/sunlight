@@ -15,6 +15,8 @@ here — see the git log for that period.
 
 ### Added
 
+- `Viewport::GetEnableUserZoom()`, the missing getter for `SetEnableUserZoom` (the
+  flag was already readable through `GetZoomProperties().bEnabledUserZoom`).
 - Public zoom-scale constants in `base/viewport.h` (`SunLight::Base`): `ZOOM_STEP`
   (0.0625), `ZOOM_POS_MIN` (0), `ZOOM_POS_COUNT` (256 - the number of positions and the
   EXCLUSIVE upper bound), `ZOOM_POS_MAX` (255 - the last valid position),
@@ -27,6 +29,22 @@ here — see the git log for that period.
 
 ### Fixed
 
+- `TileMapRenderer::MoveCameraUp` compared the viewport WIDTH against the vertical
+  map boundary (built from map height and scroll-step height) - a copy-paste of
+  `MoveCameraLeft`'s horizontal check. It now uses the viewport HEIGHT. Invisible
+  for a square viewport; with a non-square one, vertical scrolling was bounded by the
+  wrong dimension (a wide-but-short viewport couldn't scroll up, a tall-but-narrow one
+  scrolled past the map).
+- `Viewport::SetMinZoom`/`SetMaxZoom` were a one-way ratchet (each validated against the
+  CURRENT limits, so limits could only ever narrow), and `SetMaxZoom( p )` stored `p` as an
+  EXCLUSIVE bound, so `SetMaxZoom( ZOOM_POS_MAX )` left 254 as the last usable position -
+  contradicting the position semantics of `SetZoom` and the published `ZOOM_POS_MAX`
+  constant. Both now validate against the ABSOLUTE scale `[ZOOM_POS_MIN, ZOOM_POS_MAX]` (so
+  limits can be widened again), both bounds are INCLUSIVE positions, a request that is off
+  the scale or would cross the other limit is rejected (limits unchanged), and narrowing the
+  limits clamps the current and preferred zoom (and the current factor) into the new range
+  instead of leaving them outside it. **Behaviour change** (no caller anywhere used the old
+  behaviour).
 - `Viewport::GetZoomFactor( nZoomPos )` ignored its argument: for an in-range
   position it returned the factor of the CURRENT zoom position instead of the one
   asked for (e.g. asking for position 60 while at the default 15 returned 1.0, not
