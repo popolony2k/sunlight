@@ -1027,7 +1027,7 @@ namespace SunLight {
             if( pDefault -> m_bVisible )
                 m_PassViews.push_back( pDefault );
 
-            for( std :: unique_ptr<View> &pView : m_ExtraViews )  {
+            for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
                 if( pView -> m_bVisible )
                     m_PassViews.push_back( pView.get() );
             }
@@ -1488,7 +1488,7 @@ namespace SunLight {
 
             // The default view (id 0) uses this renderer's own root viewport in place and
             // starts out active - see ActivateView.
-            m_pDefaultView                = std :: make_unique<View>( this, 0, &GetViewport() );
+            m_pDefaultView                = std :: make_shared<View>( this, 0, &GetViewport() );
             m_pActiveView                 = m_pDefaultView.get();
             m_nNextViewId                 = 1;
             m_pRenderTexture              = nullptr;
@@ -1592,6 +1592,19 @@ namespace SunLight {
          * Destructor. Finalize all class data.
          */
         TileMapRenderer :: ~TileMapRenderer( void )  {
+
+            /*
+             * A view handle may outlive the renderer (it is a shared_ptr the
+             * caller owns a reference to): detach every view - the default
+             * one included, which is the one that needs its Viewport copied
+             * out of the renderer's own base object before that is gone - so
+             * that a held handle is inert afterwards instead of pointing
+             * into freed memory.
+             */
+            for( std :: shared_ptr<View> &pView : m_ExtraViews )
+                pView -> Detach();
+
+            m_pDefaultView -> Detach();
 
             UnloadMap();
 
@@ -1927,15 +1940,17 @@ namespace SunLight {
         }
 
         /**
-         * Create an additional view over the same world (see @see
-         * SunLight::TileMap::ITileMap::CreateView). It starts with its camera at the origin,
-         * the default zoom, and a scroll step of the loaded map's tile size (or "the tile size
-         * of whatever map is loaded next" if none is yet).
+         * Create an additional view over the same world. The renderer keeps
+         * one reference to it (so it is drawn whatever the caller does with
+         * the returned handle) and the caller gets the other: see
+         * @see SunLight::TileMap::ITileMap::CreateView. It starts with its camera at
+         * the origin, the default zoom, and a scroll step of the loaded map's tile size (or
+         * "the tile size of whatever map is loaded next" if none is yet).
          * @param rect The rectangle of the render target it is shown in - [pos, pos + size);
          */
-        int TileMapRenderer :: CreateView( const SunLight :: TileMap :: stDimension2D& rect )  {
+        std :: shared_ptr<SunLight :: TileMap :: IView> TileMapRenderer :: CreateView( const SunLight :: TileMap :: stDimension2D& rect )  {
 
-            std :: unique_ptr<View>  pView = std :: make_unique<View>( this, m_nNextViewId, nullptr );
+            std :: shared_ptr<View>  pView = std :: make_shared<View>( this, m_nNextViewId, nullptr );
 
             pView -> m_pViewport -> SetDimension2D( rect );
 
@@ -1944,48 +1959,73 @@ namespace SunLight {
                 pView -> m_State.nScrollStepHeight = m_pTmxMap -> tile_height;
             }
 
-            m_ExtraViews.push_back( std :: move( pView ) );
+            m_ExtraViews.push_back( pView );
+            m_nNextViewId++;
 
-            return m_nNextViewId++;
+            return pView;
         }
 
         /**
-         * Get a view by id (0 = the default view), or nullptr.
+         * Get a view by id (0 = the default view), or an empty pointer.
          */
-        SunLight :: TileMap :: IView* TileMapRenderer :: GetView( int nViewId )  {
+        std :: shared_ptr<SunLight :: TileMap :: IView> TileMapRenderer :: GetView( int nViewId )  {
 
             if( nViewId == 0 )
-                return m_pDefaultView.get();
+                return m_pDefaultView;
 
-            for( std :: unique_ptr<View> &pView : m_ExtraViews )  {
+            for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
                 if( pView -> GetId() == nViewId )
-                    return pView.get();
+                    return pView;
             }
 
             return nullptr;
         }
 
         /**
-         * Remove a view created by CreateView. The default view can't be removed.
+         * Remove a view created by CreateView. The default view can't be
+         * removed. The view is taken out of the frame first and only then
+         * detached (see View::Detach), so a caller still holding its handle
+         * is left with an inert - never a dangling - view.
          */
         bool TileMapRenderer :: RemoveView( int nViewId )  {
 
             if( nViewId == 0 )
                 return false;
 
-            for( std :: vector<std :: unique_ptr<View>> :: iterator itView = m_ExtraViews.begin(); itView != m_ExtraViews.end(); itView++ )  {
+            for( std :: vector<std :: shared_ptr<View>> :: iterator itView = m_ExtraViews.begin(); itView != m_ExtraViews.end(); itView++ )  {
                 if( ( * itView ) -> GetId() == nViewId )  {
                     // Never leave a removed view as the active one.
                     if( m_pActiveView == itView -> get() )
                         ActivateView( m_pDefaultView.get() );
 
+                    // Keep it alive across the erase: Detach is called on the (possibly last) reference.
+                    std :: shared_ptr<View>  pRemoved = * itView;
+
                     m_ExtraViews.erase( itView );
+                    pRemoved -> Detach();
 
                     return true;
                 }
             }
 
             return false;
+        }
+
+        /**
+         * Same, by handle. Compared by object, not just by id: ids are per
+         * renderer, so another renderer's view 1 is not this renderer's view 1.
+         */
+        bool TileMapRenderer :: RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView )  {
+
+            if( !pView )
+                return false;
+
+            std :: shared_ptr<SunLight :: TileMap :: IView>  pOwn = GetView( pView -> GetId() );
+
+            if( !pOwn || ( pOwn.get() != pView.get() ) )
+                return false;
+
+            return RemoveView( pView -> GetId() );
         }
 
         /**
@@ -2654,7 +2694,7 @@ namespace SunLight {
 
                 // The same for every other view (their state is parked in the View while the
                 // default one is active): "-1" means the tile size of the map they now show.
-                for( std :: unique_ptr<View> &pView : m_ExtraViews )  {
+                for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
                     if( pView -> m_State.nScrollStepWidth < 0 )
                         pView -> m_State.nScrollStepWidth = m_pTmxMap -> tile_width;
 

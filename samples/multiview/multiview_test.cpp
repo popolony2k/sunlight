@@ -109,17 +109,19 @@ int main( int argc, char **argv )  {
     renderer.AddSprite( __SUNNY_LAYER_ID, sprite );
 
     // The minimap: the whole map, without the sprite's layer.
-    int  nMinimap = renderer.CreateView( Rect( 930, 10, 300, 300 ) );
+    // (CreateView returns a shared handle: the renderer keeps its own reference, so the view is
+    // drawn for as long as it exists, and holding the handle here is always safe.)
+    std :: shared_ptr<SunLight :: TileMap :: IView>  pMinimap = renderer.CreateView( Rect( 930, 10, 300, 300 ) );
 
-    renderer.GetView( nMinimap ) -> FitToMap();
-    renderer.GetView( nMinimap ) -> ShowLayer( __SUNNY_LAYER_ID, false );
-    renderer.GetView( nMinimap ) -> SetBackgroundColor( SunLight :: Base :: stColor { 0, 0, 0, 200 } );
+    pMinimap -> FitToMap();
+    pMinimap -> ShowLayer( __SUNNY_LAYER_ID, false );
+    pMinimap -> SetBackgroundColor( SunLight :: Base :: stColor { 0, 0, 0, 200 } );
 
     // The close-up: its own camera and a higher zoom, everything shown.
-    int  nCloseUp = renderer.CreateView( Rect( 930, 330, 300, 300 ) );
+    std :: shared_ptr<SunLight :: TileMap :: IView>  pCloseUp = renderer.CreateView( Rect( 930, 330, 300, 300 ) );
 
-    renderer.GetView( nCloseUp ) -> GetViewport().SetZoom( 45 );
-    renderer.GetView( nCloseUp ) -> SetBackgroundColor( SunLight :: Base :: stColor { 30, 30, 60, 255 } );
+    pCloseUp -> GetViewport().SetZoom( 45 );
+    pCloseUp -> SetBackgroundColor( SunLight :: Base :: stColor { 30, 30, 60, 255 } );
 
     typedef SunLight :: Input :: ControllerType  Controller;
 
@@ -136,21 +138,21 @@ int main( int argc, char **argv )  {
     bind( SunLight :: Input :: KEY_PAGE_DOWN, [&]() { renderer.ZoomIn(); } );
 
     // Close-up camera: W A S D.
-    bind( SunLight :: Input :: KEY_W, [&]() { renderer.GetView( nCloseUp ) -> MoveCameraDown(); } );
-    bind( SunLight :: Input :: KEY_S, [&]() { renderer.GetView( nCloseUp ) -> MoveCameraUp(); } );
-    bind( SunLight :: Input :: KEY_A, [&]() { renderer.GetView( nCloseUp ) -> MoveCameraRight(); } );
-    bind( SunLight :: Input :: KEY_D, [&]() { renderer.GetView( nCloseUp ) -> MoveCameraLeft(); } );
+    bind( SunLight :: Input :: KEY_W, [&]() { pCloseUp -> MoveCameraDown(); } );
+    bind( SunLight :: Input :: KEY_S, [&]() { pCloseUp -> MoveCameraUp(); } );
+    bind( SunLight :: Input :: KEY_A, [&]() { pCloseUp -> MoveCameraRight(); } );
+    bind( SunLight :: Input :: KEY_D, [&]() { pCloseUp -> MoveCameraLeft(); } );
 
     // 1 / 2: show or hide the minimap / the close-up. 3: mask the "sky" layer (id 1) out of the MAIN view.
-    bind( SunLight :: Input :: KEY_ONE, [&]() { SunLight :: TileMap :: IView *pView = renderer.GetView( nMinimap );  pView -> SetVisible( !pView -> GetVisible() ); } );
-    bind( SunLight :: Input :: KEY_TWO, [&]() { SunLight :: TileMap :: IView *pView = renderer.GetView( nCloseUp );  pView -> SetVisible( !pView -> GetVisible() ); } );
+    bind( SunLight :: Input :: KEY_ONE, [&]() { pMinimap -> SetVisible( !pMinimap -> GetVisible() ); } );
+    bind( SunLight :: Input :: KEY_TWO, [&]() { pCloseUp -> SetVisible( !pCloseUp -> GetVisible() ); } );
     bind( SunLight :: Input :: KEY_THREE, [&]() { SunLight :: TileMap :: IView &view = renderer.GetDefaultView();  view.ShowLayer( 1, !view.IsLayerShown( 1 ) ); } );
 
     // 4: bring the minimap in front of / behind the main view.
-    bind( SunLight :: Input :: KEY_FOUR, [&]() { SunLight :: TileMap :: IView *pView = renderer.GetView( nMinimap );  pView -> SetDrawOrder( pView -> GetDrawOrder() >= 0 ? -1 : nMinimap ); } );
+    bind( SunLight :: Input :: KEY_FOUR, [&]() { pMinimap -> SetDrawOrder( pMinimap -> GetDrawOrder() >= 0 ? -1 : pMinimap -> GetId() ); } );
 
     renderer.SetScrollStepSize( __CAMERA_STEP, __CAMERA_STEP );
-    renderer.GetView( nCloseUp ) -> SetScrollStepSize( __CAMERA_STEP, __CAMERA_STEP );
+    pCloseUp -> SetScrollStepSize( __CAMERA_STEP, __CAMERA_STEP );
 
     renderer.Run();
     renderer.Stop();

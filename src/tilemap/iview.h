@@ -50,8 +50,19 @@ namespace SunLight {
          * collisions, the input - there is one world, seen through several
          * windows.
          *
-         * A handle stays valid until its view is removed (the default view
-         * is never removed) or the renderer is destroyed.
+         * Handles are std::shared_ptr<IView> (the default view's is also
+         * reachable as a plain reference, ITileMap::GetDefaultView). A held
+         * handle is always SAFE to use: when its view is removed
+         * (ITileMap::RemoveView; the default view is never removed) or the
+         * renderer is destroyed, the view becomes INERT - @see IsRemoved -
+         * instead of dangling: it is no longer drawn, everything that would
+         * act on the renderer (camera, zoom steps, scroll step, fitting,
+         * converting coordinates) does nothing or answers "no", the things
+         * that are just the view's own data (its Viewport, visibility, draw
+         * order, background, layer mask) still work, and its Viewport stays
+         * valid for as long as the handle is held. The one exception is
+         * ITileMap::GetDefaultView, a reference: it lives as long as the
+         * renderer, like the renderer's own members.
          */
         class IView  {
 
@@ -133,6 +144,13 @@ namespace SunLight {
              * @param nStepHeight Output parameter receiving the vertical step;
              */
             virtual void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) = 0;
+
+            /**
+             * @brief Whether this view has been removed from its renderer
+             * (ITileMap::RemoveView), or its renderer no longer exists. See
+             * the class documentation for what an inert view does.
+             */
+            virtual bool IsRemoved( void ) = 0;
 
             /**
              * @brief Whether this view is drawn at all. A hidden view keeps

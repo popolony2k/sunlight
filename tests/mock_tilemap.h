@@ -59,9 +59,10 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     SunLight :: TileMap :: IView& GetDefaultView( void )  {
         throw std :: logic_error( "MockTileMap::GetDefaultView not mocked" );
     }
-    int CreateView( const SunLight :: TileMap :: stDimension2D & )  { return -1; }
-    SunLight :: TileMap :: IView* GetView( int )  { return nullptr; }
+    std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: TileMap :: stDimension2D & )  { return nullptr; }
+    std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int )  { return nullptr; }
     bool RemoveView( int )  { return false; }
+    bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> & )  { return false; }
     int GetViewCount( void )  { return 1; }
 
     void ResetZoom( void )  {}

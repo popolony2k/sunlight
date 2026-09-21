@@ -155,8 +155,8 @@ namespace SunLight {
             // working state, swapped in and out by ActivateView (which
             // View's operations and the draw passes use), so all the existing
             // camera/zoom code serves every view unchanged.
-            std :: unique_ptr<View>                    m_pDefaultView;
-            std :: vector<std :: unique_ptr<View>>     m_ExtraViews;
+            std :: shared_ptr<View>                    m_pDefaultView;
+            std :: vector<std :: shared_ptr<View>>     m_ExtraViews;
             View                                       *m_pActiveView;
             int                                        m_nNextViewId;
 
@@ -313,9 +313,10 @@ namespace SunLight {
 
             // Views
             SunLight :: TileMap :: IView& GetDefaultView( void );
-            int CreateView( const SunLight :: TileMap :: stDimension2D& rect );
-            SunLight :: TileMap :: IView* GetView( int nViewId );
+            std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: TileMap :: stDimension2D& rect );
+            std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int nViewId );
             bool RemoveView( int nViewId );
+            bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView );
             int GetViewCount( void );
 
             // View port control

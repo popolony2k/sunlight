@@ -82,6 +82,11 @@ namespace SunLight {
             template<class Function>
             void Run( Function function );
 
+            // Called by the renderer when this view is removed, and for every view when the
+            // renderer is destroyed: cut the link to the renderer so a handle that is still
+            // held is inert instead of dangling.
+            void Detach( void );
+
             public:
 
             View( TileMapRenderer *pRenderer, int nId, SunLight :: Base :: Viewport *pExistingViewport );
@@ -105,6 +110,7 @@ namespace SunLight {
             void SetScrollStepSize( int nStepWidth, int nStepHeight ) override;
             void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) override;
 
+            bool IsRemoved( void ) override;
             void SetVisible( bool bVisible ) override;
             bool GetVisible( void ) override;
             void SetDrawOrder( int nOrder ) override;

@@ -164,6 +164,28 @@ here — see the git log for that period.
 
 ### Changed
 
+- **BREAKING (API): view handles are now `std::shared_ptr<IView>`, and a held handle is always safe.**
+  `ITileMap::CreateView(rect)` returns the new view (a shared handle) instead of an id, and
+  `GetView(id)` returns a shared handle (empty for an unknown or removed id) instead of a raw
+  pointer; the id is `IView::GetId()`. `RemoveView(id)` is unchanged, and `RemoveView(handle)` was
+  added (it only removes a view of THIS renderer: another renderer's view with the same id, an empty
+  pointer, or the default view remove nothing). `GetDefaultView()` still returns a reference: the
+  default view can never be removed, so it lives as long as the renderer. Before this, a raw handle
+  kept after `RemoveView` (or after the renderer was destroyed) dangled. Now the renderer keeps its
+  own reference to every view - so a view is drawn whether or not the caller keeps its handle - and
+  once a view is removed, or its renderer destroyed, a handle that is still held becomes **inert**
+  (`IView::IsRemoved()`, new): no longer drawn; camera moves, zoom steps, scroll step, `FitToMap`,
+  `TileMapToTileMatrix` and by-name layer lookups do nothing or answer "no"; the view keeps the last
+  camera/scroll step it had; and what is just its own data (its `Viewport`, visibility, draw order,
+  background, layer mask) still works, its `Viewport` staying valid as long as the handle is held. For
+  the default view outliving its renderer, the renderer's own root `Viewport` (which dies with the
+  renderer) is first copied into the view (rectangle, zoom position, preferred zoom, zoom limits,
+  user-zoom flag). Migration: `int id = r.CreateView(rect)` -> `auto view = r.CreateView(rect);`
+  (`view->GetId()` for the id); `r.GetView(id)->X()` is unchanged; `IView* p = r.GetView(id)` ->
+  `std::shared_ptr<IView> p = r.GetView(id)` (compare with `nullptr` as before). New pure virtuals /
+  changed signatures on `ITileMap` and `IView` (`IsRemoved`) - a class implementing them itself must
+  update.
+
 - **BREAKING (semantics): a viewport's `size` is now a width/height, everywhere.** A
   viewport is the rectangle `[pos, pos + size)`: `pos` is its top-left corner and `size` its
   width and height, so `(10, 10, 1240, 900)` shows x in `[10, 1250)` and y in `[10, 910)`.
