@@ -27,6 +27,31 @@
 
 namespace SunLight  {
     namespace Base  {
+
+        /*
+         * The zoom scale, as public constants - the single source of truth
+         * the viewport itself is built from, so a consumer that needs the
+         * numbers (e.g. to validate a requested zoom) reads them here
+         * instead of hardcoding a copy that can drift.
+         *
+         * A zoom POSITION p in [ZOOM_POS_MIN, ZOOM_POS_MAX] has the factor
+         *
+         *     factor( p ) = ( p + 1 ) x ZOOM_STEP
+         *
+         * so position 0 is ZOOM_FACTOR_MIN and position ZOOM_POS_MAX is
+         * ZOOM_FACTOR_MAX. ZOOM_STEP is a power of two (1/16), so every
+         * factor in the table is exactly representable in a float - factors
+         * can be compared, and checked for being a multiple of the step,
+         * with exact arithmetic.
+         */
+        constexpr float     ZOOM_STEP           = 0.0625f;
+        constexpr unsigned  ZOOM_POS_MIN        = 0u;
+        constexpr unsigned  ZOOM_POS_COUNT      = 256u;                      // number of positions; also the EXCLUSIVE upper bound of the valid range
+        constexpr unsigned  ZOOM_POS_MAX        = ZOOM_POS_COUNT - 1u;       // the last VALID position (255)
+        constexpr unsigned  ZOOM_POS_DEFAULT    = ( unsigned ) ( 1.0f / ZOOM_STEP ) - 1u;   // the default preferred position (15), whose factor is 1.0
+        constexpr float     ZOOM_FACTOR_MIN     = ZOOM_STEP;                 // factor of position ZOOM_POS_MIN (0.0625)
+        constexpr float     ZOOM_FACTOR_MAX     = ZOOM_POS_COUNT * ZOOM_STEP;   // factor of position ZOOM_POS_MAX (16.0)
+
         /**
          * Internal zoom properties.
          */

@@ -128,6 +128,68 @@ TEST_SUITE( "base/Viewport" )  {
         CHECK( vp.GetZoomFactor( 9 )   == 1.9375f );   // below the lower bound
     }
 
+    TEST_CASE( "The public ZOOM_* constants describe the scale the viewport is actually built from" )  {
+
+        Viewport vp;
+
+        // The step and the range.
+        CHECK( ZOOM_STEP == 0.0625f );
+        CHECK( ZOOM_POS_MIN == 0u );
+        CHECK( ZOOM_POS_COUNT == 256u );
+        CHECK( ZOOM_POS_MAX == 255u );
+        CHECK( ZOOM_POS_MAX == ZOOM_POS_COUNT - 1u );
+
+        // Factor of a position is (p + 1) x step, with exact endpoints.
+        CHECK( ZOOM_FACTOR_MIN == 0.0625f );
+        CHECK( ZOOM_FACTOR_MAX == 16.0f );
+        CHECK( vp.GetZoomFactor( ZOOM_POS_MIN ) == ZOOM_FACTOR_MIN );
+        CHECK( vp.GetZoomFactor( ZOOM_POS_MAX ) == ZOOM_FACTOR_MAX );
+
+        // ZOOM_POS_MAX is the LAST valid position and ZOOM_POS_COUNT the
+        // exclusive bound just past it.
+        vp.SetZoom( ZOOM_POS_MAX );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == ZOOM_POS_MAX );
+        CHECK( vp.GetZoomProperties().fZoomFactor == ZOOM_FACTOR_MAX );
+
+        vp.SetZoom( ZOOM_POS_COUNT );                  // rejected: out of range
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == ZOOM_POS_MAX );
+
+        // The default preferred position is ZOOM_POS_DEFAULT, factor 1.0.
+        Viewport  fresh;
+
+        CHECK( ZOOM_POS_DEFAULT == 15u );
+        CHECK( fresh.GetZoomProperties().nPreferredZoomPos == ZOOM_POS_DEFAULT );
+        CHECK( fresh.GetZoomProperties().nCurrentZoomPos == ZOOM_POS_DEFAULT );
+        CHECK( fresh.GetZoomProperties().fZoomFactor == 1.0f );
+        CHECK( fresh.GetZoomFactor( ZOOM_POS_DEFAULT ) == 1.0f );
+
+        // Every position matches (p + 1) x ZOOM_STEP bit for bit, so a
+        // consumer can trust the formula documented on the constants.
+        unsigned  nMismatches = 0;
+
+        for( unsigned nPos = ZOOM_POS_MIN; nPos <= ZOOM_POS_MAX; nPos++ )  {
+            if( fresh.GetZoomFactor( nPos ) != ( nPos + 1 ) * ZOOM_STEP )
+                nMismatches++;
+        }
+
+        CHECK( nMismatches == 0 );
+    }
+
+    TEST_CASE( "A requested factor that is a multiple of ZOOM_STEP maps exactly to a position (what validating a factor relies on)" )  {
+
+        // ZOOM_STEP is a power of two, so factor / step is exact: a factor is
+        // valid iff that quotient is a whole number in [1, ZOOM_POS_COUNT].
+        CHECK( 3.8125f / ZOOM_STEP == 61.0f );          // position 60
+        CHECK( 1.0f / ZOOM_STEP == 16.0f );             // position 15
+        CHECK( ZOOM_FACTOR_MAX / ZOOM_STEP == ( float ) ZOOM_POS_COUNT );
+        CHECK( ZOOM_FACTOR_MIN / ZOOM_STEP == 1.0f );
+
+        // Not a multiple of the step: the quotient isn't whole.
+        float  fQuotient = 1.03f / ZOOM_STEP;
+
+        CHECK( fQuotient != ( float ) ( unsigned ) fQuotient );
+    }
+
     TEST_CASE( "GetClippedRect keeps a rectangle fully inside the viewport unchanged" )  {
 
         Viewport      vp;
