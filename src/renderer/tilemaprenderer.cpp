@@ -1855,6 +1855,21 @@ namespace SunLight {
         }
 
         /**
+         * Read the scroll step size back (the active view's - the renderer's
+         * own for the default view).
+         * @param nStepWidth Receives the horizontal step: what
+         * @see SetScrollStepSize stored, or the map tile width once a map is
+         * loaded and the step was -1 (LoadMap resolves it); -1 while it is
+         * still unresolved;
+         * @param nStepHeight Receives the vertical step, same rule;
+         */
+        void TileMapRenderer :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
+
+            nStepWidth  = m_nScrollStepWidth;
+            nStepHeight = m_nScrollStepHeight;
+        }
+
+        /**
          * @brief Set the Game Pad Id that will be handled by this renderer;
          * 
          * @param nIndex The GamePad device index to set GamePadId;  

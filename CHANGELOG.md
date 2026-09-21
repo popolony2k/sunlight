@@ -43,6 +43,12 @@ here — see the git log for that period.
 
 ### Added
 
+- `IView::GetScrollStepSize(int&, int&)` and `TileMapRenderer::GetScrollStepSize(int&, int&)`: read a
+  view's scroll step back (until now only the setter existed, so the value - including the map tile
+  size a `-1` resolves to at `LoadMap` - was readable nowhere). Reads exactly what the next
+  `MoveCamera*` would move by, or `-1` while it is still "the map's tile size, not known yet". Asked
+  for by the Scarab view API. New pure virtual on `IView` (only `View` implements it).
+
 - **Views (state half): every renderer now has a default view, and more can be created.** A view
   is the part of the scene's state that differs between two windows onto the same world: a
   viewport (rectangle + zoom) and a camera position + scroll step. The map, its layers and the
