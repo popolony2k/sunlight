@@ -49,8 +49,9 @@ namespace SunLight {
 
             /**
              * @brief Override the backend used by @see CreateInputHandler() -
-             * for tests only, to substitute a mock @see IInputHandler
-             * without a real input device. Pass an empty @see
+             * for tests (to substitute a mock @see IInputHandler without a
+             * real input device) and for the null backend, which installs
+             * itself this way (see NullBackend). Pass an empty @see
              * CreatorFunction to restore the default, build-time backend.
              *
              * @param creator The replacement creator function, or an empty

@@ -56,8 +56,9 @@ namespace SunLight {
 
             /**
              * @brief Override the window returned by @see GetWindow() - for
-             * tests only, to substitute a mock @see IWindow without a real
-             * display. Pass nullptr to restore the default, build-time
+             * tests (to substitute a mock @see IWindow without a real
+             * display) and for the null backend, which installs itself this
+             * way (see NullBackend). Pass nullptr to restore the default, build-time
              * backend. The override is not owned by the factory - the
              * caller keeps it alive for as long as it's set.
              *

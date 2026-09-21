@@ -37,6 +37,14 @@
 
 
 namespace SunLight {
+    namespace Backends  {
+        namespace Null  {
+            class NullBackend;
+        }
+    }
+}
+
+namespace SunLight {
     namespace Renderer  {
 
         /**
@@ -78,6 +86,13 @@ namespace SunLight {
             typedef std :: map<int, SpriteList*>                SpriteMap;
             typedef std :: deque<int> GamePadList;
 
+            // Non-null only for a RENDERER_BACKEND_NULL renderer: holds the
+            // (shared, process-wide) null backend installed for as long as
+            // this renderer lives. Deliberately the FIRST member, so it is
+            // destroyed LAST - after everything below that might still call
+            // into the engine/window/input while being torn down.
+            std :: shared_ptr<SunLight :: Backends :: Null :: NullBackend>  m_pNullBackend;
+
             std :: unique_ptr<SunLight :: Input :: IInputHandler>  m_pInputHandler;
             GamePadList                                m_GamePadList;
             SpriteMap                                  m_SpriteMap;
@@ -107,6 +122,8 @@ namespace SunLight {
             bool                                       m_bWindowResizeable;
             bool                                       m_bDrawFPS;
             bool                                       m_bStretchToFill;
+            unsigned                                   m_nMaxFrames;
+            unsigned                                   m_nFramesRun;
             static bool                                m_bInitialized;
 
             // Everything is rendered into this fixed-internal-resolution

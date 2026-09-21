@@ -41,8 +41,9 @@ namespace SunLight {
 
             /**
              * @brief Override the engine returned by @see GetEngine() - for
-             * tests only, to substitute a mock @see IEngine without a real
-             * window/render context. Pass nullptr to restore the default,
+             * tests (to substitute a mock @see IEngine without a real
+             * window/render context) and for the null backend, which
+             * installs itself this way (see NullBackend). Pass nullptr to restore the default,
              * build-time backend. The override is not owned by the factory -
              * the caller keeps it alive for as long as it's set.
              *

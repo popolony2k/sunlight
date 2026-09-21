@@ -52,8 +52,19 @@ namespace SunLight {
         enum RendererBackend  {
             RENDERER_BACKEND_DEFAULT = 0,   // whatever this build of sunlight was built with
             RENDERER_BACKEND_RAYLIB,
-            RENDERER_BACKEND_NULL,          // windowless/headless (not available yet - see RendererConfig::IsBackendAvailable)
+            RENDERER_BACKEND_NULL,          // windowless/headless: nothing is drawn or displayed, time is virtual
             RENDERER_BACKEND_LAST           // sentinel
+        };
+
+        /**
+         * @brief How a backend that has no display to pace it holds the
+         * frame loop to its target FPS. Only the null backend consults it -
+         * the raylib backend always paces itself (its own frame present
+         * sleeps to the target), whatever this says.
+         */
+        enum FramePacing  {
+            FRAME_PACING_REAL_TIME = 0,     // wall-clock time passes at the game's own speed (default)
+            FRAME_PACING_UNLIMITED          // frames as fast as the game logic runs: a long virtual timeline in a fraction of the time
         };
 
         /**
@@ -85,6 +96,15 @@ namespace SunLight {
             bool                                      bDrawFPS              = false;
             bool                                      bStretchToFill        = false;
 
+            // Null backend only: real-time paced (default) or as fast as possible.
+            FramePacing                               framePacing           = FRAME_PACING_REAL_TIME;
+
+            // Run() stops on its own, cleanly (returns true, like an exit
+            // request but without setting one), after this many frames
+            // since Start(); 0 = unlimited. A safety net / smoke-test
+            // budget for any backend.
+            unsigned                                  nMaxFrames            = 0;
+
             // Register the renderer's built-in camera/zoom key handlers.
             bool                                      bUseDefaultKeyHandler = true;
 
@@ -96,15 +116,17 @@ namespace SunLight {
             int                                       nScrollStepWidth      = -1;   // -1 = map tile width
             int                                       nScrollStepHeight     = -1;   // -1 = map tile height
 
-            // Left unset, the renderer keeps its own default viewport/zoom.
+            // Viewport rectangle (screen-space clip/scroll window) and zoom
+            // position. Left unset, the viewport covers the whole render
+            // area and the zoom keeps the renderer's own default.
             std :: optional<SunLight :: TileMap :: stDimension2D>  viewport;
             std :: optional<unsigned>                              nZoomPos;
 
             /**
              * @brief Whether a backend can actually be selected in this
              * build. RENDERER_BACKEND_DEFAULT always can (it means "the
-             * build's own"); RENDERER_BACKEND_LAST and out-of-range values
-             * never can.
+             * build's own"), as can the null backend (part of every build);
+             * RENDERER_BACKEND_LAST and out-of-range values never can.
              */
             static bool IsBackendAvailable( RendererBackend backend );
 

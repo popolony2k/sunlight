@@ -33,6 +33,10 @@ here — see the git log for that period.
   aliases kept for one release (v0.24.0) are now removed - the only known
   consumer (Scarab) has migrated. **Breaking** for code still spelling the
   old `IEngine::` names.
+- A renderer created without a viewport now gets one covering the whole render
+  area, instead of a zero-sized one. `LoadMap` divides by the viewport height, so
+  a renderer that never had a viewport configured crashed there with a
+  divide-by-zero (SIGFPE) instead of loading the map.
 - `Start()` now applies the renderer's configured exit key (`RendererConfig::exitKey`
   / the last `SetExitKey`) instead of always resetting it to ESC, so a key chosen
   before `Start()` - or before a restart - sticks. Behaviour change only for code
@@ -43,6 +47,24 @@ here — see the git log for that period.
 
 ### Added
 
+- **Null (headless) backend** - `RENDERER_BACKEND_NULL` is now real. A renderer
+  created with it needs no display, GPU or windowing library, and time is virtual:
+  `NullEngine` (draws nothing; `LoadTexture` returns the true PNG/JPEG size read
+  from the header through `IFileSystem` - recognised by magic bytes, so a JPEG
+  named `.png` works; `MeasureText` is a deterministic fixed metric, characters x
+  size / 2; `SetFont` succeeds iff the file exists), `NullWindow` (never closes by
+  itself; each `EndFrame` advances a `VirtualClock` by 1/target-FPS, so script
+  waits and sprite/tile animation run on virtual time; `GetElapsedTime` is 0 before
+  `Create`, restarts at 0 on each `Create`, 0 after `Close`), `NullInputHandler`
+  (no key/button ever pressed, every axis exactly 0.0, never nullptr) and
+  `NullBackend`, which installs them as one set through the engine/window/input/clock
+  factories for as long as a null renderer lives (shared process-wide; the backend
+  is global, so `TileMapRenderer::Create` refuses a null renderer while a default-backend
+  one is live and vice versa). Audio is unaffected.
+  `RendererConfig` gained `framePacing` (`FRAME_PACING_REAL_TIME` default /
+  `FRAME_PACING_UNLIMITED`, null backend only) and `nMaxFrames` (any backend:
+  `Run()` returns cleanly after that many frames since `Start()`; 0 = unlimited).
+  `SunLight::General::VirtualClock` is the reusable frame-driven clock.
 - `SunLight::General::Clock` (`src/general/clock.h`): a process-global, injectable
   source of "now" in milliseconds (`Clock::NowMilliseconds()`, `Clock::SetClock(IClock*)`;
   real monotonic clock by default). `ScriptProcessor`'s `WAIT_CMD`, `TextureMap`'s

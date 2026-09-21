@@ -20,6 +20,7 @@
 
 #include "engines/enginefactory.h"
 #include "window/windowfactory.h"
+#include "backends/null/nullbackend.h"
 #include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
 #include "filesystem/filesystemfactory.h"
@@ -55,6 +56,13 @@ namespace SunLight {
          * Static class initialization.
          */
         bool TileMapRenderer :: m_bInitialized = false;
+
+        /*
+         * How many live renderers run on the build's own (non-null) backend.
+         * The backend is process-global, so TileMapRenderer::Create uses this
+         * to refuse installing the null backend underneath one of them.
+         */
+        static int  s_nLiveDefaultBackendRenderers = 0;
 
 
         /**
@@ -1108,6 +1116,16 @@ namespace SunLight {
         TileMapRenderer :: TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config ) :
                                             m_CollisionManager( this )  {
 
+            // Select the backend FIRST: everything below (the input
+            // handler, anything that touches the engine) must already see
+            // the right one. Only the null backend needs installing -
+            // DEFAULT/RAYLIB are what the build's own factories already
+            // hand out. See NullBackend for the install/restore rules.
+            if( config.backend == SunLight :: Renderer :: RENDERER_BACKEND_NULL )
+                m_pNullBackend = SunLight :: Backends :: Null :: NullBackend :: Acquire( config.framePacing == SunLight :: Renderer :: FRAME_PACING_REAL_TIME );
+            else
+                s_nLiveDefaultBackendRenderers++;
+
             GetDimension2D().size.nWidth  = ( int ) config.fWidth;
             GetDimension2D().size.nHeight = ( int ) config.fHeight;
             m_nMapWidth                   = 0;
@@ -1126,6 +1144,8 @@ namespace SunLight {
             m_bClearBackground            = __DEFAULT_CLEAR_BACKGROUND;
             m_bDrawFPS                    = config.bDrawFPS;
             m_bStretchToFill              = config.bStretchToFill;
+            m_nMaxFrames                  = config.nMaxFrames;
+            m_nFramesRun                  = 0;
             m_nScrollStepWidth            = config.nScrollStepWidth;
             m_nScrollStepHeight           = config.nScrollStepHeight;
             m_ViewControlMode             = config.viewControlMode;
@@ -1147,8 +1167,21 @@ namespace SunLight {
             if( config.nZoomPos )
                 GetViewport().SetZoom( *config.nZoomPos );
 
-            if( config.viewport )
+            if( config.viewport )  {
                 GetViewport().SetDimension2D( *config.viewport );
+            }
+            else  {
+                // No viewport chosen: default to the whole render area. The
+                // viewport is what LoadMap's alignment math divides by (and
+                // what clips drawing), so leaving it zero-sized crashed
+                // LoadMap with a divide-by-zero and would have drawn nothing.
+                SunLight :: TileMap :: stDimension2D  fullArea {};
+
+                fullArea.size.nWidth  = ( int ) config.fWidth;
+                fullArea.size.nHeight = ( int ) config.fHeight;
+
+                GetViewport().SetDimension2D( fullArea );
+            }
 
             if( config.bUseDefaultKeyHandler )  {
                 InitalizeDefaultUserInputHandlers();
@@ -1178,6 +1211,25 @@ namespace SunLight {
             if( !config.Validate( pError ) )
                 return nullptr;
 
+            // The backend is process-global (see NullBackend), so the two
+            // kinds can't coexist: a renderer of one kind would silently run
+            // on the other's engine/window/clock. Refuse, clearly.
+            bool  bWantsNull = ( config.backend == SunLight :: Renderer :: RENDERER_BACKEND_NULL );
+
+            if( !bWantsNull && SunLight :: Backends :: Null :: NullBackend :: IsActive() )  {
+                if( pError )
+                    *pError = "a null-backend renderer is already active in this process; only one backend can be in use at a time";
+
+                return nullptr;
+            }
+
+            if( bWantsNull && ( s_nLiveDefaultBackendRenderers > 0 ) )  {
+                if( pError )
+                    *pError = "a renderer on the default backend is already active in this process; only one backend can be in use at a time";
+
+                return nullptr;
+            }
+
             return std :: make_unique<TileMapRenderer>( config );
         }
 
@@ -1187,6 +1239,9 @@ namespace SunLight {
         TileMapRenderer :: ~TileMapRenderer( void )  {
 
             UnloadMap();
+
+            if( !m_pNullBackend )
+                s_nLiveDefaultBackendRenderers--;
             m_TileMapListenerList.clear();
             m_KeyInputEventHandlerList.clear();
             m_GPadInputEventHandlerList.clear();
@@ -2225,6 +2280,7 @@ namespace SunLight {
             // isn't stuck permanently exited (see RequestExit's own doc
             // comment).
             m_bExitRequested = false;
+            m_nFramesRun     = 0;
 
             /*
              * Resolves the -1 constructor-default sentinel into
@@ -2289,9 +2345,10 @@ namespace SunLight {
         }
 
         /**
-         * Run renderer. Loops until either the hardware exit key/window
-         * close button fires (IWindow::ShouldClose()) or a caller/listener
-         * called @see RequestExit - checked once per iteration, not
+         * Run renderer. Loops until the hardware exit key/window close
+         * button fires (IWindow::ShouldClose()), the optional frame budget
+         * (RendererConfig::nMaxFrames, counted since Start()) is spent, or a
+         * caller/listener called @see RequestExit - checked once per iteration, not
          * immediately, so a RequestExit() call from inside this frame's
          * own HandleUserUpdate/etc. still lets the frame finish drawing
          * before the loop actually exits. Either way, this function only
@@ -2304,7 +2361,8 @@ namespace SunLight {
             if( m_bIsStarted )  {
                 SunLight :: Window :: IWindow  &window = SunLight :: Window :: WindowFactory :: GetWindow();
 
-                while ( !window.ShouldClose() && !m_bExitRequested ) {
+                while ( !window.ShouldClose() && !m_bExitRequested &&
+                        ( ( m_nMaxFrames == 0 ) || ( m_nFramesRun < m_nMaxFrames ) ) ) {
                     SunLight :: Engines :: EngineFactory :: GetEngine().BeginRenderTarget( m_pRenderTexture );
                     if( GetVisible() )  {
                         RenderMap();
@@ -2398,6 +2456,7 @@ namespace SunLight {
                                           SunLight :: Engines :: EngineFactory :: GetEngine().GetRenderTargetTexture( m_pRenderTexture ),
                                           source, dest, WHITE_COLOR );
                     window.EndFrame();
+                    m_nFramesRun++;
                 }
 
                 return true;
