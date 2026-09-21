@@ -33,10 +33,11 @@
  * map's tiles do not). So one sprite cannot both sit on the same map spot in views with different zoom
  * and cameras, nor follow a scrolling camera. This sample therefore keeps ONE Sunny sprite PER VIEW,
  * each on its own layer, and every view's layer mask lets through only its own Sunny; after every move
- * each sprite is placed at (Sunny's map position - that view's camera). (The three layers are
- * nearly empty ones - "smoke", "monke", "birb", a few tiles each - because masking a layer out of a view
- * hides its tiles there too.) Sprites that live in map coordinates and are drawn correctly by every view
- * are a possible engine feature; see the documentation.
+ * each sprite is placed at (Sunny's map position - that view's camera). Masking a layer out of a view hides
+ * its tiles there too, so the three layers are EMPTY ones added to this sample's copy of the map for the
+ * purpose ("sunny_main", "sunny_minimap", "sunny_closeup") - masking a layer that held map content would
+ * make that content vanish from the other views. Sprites that live in map coordinates and are drawn
+ * correctly by every view are a possible engine feature; see the documentation.
  *
  * Like the other samples it takes its own directory as argv[1] and reads its map and sprite
  * (a copy of the sprite sample's) relative to it:
@@ -62,9 +63,9 @@
 #define __SUNNY_SIZE                32
 #define __SUNNY_STEP                4
 #define __SUNNY_ANIMATION_DELAY     100
-#define __MAIN_LAYER_ID             6       // "smoke"  - Sunny of the main view
-#define __MINIMAP_LAYER_ID          7       // "monke"  - Sunny of the minimap
-#define __CLOSEUP_LAYER_ID          8       // "birb"   - Sunny of the close-up
+#define __MAIN_LAYER_ID             9       // "sunny_main"    - Sunny of the main view
+#define __MINIMAP_LAYER_ID          10      // "sunny_minimap" - Sunny of the minimap
+#define __CLOSEUP_LAYER_ID          11      // "sunny_closeup" - Sunny of the close-up
 #define __CLOSEUP_ZOOM_POS          46      // factor 2.9375
 #define __FOLLOW_MARGIN             28      // map pixels between Sunny and the close-up's border before it scrolls
 
