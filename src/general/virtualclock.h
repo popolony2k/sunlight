@@ -29,27 +29,56 @@ namespace SunLight  {
 
         /**
          * @brief A clock that only moves when told to - the frame loop of a
-         * windowless backend advances it by one frame's worth of time per
-         * frame, so everything reading @see Clock (script waits,
-         * animations) sees frames x dt instead of real elapsed time and a
-         * long timeline can run as fast as frames can be produced.
+         * windowless backend advances it by one frame per frame, so
+         * everything reading @see Clock (script waits, animations) sees
+         * frames x dt instead of real elapsed time and a long timeline can
+         * run as fast as frames can be produced.
          *
-         * Time is kept as double seconds; NowMilliseconds() rounds to the
-         * nearest millisecond, so accumulating N frames of 1/60 s reads
-         * back the intuitive value (e.g. 3 frames = 50 ms, not 49).
-         * Monotonic: only ever advances.
+         * Frames are COUNTED, never summed: time is
+         *   base + framesSinceBase / fps
+         * - one division, however many frames have run. Adding 1/60 to a
+         * running double instead drifts (300 frames summed to
+         * 4.999999999999988, 5040 to 83.99999999999652 - missing the
+         * whole-second boundary a script waiting for "elapsed >= 84" sees,
+         * costing it an extra frame), while a single division of an exact
+         * quotient is exact in IEEE arithmetic: 300 / 60 is exactly 5.0 and
+         * 5040 / 60 exactly 84.0. When the frame rate changes, the time so
+         * far is folded into the base and counting restarts at the new rate.
+         *
+         * NowMilliseconds() rounds to the nearest millisecond (3 frames of
+         * 1/60 s read 50 ms, not 49). Monotonic: only ever advances.
          */
         class VirtualClock : public IClock  {
 
-            double  m_dSeconds = 0.0;
+            double   m_dBaseSeconds       = 0.0;
+            int64_t  m_nFramesSinceBase   = 0;
+            int      m_nFps               = 60;
 
             public:
 
             int64_t NowMilliseconds( void ) override;
 
             /**
-             * @brief Move time forward. Negative values are ignored (the
-             * clock never goes backwards).
+             * @brief Set the frame rate the following AdvanceFrame() calls
+             * count at (frames per second). A non-positive rate falls back
+             * to 60. Changing the rate folds the time so far into the base,
+             * so nothing already elapsed is re-scaled; setting the same
+             * rate again is a no-op.
+             * @param nFps Frames per second;
+             */
+            void SetFrameRate( int nFps );
+
+            /**
+             * @brief Advance time by exactly one frame at the current rate.
+             */
+            void AdvanceFrame( void );
+
+            /**
+             * @brief Move time forward by an arbitrary amount (folded into
+             * the base). Negative values are ignored (the clock never goes
+             * backwards). Prefer SetFrameRate + AdvanceFrame for frame
+             * loops: repeated Advance() of a fractional step accumulates
+             * rounding error.
              * @param dSeconds How far to advance, in seconds;
              */
             void Advance( double dSeconds );
