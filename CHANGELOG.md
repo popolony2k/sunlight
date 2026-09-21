@@ -13,6 +13,17 @@ here — see the git log for that period.
 
 ## [Unreleased]
 
+### Fixed
+
+- The five samples (`sprite`, `collision`, `gamepad`, `scriptprocessor`, `tilemaprenderer`) failed to
+  load their map ("Cannot load map: ... could not be read") when given an absolute base path - which
+  is what the IDE launch configuration passes - ever since the resource filesystem (v0.16.0) started
+  reading only inside mounted locations. They now make the given directory their working directory
+  and load everything by relative name, so an absolute and a relative base path both work. (A map's
+  external `.tsx` tilesets are read by libtmx itself from the OS, relative to the working directory,
+  which is why the working directory - not just a mount - has to be the sample's.) Samples only: not
+  part of any release archive, so no version change.
+
 ### Added
 
 - `TextureCanvas`/`Sprite` frame step split into its two halves: `Advance()` (the STATE half -

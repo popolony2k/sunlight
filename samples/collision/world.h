@@ -39,7 +39,6 @@ class World : public SunLight :: Collision :: ICollisionListener {
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteObstacle;
     std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasObstacle;
     SunLight :: TileMap :: stCoordinate2D                       m_LastStep;
-    std :: string m_strBasePath;
 
     void MovePlayerUp( SunLight :: Input :: ControllerType type, int nId );
     void MovePlayerDown( SunLight :: Input :: ControllerType type, int nId );

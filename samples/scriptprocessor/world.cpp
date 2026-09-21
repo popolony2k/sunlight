@@ -394,8 +394,8 @@ void World :: BuildScript( void )  {
 
 bool World :: LoadSprites( void ) {
 
-    if( m_pCanvasSunny -> Load( m_strBasePath + __SUNNY_SPRITE_IMAGE ) &&
-        m_pCanvasMonkey -> Load( m_strBasePath + __MONKEY_IMAGE ) ) {
+    if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IMAGE ) &&
+        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) ) {
 
         m_pCanvasSunny -> SetTileSize( 32 );
         m_pCanvasSunny -> SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
@@ -415,7 +415,7 @@ bool World :: LoadSprites( void ) {
         m_pRenderer -> AddSprite( __SUNNY_LAYER_ID, *m_pSpriteSunny );
         m_pRenderer -> AddSprite( __MONKEY_LAYER_ID, *m_pSpriteMonkey );
 
-        if( !m_SoundManager.Load( __SONG_ID, m_strBasePath + __SONG_FILE ) )  {
+        if( !m_SoundManager.Load( __SONG_ID, __SONG_FILE ) )  {
             fprintf( stderr, "Warning: could not load stage theme sound\n" );
         }
 
@@ -431,7 +431,6 @@ bool World :: LoadSprites( void ) {
  */
 World :: World( std :: string strBasePath )  {
 
-    m_strBasePath = strBasePath;
     m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
                                                                                __DISPLAY_H,
                                                                                __GAME_NAME,
@@ -481,7 +480,7 @@ bool World :: Run( void )  {
     m_pRenderer -> AddTileMapListener( this );
     m_pRenderer -> Start();
 
-    strMapFile = m_strBasePath + __TMX_MAP_FILE;
+    strMapFile = __TMX_MAP_FILE;
 
     if( !m_pRenderer -> LoadMap( strMapFile.c_str(), __DEFAULT_MAP_ALIGNMENT ) )  {
         fprintf( stderr, "Error loading map\n" );

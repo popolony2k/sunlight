@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include <filesystem>
 #include <string>
 #include <cstdio>
 
@@ -34,6 +35,20 @@ int main( int argc, char **argv ) {
     }
 
     strBasePath = argv[1];
+
+    // Every resource is loaded by name relative to the sample's own directory: through
+    // SunLight::FileSystem (which reads the working directory, mounted automatically) and,
+    // for a map's external tilesets, by libtmx itself, straight from the OS. Both resolve
+    // against the working directory, so make the sample's directory the working directory -
+    // that works for an absolute base path (an IDE launch) and a relative one alike.
+    std :: error_code  errorCode;
+
+    std :: filesystem :: current_path( strBasePath, errorCode );
+
+    if( errorCode )  {
+        fprintf( stderr, "Cannot enter the sample directory [%s]: %s\n", strBasePath.c_str(), errorCode.message().c_str() );
+        return EXIT_FAILURE;
+    }
 
     World world( strBasePath );
     bRet = world.Run();
