@@ -1961,9 +1961,13 @@ namespace SunLight {
         }
 
         /**
-         * Move view camera up.
+         * Move view camera up. Does nothing while no map is loaded: the
+         * scroll limit is worked out from the map's tile size and extent.
          */
         void TileMapRenderer :: MoveCameraUp( void )  {
+
+            if( !m_pTmxMap )
+                return;
 
             SunLight :: Base :: Viewport&  vp = GetViewport();
             int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.y - 
@@ -1995,9 +1999,13 @@ namespace SunLight {
         }
 
         /**
-         * Move view camera left.
+         * Move view camera left. Does nothing while no map is loaded (see
+         * @see MoveCameraUp).
          */
         void TileMapRenderer :: MoveCameraLeft( void )  {
+
+            if( !m_pTmxMap )
+                return;
 
             SunLight :: Base :: Viewport&  vp = GetViewport();
             int                  nErrorFix    = ( m_pTmxMap -> tile_width / std :: round( vp.GetZoomProperties().fZoomFactor ) );
