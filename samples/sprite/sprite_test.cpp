@@ -36,11 +36,10 @@ int main( int argc, char **argv ) {
 
     strBasePath = argv[1];
 
-    // Every resource is loaded by name relative to the sample's own directory: through
-    // SunLight::FileSystem (which reads the working directory, mounted automatically) and,
-    // for a map's external tilesets, by libtmx itself, straight from the OS. Both resolve
-    // against the working directory, so make the sample's directory the working directory -
-    // that works for an absolute base path (an IDE launch) and a relative one alike.
+    // Every resource is loaded by name relative to the sample's own directory, through
+    // SunLight::FileSystem - which reads the working directory (mounted automatically) - so make
+    // the sample's directory the working directory. That works for an absolute base path (an IDE
+    // launch) and a relative one alike.
     std :: error_code  errorCode;
 
     std :: filesystem :: current_path( strBasePath, errorCode );

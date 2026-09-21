@@ -30,6 +30,11 @@
 #include "general/clock.h"
 #include <cmath>
 #include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <map>
+#include <set>
+#include <string>
 #include <vector>
 
 /*
@@ -65,16 +70,249 @@ namespace SunLight {
         static int  s_nLiveDefaultBackendRenderers = 0;
 
 
+        /*
+         * External tilesets (.tsx) and object templates (.tx).
+         *
+         * libtmx opens these ITSELF (xmlReaderForFile - a raw OS open,
+         * relative to the working directory), so they bypass
+         * SunLight::FileSystem: they could not come from a mounted archive
+         * (a .zip pack with no loose copy) and could never pass through the
+         * read filter (an encrypted pack). LoadMap therefore reads them
+         * through the FileSystem UP FRONT and hands them to libtmx as buffers
+         * via its Resource Manager, which libtmx consults - keyed by the raw
+         * `source`/`template` attribute text - before it would open anything.
+         * A reference the FileSystem cannot provide is simply left for
+         * libtmx's own lookup, so a project that keeps them loose beside the
+         * working directory keeps working exactly as before.
+         */
+        namespace  {
+
+            // Set only while an external file is being preloaded: the directory it lives in.
+            std :: string  s_strExternalImageBase;
+
+            struct ExternalReference  {
+                bool           bTemplate;      // an object template (.tx) rather than a tileset (.tsx)
+                std :: string  strKey;         // the attribute text, as written
+            };
+
+            /**
+             * Directory part of a virtual path, trailing '/' included ("" if it has none).
+             */
+            std :: string DirectoryOfVirtualPath( const std :: string &strPath )  {
+
+                std :: string  str = strPath;
+
+                std :: replace( str.begin(), str.end(), '\\', '/' );
+
+                size_t  nSlash = str.find_last_of( '/' );
+
+                return ( nSlash == std :: string :: npos ) ? std :: string() : str.substr( 0, nSlash + 1 );
+            }
+
+            /**
+             * strDir + strRelative as one virtual path: backslashes become '/', and "." and ".."
+             * segments are collapsed LEXICALLY (the FileSystem rejects them). A ".." that would
+             * climb above the root gives "" - not a legal virtual path.
+             */
+            std :: string JoinVirtualPath( const std :: string &strDir, const std :: string &strRelative )  {
+
+                std :: string  joined = strDir + strRelative;
+
+                std :: replace( joined.begin(), joined.end(), '\\', '/' );
+
+                bool                          bAbsolute = ( !joined.empty() && joined[0] == '/' );
+                std :: vector<std :: string>  parts;
+                size_t                        nStart = 0;
+
+                while( nStart <= joined.size() )  {
+                    size_t         nEnd  = joined.find( '/', nStart );
+                    std :: string  part;
+
+                    if( nEnd == std :: string :: npos )
+                        nEnd = joined.size();
+
+                    part   = joined.substr( nStart, nEnd - nStart );
+                    nStart = nEnd + 1;
+
+                    if( part.empty() || part == "." )
+                        continue;
+
+                    if( part == ".." )  {
+                        if( parts.empty() )
+                            return std :: string();
+
+                        parts.pop_back();
+                        continue;
+                    }
+
+                    parts.push_back( part );
+                }
+
+                std :: string  result = ( bAbsolute ? "/" : "" );
+
+                for( size_t nCount = 0; nCount < parts.size(); nCount++ )
+                    result += ( nCount ? "/" : "" ) + parts[nCount];
+
+                return result;
+            }
+
+            /**
+             * The value of attribute szName inside one tag's text (everything between '<' and
+             * '>'), for either quote style, or false if it has no such attribute.
+             */
+            bool FindTagAttribute( const std :: string &strTag, const char *szName, std :: string &strValue )  {
+
+                size_t  nNameLength = strlen( szName );
+                size_t  nPos        = 0;
+
+                while( ( nPos = strTag.find( szName, nPos ) ) != std :: string :: npos )  {
+                    // A whole attribute name: preceded by white space, followed by '='.
+                    bool    bBoundary = ( nPos > 0 ) && isspace( ( unsigned char ) strTag[nPos - 1] );
+                    size_t  nCursor   = nPos + nNameLength;
+
+                    while( nCursor < strTag.size() && isspace( ( unsigned char ) strTag[nCursor] ) )
+                        nCursor++;
+
+                    if( bBoundary && nCursor < strTag.size() && strTag[nCursor] == '=' )  {
+                        nCursor++;
+
+                        while( nCursor < strTag.size() && isspace( ( unsigned char ) strTag[nCursor] ) )
+                            nCursor++;
+
+                        if( nCursor < strTag.size() && ( strTag[nCursor] == '"' || strTag[nCursor] == '\'' ) )  {
+                            size_t  nClose = strTag.find( strTag[nCursor], nCursor + 1 );
+
+                            if( nClose != std :: string :: npos )  {
+                                strValue = strTag.substr( nCursor + 1, nClose - nCursor - 1 );
+
+                                return true;
+                            }
+                        }
+                    }
+
+                    nPos += nNameLength;
+                }
+
+                return false;
+            }
+
+            /**
+             * Whether a tag's text starts with the element name szElement (and nothing longer).
+             */
+            bool TagIsElement( const std :: string &strTag, const char *szElement )  {
+
+                size_t  nLength = strlen( szElement );
+
+                return ( strTag.compare( 0, nLength, szElement ) == 0 ) &&
+                       ( strTag.size() == nLength || isspace( ( unsigned char ) strTag[nLength] ) || strTag[nLength] == '/' );
+            }
+
+            /**
+             * Collect every external reference in an XML document: a <tileset source="...">, and an
+             * <object template="...">. (A plain scan for those two tags - the documents are Tiled's own
+             * output; anything it misses is left for libtmx's own lookup, anything extra is harmless.)
+             */
+            void ScanExternalReferences( const std :: string &strXml, std :: vector<ExternalReference> &references )  {
+
+                size_t  nPos = 0;
+
+                while( ( nPos = strXml.find( '<', nPos ) ) != std :: string :: npos )  {
+                    size_t  nEnd = strXml.find( '>', nPos );
+
+                    if( nEnd == std :: string :: npos )
+                        break;
+
+                    std :: string  strTag = strXml.substr( nPos + 1, nEnd - nPos - 1 );
+                    std :: string  strValue;
+
+                    if( TagIsElement( strTag, "tileset" ) )  {
+                        if( FindTagAttribute( strTag, "source", strValue ) && !strValue.empty() )
+                            references.push_back( ExternalReference { false, strValue } );
+                    }
+                    else if( TagIsElement( strTag, "object" ) )  {
+                        if( FindTagAttribute( strTag, "template", strValue ) && !strValue.empty() )
+                            references.push_back( ExternalReference { true, strValue } );
+                    }
+
+                    nPos = nEnd + 1;
+                }
+            }
+
+            /**
+             * Read one external tileset/template through the FileSystem and give it to libtmx's
+             * Resource Manager under its raw attribute text. The things IT references are loaded first
+             * (a template's tileset must be known before the template is parsed), each resolved against
+             * the directory of the file that names it. A file the FileSystem doesn't have is skipped.
+             */
+            void PreloadExternalResource( tmx_resource_manager *pRcMgr,
+                                          const ExternalReference &reference,
+                                          const std :: string &strReferencingDir,
+                                          std :: map<std :: string, std :: string> &loadedKeys,
+                                          std :: set<std :: string> &visited )  {
+
+                std :: string  strPath = JoinVirtualPath( strReferencingDir, reference.strKey );
+
+                if( strPath.empty() )
+                    return;
+
+                // Each file once (also stops a reference cycle); and libtmx caches by the RAW key, so a
+                // second file under an already-provided key would only replace what maps already point at.
+                if( !visited.insert( ( reference.bTemplate ? "T:" : "S:" ) + strPath ).second )
+                    return;
+
+                if( loadedKeys.count( reference.strKey ) )
+                    return;
+
+                std :: vector<unsigned char>  data;
+
+                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strPath, data ) )
+                    return;
+
+                std :: string                     strText( data.begin(), data.end() );
+                std :: string                     strDir = DirectoryOfVirtualPath( strPath );
+                std :: vector<ExternalReference>  nested;
+
+                ScanExternalReferences( strText, nested );
+
+                for( const ExternalReference &inner : nested )
+                    PreloadExternalResource( pRcMgr, inner, strDir, loadedKeys, visited );
+
+                // The images this file names are relative to ITS directory; libtmx hands them to the
+                // texture callback as written, so tell the callback where they live.
+                s_strExternalImageBase = strDir;
+
+                int  nLoaded = reference.bTemplate ?
+                               ::tmx_load_template_buffer( pRcMgr, ( const char * ) data.data(), ( int ) data.size(), reference.strKey.c_str() ) :
+                               ::tmx_load_tileset_buffer( pRcMgr, ( const char * ) data.data(), ( int ) data.size(), reference.strKey.c_str() );
+
+                s_strExternalImageBase.clear();
+
+                if( nLoaded )
+                    loadedKeys[reference.strKey] = strPath;
+            }
+        }
+
         /**
          * TxmLib texture loader callback implementation.
          * @param szFileName Texture file name;
          */
         void* TileMapRenderer :: TextureLoaderCallback( const char *szFileName )  {
 
-            int nWidth, nHeight;
+            int  nWidth, nHeight;
+
+            // While an external tileset/template is being preloaded, this is the image path as written
+            // in that file - relative to the file's own directory. (Maps' own images arrive already
+            // resolved by libtmx against the map's path.)
+            if( !s_strExternalImageBase.empty() )  {
+                std :: string  strResolved = JoinVirtualPath( s_strExternalImageBase, szFileName );
+
+                if( !strResolved.empty() )
+                    return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strResolved.c_str(), nWidth, nHeight );
+            }
 
             return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( szFileName, nWidth, nHeight );
         }
+
 
         /**
          * TxmLib texture deallocation callback implementation.
@@ -1139,6 +1377,7 @@ namespace SunLight {
             m_strTitle                    = config.strTitle;
             m_fScreenFadeAlpha            = 0.0f;
             m_pTmxMap                     = NULL;
+            m_pTmxRcMgr                   = nullptr;
             m_pRenderTexture              = nullptr;
             m_bIsStarted                  = false;
             m_bExitRequested              = false;
@@ -1988,12 +2227,52 @@ namespace SunLight {
                     return false;
                 }
 
-                m_pTmxMap = ::tmx_rcmgr_load_buffer_vpath( nullptr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
+                /*
+                 * External tilesets/templates the map names (see the
+                 * "External tilesets" note above): read through the
+                 * FileSystem and handed over in a Resource Manager. A map
+                 * that names none keeps the plain, manager-less path.
+                 */
+                std :: vector<ExternalReference>  externalReferences;
+
+                ScanExternalReferences( std :: string( data.begin(), data.end() ), externalReferences );
+
+                tmx_resource_manager  *pRcMgr = nullptr;
+
+                if( !externalReferences.empty() )  {
+                    std :: map<std :: string, std :: string>  loadedKeys;
+                    std :: set<std :: string>                 visited;
+                    std :: string                             strMapDir = DirectoryOfVirtualPath( szTmxMapFile );
+
+                    // libtmx's allocator hooks default to NULL and are only set up by its own tmx_load*/
+                    // tmx_rcmgr_load* entry points - NOT by tmx_make_resource_manager(), which allocates
+                    // straight away: the first map loaded in a process would crash here. Set the same
+                    // defaults libtmx would (its set_alloc_functions()).
+                    if( !tmx_alloc_func )
+                        tmx_alloc_func = realloc;
+
+                    if( !tmx_free_func )
+                        tmx_free_func = free;
+
+                    pRcMgr = ::tmx_make_resource_manager();
+
+                    for( const ExternalReference &reference : externalReferences )
+                        PreloadExternalResource( pRcMgr, reference, strMapDir, loadedKeys, visited );
+                }
+
+                m_pTmxMap = ::tmx_rcmgr_load_buffer_vpath( pRcMgr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
 
                 if( !m_pTmxMap ) {
                     ::tmx_perror( "Cannot load map" );
+
+                    if( pRcMgr )
+                        ::tmx_free_resource_manager( pRcMgr );
+
                     return false;
                 }
+
+                // The map points into the manager's tilesets/templates: keep it alive as long as the map.
+                m_pTmxRcMgr = pRcMgr;
 
                 m_nMapWidth  = ( m_pTmxMap -> width * m_pTmxMap -> tile_width );
                 m_nMapHeight = ( m_pTmxMap -> height * m_pTmxMap -> tile_height );
@@ -2082,6 +2361,12 @@ namespace SunLight {
             if( m_pTmxMap )  {
                 UnloadSprites();
                 ::tmx_map_free( m_pTmxMap );
+
+                // Only now: the map held pointers into the manager's external tilesets/templates.
+                if( m_pTmxRcMgr )  {
+                    ::tmx_free_resource_manager( m_pTmxRcMgr );
+                    m_pTmxRcMgr = nullptr;
+                }
 
                 /*
                 * Release all allocated animations data structure.

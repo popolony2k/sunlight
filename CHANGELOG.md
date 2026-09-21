@@ -15,14 +15,31 @@ here — see the git log for that period.
 
 ### Fixed
 
+- **A map's external tilesets (`.tsx`) and object templates (`.tx`) are now read through
+  `SunLight::FileSystem`.** libtmx opened them itself, straight from the OS relative to the working
+  directory, so they bypassed the filesystem layer: a map with an external tileset failed to load
+  (`cannot open extern tileset ...`) from a mounted archive with no loose copy (a `.zip` pack), and
+  could never pass through the read filter (an encrypted pack - a raw OS open cannot decode it). Only
+  the `.tmx` itself, and textures/sound/fonts, honoured mounts and the filter. `LoadMap` now reads
+  every external reference up front through the FileSystem - resolved against the directory of the file
+  that names it, `..` and backslashes normalised, a template's own tileset loaded first, the images they
+  name resolved against THEIR directory - and hands them to libtmx as buffers through its Resource
+  Manager, which lives as long as the map (freed by `UnloadMap`). A reference the FileSystem cannot
+  provide is left to libtmx's own lookup, so a project keeping them loose beside the working directory
+  works exactly as before; a map with only embedded tilesets takes the unchanged, manager-less path.
+  Found and fixed on the way: libtmx's allocator hooks are only initialised by its `tmx_load*` entry
+  points, not by `tmx_make_resource_manager()`, so creating the manager first (the first map in a
+  process) would have crashed.
+
 - The five samples (`sprite`, `collision`, `gamepad`, `scriptprocessor`, `tilemaprenderer`) failed to
   load their map ("Cannot load map: ... could not be read") when given an absolute base path - which
   is what the IDE launch configuration passes - ever since the resource filesystem (v0.16.0) started
   reading only inside mounted locations. They now make the given directory their working directory
-  and load everything by relative name, so an absolute and a relative base path both work. (A map's
-  external `.tsx` tilesets are read by libtmx itself from the OS, relative to the working directory,
-  which is why the working directory - not just a mount - has to be the sample's.) Samples only: not
-  part of any release archive, so no version change.
+  and load everything by relative name, so an absolute and a relative base path both work. (When this
+  was fixed, a map's external `.tsx` tilesets were still opened by libtmx itself, straight from the OS
+  relative to the working directory, which is why the working directory - not just a mount - was needed;
+  that limitation is gone, see the external tilesets fix above.) Samples only: not part of any release
+  archive.
 
 ### Added
 
