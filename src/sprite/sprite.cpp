@@ -34,11 +34,33 @@ namespace SunLight {
         }
 
         /**
-         * Destructor. Finalize all class data.
+         * Destructor. Deliberately does NOT unload the canvases added with
+         * @see AddTextureSequence: the sprite only holds raw pointers to
+         * canvases the CALLER owns, and there is no guarantee they are still
+         * alive here - a canvas declared after its sprite (or a member
+         * declared after it) is destroyed BEFORE it, and walking to it from
+         * this destructor then reads a dead object (AddressSanitizer:
+         * stack-use-after-scope in the old destructor, on exactly that
+         * declaration order). A canvas frees its own texture when it is
+         * destroyed (~TextureCanvas), so nothing is leaked; what changes is
+         * only that a canvas which outlives its sprite keeps its texture
+         * until then, instead of having it pulled out from under it. An
+         * explicit @see Unload still unloads them all, for a caller that
+         * wants that.
+         *
+         * It still empties its OWN sequence list (only its own data): the
+         * renderer keeps a raw pointer to every sprite registered with
+         * AddSprite and calls Unload() on it again at Stop(), and a sprite
+         * destroyed while still registered (a caller should RemoveSprite it
+         * first) used to be left looking empty to that second call because
+         * this destructor ran Unload(). Without this clear() that stale
+         * second call reads a destroyed, non-empty list and crashes
+         * (observed while making this change), so the destructor keeps that
+         * case exactly as benign as it was.
          */
         Sprite :: ~Sprite( void )  {
 
-            Unload();
+            m_Sequences.clear();
         }
 
         /**

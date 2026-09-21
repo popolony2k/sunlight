@@ -361,4 +361,67 @@ TEST_SUITE( "sprite/Sprite" )  {
         CHECK( bSawHeld );
         CHECK( bSawStepped );
     }
+
+    TEST_CASE( "Destroying a Sprite does not unload its canvases' textures: they are the caller's, and unload themselves when destroyed" )  {
+
+        MockEngineFixture  fixture;
+        TextureCanvas      canvas;          // declared first, so it outlives the sprite below
+
+        fixture.engine.hLoadTextureResult = ( TextureHandle ) 0xBEEF;
+        fixture.engine.nLoadTextureWidth  = 32;
+        fixture.engine.nLoadTextureHeight = 32;
+        REQUIRE( canvas.Load( "sprite.png" ) == true );
+
+        {
+            Sprite  sprite;
+
+            sprite.AddTextureSequence( 0, &canvas );
+        }
+
+        // The sprite is gone; the canvas' texture is still loaded and is unloaded exactly once, by the canvas.
+        CHECK( fixture.engine.nUnloadTextureCalls == 0 );
+        CHECK( canvas.Unload() == true );
+        CHECK( fixture.engine.nUnloadTextureCalls == 1 );
+        CHECK( canvas.Unload() == false );
+    }
+
+    TEST_CASE( "The explicit Sprite::Unload() still unloads every canvas it holds" )  {
+
+        MockEngineFixture  fixture;
+        TextureCanvas      canvasA, canvasB;
+        Sprite             sprite;
+
+        fixture.engine.hLoadTextureResult = ( TextureHandle ) 0xBEEF;
+        fixture.engine.nLoadTextureWidth  = 32;
+        fixture.engine.nLoadTextureHeight = 32;
+        REQUIRE( canvasA.Load( "a.png" ) == true );
+        REQUIRE( canvasB.Load( "b.png" ) == true );
+
+        sprite.AddTextureSequence( 0, &canvasA );
+        sprite.AddTextureSequence( 1, &canvasB );
+
+        sprite.Unload();
+
+        CHECK( fixture.engine.nUnloadTextureCalls == 2 );
+        CHECK( canvasA.Unload() == false );             // already unloaded by the explicit call
+        CHECK( canvasB.Unload() == false );
+    }
+
+    TEST_CASE( "A canvas destroyed BEFORE its sprite is fine (nothing is touched through the dead pointer)" )  {
+
+        // Only an address checker can see the difference (see ASAN in CLAUDE.md): the old
+        // destructor read the dead canvas, which "worked" for want of anything to unload.
+        MockEngineFixture                 fixture;
+        std :: unique_ptr<TextureCanvas>  pCanvas = std :: make_unique<TextureCanvas>();
+        Sprite                            sprite;
+
+        fixture.engine.hLoadTextureResult = ( TextureHandle ) 0xBEEF;
+        fixture.engine.nLoadTextureWidth  = 32;
+        fixture.engine.nLoadTextureHeight = 32;
+        REQUIRE( pCanvas -> Load( "sprite.png" ) == true );
+        sprite.AddTextureSequence( 0, pCanvas.get() );
+
+        pCanvas.reset();                                 // the canvas unloads itself...
+        CHECK( fixture.engine.nUnloadTextureCalls == 1 );
+    }                                                    // ...and the sprite's destructor must not touch it again
 }

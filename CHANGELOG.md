@@ -15,6 +15,21 @@ here — see the git log for that period.
 
 ### Fixed
 
+- **`~Sprite` no longer unloads the canvases it was given - it no longer touches them at all.**
+  `AddTextureSequence` only stores raw pointers to canvases the CALLER owns, but the destructor walked
+  them to unload their textures, so a canvas that was already destroyed (declared after its sprite, or
+  a member declared after it - the declaration order of `samples/sprite`'s `World` and of most of the
+  tests) was read through a dead pointer: undefined behaviour (AddressSanitizer:
+  `stack-use-after-scope` in `TextureCanvas::Unload`), invisible in a normal run because the canvas had
+  nothing loaded. A canvas frees its own texture when it is destroyed, so nothing leaks; the visible
+  difference is only that a canvas outliving its sprite keeps its texture until it is destroyed itself,
+  instead of losing it when the sprite dies. The explicit `Sprite::Unload()` is unchanged (Scarab's
+  `SpritePool::Clear()` relies on it). The destructor still empties the sprite's own sequence list, so
+  a sprite destroyed while still registered with a renderer stays as benign for the renderer's later
+  `Stop()` as it was. Rule, now documented at `AddTextureSequence`: the caller keeps the canvases alive
+  while the sprite uses them and does not use one after the sprite is destroyed. The whole suite is now
+  clean under AddressSanitizer (see CLAUDE.md for how to run it).
+
 - **`MoveCameraUp()` / `MoveCameraLeft()` crashed (segfault) when no map was loaded** - on the renderer
   and, through it, on any view (`IView::MoveCameraUp/Left`). Their scroll limit is worked out from the
   map's tile size, and they dereferenced the (null) map without checking. They now do nothing while no

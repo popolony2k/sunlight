@@ -636,10 +636,12 @@ TEST_SUITE( "renderer/viewpasses" )  {
     // A one-sequence sprite on layer 1: a 64 px wide texture of 16 px frames animating in circle, at (20, 20)
     // of whichever viewport draws it. Its draws are recognised by the texture handle 0x77.
     struct SpriteRig  {
+        Scene                              &m_Scene;
+        int                                m_nLayerId;
         SunLight :: Sprite :: Sprite       sprite;
         SunLight :: Canvas :: TextureCanvas  canvas;
 
-        SpriteRig( Scene &scene, int nLayerId )  {
+        SpriteRig( Scene &scene, int nLayerId ) : m_Scene( scene ), m_nLayerId( nLayerId )  {
             scene.engine().hLoadTextureResult = ( SunLight :: Base :: TextureHandle ) 0x77;
             scene.engine().nLoadTextureWidth  = 64;
             scene.engine().nLoadTextureHeight = 16;
@@ -656,7 +658,10 @@ TEST_SUITE( "renderer/viewpasses" )  {
             REQUIRE( scene.pRenderer -> AddSprite( nLayerId, sprite ) == true );
         }
 
+        // The renderer only holds a raw pointer to the sprite and unloads it again at Stop(): take it
+        // back out before the sprite (and its canvas) go away.
         ~SpriteRig( void )  {
+            m_Scene.pRenderer -> RemoveSprite( m_nLayerId, sprite );
         }
     };
 
