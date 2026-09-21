@@ -15,6 +15,14 @@ here — see the git log for that period.
 
 ### Fixed
 
+- `Viewport::GetZoomFactor( nZoomPos )` ignored its argument: for an in-range
+  position it returned the factor of the CURRENT zoom position instead of the one
+  asked for (e.g. asking for position 60 while at the default 15 returned 1.0, not
+  3.8125). It now returns the factor of the requested position; an out-of-range
+  position still falls back to the preferred position's factor. No caller in
+  sunlight, its tests, samples or Scarab used it, so nothing changed in practice
+  (the renderer and `TextureCanvas` scale by `GetZoomProperties().fZoomFactor`).
+
 - The null backend's virtual time drifted: `VirtualClock` summed `1/fps` per frame
   (300 frames read 4.999999999999988, 5040 read 83.99999999999652 - all 300
   whole-second boundaries up to 18000 frames were inexact), so a script waiting

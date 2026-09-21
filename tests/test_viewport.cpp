@@ -79,6 +79,55 @@ TEST_SUITE( "base/Viewport" )  {
         CHECK( vp.GetZoomProperties().fZoomFactor == doctest :: Approx( fInRange ) );
     }
 
+    TEST_CASE( "GetZoomFactor returns the factor of the position asked for, not the current one" )  {
+
+        // Position p maps to (p + 1) x 0.0625 - every value here is an exact
+        // multiple of 1/16, so exact equality is the right assertion.
+        Viewport vp;
+
+        // Default: current position is 15 (factor 1.0).
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 15 );
+
+        CHECK( vp.GetZoomFactor( 60 )  == 3.8125f );   // not the current position's 1.0
+        CHECK( vp.GetZoomFactor( 0 )   == 0.0625f );
+        CHECK( vp.GetZoomFactor( 255 ) == 16.0f );
+        CHECK( vp.GetZoomFactor( 15 )  == 1.0f );
+
+        // Asking is read-only: the viewport's own zoom is untouched.
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 15 );
+        CHECK( vp.GetZoomProperties().fZoomFactor == 1.0f );
+
+        // Moving the current zoom doesn't change what other positions report.
+        vp.SetZoom( 40 );
+        CHECK( vp.GetZoomFactor( 60 ) == 3.8125f );
+        CHECK( vp.GetZoomFactor( 40 ) == 2.5625f );
+        CHECK( vp.GetZoomFactor( 15 ) == 1.0f );
+    }
+
+    TEST_CASE( "GetZoomFactor falls back to the preferred position's factor outside the allowed range" )  {
+
+        Viewport vp;
+
+        // Default range is [0, 256): 256 and beyond are out of range.
+        CHECK( vp.GetZoomFactor( 256 )  == 1.0f );     // preferred position 15 -> 1.0
+        CHECK( vp.GetZoomFactor( 5000 ) == 1.0f );
+
+        // The fallback follows the preferred position, not the current one.
+        vp.SetPreferredZoom( 30 );
+        vp.SetZoom( 60 );
+        CHECK( vp.GetZoomFactor( 5000 ) == 1.9375f );  // (30 + 1) x 0.0625
+
+        // Narrowing the border turns positions outside it into fallbacks;
+        // the upper bound is exclusive, the lower inclusive.
+        vp.SetMaxZoom( 100 );
+        vp.SetMinZoom( 10 );
+        CHECK( vp.GetZoomFactor( 99 )  == 6.25f );     // last valid position
+        CHECK( vp.GetZoomFactor( 100 ) == 1.9375f );   // excluded upper bound
+        CHECK( vp.GetZoomFactor( 150 ) == 1.9375f );
+        CHECK( vp.GetZoomFactor( 10 )  == 0.6875f );   // first valid position
+        CHECK( vp.GetZoomFactor( 9 )   == 1.9375f );   // below the lower bound
+    }
+
     TEST_CASE( "GetClippedRect keeps a rectangle fully inside the viewport unchanged" )  {
 
         Viewport      vp;

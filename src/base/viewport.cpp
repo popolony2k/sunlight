@@ -165,16 +165,22 @@ namespace SunLight  {
 
         /**
          * @brief Get the Zoom Factor based on position passed as parameter.
-         * 
-         * @param nZoomPos The zoom to be retrieved;
-         * @return float the zoom factor;
+         * Read-only: it reports the factor of the position asked for, and
+         * never changes the viewport's own current zoom.
+         *
+         * @param nZoomPos The zoom position to be retrieved;
+         * @return float the zoom factor of that position, or - if the
+         * position is outside the allowed range (see SetMinZoom/
+         * SetMaxZoom; the upper bound is exclusive) - the factor of the
+         * preferred position (see SetPreferredZoom);
          */
         float Viewport :: GetZoomFactor( unsigned int nZoomPos )  {
 
             if( ( nZoomPos >= m_ZoomBorderLimits.first ) &&  ( nZoomPos < m_ZoomBorderLimits.second ) )  {
-                return m_vZoomFactorList[m_pProps -> nCurrentZoomPos];               
+                return m_vZoomFactorList[nZoomPos];
             }
 
+            // Outside the allowed range: the preferred position's factor.
             return m_vZoomFactorList[m_pProps -> nPreferredZoomPos];
         }
 
