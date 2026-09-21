@@ -34,6 +34,7 @@ namespace SunLight {
         class BaseCanvas : public SunLight :: Base :: GraphicObject  {
 
             BaseCanvas                    *m_pParent;
+            bool                          m_bWorldSpace;
             SunLight :: Base :: Viewport  *m_pViewport;
             SunLight :: Base :: Viewport  m_Viewport;
 
@@ -50,6 +51,19 @@ namespace SunLight {
             // that a parent which keeps raw pointers to its children (TileMapRenderer's registered
             // sprites) can forget it. Does nothing by default.
             virtual void ChildRemoved( BaseCanvas *pChild );
+
+            // WORLD SPACE. By default a canvas' position is relative to the view that draws it (a sprite is
+            // drawn at position x zoom from the view's origin and ignores the view's camera). A world-space
+            // canvas' position is in MAP coordinates instead: it is drawn where the map is drawn at that
+            // position - the camera of whichever view draws it is added first, exactly as for a map tile -
+            // so one canvas is correct in every view whatever its zoom and camera.
+            virtual void SetWorldSpace( bool bWorldSpace );
+            bool IsWorldSpace( void );
+
+            // The offset to ADD to a map position to get a position relative to the view being drawn: the
+            // camera of the active view, i.e. the negated map point shown at the view's top-left. 0, 0 unless
+            // an ancestor - the renderer - answers otherwise.
+            virtual void GetCameraOffset( float &fX, float &fY );
 
             virtual void SetVisible( bool bVisible );
             virtual bool GetVisible( void );

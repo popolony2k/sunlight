@@ -164,6 +164,7 @@ namespace SunLight {
             // sprites already advanced this frame (a sprite advances ONCE per frame, however
             // many views draw it), and the views of this frame's passes in draw order.
             std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvancedSprites;
+            std :: set<SunLight :: Sprite :: Sprite*>  m_FramePendingSprites;       // reached by a pass, but not on screen there (yet)
             std :: vector<View*>                       m_PassViews;
 
             friend class View;
@@ -277,6 +278,9 @@ namespace SunLight {
 
             // A sprite that is destroyed, or moved to another parent, calls this on the parent it is leaving.
             void ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild );
+
+            // The camera of the view being drawn (the active view's), for world-space sprites.
+            void GetCameraOffset( float &fX, float &fY );
 
             // Checked creation: validates the config (see
             // RendererConfig::Validate) and returns nullptr, with a message

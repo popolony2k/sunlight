@@ -8,11 +8,9 @@ The same map - and the same character, Sunny - shown in three places at once, us
 
 Sunny has one position, in map coordinates, and you walk it with the keyboard: it moves in all three views at once.
 
-## How it works, and the limit it works around
+## How it works
 
-A sprite's position is relative to the view that draws it: it is drawn at *position × zoom* from the view's origin and **ignores the view's camera** (the map's tiles do not). So a single sprite cannot sit on the same map spot in views with different zoom and cameras, nor follow a scrolling camera. This sample keeps **one Sunny sprite per view**, each registered on its own map layer, and each view's layer mask (`ShowLayer(id, false)`) lets through only its own Sunny. After every move each sprite is placed at *Sunny's map position − that view's camera*, which is exactly where the map is drawn at that position (this rule is covered by a unit test). The trade-off: masking a layer out of a view hides its tiles there too, so the three layers (`sunny_main`, `sunny_minimap`, `sunny_closeup`) are empty ones added to this sample's copy of the map for the purpose - masking a layer that held map content would make that content disappear from the other views.
-
-Sprites that live in map coordinates and are drawn correctly by every view (one sprite, all views, camera-following for free) would remove the workaround; that is a possible engine feature, not something this sample can do today.
+Sunny is **one sprite in world space** (`Sprite::SetWorldSpace(true)`). By default a sprite's position is relative to the view that draws it and ignores the view's camera; a world-space sprite's position is a *map* position, and every view draws it where it draws the map at that position - each view adds its own camera and zoom, exactly as it does for a map tile. So the sample does not place or duplicate the sprite per view: it only moves Sunny, and moves the close-up's camera so that view follows him (the camera is the map point shown at the view's top-left; `SetCameraPosition` does not clamp, so the sample keeps it inside the map).
 
 ## Building
 

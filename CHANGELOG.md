@@ -82,13 +82,30 @@ here — see the git log for that period.
 
 ### Added
 
+- **World-space sprites: `Sprite::SetWorldSpace(true)`** (also `BaseCanvas::SetWorldSpace`/`IsWorldSpace`).
+  A sprite's position has always been relative to the view that draws it: it is drawn at
+  `position x zoom` from the view's origin and ignores the view's camera (the map's tiles add the camera
+  first). That made a sprite wrong in any view but a camera-less one, and impossible to show correctly
+  in two views with different zoom/cameras. A world-space sprite's position is a **map position**
+  instead: every view draws it where it draws the map at that position - the drawing view's camera is
+  added first, with the very arithmetic a map tile gets, so a sprite placed at a tile's position lands
+  exactly on that tile, in every view, whatever its zoom and camera. One sprite serves all views; a
+  view that follows the sprite only has to move its own camera. The mode applies to every canvas of the
+  sprite, added before or after, and is **off by default**: nothing changes for existing code (sprite
+  animation trace and camera/alignment trace byte-identical to the previous release, 219,133 and
+  1,747,235 lines). New: `BaseCanvas::GetCameraOffset` (the camera of the view being drawn, answered by
+  the renderer), `Canvas::IsOnScreen`/`Sprite::IsOnScreen`. Colliders are not affected: a collider uses
+  its sprite's dimension as is, which for a world-space sprite is in map coordinates.
+  Related fix in the multi-view frame: a sprite advances once per frame in the FIRST pass in which it is
+  on screen (it used to advance in the first pass that reached it even where it was off screen, wasting
+  the step while a later view showed it - which world-space sprites make common). A sprite reached by
+  the passes but on screen in none is advanced once at the end of the frame, as a single view would.
+
 - `samples/multiview` sample (`multiview_test`): the same map and the same character (Sunny) in three
   places at once - a main view, a minimap and a close-up whose camera follows Sunny and scrolls when it
   reaches the view's border - with keys to walk Sunny, zoom the close-up, show/hide views, mask a layer and
-  change draw order. A sprite is positioned relative to the view that draws it and ignores the view's
-  camera, so the sample keeps one Sunny per view (each on its own empty layer added to the sample's map,
-  each view's layer mask showing only its own) and places each at Sunny's map position minus that view's camera - a rule now
-  covered by a unit test. Samples only: not part of any release archive.
+  change draw order. Sunny is ONE world-space sprite (`Sprite::SetWorldSpace`): every view draws it at its
+  map position. Samples only: not part of any release archive.
 
 - **Extra views are now DRAWN: the multi-view frame.** Each visible view gets its own pass over the
   same map into the one render target, in draw order, painter's style (a later view paints over an

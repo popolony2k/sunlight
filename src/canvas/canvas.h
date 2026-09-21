@@ -62,6 +62,16 @@ namespace SunLight {
             virtual void Draw( void )  {};
 
             /**
+             * Whether the viewport test that gates Advance() and Draw()
+             * passes right now, in the view being drawn (visible, and its
+             * rectangle not entirely past the viewport's far edges). Advance()
+             * only steps a canvas while this is true, so
+             * whoever runs several passes for one frame asks it to advance in
+             * the first pass that shows it. True by default.
+             */
+            virtual bool IsOnScreen( void )  { return true; }
+
+            /**
              * Must be implemented by children objects to provide
              * it's own draw behavior. The classic single-call frame step:
              * Advance() followed by Draw().

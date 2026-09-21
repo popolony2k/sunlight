@@ -1022,6 +1022,7 @@ namespace SunLight {
             View  *pDefault = m_pDefaultView.get();
 
             m_FrameAdvancedSprites.clear();
+            m_FramePendingSprites.clear();
             m_PassViews.clear();
 
             if( pDefault -> m_bVisible )
@@ -1052,6 +1053,13 @@ namespace SunLight {
             }
 
             ActivateView( pDefault );
+
+            // Sprites some pass reached but no pass had on screen: advanced once, exactly as a
+            // single view would (see HandleSpriteUpdate). They draw nothing.
+            for( SunLight :: Sprite :: Sprite *pSprite : m_FramePendingSprites )
+                pSprite -> Advance();
+
+            m_FramePendingSprites.clear();
         }
 
         /**
@@ -1380,14 +1388,27 @@ namespace SunLight {
                         /*
                          * Several passes may draw this sprite in one frame (one per view
                          * showing its layer): its animation state must still advance only
-                         * once, in the first pass that reaches it, and every later pass just
-                         * draws the frame that pass settled on (Update() is exactly Advance()
-                         * then Draw() - see Sprite::Advance/Draw).
+                         * once per frame, in the FIRST pass in which it is on screen (a canvas
+                         * only steps while it is inside the viewport of the view being drawn, so
+                         * advancing in a pass that does not show it would waste the step while
+                         * a later view does), and every pass just draws the frame that settled
+                         * (Update() is exactly Advance() then Draw() - see Sprite::Advance/Draw).
+                         * A sprite reached by passes but on screen in none of them is advanced
+                         * once at the end of the frame (DrawViewPasses), as a single view
+                         * would have done: its frame choice still steps, its canvas stands still.
                          */
-                        if( m_FrameAdvancedSprites.insert( pSprite ).second )
-                            pSprite -> Update();
-                        else
-                            pSprite -> Draw();
+                        if( m_FrameAdvancedSprites.find( pSprite ) == m_FrameAdvancedSprites.end() )  {
+                            if( pSprite -> IsOnScreen() )  {
+                                pSprite -> Advance();
+                                m_FrameAdvancedSprites.insert( pSprite );
+                                m_FramePendingSprites.erase( pSprite );
+                            }
+                            else  {
+                                m_FramePendingSprites.insert( pSprite );
+                            }
+                        }
+
+                        pSprite -> Draw();
                     }
                 }   
             }
@@ -1630,6 +1651,17 @@ namespace SunLight {
             m_TileMapListenerList.clear();
             m_KeyInputEventHandlerList.clear();
             m_GPadInputEventHandlerList.clear();
+        }
+
+        /**
+         * The camera of the view being drawn: what a world-space canvas adds to a map
+         * position to get a position relative to that view - the same offset every map
+         * tile gets (see DrawTile). m_CameraPos is the ACTIVE view's working camera.
+         */
+        void TileMapRenderer :: GetCameraOffset( float &fX, float &fY )  {
+
+            fX = m_CameraPos.x;
+            fY = m_CameraPos.y;
         }
 
         /**

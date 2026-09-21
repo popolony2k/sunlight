@@ -29,7 +29,8 @@ namespace SunLight {
          */
         BaseCanvas :: BaseCanvas( void )  {
 
-            m_pParent   = NULL;
+            m_pParent     = NULL;
+            m_bWorldSpace = false;
             m_pViewport = &m_Viewport;
         }
 
@@ -64,6 +65,37 @@ namespace SunLight {
         BaseCanvas* BaseCanvas :: GetParent( void )  {
 
             return m_pParent;
+        }
+
+        /**
+         * Make this canvas' position a MAP position (true) or leave it relative to
+         * the view that draws it (false, the default). See the header.
+         * @param bWorldSpace The new mode;
+         */
+        void BaseCanvas :: SetWorldSpace( bool bWorldSpace )  {
+
+            m_bWorldSpace = bWorldSpace;
+        }
+
+        bool BaseCanvas :: IsWorldSpace( void )  {
+
+            return m_bWorldSpace;
+        }
+
+        /**
+         * The camera offset of the view currently being drawn, asked of the
+         * parent chain (only the renderer knows the cameras). A canvas with
+         * no renderer above it has none.
+         */
+        void BaseCanvas :: GetCameraOffset( float &fX, float &fY )  {
+
+            if( m_pParent )  {
+                m_pParent -> GetCameraOffset( fX, fY );
+            }
+            else  {
+                fX = 0.0f;
+                fY = 0.0f;
+            }
         }
 
         /**

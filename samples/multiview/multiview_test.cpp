@@ -26,18 +26,10 @@
  *   - a CLOSE-UP (right, below it): a zoomed view whose camera FOLLOWS Sunny - it stands still while
  *     Sunny walks inside it and scrolls when Sunny reaches its border.
  *
- * Sunny has ONE position, in map coordinates (pixels), moved with the arrow keys / WASD.
- *
- * How it is done - and the limit it works around. A sprite's position is relative to the view that
- * draws it: it is drawn at position x zoom from the view's origin and ignores the view's camera (the
- * map's tiles do not). So one sprite cannot both sit on the same map spot in views with different zoom
- * and cameras, nor follow a scrolling camera. This sample therefore keeps ONE Sunny sprite PER VIEW,
- * each on its own layer, and every view's layer mask lets through only its own Sunny; after every move
- * each sprite is placed at (Sunny's map position - that view's camera). Masking a layer out of a view hides
- * its tiles there too, so the three layers are EMPTY ones added to this sample's copy of the map for the
- * purpose ("sunny_main", "sunny_minimap", "sunny_closeup") - masking a layer that held map content would
- * make that content vanish from the other views. Sprites that live in map coordinates and are drawn
- * correctly by every view are a possible engine feature; see the documentation.
+ * Sunny is ONE sprite, in WORLD space (Sprite::SetWorldSpace): its position is a map position, in pixels,
+ * and every view draws it where it draws the map at that position, whatever the view's zoom and camera.
+ * That is why nothing here places or duplicates the sprite per view: the sample only moves Sunny (arrow keys /
+ * WASD) and, for the close-up, moves that view's camera.
  *
  * Like the other samples it takes its own directory as argv[1] and reads its map and sprite
  * (a copy of the sprite sample's) relative to it:
@@ -63,9 +55,7 @@
 #define __SUNNY_SIZE                32
 #define __SUNNY_STEP                4
 #define __SUNNY_ANIMATION_DELAY     100
-#define __MAIN_LAYER_ID             9       // "sunny_main"    - Sunny of the main view
-#define __MINIMAP_LAYER_ID          10      // "sunny_minimap" - Sunny of the minimap
-#define __CLOSEUP_LAYER_ID          11      // "sunny_closeup" - Sunny of the close-up
+#define __SUNNY_LAYER_ID            8       // "birb": the last layer, so Sunny is drawn on top of the map
 #define __CLOSEUP_ZOOM_POS          46      // factor 2.9375
 #define __FOLLOW_MARGIN             28      // map pixels between Sunny and the close-up's border before it scrolls
 
@@ -79,38 +69,6 @@ namespace  {
 
         return rect;
     }
-
-    /**
-     * One Sunny: a sprite and the canvas that holds its texture. (The canvas is declared first so it is
-     * destroyed after the sprite that uses it.)
-     */
-    struct Sunny  {
-
-        SunLight :: Canvas :: TextureCanvas  canvas;
-        SunLight :: Sprite :: Sprite         sprite;
-
-        bool Create( SunLight :: Renderer :: TileMapRenderer &renderer, int nLayerId )  {
-
-            if( !canvas.Load( __SUNNY_SPRITE_IDLE ) )
-                return false;
-
-            canvas.SetTileSize( __SUNNY_SIZE );
-            canvas.SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
-            canvas.SetDimension2D( SunLight :: TileMap :: stDimension2D { { 0, 0 }, { __SUNNY_SIZE, __SUNNY_SIZE } } );
-            sprite.AddTextureSequence( 0, &canvas, __SUNNY_ANIMATION_DELAY );
-            sprite.SetActiveTextureSequence( 0 );
-            sprite.SetVisible( true );
-
-            return renderer.AddSprite( nLayerId, sprite );
-        }
-
-        // Put the sprite at a position relative to the view that draws it.
-        void Place( int nX, int nY )  {
-
-            sprite.GetDimension2D().pos.x = nX;
-            sprite.GetDimension2D().pos.y = nY;
-        }
-    };
 }
 
 int main( int argc, char **argv )  {
@@ -148,8 +106,7 @@ int main( int argc, char **argv )  {
     const int  nMapWidth  = mapInfo.mapSize.nWidth  * mapInfo.tileSize.nWidth;      // map pixels
     const int  nMapHeight = mapInfo.mapSize.nHeight * mapInfo.tileSize.nHeight;
 
-    // Main view: the whole map (FitToMap zooms to the largest zoom that fits and puts the camera at the map's origin,
-    // which is what lets Sunny's map position be used as-is for this view's sprite).
+    // Main view: the whole map (FitToMap zooms to the largest zoom that fits and puts the camera at the map's origin).
     SunLight :: TileMap :: IView  &mainView = renderer.GetDefaultView();
 
     mainView.FitToMap();
@@ -167,38 +124,41 @@ int main( int argc, char **argv )  {
     pCloseUp -> GetViewport().SetZoom( __CLOSEUP_ZOOM_POS );
     pCloseUp -> SetBackgroundColor( SunLight :: Base :: stColor { 30, 30, 60, 255 } );
 
-    // One Sunny per view, each on its own layer, and each view shows only its own layer of the three.
-    Sunny  sunnyMain, sunnyMinimap, sunnyCloseUp;
+    // Sunny: ONE sprite, in world space. (The canvas is declared first so it is destroyed after the sprite that uses it.)
+    SunLight :: Canvas :: TextureCanvas  canvas;
+    SunLight :: Sprite :: Sprite         sunny;
 
-    if( !sunnyMain.Create( renderer, __MAIN_LAYER_ID ) || !sunnyMinimap.Create( renderer, __MINIMAP_LAYER_ID ) ||
-        !sunnyCloseUp.Create( renderer, __CLOSEUP_LAYER_ID ) )  {
+    if( !canvas.Load( __SUNNY_SPRITE_IDLE ) )  {
         fprintf( stderr, "Cannot load the sprite [%s]\n", __SUNNY_SPRITE_IDLE );
         return EXIT_FAILURE;
     }
 
-    mainView.ShowLayer( __MINIMAP_LAYER_ID, false );
-    mainView.ShowLayer( __CLOSEUP_LAYER_ID, false );
-    pMinimap -> ShowLayer( __MAIN_LAYER_ID, false );
-    pMinimap -> ShowLayer( __CLOSEUP_LAYER_ID, false );
-    pCloseUp -> ShowLayer( __MAIN_LAYER_ID, false );
-    pCloseUp -> ShowLayer( __MINIMAP_LAYER_ID, false );
+    canvas.SetTileSize( __SUNNY_SIZE );
+    canvas.SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
+    canvas.SetDimension2D( SunLight :: TileMap :: stDimension2D { { 0, 0 }, { __SUNNY_SIZE, __SUNNY_SIZE } } );
+    sunny.AddTextureSequence( 0, &canvas, __SUNNY_ANIMATION_DELAY );
+    sunny.SetActiveTextureSequence( 0 );
+    sunny.SetVisible( true );
+    sunny.SetWorldSpace( true );
 
-    // Sunny's ONE position, in map pixels.
-    int  nSunnyX = 128;
-    int  nSunnyY = 128;
+    if( !renderer.AddSprite( __SUNNY_LAYER_ID, sunny ) )  {
+        fprintf( stderr, "Cannot add the sprite to layer %d\n", __SUNNY_LAYER_ID );
+        return EXIT_FAILURE;
+    }
 
     /*
-     * Everything that follows from Sunny's position or the close-up's zoom: the close-up's camera - which stays
-     * where it is until Sunny comes within __FOLLOW_MARGIN map pixels of the view's border, then scrolls just
-     * enough to keep that margin, never past the map (SetCameraPosition does not clamp) - and the three sprites,
-     * each placed relative to its own view: map position minus that view's camera (the camera is the map point
-     * shown at the view's top-left; the main view and the minimap are at the map's origin).
+     * Sunny's position is a map position: the sprite's own dimension. All that has to follow it is the close-up's
+     * camera: it stays where it is until Sunny comes within __FOLLOW_MARGIN map pixels of the view's border, then
+     * scrolls just enough to keep that margin, never past the map (SetCameraPosition does not clamp). The camera is
+     * the map point shown at the view's top-left.
      */
-    auto  sync = [&]()  {
+    auto  followSunny = [&]()  {
         SunLight :: TileMap :: stDimension2D  &closeUpRect = pCloseUp -> GetViewport().GetDimension2D();
         float  fZoom  = pCloseUp -> GetViewport().GetZoomProperties().fZoomFactor;
         int    nVisW  = ( int ) ( closeUpRect.size.nWidth  / fZoom );      // map pixels visible in the close-up
         int    nVisH  = ( int ) ( closeUpRect.size.nHeight / fZoom );
+        int    nSunnyX = sunny.GetDimension2D().pos.x;
+        int    nSunnyY = sunny.GetDimension2D().pos.y;
         int    nCamX  = 0, nCamY = 0;
 
         pCloseUp -> GetCameraPosition( nCamX, nCamY );
@@ -217,16 +177,14 @@ int main( int argc, char **argv )  {
         nCamY = std :: max( 0, std :: min( nCamY, nMapHeight - nVisH ) );
 
         pCloseUp -> SetCameraPosition( nCamX, nCamY );
-
-        sunnyMain.Place( nSunnyX, nSunnyY );
-        sunnyMinimap.Place( nSunnyX, nSunnyY );
-        sunnyCloseUp.Place( nSunnyX - nCamX, nSunnyY - nCamY );
     };
 
     auto  moveSunny = [&]( int nDX, int nDY )  {
-        nSunnyX = std :: max( 0, std :: min( nSunnyX + nDX, nMapWidth  - __SUNNY_SIZE ) );
-        nSunnyY = std :: max( 0, std :: min( nSunnyY + nDY, nMapHeight - __SUNNY_SIZE ) );
-        sync();
+        SunLight :: TileMap :: stDimension2D  &dim = sunny.GetDimension2D();
+
+        dim.pos.x = std :: max( 0, std :: min( dim.pos.x + nDX, nMapWidth  - __SUNNY_SIZE ) );
+        dim.pos.y = std :: max( 0, std :: min( dim.pos.y + nDY, nMapHeight - __SUNNY_SIZE ) );
+        followSunny();
     };
 
     typedef SunLight :: Input :: ControllerType  Controller;
@@ -246,8 +204,8 @@ int main( int argc, char **argv )  {
     bind( SunLight :: Input :: KEY_D,     [&]() { moveSunny(  __SUNNY_STEP, 0 ); } );
 
     // Page Up / Page Down: zoom the close-up out / in (its camera then re-follows Sunny).
-    bind( SunLight :: Input :: KEY_PAGE_UP,   [&]() { pCloseUp -> ZoomOut();  sync(); } );
-    bind( SunLight :: Input :: KEY_PAGE_DOWN, [&]() { pCloseUp -> ZoomIn();   sync(); } );
+    bind( SunLight :: Input :: KEY_PAGE_UP,   [&]() { pCloseUp -> ZoomOut();  followSunny(); } );
+    bind( SunLight :: Input :: KEY_PAGE_DOWN, [&]() { pCloseUp -> ZoomIn();   followSunny(); } );
 
     // 1 / 2: show or hide the minimap / the close-up. 3: mask the "sky" layer (id 1) out of the MAIN view.
     bind( SunLight :: Input :: KEY_ONE,   [&]() { pMinimap -> SetVisible( !pMinimap -> GetVisible() ); } );
@@ -257,9 +215,11 @@ int main( int argc, char **argv )  {
     // 4: bring the minimap in front of / behind the main view.
     bind( SunLight :: Input :: KEY_FOUR,  [&]() { pMinimap -> SetDrawOrder( pMinimap -> GetDrawOrder() >= 0 ? -1 : pMinimap -> GetId() ); } );
 
-    // The close-up starts showing the map from its origin; then the first sync puts the camera and the sprites.
+    // Sunny starts somewhere in the map; the close-up starts at the map's origin and then follows.
+    sunny.GetDimension2D().pos.x = 128;
+    sunny.GetDimension2D().pos.y = 128;
     pCloseUp -> SetCameraPosition( 0, 0 );
-    sync();
+    followSunny();
 
     renderer.Run();
     renderer.Stop();
