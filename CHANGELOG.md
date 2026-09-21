@@ -49,6 +49,11 @@ here — see the git log for that period.
 
 ### Added
 
+- `samples/multiview` sample (`multiview_test`): the same map in three places at once - a main view, a
+  minimap (`FitToMap`, sprite layer masked out, translucent background) and a close-up with its own
+  camera and zoom - with keys to show/hide views, mask a layer and change draw order. Samples only: not
+  part of any release archive.
+
 - **Extra views are now DRAWN: the multi-view frame.** Each visible view gets its own pass over the
   same map into the one render target, in draw order, painter's style (a later view paints over an
   earlier one where they overlap): background cleared once, whole, as always -> for each view in
