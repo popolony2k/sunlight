@@ -41,51 +41,11 @@
 #include "input/inputhandlerfactory.h"
 #include "general/virtualclock.h"
 #include "scripting/scriptprocessor.h"
+#include "mock_filesystem.h"
 
 using namespace SunLight :: Renderer;
 
 namespace  {
-
-    typedef std :: vector<unsigned char>  Bytes;
-
-    /**
-     * @brief In-memory IFileSystem: a map of virtual path -> bytes.
-     */
-    class MemoryFileSystem : public SunLight :: FileSystem :: IFileSystem  {
-
-        public:
-
-        std :: map<std :: string, Bytes>  files;
-
-        void SetReadFilter( ReadFilterCallback ) override {}
-        bool Init( const char * ) override { return true; }
-        void Shutdown( void ) override {}
-        bool Mount( const std :: string &, const std :: string &, bool ) override { return true; }
-        bool Exists( const std :: string &strPath ) override { return files.count( strPath ) > 0; }
-
-        bool ReadFile( const std :: string &strPath, Bytes &out ) override {
-            auto  it = files.find( strPath );
-
-            if( it == files.end() )
-                return false;
-
-            out = it -> second;
-            return true;
-        }
-    };
-
-    /**
-     * @brief Installs a MemoryFileSystem as the process filesystem for its lifetime.
-     */
-    class MemoryFileSystemFixture  {
-
-        public:
-
-        MemoryFileSystem  fs;
-
-        MemoryFileSystemFixture( void )  { SunLight :: FileSystem :: FileSystemFactory :: SetFileSystem( &fs ); }
-        ~MemoryFileSystemFixture( void ) { SunLight :: FileSystem :: FileSystemFactory :: SetFileSystem( nullptr ); }
-    };
 
     Bytes MakePng( unsigned nWidth, unsigned nHeight )  {
 

@@ -1600,7 +1600,11 @@ namespace SunLight {
                                                                         m_pTmxMap -> tile_height ) * 
                                                                         vp.GetZoomProperties().fZoomFactor );
 
-            if( vp.GetDimension2D().size.nWidth < nMapBoundary )
+            // The vertical boundary is compared against the viewport's
+            // HEIGHT (it used to compare its width - a copy-paste of
+            // MoveCameraLeft's horizontal check - which only happened to
+            // work for a square viewport).
+            if( vp.GetDimension2D().size.nHeight < nMapBoundary )
                 m_CameraPos.y-=m_nScrollStepHeight;
         }
 
