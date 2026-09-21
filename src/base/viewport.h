@@ -65,6 +65,19 @@ namespace SunLight  {
         /**
          * Abstract class used to manage zoom engine for all
          * interface graphic components.
+         *
+         * A viewport is also a RECTANGLE in the render target's
+         * coordinates, set with SetDimension2D and read with
+         * GetDimension2D: `pos` is its top-left corner and `size` its
+         * width and height - the visible area is [pos, pos + size), so
+         * (10, 10, 1240, 900) shows x in [10, 1250) and y in [10, 910).
+         * `size` is a width/height, never the coordinate of the far edge.
+         *
+         * (Before v0.29.0 the clipping treated `size` as the far-edge
+         * coordinate whenever pos was not (0, 0): a legacy viewport of
+         * (10, 10, 1250, 910) is the same visible area as (10, 10, 1240,
+         * 900) now. Origin-anchored viewports, pos (0, 0), mean the same
+         * in both.)
          */
         class Viewport : public SunLight :: Base :: GraphicObject {
 

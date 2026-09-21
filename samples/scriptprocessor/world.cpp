@@ -29,8 +29,11 @@ using namespace SunLight :: Scripting;
 #define __FRAMES_PER_SECOND         60
 #define __VIEWPORT_POS_X            10
 #define __VIEWPORT_POS_Y            10
-#define __VIEWPORT_WIDTH            900
-#define __VIEWPORT_HEIGHT           800
+// The viewport is the rectangle [pos, pos + size): 890 x 790 from (10, 10) shows
+// x in [10, 900) and y in [10, 800) - the same area these samples always showed
+// (before v0.29.0 "size" was read as the far-edge coordinate, so they said 900/800).
+#define __VIEWPORT_WIDTH            890
+#define __VIEWPORT_HEIGHT           790
 #define __DEFAULT_ZOOM_SCALE_POS    60
 #define __ENABLE_FPS_SHOW_LABEL     true
 #define __DEFAULT_MAP_ALIGNMENT     SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER

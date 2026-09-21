@@ -24,6 +24,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <sstream>
 #include "filesystem/filesystemfactory.h"
 
 typedef std :: vector<unsigned char>  Bytes;
@@ -66,5 +67,36 @@ class MemoryFileSystemFixture  {
     MemoryFileSystemFixture( void )  { SunLight :: FileSystem :: FileSystemFactory :: SetFileSystem( &fs ); }
     ~MemoryFileSystemFixture( void ) { SunLight :: FileSystem :: FileSystemFactory :: SetFileSystem( nullptr ); }
 };
+
+/**
+ * @brief A tiny orthogonal TMX map as bytes: nTiles x nTiles tiles of nTileSize
+ * pixels, all empty, in one tile layer ("ground") - plus, optionally, one
+ * object layer holding one rectangle object.
+ */
+inline Bytes MakeSquareTmx( int nTiles, int nTileSize, bool bWithRectangleObject = false,
+                            int nObjX = 0, int nObjY = 0, int nObjW = 0, int nObjH = 0 )  {
+
+    std :: ostringstream  tmx;
+
+    tmx << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        << "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"" << nTiles
+        << "\" height=\"" << nTiles << "\" tilewidth=\"" << nTileSize << "\" tileheight=\"" << nTileSize << "\">"
+        << "<layer id=\"1\" name=\"ground\" width=\"" << nTiles << "\" height=\"" << nTiles << "\"><data encoding=\"csv\">";
+
+    for( int nCount = 0; nCount < nTiles * nTiles; nCount++ )
+        tmx << ( nCount ? ",0" : "0" );
+
+    tmx << "</data></layer>";
+
+    if( bWithRectangleObject )
+        tmx << "<objectgroup id=\"2\" name=\"shapes\"><object id=\"1\" x=\"" << nObjX << "\" y=\"" << nObjY
+            << "\" width=\"" << nObjW << "\" height=\"" << nObjH << "\"/></objectgroup>";
+
+    tmx << "</map>";
+
+    std :: string  str = tmx.str();
+
+    return Bytes( str.begin(), str.end() );
+}
 
 #endif /* __MOCK_FILESYSTEM_H__ */

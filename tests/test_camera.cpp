@@ -28,6 +28,7 @@
 
 #include <doctest/doctest.h>
 #include <string>
+#include <memory>
 #include "renderer/tilemaprenderer.h"
 #include "mock_filesystem.h"
 
@@ -38,18 +39,7 @@ namespace  {
     // A 40 x 40 tile map of 16 x 16 tiles: 640 x 640 pixels, all empty.
     Bytes MakeSquareMap( void )  {
 
-        std :: string  strData;
-
-        for( int nCount = 0; nCount < 1600; nCount++ )
-            strData += ( nCount ? ",0" : "0" );
-
-        std :: string  strTmx =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-            "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"40\" height=\"40\" tilewidth=\"16\" tileheight=\"16\">"
-            "<layer id=\"1\" name=\"ground\" width=\"40\" height=\"40\"><data encoding=\"csv\">" + strData + "</data></layer>"
-            "</map>";
-
-        return Bytes( strTmx.begin(), strTmx.end() );
+        return MakeSquareTmx( 40, 16 );
     }
 
     // A null-backend renderer with the given viewport, the map loaded at the
