@@ -46,6 +46,11 @@ namespace SunLight {
             virtual void SetParent( BaseCanvas *pParent );
             BaseCanvas* GetParent( void );
 
+            // Called by a child on its parent when the child is DESTROYED or given a different parent, so
+            // that a parent which keeps raw pointers to its children (TileMapRenderer's registered
+            // sprites) can forget it. Does nothing by default.
+            virtual void ChildRemoved( BaseCanvas *pChild );
+
             virtual void SetVisible( bool bVisible );
             virtual bool GetVisible( void );
 

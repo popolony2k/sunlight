@@ -54,12 +54,18 @@ namespace SunLight {
             Sprite( void );
             virtual ~Sprite( void );
 
+            // The canvases are NOT owned by the sprite (raw pointers): the caller keeps them alive for as
+            // long as the sprite uses them, and must not use one after the sprite is destroyed (its parent
+            // and dimension pointers refer to the sprite). Destroying the sprite does not unload them.
             void AddTextureSequence( int nSequence,
                                      SunLight :: Canvas :: TextureCanvas* pTexture,
                                      int64_t nDelayMilli = -1 );
             bool SetActiveTextureSequence( int nSequence );
             int GetActiveTextureSequence( void );
             SunLight :: Canvas :: TextureCanvas* GetActiveTexture( void );
+
+            // Also tells the previous parent (ChildRemoved) and moves the canvases that were following it.
+            void SetParent( SunLight :: Canvas :: BaseCanvas *pParent );
 
             void SetVisible( bool bVisible );
 

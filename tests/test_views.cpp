@@ -76,7 +76,7 @@ TEST_SUITE( "renderer/views" )  {
 
         CHECK( pRenderer -> GetViewCount() == 1 );
         CHECK( pRenderer -> GetDefaultView().GetId() == 0 );
-        CHECK( pRenderer -> GetView( 0 ) == &pRenderer -> GetDefaultView() );
+        CHECK( pRenderer -> GetView( 0 ).get() == &pRenderer -> GetDefaultView() );
 
         // One object, not a copy: what the renderer's GetViewport() shows is what the view shows.
         CHECK( &pRenderer -> GetDefaultView().GetViewport() == &pRenderer -> GetViewport() );
@@ -131,8 +131,8 @@ TEST_SUITE( "renderer/views" )  {
 
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 0, 0, 800, 600 ), 15, false );
 
-        int  nFirst  = pRenderer -> CreateView( Rect( 900, 20, 200, 200 ) );
-        int  nSecond = pRenderer -> CreateView( Rect( 10, 300, 100, 100 ) );
+        int  nFirst  = pRenderer -> CreateView( Rect( 900, 20, 200, 200 ) ) -> GetId();
+        int  nSecond = pRenderer -> CreateView( Rect( 10, 300, 100, 100 ) ) -> GetId();
 
         CHECK( nFirst > 0 );
         CHECK( nSecond > nFirst );
@@ -161,7 +161,7 @@ TEST_SUITE( "renderer/views" )  {
         CHECK( pRenderer -> RemoveView( nFirst ) == false );        // already gone
 
         // Ids are never reused.
-        int  nThird = pRenderer -> CreateView( Rect( 0, 0, 10, 10 ) );
+        int  nThird = pRenderer -> CreateView( Rect( 0, 0, 10, 10 ) ) -> GetId();
 
         CHECK( nThird > nSecond );
 
@@ -176,7 +176,7 @@ TEST_SUITE( "renderer/views" )  {
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 10, 10, 300, 300 ), 15, true );
         SunLight :: TileMap :: IView        &defaultView = pRenderer -> GetDefaultView();
 
-        int  nId = pRenderer -> CreateView( Rect( 500, 20, 100, 100 ) );
+        int  nId = pRenderer -> CreateView( Rect( 500, 20, 100, 100 ) ) -> GetId();
         SunLight :: TileMap :: IView  &other = *pRenderer -> GetView( nId );
 
         defaultView.SetCameraPosition( 5, 6 );
@@ -214,7 +214,7 @@ TEST_SUITE( "renderer/views" )  {
         // Both views get the SAME rectangle and zoom (position 30 = 1.9375), on a map bigger than either.
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 10, 10, 300, 200 ), 30, true );
         SunLight :: TileMap :: IView        &defaultView = pRenderer -> GetDefaultView();
-        int                                 nId = pRenderer -> CreateView( Rect( 10, 10, 300, 200 ) );
+        int                                 nId = pRenderer -> CreateView( Rect( 10, 10, 300, 200 ) ) -> GetId();
         SunLight :: TileMap :: IView        &other = *pRenderer -> GetView( nId );
 
         other.GetViewport().SetZoom( 30 );
@@ -279,12 +279,12 @@ TEST_SUITE( "renderer/views" )  {
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 0, 0, 200, 200 ), 15, false );
 
         // Made BEFORE any map is loaded: its step is unresolved until LoadMap.
-        int  nBefore = pRenderer -> CreateView( Rect( 0, 0, 200, 200 ) );
+        int  nBefore = pRenderer -> CreateView( Rect( 0, 0, 200, 200 ) ) -> GetId();
 
         REQUIRE( pRenderer -> LoadMap( "maps/square.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
 
         // Made AFTER: resolved at once.
-        int  nAfter = pRenderer -> CreateView( Rect( 0, 0, 200, 200 ) );
+        int  nAfter = pRenderer -> CreateView( Rect( 0, 0, 200, 200 ) ) -> GetId();
 
         for( int nId : { nBefore, nAfter } )  {
             SunLight :: TileMap :: IView  &view = *pRenderer -> GetView( nId );
@@ -307,7 +307,7 @@ TEST_SUITE( "renderer/views" )  {
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
 
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 10, 40, 500, 500 ), 15, true );
-        int                                 nId = pRenderer -> CreateView( Rect( 64, 32, 200, 200 ) );
+        int                                 nId = pRenderer -> CreateView( Rect( 64, 32, 200, 200 ) ) -> GetId();
         SunLight :: TileMap :: IView        &other = *pRenderer -> GetView( nId );
         SunLight :: TileMap :: stCoordinate2D    coord { 100, 100 };
         SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
@@ -341,7 +341,7 @@ TEST_SUITE( "renderer/views" )  {
 
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 0, 0, 200, 200 ), 15, false );
         SunLight :: TileMap :: IView        &defaultView = pRenderer -> GetDefaultView();
-        int                                 nId = pRenderer -> CreateView( Rect( 0, 0, 200, 200 ) );
+        int                                 nId = pRenderer -> CreateView( Rect( 0, 0, 200, 200 ) ) -> GetId();
         SunLight :: TileMap :: IView        &other = *pRenderer -> GetView( nId );
         int                                 nW = 0, nH = 0;
 
@@ -396,7 +396,7 @@ TEST_SUITE( "renderer/views" )  {
     TEST_CASE( "MoveCameraUp/Left with no map loaded do nothing instead of crashing (renderer, default view and an extra view)" )  {
 
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 10, 10, 300, 300 ), 15, false );
-        int                                 nId = pRenderer -> CreateView( Rect( 400, 10, 100, 100 ) );
+        int                                 nId = pRenderer -> CreateView( Rect( 400, 10, 100, 100 ) ) -> GetId();
         SunLight :: TileMap :: IView        &other = *pRenderer -> GetView( nId );
         SunLight :: TileMap :: IView        &defaultView = pRenderer -> GetDefaultView();
         int                                 nX = -1, nY = -1;

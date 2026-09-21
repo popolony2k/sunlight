@@ -99,6 +99,11 @@ namespace SunLight {
             std :: unique_ptr<SunLight :: Input :: IInputHandler>  m_pInputHandler;
             GamePadList                                m_GamePadList;
             SpriteMap                                  m_SpriteMap;
+
+            // Every sprite this renderer is the PARENT of (set by AddSprite, kept by RemoveSprite as it
+            // always was): the sprites whose parent pointer would dangle if this renderer went away, and
+            // the ones that must tell it when they are destroyed (ChildRemoved). A superset of m_SpriteMap.
+            std :: set<SunLight :: Sprite :: Sprite*>  m_ParentedSprites;
             TileMapListenerList                        m_TileMapListenerList;
             InputEventHandlerList                      m_KeyInputEventHandlerList;
             InputEventHandlerList                      m_GPadInputEventHandlerList;
@@ -150,8 +155,8 @@ namespace SunLight {
             // working state, swapped in and out by ActivateView (which
             // View's operations and the draw passes use), so all the existing
             // camera/zoom code serves every view unchanged.
-            std :: unique_ptr<View>                    m_pDefaultView;
-            std :: vector<std :: unique_ptr<View>>     m_ExtraViews;
+            std :: shared_ptr<View>                    m_pDefaultView;
+            std :: vector<std :: shared_ptr<View>>     m_ExtraViews;
             View                                       *m_pActiveView;
             int                                        m_nNextViewId;
 
@@ -270,6 +275,9 @@ namespace SunLight {
             explicit TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config );
             virtual ~TileMapRenderer( void );
 
+            // A sprite that is destroyed, or moved to another parent, calls this on the parent it is leaving.
+            void ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild );
+
             // Checked creation: validates the config (see
             // RendererConfig::Validate) and returns nullptr, with a message
             // in *pError, instead of building a renderer from a config that
@@ -305,9 +313,10 @@ namespace SunLight {
 
             // Views
             SunLight :: TileMap :: IView& GetDefaultView( void );
-            int CreateView( const SunLight :: TileMap :: stDimension2D& rect );
-            SunLight :: TileMap :: IView* GetView( int nViewId );
+            std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: TileMap :: stDimension2D& rect );
+            std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int nViewId );
             bool RemoveView( int nViewId );
+            bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView );
             int GetViewCount( void );
 
             // View port control

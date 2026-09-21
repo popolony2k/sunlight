@@ -15,6 +15,39 @@ here — see the git log for that period.
 
 ### Fixed
 
+- **A sprite and its renderer can now be destroyed in either order, registered or not.** The renderer
+  kept a raw pointer to every sprite registered with `AddSprite` (advanced and drawn every frame, unloaded
+  at `Stop()`), and each sprite - with its collider and canvases - kept a raw pointer to the renderer as
+  its parent, with nothing telling either side when the other went away: a sprite destroyed while still
+  registered was a use-after-free in the very next frame (found by AddressSanitizer:
+  `heap-use-after-free` in `HandleSpriteUpdate`), and a sprite outliving its renderer kept a dangling
+  parent (`GetVisible()`/`GetViewport()` read a dead object). Now they unregister from each other: a
+  sprite that is destroyed or given another parent calls the new `BaseCanvas::ChildRemoved` on the parent
+  it leaves (`Sprite::~Sprite`, and the new `Sprite::SetParent` override), and the renderer forgets it
+  (layer lists and collision manager); when the renderer is destroyed it lets go of every sprite it still
+  parents - the registered ones and the ones removed with `RemoveSprite`, which keep their parent exactly
+  as before - so their parent pointers, their colliders' and their canvases' become null / point at the
+  sprite. `Sprite::Unload()` now also unparents the canvases it releases (it empties the list, after which
+  nothing could repoint them); the renderer unloads every registered sprite when it stops or is
+  destroyed, so this is what keeps a canvas parented to the renderer from outliving it with a dangling
+  parent. `AddSprite`/`RemoveSprite` and every other signature are unchanged, no ownership moved (the
+  caller still owns sprites and canvases). Behaviour note: a sprite added to a second renderer is
+  forgotten by the first (it used to stay registered in both). Verified byte-for-byte: the sprite
+  animation trace and the camera/alignment trace are identical to the previous release.
+- **`~Sprite` no longer unloads the canvases it was given - it no longer touches them at all.**
+  `AddTextureSequence` only stores raw pointers to canvases the CALLER owns, but the destructor walked
+  them to unload their textures, so a canvas that was already destroyed (declared after its sprite, or
+  a member declared after it - the declaration order of `samples/sprite`'s `World` and of most of the
+  tests) was read through a dead pointer: undefined behaviour (AddressSanitizer:
+  `stack-use-after-scope` in `TextureCanvas::Unload`), invisible in a normal run because the canvas had
+  nothing loaded. A canvas frees its own texture when it is destroyed, so nothing leaks; the visible
+  difference is only that a canvas outliving its sprite keeps its texture until it is destroyed itself,
+  instead of losing it when the sprite dies. The explicit `Sprite::Unload()` still unloads them all
+  (Scarab's `SpritePool::Clear()` relies on it). The destructor still empties the sprite's own sequence
+  list. Rule, now documented at `AddTextureSequence`: the caller keeps the canvases alive while the
+  sprite uses them and does not use one after the sprite is destroyed. The whole suite is now clean
+  under AddressSanitizer (see CLAUDE.md for how to run it).
+
 - **`MoveCameraUp()` / `MoveCameraLeft()` crashed (segfault) when no map was loaded** - on the renderer
   and, through it, on any view (`IView::MoveCameraUp/Left`). Their scroll limit is worked out from the
   map's tile size, and they dereferenced the (null) map without checking. They now do nothing while no
@@ -49,10 +82,13 @@ here — see the git log for that period.
 
 ### Added
 
-- `samples/multiview` sample (`multiview_test`): the same map in three places at once - a main view, a
-  minimap (`FitToMap`, sprite layer masked out, translucent background) and a close-up with its own
-  camera and zoom - with keys to show/hide views, mask a layer and change draw order. Samples only: not
-  part of any release archive.
+- `samples/multiview` sample (`multiview_test`): the same map and the same character (Sunny) in three
+  places at once - a main view, a minimap and a close-up whose camera follows Sunny and scrolls when it
+  reaches the view's border - with keys to walk Sunny, zoom the close-up, show/hide views, mask a layer and
+  change draw order. A sprite is positioned relative to the view that draws it and ignores the view's
+  camera, so the sample keeps one Sunny per view (each on its own empty layer added to the sample's map,
+  each view's layer mask showing only its own) and places each at Sunny's map position minus that view's camera - a rule now
+  covered by a unit test. Samples only: not part of any release archive.
 
 - **Extra views are now DRAWN: the multi-view frame.** Each visible view gets its own pass over the
   same map into the one render target, in draw order, painter's style (a later view paints over an
@@ -130,6 +166,28 @@ here — see the git log for that period.
   positions, clock steps, frame delays, `Reset()`, sequence switches and visibility toggles.
 
 ### Changed
+
+- **BREAKING (API): view handles are now `std::shared_ptr<IView>`, and a held handle is always safe.**
+  `ITileMap::CreateView(rect)` returns the new view (a shared handle) instead of an id, and
+  `GetView(id)` returns a shared handle (empty for an unknown or removed id) instead of a raw
+  pointer; the id is `IView::GetId()`. `RemoveView(id)` is unchanged, and `RemoveView(handle)` was
+  added (it only removes a view of THIS renderer: another renderer's view with the same id, an empty
+  pointer, or the default view remove nothing). `GetDefaultView()` still returns a reference: the
+  default view can never be removed, so it lives as long as the renderer. Before this, a raw handle
+  kept after `RemoveView` (or after the renderer was destroyed) dangled. Now the renderer keeps its
+  own reference to every view - so a view is drawn whether or not the caller keeps its handle - and
+  once a view is removed, or its renderer destroyed, a handle that is still held becomes **inert**
+  (`IView::IsRemoved()`, new): no longer drawn; camera moves, zoom steps, scroll step, `FitToMap`,
+  `TileMapToTileMatrix` and by-name layer lookups do nothing or answer "no"; the view keeps the last
+  camera/scroll step it had; and what is just its own data (its `Viewport`, visibility, draw order,
+  background, layer mask) still works, its `Viewport` staying valid as long as the handle is held. For
+  the default view outliving its renderer, the renderer's own root `Viewport` (which dies with the
+  renderer) is first copied into the view (rectangle, zoom position, preferred zoom, zoom limits,
+  user-zoom flag). Migration: `int id = r.CreateView(rect)` -> `auto view = r.CreateView(rect);`
+  (`view->GetId()` for the id); `r.GetView(id)->X()` is unchanged; `IView* p = r.GetView(id)` ->
+  `std::shared_ptr<IView> p = r.GetView(id)` (compare with `nullptr` as before). New pure virtuals /
+  changed signatures on `ITileMap` and `IView` (`IsRemoved`) - a class implementing them itself must
+  update.
 
 - **BREAKING (semantics): a viewport's `size` is now a width/height, everywhere.** A
   viewport is the rectangle `[pos, pos + size)`: `pos` is its top-left corner and `size` its

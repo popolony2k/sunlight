@@ -21,6 +21,7 @@
 #ifndef __ITILEMAP_H__
 #define __ITILEMAP_H__
 
+#include <memory>
 #include "sprite/sprite.h"
 #include "tilemap/iview.h"
 #include "input/iinputhandler.h"
@@ -124,26 +125,49 @@ namespace SunLight {
              * @brief Create an additional view, showing the same world
              * through its own camera, zoom and rectangle.
              *
+             * The returned handle is shared: the renderer keeps its own
+             * reference for as long as the view exists, so the view is
+             * drawn whether or not the caller keeps the handle, and the
+             * caller may keep it as long as it likes. Once the view is
+             * removed (@see RemoveView) - or the renderer is destroyed - a
+             * handle that is still held stays SAFE to use: the view is then
+             * inert (@see IView::IsRemoved) rather than gone.
+             *
              * @param rect The rectangle of the render target the view is
              * shown in - [pos, pos + size), see Viewport;
-             * @return The new view's id (always > 0), to use with @see
-             * GetView and @see RemoveView;
+             * @return The new view (its id, always > 0, is IView::GetId, and
+             * works with @see GetView and @see RemoveView). Never empty for
+             * the renderer; an empty pointer means a backend that could not
+             * create the view;
              */
-            virtual int CreateView( const SunLight :: TileMap :: stDimension2D& rect ) = 0;
+            virtual std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: TileMap :: stDimension2D& rect ) = 0;
 
             /**
-             * @brief Get a view by id: 0 is the default view.
-             * @return The view, or nullptr if no such view exists;
+             * @brief Get a view by id: 0 is the default view. Same shared
+             * handle as @see CreateView returned.
+             * @return The view, or an empty pointer if no view with that id
+             * exists (never created, or already removed - ids are never
+             * reused);
              */
-            virtual SunLight :: TileMap :: IView* GetView( int nViewId ) = 0;
+            virtual std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int nViewId ) = 0;
 
             /**
-             * @brief Remove a view created by @see CreateView. Its handle
-             * is invalid afterwards. The default view cannot be removed.
+             * @brief Remove a view created by @see CreateView: it is no
+             * longer drawn and no longer counted. Handles to it that are
+             * still held stay valid but inert (@see IView::IsRemoved). The
+             * default view cannot be removed.
              * @return true if it was removed, false if there is no such
              * view (or it is the default view);
              */
             virtual bool RemoveView( int nViewId ) = 0;
+
+            /**
+             * @brief Same, addressing the view by its handle: the view must
+             * be one of THIS renderer's (a handle from another renderer, an
+             * already removed view or an empty pointer removes nothing).
+             * @return true if it was removed;
+             */
+            virtual bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView ) = 0;
 
             /**
              * @brief The number of views, the default view included (so at

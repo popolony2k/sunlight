@@ -72,11 +72,69 @@ namespace SunLight {
         template<class Function>
         void View :: Run( Function function )  {
 
+            if( !m_pRenderer )
+                return;
+
             View  *pPrevious = m_pRenderer -> ActivateView( this );
 
             function();
 
             m_pRenderer -> ActivateView( pPrevious );
+        }
+
+        /**
+         * Cut this view loose from its renderer (see @see IView::IsRemoved for what an
+         * inert view does). Idempotent.
+         *
+         * A view's own state is parked in m_State whenever it is not the active one; the
+         * only view that can still be active here is the default one (a removed view is made
+         * inactive first, and the renderer's own destructor runs with the default view
+         * active), so its live camera/scroll step - which sit in the renderer's working
+         * members - are parked now.
+         *
+         * The default view also uses the renderer's OWN root Viewport, a member of the
+         * renderer's base class that dies with it: so it is replaced by a private copy,
+         * built through Viewport's public interface (rectangle, zoom position, preferred
+         * zoom, zoom limits, user-zoom flag), which then belongs to the view. Viewport
+         * cannot simply be copy-constructed: it points at its own zoom properties, so a
+         * copy would keep pointing into the original.
+         */
+        void View :: Detach( void )  {
+
+            if( !m_pRenderer )
+                return;
+
+            if( m_pRenderer -> m_pActiveView == this )  {
+                m_State.camera            = m_pRenderer -> m_CameraPos;
+                m_State.nScrollStepWidth  = m_pRenderer -> m_nScrollStepWidth;
+                m_State.nScrollStepHeight = m_pRenderer -> m_nScrollStepHeight;
+            }
+
+            if( this == m_pRenderer -> m_pDefaultView.get() )  {
+                std :: unique_ptr<SunLight :: Base :: Viewport>  pCopy = std :: make_unique<SunLight :: Base :: Viewport>();
+                SunLight :: Base :: stZoomProperties            &props = m_pViewport -> GetZoomProperties();
+                unsigned                                         nMinZoom = 0;
+                unsigned                                         nMaxZoom = 0;
+
+                m_pViewport -> GetZoomLimits( nMinZoom, nMaxZoom );
+                pCopy -> SetDimension2D( m_pViewport -> GetDimension2D() );
+                pCopy -> SetMinZoom( nMinZoom );
+                pCopy -> SetMaxZoom( nMaxZoom );
+                pCopy -> SetEnableUserZoom( props.bEnabledUserZoom );
+                pCopy -> SetPreferredZoom( props.nPreferredZoomPos );
+                pCopy -> SetZoom( props.nCurrentZoomPos );
+
+                m_bClear          = m_pRenderer -> m_bClearBackground;
+                m_pOwnedViewport  = std :: move( pCopy );
+                m_pViewport       = m_pOwnedViewport.get();
+            }
+
+            m_pRenderer = nullptr;
+        }
+
+        bool View :: IsRemoved( void )  {
+
+            return ( m_pRenderer == nullptr );
         }
 
         int View :: GetId( void )  {
@@ -136,6 +194,14 @@ namespace SunLight {
 
         void View :: GetCameraPosition( int &nX, int &nY )  {
 
+            // Detached: the last position it had (same negation the renderer's own getter applies).
+            if( !m_pRenderer )  {
+                nX = ( int ) -m_State.camera.x;
+                nY = ( int ) -m_State.camera.y;
+
+                return;
+            }
+
             Run( [this, &nX, &nY]() { m_pRenderer -> GetCameraPosition( nX, nY ); } );
         }
 
@@ -145,6 +211,13 @@ namespace SunLight {
         }
 
         void View :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
+
+            if( !m_pRenderer )  {
+                nStepWidth  = m_State.nScrollStepWidth;
+                nStepHeight = m_State.nScrollStepHeight;
+
+                return;
+            }
 
             Run( [this, &nStepWidth, &nStepHeight]() { m_pRenderer -> GetScrollStepSize( nStepWidth, nStepHeight ); } );
         }
@@ -176,7 +249,7 @@ namespace SunLight {
          */
         void View :: SetClearBackground( bool bClear )  {
 
-            if( this == m_pRenderer -> m_pDefaultView.get() )
+            if( m_pRenderer && ( this == m_pRenderer -> m_pDefaultView.get() ) )
                 m_pRenderer -> SetClearBackground( bClear );
             else
                 m_bClear = bClear;
@@ -184,7 +257,7 @@ namespace SunLight {
 
         bool View :: GetClearBackground( void )  {
 
-            if( this == m_pRenderer -> m_pDefaultView.get() )
+            if( m_pRenderer && ( this == m_pRenderer -> m_pDefaultView.get() ) )
                 return m_pRenderer -> m_bClearBackground;
 
             return m_bClear;
@@ -212,7 +285,7 @@ namespace SunLight {
 
         bool View :: ShowLayer( const char *szLayerName, bool bShow )  {
 
-            tmx_layer  *pLayer = ( szLayerName && m_pRenderer -> m_pTmxMap ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
+            tmx_layer  *pLayer = ( szLayerName && m_pRenderer && m_pRenderer -> m_pTmxMap ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
 
             if( !pLayer )
                 return false;
@@ -252,7 +325,7 @@ namespace SunLight {
          */
         bool View :: FitToMap( void )  {
 
-            tmx_map  *pMap = m_pRenderer -> m_pTmxMap;
+            tmx_map  *pMap = ( m_pRenderer ? m_pRenderer -> m_pTmxMap : nullptr );
 
             if( !pMap )
                 return false;

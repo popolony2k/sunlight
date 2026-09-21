@@ -102,7 +102,8 @@ namespace  {
         }
 
         ~Scene( void )  {
-            pRenderer -> Stop();
+            if( pRenderer )
+                pRenderer -> Stop();
         }
 
         MockEngine& engine( void )  { return engineFixture.engine; }
@@ -186,7 +187,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     TEST_CASE( "An extra view draws the same map again, in its own rectangle, after clearing that rectangle" )  {
 
         Scene  scene;
-        int    nId = scene.pRenderer -> CreateView( g_SideRect );
+        int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
 
         scene.RunFrames( 1 );
 
@@ -239,7 +240,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     TEST_CASE( "An extra view draws with its OWN zoom and camera" )  {
 
         Scene  scene;
-        int    nId = scene.pRenderer -> CreateView( g_SideRect );
+        int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
         SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
 
         view.GetViewport().SetZoom( 31 );                   // factor 2.0
@@ -276,7 +277,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         scene.RunFrames( 1 );
         CHECK( scene.engine().nDrawTextureCalls == 1 );
 
-        int  nId = scene.pRenderer -> CreateView( g_SideRect );
+        int  nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
 
         scene.engine().nDrawTextureCalls = 0;
         scene.RunFrames( 1 );
@@ -293,7 +294,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     TEST_CASE( "The layer mask: ShowOnlyLayers, ShowLayer by id and by name, ShowAllLayers - per view, never touching another view" )  {
 
         Scene  scene;
-        int    nId = scene.pRenderer -> CreateView( g_SideRect );
+        int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
         SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
 
         // Only "ground" (id 1).
@@ -333,7 +334,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     TEST_CASE( "A group layer that is masked out hides its children; a shown group applies the mask to each child" )  {
 
         Scene  scene;
-        int    nId = scene.pRenderer -> CreateView( g_SideRect );
+        int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
         SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
 
         // Hide the group (id 3): its child "glow" (id 4) goes with it, whatever the child's own setting.
@@ -375,7 +376,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         REQUIRE( pRenderer != nullptr );
         REQUIRE( pRenderer -> Start() == true );
 
-        int  nId = pRenderer -> CreateView( g_SideRect );
+        int  nId = pRenderer -> CreateView( g_SideRect ) -> GetId();
         SunLight :: TileMap :: IView  &view = *pRenderer -> GetView( nId );
 
         CHECK( view.ShowLayer( "ground", false ) == false );        // no map yet: nothing to resolve the name against
@@ -399,7 +400,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     TEST_CASE( "A hidden view is skipped and keeps its state; hiding the default view leaves the extra ones drawn" )  {
 
         Scene  scene;
-        int    nId = scene.pRenderer -> CreateView( g_SideRect );
+        int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
         SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
 
         CHECK( view.GetVisible() == true );
@@ -426,8 +427,8 @@ TEST_SUITE( "renderer/viewpasses" )  {
     TEST_CASE( "Draw order: ascending order, ties by id; the default view sits at 0 and extras at their own id" )  {
 
         Scene  scene;
-        int    nA = scene.pRenderer -> CreateView( Rect( 300, 10, 100, 100 ) );
-        int    nB = scene.pRenderer -> CreateView( Rect( 500, 10, 100, 100 ) );
+        int    nA = scene.pRenderer -> CreateView( Rect( 300, 10, 100, 100 ) ) -> GetId();
+        int    nB = scene.pRenderer -> CreateView( Rect( 500, 10, 100, 100 ) ) -> GetId();
 
         CHECK( scene.pRenderer -> GetDefaultView().GetDrawOrder() == 0 );
         CHECK( scene.pRenderer -> GetView( nA ) -> GetDrawOrder() == nA );
@@ -468,7 +469,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     TEST_CASE( "Per-view background: filled by default with the frame's color, off on request, or an explicit color" )  {
 
         Scene  scene;
-        int    nId = scene.pRenderer -> CreateView( g_SideRect );
+        int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
         SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
 
         CHECK( view.GetClearBackground() == true );
@@ -560,7 +561,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     TEST_CASE( "Removing the last extra view returns to the plain single-view frame" )  {
 
         Scene  scene;
-        int    nId = scene.pRenderer -> CreateView( g_SideRect );
+        int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
 
         scene.RunFrames( 1 );
         CHECK( scene.Count( Event :: TILE ) == 36 );
@@ -576,7 +577,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         Scene  scene;
 
         // 64 x 64 map. A 40 x 40 view: 40/64 = 0.625 = exactly 10 steps of 1/16.
-        int  nId = scene.pRenderer -> CreateView( Rect( 300, 10, 40, 40 ) );
+        int  nId = scene.pRenderer -> CreateView( Rect( 300, 10, 40, 40 ) ) -> GetId();
         SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
 
         view.SetCameraPosition( 5, 5 );
@@ -595,18 +596,18 @@ TEST_SUITE( "renderer/viewpasses" )  {
         CHECK( scene.TilesIn( Rect( 300, 10, 40, 40 ) ) == 18 );
 
         // A view exactly the map's size fits at zoom 1.0 (position 15); a non-square view fits the tighter axis.
-        int  nBig = scene.pRenderer -> CreateView( Rect( 0, 0, 64, 64 ) );
+        int  nBig = scene.pRenderer -> CreateView( Rect( 0, 0, 64, 64 ) ) -> GetId();
 
         REQUIRE( scene.pRenderer -> GetView( nBig ) -> FitToMap() == true );
         CHECK( scene.pRenderer -> GetView( nBig ) -> GetViewport().GetZoomProperties().nCurrentZoomPos == 15 );
 
-        int  nWide = scene.pRenderer -> CreateView( Rect( 0, 0, 400, 32 ) );
+        int  nWide = scene.pRenderer -> CreateView( Rect( 0, 0, 400, 32 ) ) -> GetId();
 
         REQUIRE( scene.pRenderer -> GetView( nWide ) -> FitToMap() == true );
         CHECK( scene.pRenderer -> GetView( nWide ) -> GetViewport().GetZoomProperties().fZoomFactor == 0.5f );
 
         // Too small even for the lowest zoom: clamped to it.
-        int  nTiny = scene.pRenderer -> CreateView( Rect( 0, 0, 2, 2 ) );
+        int  nTiny = scene.pRenderer -> CreateView( Rect( 0, 0, 2, 2 ) ) -> GetId();
 
         REQUIRE( scene.pRenderer -> GetView( nTiny ) -> FitToMap() == true );
         CHECK( scene.pRenderer -> GetView( nTiny ) -> GetViewport().GetZoomProperties().nCurrentZoomPos == 0 );
@@ -624,7 +625,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         REQUIRE( pRenderer != nullptr );
         REQUIRE( pRenderer -> Start() == true );
 
-        int  nId = pRenderer -> CreateView( Rect( 300, 10, 40, 40 ) );
+        int  nId = pRenderer -> CreateView( Rect( 300, 10, 40, 40 ) ) -> GetId();
         SunLight :: TileMap :: IView  &view = *pRenderer -> GetView( nId );
         unsigned  nBefore = view.GetViewport().GetZoomProperties().nCurrentZoomPos;
 
@@ -636,10 +637,12 @@ TEST_SUITE( "renderer/viewpasses" )  {
     // A one-sequence sprite on layer 1: a 64 px wide texture of 16 px frames animating in circle, at (20, 20)
     // of whichever viewport draws it. Its draws are recognised by the texture handle 0x77.
     struct SpriteRig  {
+        Scene                              &m_Scene;
+        int                                m_nLayerId;
         SunLight :: Sprite :: Sprite       sprite;
         SunLight :: Canvas :: TextureCanvas  canvas;
 
-        SpriteRig( Scene &scene, int nLayerId )  {
+        SpriteRig( Scene &scene, int nLayerId ) : m_Scene( scene ), m_nLayerId( nLayerId )  {
             scene.engine().hLoadTextureResult = ( SunLight :: Base :: TextureHandle ) 0x77;
             scene.engine().nLoadTextureWidth  = 64;
             scene.engine().nLoadTextureHeight = 16;
@@ -656,7 +659,10 @@ TEST_SUITE( "renderer/viewpasses" )  {
             REQUIRE( scene.pRenderer -> AddSprite( nLayerId, sprite ) == true );
         }
 
+        // The renderer only holds a raw pointer to the sprite and unloads it again at Stop(): take it
+        // back out before the sprite (and its canvas) go away.
         ~SpriteRig( void )  {
+            m_Scene.pRenderer -> RemoveSprite( m_nLayerId, sprite );
         }
     };
 
@@ -718,11 +724,53 @@ TEST_SUITE( "renderer/viewpasses" )  {
         }
     }
 
+    TEST_CASE( "A sprite placed at (map position - the view's camera) is drawn exactly where the map is drawn at that position: the rule samples/multiview relies on" )  {
+
+        Scene      scene;
+        SpriteRig  rig( scene, 1 );
+        int        nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+        // The extra view: zoom 2.0, scrolled so that map point (16, 16) is at its top-left.
+        SunLight :: TileMap :: IView  &view = *scene.pRenderer -> GetView( nId );
+
+        view.GetViewport().SetZoom( 31 );
+        view.SetCameraPosition( 16, 16 );
+
+        // Sunny stands on map point (32, 32) - a tile corner. In this view that is (32 - 16, 32 - 16) from its origin.
+        rig.sprite.GetDimension2D().pos.x = 32 - 16;
+        rig.sprite.GetDimension2D().pos.y = 32 - 16;
+
+        scene.RunFrames( 1 );
+
+        // Where this view drew the sprite, and where it drew the map tile whose corner is map point (32, 32).
+        bool   bSprite = false, bTile = false;
+        float  fSpriteX = 0, fSpriteY = 0, fTileX = 0, fTileY = 0;
+
+        for( const Event &evt : scene.engine().events )  {
+            if( ( evt.kind != Event :: TILE ) || ( evt.x < 200.0f ) )
+                continue;                                                  // only the extra view
+
+            if( evt.handle == ( void * ) 0x77 )  {
+                bSprite = true;  fSpriteX = evt.x;  fSpriteY = evt.y;
+            }
+            else if( ( evt.x == 332.0f ) && ( evt.y == 42.0f ) )  {        // 300 + ( 32 - 16 ) * 2, 10 + ( 32 - 16 ) * 2
+                bTile = true;  fTileX = evt.x;  fTileY = evt.y;
+            }
+        }
+
+        REQUIRE( bSprite );
+        REQUIRE( bTile );
+        CHECK( fSpriteX == fTileX );
+        CHECK( fSpriteY == fTileY );
+        CHECK( fSpriteX == 332.0f );
+        CHECK( fSpriteY == 42.0f );
+    }
+
     TEST_CASE( "A sprite on a layer no view shows stands still; a layer masked from one view still animates for the others" )  {
 
         Scene      scene;
         SpriteRig  rig( scene, 1 );
-        int        nId = scene.pRenderer -> CreateView( g_SideRect );
+        int        nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
 
         // Ground (the sprite's layer) masked out of the extra view: only the default view draws the sprite.
         scene.pRenderer -> GetView( nId ) -> ShowLayer( 1, false );
@@ -740,5 +788,237 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
         for( int nFrame = 0; nFrame < 3; nFrame++ )
             CHECK( frames[nFrame].size() == 0 );
+    }
+}
+
+TEST_SUITE( "renderer/viewhandles" )  {
+
+    typedef std :: shared_ptr<SunLight :: TileMap :: IView>  ViewHandle;
+
+    TEST_CASE( "CreateView returns the shared handle GetView(id) returns; the renderer keeps its own reference, so dropping it changes nothing" )  {
+
+        Scene  scene;
+
+        {
+            ViewHandle  pHandle = scene.pRenderer -> CreateView( g_SideRect );
+
+            REQUIRE( pHandle != nullptr );
+            CHECK( pHandle -> GetId() > 0 );
+            CHECK( scene.pRenderer -> GetView( pHandle -> GetId() ) == pHandle );
+            CHECK( pHandle -> IsRemoved() == false );
+        }
+
+        // The handle is gone; the view is not: still counted, still reachable, still drawn.
+        CHECK( scene.pRenderer -> GetViewCount() == 2 );
+        REQUIRE( scene.pRenderer -> GetView( 1 ) != nullptr );
+        scene.RunFrames( 1 );
+        CHECK( scene.TilesIn( g_SideRect ) == 18 );
+
+        // A discarded return value works the same way.
+        scene.pRenderer -> CreateView( Rect( 500, 10, 100, 100 ) );
+        CHECK( scene.pRenderer -> GetViewCount() == 3 );
+    }
+
+    TEST_CASE( "The default view can never be removed - by id or by handle - and is the same object everywhere" )  {
+
+        Scene  scene;
+
+        ViewHandle  pDefault = scene.pRenderer -> GetView( 0 );
+
+        REQUIRE( pDefault != nullptr );
+        CHECK( pDefault.get() == &scene.pRenderer -> GetDefaultView() );
+        CHECK( pDefault -> GetId() == 0 );
+
+        CHECK( scene.pRenderer -> RemoveView( 0 ) == false );
+        CHECK( scene.pRenderer -> RemoveView( pDefault ) == false );
+        CHECK( scene.pRenderer -> GetViewCount() == 1 );
+        CHECK( pDefault -> IsRemoved() == false );
+        CHECK( scene.pRenderer -> GetView( 0 ) == pDefault );
+
+        // Still drawn, still the renderer's own view.
+        scene.RunFrames( 1 );
+        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+    }
+
+    TEST_CASE( "A held handle stays SAFE after its view is removed: inert, not gone" )  {
+
+        Scene       scene;
+        ViewHandle  pHandle = scene.pRenderer -> CreateView( g_SideRect );
+        int         nId     = pHandle -> GetId();
+        int         nX = -1, nY = -1;
+
+        pHandle -> SetCameraPosition( 7, 9 );
+        pHandle -> SetScrollStepSize( 3, 5 );
+        scene.pRenderer -> SetCameraPosition( 20, 30 );            // the DEFAULT view's own camera
+
+        REQUIRE( scene.pRenderer -> RemoveView( nId ) == true );
+
+        // No longer a view of the renderer.
+        CHECK( pHandle -> IsRemoved() == true );
+        CHECK( scene.pRenderer -> GetView( nId ) == nullptr );
+        CHECK( scene.pRenderer -> GetViewCount() == 1 );
+        CHECK( scene.pRenderer -> RemoveView( nId ) == false );          // already gone
+        CHECK( scene.pRenderer -> RemoveView( pHandle ) == false );
+
+        // Not drawn any more, even when told to be visible.
+        pHandle -> SetVisible( true );
+        scene.RunFrames( 1 );
+        CHECK( scene.TilesIn( g_SideRect ) == 0 );
+        CHECK( scene.Count( Event :: FILL ) == 0 );
+        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+
+        // What acts on the renderer does nothing / answers "no" - and changes nothing of the renderer's.
+        pHandle -> MoveCameraLeft();
+        pHandle -> MoveCameraUp();
+        pHandle -> ZoomIn();
+        pHandle -> ZoomOut();
+        pHandle -> ResetZoom();
+        pHandle -> ResetCamera();
+        pHandle -> SetCameraPosition( 500, 500 );
+        pHandle -> SetScrollStepSize( 99, 99 );
+
+        SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
+
+        CHECK( pHandle -> TileMapToTileMatrix( SunLight :: TileMap :: stCoordinate2D { 100, 100 }, pos ) == false );
+        CHECK( pHandle -> FitToMap() == false );
+        CHECK( pHandle -> ShowLayer( "ground", false ) == false );
+
+        // It keeps the last state it had...
+        pHandle -> GetCameraPosition( nX, nY );
+        CHECK( nX == 7 );
+        CHECK( nY == 9 );
+        pHandle -> GetScrollStepSize( nX, nY );
+        CHECK( nX == 3 );
+        CHECK( nY == 5 );
+
+        // ...its Viewport is its own and still valid, untouched by the calls above...
+        CHECK( pHandle -> GetViewport().GetDimension2D().pos.x == 300 );
+        CHECK( pHandle -> GetViewport().GetZoomProperties().nCurrentZoomPos == 15 );
+        CHECK( &pHandle -> GetViewport() != &scene.pRenderer -> GetViewport() );
+
+        // ...and what is just the view's own data still works.
+        pHandle -> ShowLayer( 1, false );
+        CHECK( pHandle -> IsLayerShown( 1 ) == false );
+        pHandle -> SetDrawOrder( 42 );
+        CHECK( pHandle -> GetDrawOrder() == 42 );
+        pHandle -> SetClearBackground( false );
+        CHECK( pHandle -> GetClearBackground() == false );
+
+        // The renderer itself is exactly as it was.
+        scene.pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nX == 20 );
+        CHECK( nY == 30 );
+        CHECK( &scene.pRenderer -> GetViewport() == &scene.pRenderer -> GetDefaultView().GetViewport() );
+    }
+
+    TEST_CASE( "RemoveView by handle removes only THIS renderer's view: not another renderer's, not an empty pointer" )  {
+
+        Scene  scene;
+
+        // A second renderer (never started) whose first extra view has the same id as ours.
+        RendererConfig                      config;
+        std :: unique_ptr<TileMapRenderer>  pOther = TileMapRenderer :: Create( config, nullptr );
+
+        REQUIRE( pOther != nullptr );
+
+        ViewHandle  pOurs   = scene.pRenderer -> CreateView( g_SideRect );
+        ViewHandle  pTheirs = pOther -> CreateView( g_SideRect );
+
+        REQUIRE( pOurs -> GetId() == pTheirs -> GetId() );
+
+        CHECK( scene.pRenderer -> RemoveView( pTheirs ) == false );
+        CHECK( scene.pRenderer -> GetViewCount() == 2 );
+        CHECK( pTheirs -> IsRemoved() == false );
+        CHECK( pOurs -> IsRemoved() == false );
+
+        CHECK( scene.pRenderer -> RemoveView( ViewHandle() ) == false );
+        CHECK( scene.pRenderer -> GetViewCount() == 2 );
+
+        CHECK( scene.pRenderer -> RemoveView( pOurs ) == true );
+        CHECK( pOurs -> IsRemoved() == true );
+        CHECK( scene.pRenderer -> GetViewCount() == 1 );
+        CHECK( scene.pRenderer -> RemoveView( pOurs ) == false );
+    }
+
+    TEST_CASE( "Handles outlive the renderer: inert, with the last state, and every call safe (default view included)" )  {
+
+        Scene  scene;
+
+        // State worth keeping, on the default view and on an extra one.
+        SunLight :: TileMap :: IView  &defaultView = scene.pRenderer -> GetDefaultView();
+
+        defaultView.SetCameraPosition( 20, 30 );
+        defaultView.GetViewport().SetMinZoom( 5 );
+        defaultView.GetViewport().SetMaxZoom( 200 );
+        defaultView.GetViewport().SetPreferredZoom( 20 );
+        defaultView.GetViewport().SetZoom( 30 );
+        defaultView.SetScrollStepSize( 6, 8 );
+        defaultView.SetBackgroundColor( SunLight :: Base :: stColor { 9, 8, 7, 255 } );
+
+        bool  bUserZoom = defaultView.GetViewport().GetZoomProperties().bEnabledUserZoom;
+
+        ViewHandle  pDefault = scene.pRenderer -> GetView( 0 );
+        ViewHandle  pExtra   = scene.pRenderer -> CreateView( g_SideRect );
+
+        pExtra -> SetCameraPosition( 40, 50 );
+        pExtra -> GetViewport().SetZoom( 33 );
+        pExtra -> ShowLayer( 2, false );
+
+        scene.pRenderer.reset();                       // the renderer is gone; the handles are not
+
+        int  nX = -1, nY = -1;
+
+        CHECK( pDefault -> IsRemoved() == true );
+        CHECK( pExtra -> IsRemoved() == true );
+
+        // The default view's Viewport was copied out of the renderer before it died.
+        SunLight :: Base :: Viewport  &vp = pDefault -> GetViewport();
+        unsigned                      nMin = 0, nMax = 0;
+
+        CHECK( vp.GetDimension2D().pos.x == 10 );
+        CHECK( vp.GetDimension2D().size.nWidth == 100 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 30 );
+        CHECK( vp.GetZoomProperties().nPreferredZoomPos == 20 );
+        CHECK( vp.GetZoomProperties().bEnabledUserZoom == bUserZoom );
+        vp.GetZoomLimits( nMin, nMax );
+        CHECK( nMin == 5 );
+        CHECK( nMax == 200 );
+
+        pDefault -> GetCameraPosition( nX, nY );
+        CHECK( nX == 20 );
+        CHECK( nY == 30 );
+        pDefault -> GetScrollStepSize( nX, nY );
+        CHECK( nX == 6 );
+        CHECK( nY == 8 );
+        CHECK( pDefault -> GetClearBackground() == true );          // the renderer's flag, as it was
+
+        pExtra -> GetCameraPosition( nX, nY );
+        CHECK( nX == 40 );
+        CHECK( nY == 50 );
+        CHECK( pExtra -> GetViewport().GetZoomProperties().nCurrentZoomPos == 33 );
+        CHECK( pExtra -> IsLayerShown( 2 ) == false );
+
+        // Every call is safe.
+        for( ViewHandle pView : { pDefault, pExtra } )  {
+            SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
+
+            pView -> MoveCameraUp();
+            pView -> MoveCameraDown();
+            pView -> MoveCameraLeft();
+            pView -> MoveCameraRight();
+            pView -> ZoomIn();
+            pView -> ZoomOut();
+            pView -> ResetZoom();
+            pView -> ResetCamera();
+            pView -> SetCameraPosition( 1, 2 );
+            pView -> SetScrollStepSize( 1, 2 );
+            pView -> SetClearBackground( false );
+            pView -> SetVisible( false );
+            pView -> UseMapBackgroundColor();
+            CHECK( pView -> TileMapToTileMatrix( SunLight :: TileMap :: stCoordinate2D { 1, 1 }, pos ) == false );
+            CHECK( pView -> FitToMap() == false );
+            CHECK( pView -> ShowLayer( "ground", true ) == false );
+            CHECK( pView -> GetClearBackground() == false );
+        }
     }
 }
