@@ -13,6 +13,31 @@ here — see the git log for that period.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (semantics): a viewport's `size` is now a width/height, everywhere.** A
+  viewport is the rectangle `[pos, pos + size)`: `pos` is its top-left corner and `size` its
+  width and height, so `(10, 10, 1240, 900)` shows x in `[10, 1250)` and y in `[10, 910)`.
+  Before, the clipping (`Viewport::GetClippedRect`, `SetPixel`) treated `size` as the
+  coordinate of the FAR edge whenever `pos` was not `(0, 0)` - a legacy viewport of
+  `(10, 10, 1250, 910)` is the same visible area as `(10, 10, 1240, 900)` now - while other
+  code read it as a width. **Migrate a viewport with `pos != (0, 0)` by subtracting `pos` from
+  `size`** (`(px, py, ex, ey)` -> `(px, py, ex - px, ey - py)`); viewports anchored at `(0, 0)`
+  mean the same in both. The five samples were converted (`900 x 800` -> `890 x 790`).
+  For the same visible area **everything is pixel-for-pixel identical**: clipping, `SetPixel`,
+  tile/object/sprite drawing, every `LoadMap` alignment (including the "snap to a whole
+  viewport height" of `BOTTOM_RIGHT`/`CENTER_WIDTH_BOTTOM`), and the `MoveCameraLeft`/`Up`
+  scroll limits - verified by recording ~1.75 million draw/alignment/scroll results on real
+  Caravellius maps with the legacy numbers on the previous release and the equivalent
+  width/height numbers on this one, and comparing them byte for byte (unit tests keep the
+  legacy code as an oracle). Only `TileMapToTileMatrix` changes, and only for viewports whose
+  `pos.x != pos.y`: see the fix below.
+
+### Fixed
+
+- `TileMapToTileMatrix` computed the tile ROW with the viewport's `pos.x` instead of `pos.y`.
+  Invisible when `pos.x == pos.y` (e.g. `(10, 10)`), wrong otherwise.
+
 ### Added
 
 - `Viewport::GetEnableUserZoom()`, the missing getter for `SetEnableUserZoom` (the

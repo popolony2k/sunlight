@@ -254,12 +254,18 @@ namespace SunLight  {
         }
 
         /**
-         * Calculates the clipped rectangle area based on position 
+         * Calculates the clipped rectangle area based on position
          * and viewport boundaries.
-         * This bounday is an relative coordinate to viewport starting
-         * at (0, 0);
+         *
+         * The viewport is the rectangle [pos, pos + size) - pos is its
+         * top-left corner and size its width/height (see the class comment).
+         * src is relative to the viewport's own origin and un-zoomed; dst
+         * comes back in the render target's coordinates, zoomed and offset
+         * by the viewport's position, clipped against the viewport's
+         * right/bottom edges (its far corner, pos + size).
          * @param src Source coordinates;
          * @param dst Reference to destination clipped area;
+         * @return false if nothing of src is inside the viewport;
          */
         bool Viewport :: GetClippedRect( SunLight :: TileMap :: stDimension2D src,
                                         SunLight :: TileMap :: stDimension2D& dst ) {
@@ -269,22 +275,23 @@ namespace SunLight  {
             int32_t                              nPos;
             SunLight :: TileMap :: stDimension2D&  vp = GetDimension2D();
 
-            if( ( src.pos.x > vp.size.nWidth ) || ( src.pos.y > vp.size.nHeight) ||
-                ( src.pos.x < 0 ) || ( src.pos.y < 0 ) ) {
+            // The viewport's far corner: the first column/row past it.
+            int32_t                              nFarX = vp.pos.x + vp.size.nWidth;
+            int32_t                              nFarY = vp.pos.y + vp.size.nHeight;
 
-                if( src.pos.x < 0 ) {
-                    nPos = std :: abs( src.pos.x );
-                    src.size.nWidth -= ( nPos < src.size.nWidth ? nPos : 
-                                        src.size.nWidth );
-                    src.pos.x = 0;
-                }
+            // Anything before the viewport's own origin is trimmed away.
+            if( src.pos.x < 0 ) {
+                nPos = std :: abs( src.pos.x );
+                src.size.nWidth -= ( nPos < src.size.nWidth ? nPos :
+                                    src.size.nWidth );
+                src.pos.x = 0;
+            }
 
-                if( src.pos.y < 0 ) {
-                    nPos = std :: abs( src.pos.y );
-                    src.size.nHeight -= ( nPos < src.size.nHeight ? nPos :
-                                        src.size.nHeight );
-                    src.pos.y = 0;
-                }       
+            if( src.pos.y < 0 ) {
+                nPos = std :: abs( src.pos.y );
+                src.size.nHeight -= ( nPos < src.size.nHeight ? nPos :
+                                    src.size.nHeight );
+                src.pos.y = 0;
             }
 
             dst.pos.x        = ( int ) ( ( src.pos.x * m_pProps -> fZoomFactor ) + vp.pos.x );
@@ -294,8 +301,8 @@ namespace SunLight  {
             fClippingX       = ( float ) ( dst.pos.x + dst.size.nWidth );
             fClippingY       = ( float ) ( dst.pos.y + dst.size.nHeight );
 
-            if( fClippingX > vp.size.nWidth )  {
-                fClippingX-=vp.size.nWidth;
+            if( fClippingX > nFarX )  {
+                fClippingX-=nFarX;
 
                 if( fClippingX > dst.size.nWidth )
                     return false;
@@ -303,8 +310,8 @@ namespace SunLight  {
                 dst.size.nWidth-=( int ) fClippingX;
             }
 
-            if( fClippingY > vp.size.nHeight )  {
-                fClippingY-=vp.size.nHeight;
+            if( fClippingY > nFarY )  {
+                fClippingY-=nFarY;
 
                 if( fClippingY > dst.size.nHeight )
                     return false;

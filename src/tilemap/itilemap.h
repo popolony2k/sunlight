@@ -49,7 +49,20 @@ namespace SunLight {
             public:
 
             /**
-             * @brief Viewport based map alignment.
+             * @brief Viewport based map alignment: where LoadMap puts the camera
+             * so the map sits against the viewport's rectangle [pos, pos + size).
+             * TOP_*, BOTTOM_*, *_LEFT and *_RIGHT line the map's edge up with the
+             * viewport's; CENTER_* centre it on that axis.
+             *
+             * Two of them are NOT a plain "bottom edge against bottom edge":
+             * MAP_ALIGNMENT_BOTTOM_RIGHT and MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM
+             * put the camera at the start of the last whole "page" of the map,
+             * measured in multiples of the viewport's bottom edge E = pos.y +
+             * height: the vertical start is floor( mapHeight / E ) * E + pos.y.
+             * So on a map taller than the viewport the result moves in whole-E
+             * steps when the bottom edge changes (a 1920-pixel map, E = 910,
+             * pos.y = 10 starts at row 1830 = 2 * 910 + 10). This is
+             * long-standing behaviour, kept exactly.
              */
             enum MapAlignment  {
                 MAP_ALIGNMENT_CENTER              = 0,

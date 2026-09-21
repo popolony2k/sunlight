@@ -24,6 +24,8 @@
 #include "engines/iengine.h"
 #include "engines/enginefactory.h"
 #include <string>
+#include <utility>
+#include <vector>
 
 /**
  * @brief Test double for SunLight::Engines::IEngine - records call counts/
@@ -42,6 +44,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nLoadTextureCalls          = 0;
     int                                 nUnloadTextureCalls        = 0;
     int                                 nSetPixelCalls             = 0;
+    std :: vector<std :: pair<int, int>>  setPixelPositions;          // every SetPixel( x, y ), in order
     int                                 nDrawTextureCalls          = 0;
     int                                 nDrawTextureTiledCalls     = 0;
     int                                 nDrawFilledRectangleCalls  = 0;
@@ -94,6 +97,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
 
     void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color )  {
         nSetPixelCalls++;
+        setPixelPositions.push_back( std :: make_pair( nPosX, nPosY ) );
     }
 
     void DrawTexture( SunLight :: Base :: TextureHandle hTexture, int nPosX, int nPosY, SunLight :: Base :: stColor tint )  {

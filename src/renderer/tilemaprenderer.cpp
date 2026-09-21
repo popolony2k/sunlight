@@ -153,8 +153,11 @@ namespace SunLight {
 
             SunLight :: TileMap :: stDimension2D& vp = GetViewport().GetDimension2D();
 
-            if( ( nCoordX > vp.pos.x ) && ( nCoordX < vp.size. nWidth) &&
-                ( nCoordY  > vp.pos. y ) && ( nCoordY < vp.size.nHeight ) ) {
+            // The visible rectangle is [pos, pos + size): a pixel is drawn
+            // when it lies inside it (the top/left edge itself excluded, as
+            // it always was).
+            if( ( nCoordX > vp.pos.x ) && ( nCoordX < ( vp.pos.x + vp.size.nWidth ) ) &&
+                ( nCoordY > vp.pos.y ) && ( nCoordY < ( vp.pos.y + vp.size.nHeight ) ) ) {
                 SunLight :: Engines :: EngineFactory :: GetEngine().SetPixel( nCoordX, nCoordY, color );
             }
         }
@@ -1601,10 +1604,13 @@ namespace SunLight {
                                                                         vp.GetZoomProperties().fZoomFactor );
 
             // The vertical boundary is compared against the viewport's
-            // HEIGHT (it used to compare its width - a copy-paste of
-            // MoveCameraLeft's horizontal check - which only happened to
-            // work for a square viewport).
-            if( vp.GetDimension2D().size.nHeight < nMapBoundary )
+            // bottom edge (pos.y + height - it used to compare its WIDTH,
+            // a copy-paste of MoveCameraLeft's horizontal check, which only
+            // happened to work for a square viewport). The edge, not the
+            // bare height, because nMapBoundary is measured from the
+            // render target's origin: this keeps the scroll limit exactly
+            // where it always was for the same visible area.
+            if( ( vp.GetDimension2D().pos.y + vp.GetDimension2D().size.nHeight ) < nMapBoundary )
                 m_CameraPos.y-=m_nScrollStepHeight;
         }
 
@@ -1632,7 +1638,10 @@ namespace SunLight {
                                                                         + nErrorFix ) * 
                                                                         vp.GetZoomProperties().fZoomFactor );
 
-            if( vp.GetDimension2D().size.nWidth < nMapBoundary )
+            // Compared against the viewport's right edge (pos.x + width):
+            // nMapBoundary is measured from the render target's origin - see
+            // MoveCameraUp.
+            if( ( vp.GetDimension2D().pos.x + vp.GetDimension2D().size.nWidth ) < nMapBoundary )
                 m_CameraPos.x-=m_nScrollStepWidth;
         }
 
@@ -1928,7 +1937,7 @@ namespace SunLight {
                     ( ( nCoordY >= 0 ) && ( nCoordY < m_nMapHeight ) ) ) {
                     pos.nTileCol = ( int ) ( ( ( coord.x + vp.pos.x ) -
                                              m_CameraPos.x ) / m_pTmxMap -> tile_width );
-                    pos.nTileRow = ( int ) ( ( ( coord.y + vp.pos.x ) -
+                    pos.nTileRow = ( int ) ( ( ( coord.y + vp.pos.y ) -
                                              m_CameraPos.y ) / m_pTmxMap -> tile_height );
 
                     return ( ( pos.nTileCol >= 0 ) && ( pos.nTileRow >=0 ) );
@@ -1991,54 +2000,63 @@ namespace SunLight {
 
                 SunLight :: TileMap :: stDimension2D vp          = GetViewport().GetDimension2D();
                 float                                fZoomFactor = GetViewport().GetZoomProperties().fZoomFactor;
-                int                                  nVpHeight   = std :: abs( ( ( m_nMapHeight / vp.size.nHeight ) * vp.size.nHeight ) - m_nMapHeight );
+
+                // The viewport's right/bottom EDGES (pos + size). The
+                // alignment maths below aligns to the visible rectangle
+                // [pos, pos + size) using them - every "- nVpRight + vp.pos.x"
+                // is "minus the visible width" - so a viewport keeps the
+                // exact alignment it always produced for the same visible area.
+                int                                  nVpRight    = vp.pos.x + vp.size.nWidth;
+                int                                  nVpBottom   = vp.pos.y + vp.size.nHeight;
+                int                                  nVpHeight   = ( nVpBottom > 0 ?
+                                                                     std :: abs( ( ( m_nMapHeight / nVpBottom ) * nVpBottom ) - m_nMapHeight ) : 0 );
 
 
                 // Setup alignment
                 switch( alignment & 0xFF )  {
                     case MAP_ALIGNMENT_TOP_RIGHT :
-                        m_CameraPos.x = ( float ) -( m_nMapWidth - vp.size.nWidth + vp.pos.x );
+                        m_CameraPos.x = ( float ) -( m_nMapWidth - nVpRight + vp.pos.x );
                         break;
 
                     case MAP_ALIGNMENT_TOP_LEFT : // Nothing to do
                         break;
 
                     case MAP_ALIGNMENT_BOTTOM_RIGHT :
-                        m_CameraPos.x = ( float ) -( m_nMapWidth - vp.size.nWidth + vp.pos.x );
+                        m_CameraPos.x = ( float ) -( m_nMapWidth - nVpRight + vp.pos.x );
                         m_CameraPos.y = ( float ) -( m_nMapHeight - nVpHeight + vp.pos.y );
                         break;
 
                     case MAP_ALIGNMENT_BOTTOM_LEFT :
-                        m_CameraPos.y = ( float ) -( m_nMapHeight - vp.size.nHeight + vp.pos.y );
+                        m_CameraPos.y = ( float ) -( m_nMapHeight - nVpBottom + vp.pos.y );
                         break;
 
                     case MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM :
                         m_CameraPos.x = -round( ( ( ( ( m_nMapWidth * fZoomFactor ) -
-                                                    vp.size.nWidth + vp.pos.x ) / 2 ) / fZoomFactor ) );
+                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
                         m_CameraPos.y = ( float ) -( m_nMapHeight - nVpHeight + vp.pos.y );
                         break;
 
                     case MAP_ALIGNMENT_CENTER_WIDTH_TOP :
                         m_CameraPos.x = -round( ( ( ( ( m_nMapWidth * fZoomFactor ) -
-                                                    vp.size.nWidth + vp.pos.x ) / 2 ) / fZoomFactor ) );
+                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
                         break;
 
                     case MAP_ALIGNMENT_CENTER_HEIGHT_LEFT :
                         m_CameraPos.y = -round( ( ( ( ( m_nMapHeight * fZoomFactor ) -
-                                                    vp.size.nHeight + vp.pos.y ) / 2 ) / fZoomFactor ) );
+                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
                         break;
 
                     case MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT :
-                        m_CameraPos.x = ( float ) -( m_nMapWidth - vp.size.nWidth + vp.pos.x );
+                        m_CameraPos.x = ( float ) -( m_nMapWidth - nVpRight + vp.pos.x );
                         m_CameraPos.y = -round( ( ( ( ( m_nMapHeight * fZoomFactor ) -
-                                                    vp.size.nHeight + vp.pos.y ) / 2 ) / fZoomFactor ) );
+                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
                         break;
 
                     case MAP_ALIGNMENT_CENTER :
                         m_CameraPos.x = -round( ( ( ( ( m_nMapWidth * fZoomFactor ) -
-                                                    vp.size.nWidth + vp.pos.x ) / 2 ) / fZoomFactor ) );
+                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
                         m_CameraPos.y = -round( ( ( ( ( m_nMapHeight * fZoomFactor ) -
-                                                    vp.size.nHeight + vp.pos.y ) / 2 ) / fZoomFactor ) );
+                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
                         break;
                 }
 
