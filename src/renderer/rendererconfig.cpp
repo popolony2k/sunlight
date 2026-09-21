@@ -76,6 +76,9 @@ namespace SunLight {
                 strError = std :: string( "renderer backend '" ) + BackendName( backend ) + "' is not available in this build";
             else if( ( fWidth < 1.0f ) || ( fHeight < 1.0f ) )
                 strError = "renderer width and height must be at least 1 pixel";
+            else if( ( fullscreenStrategy != SunLight :: Window :: FULLSCREEN_STRATEGY_REAL ) &&
+                     ( fullscreenStrategy != SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED ) )
+                strError = "unknown fullscreen strategy value " + std :: to_string( ( int ) fullscreenStrategy );
 
             if( pError )
                 *pError = strError;

@@ -94,6 +94,29 @@ here — see the git log for that period.
 
 ### Added
 
+- **Fullscreen at window creation.** `RendererConfig::bFullscreen` (default `false`) and
+  `RendererConfig::fullscreenStrategy` (`FULLSCREEN_STRATEGY_REAL` by default, or
+  `FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED`) make the window come up ALREADY fullscreen instead of opening
+  windowed and being switched afterwards (asked for by Caravellius/Scarab, whose `main.lua` opened windowed,
+  loaded every module and only then called `SetFullscreen`). They are handed to `IWindow::Create`, which
+  gained two defaulted parameters (`bool bFullscreen = false, FullscreenStrategy strategy = REAL`), applied at
+  every `Start()` like the exit key, and validated (`RendererConfig::Validate` / `TileMapRenderer::Create`
+  reject a strategy outside the enum with `unknown fullscreen strategy value N`, even when fullscreen is
+  off). On the raylib backend the window is created HIDDEN, switched with exactly the call
+  `SetFullscreen( true, strategy )` makes - so each strategy, macOS's real fullscreen included, ends in the
+  same state as switching an open window (same monitor, same video-mode switch, same letterboxed result;
+  the engine still renders at its fixed internal resolution) - and only then shown, so the first thing on
+  screen is the fullscreen window and not an ordinary one that jumps. Raylib's own creation-time
+  `FLAG_FULLSCREEN_MODE` is deliberately NOT used: it picks its own video mode (the closest one at least as
+  large as the requested size), and `FLAG_BORDERLESS_WINDOWED_MODE` is not applied at creation at all.
+  `GetFullscreen()` reports the state right after `Create()`/`Start()`. The null backend accepts and
+  IGNORES both (never an error, `GetFullscreen()` stays false), so one configuration runs headless and
+  windowed alike. New: `IWindow::GetFullscreenStrategy()` and `IDrawSurface::GetFullscreenStrategy()`
+  (`TileMapRenderer` passes it through) - the strategy in effect, meaningful only while fullscreen, `REAL`
+  while windowed. New pure virtuals / a changed signature on `IWindow` and `IDrawSurface` (only the raylib
+  and null windows and the test mock implement them). Nothing changes with the defaults. The raylib path
+  needs a real display and is verified by hand on each platform.
+
 - **Sequences can be inspected and changed after they were built** (asked for by scarab-df):
   `Sprite::GetTextureSequenceSize(seq)` (entry count, -1 for an unknown sequence),
   `Sprite::SetTextureSequenceDelay(seq, delay)` (the delay of EVERY entry; the entry being shown is

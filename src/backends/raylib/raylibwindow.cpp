@@ -31,15 +31,45 @@ namespace SunLight  {
              * SetWindowResizeable's live SetWindowState/ClearWindowState
              * path instead). Success is judged by IsWindowReady() rather
              * than InitWindow itself, which returns nothing.
+             *
+             * A window that must come up fullscreen is created HIDDEN
+             * (FLAG_WINDOW_HIDDEN is honoured at creation: GLFW's visible hint),
+             * switched with exactly the call SetFullscreen makes - so each
+             * strategy, macOS's real fullscreen included, ends in the same
+             * state as switching a window that was already open - and only
+             * then shown, so the first thing ever on screen is the
+             * fullscreen window and not an ordinary one that jumps. Raylib's own
+             * creation-time flags are not used for this on purpose:
+             * FLAG_FULLSCREEN_MODE at InitWindow picks its own video mode (the
+             * closest one at least as large as the requested size) instead of
+             * going through the same window-size switch SetFullscreen does, and
+             * FLAG_BORDERLESS_WINDOWED_MODE is not applied at creation at all.
              */
-            bool RaylibWindow :: Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable )  {
+            bool RaylibWindow :: Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
+                                         bool bFullscreen, SunLight :: Window :: FullscreenStrategy strategy )  {
+
+                unsigned int  nFlags = 0;
 
                 if( bResizeable )
-                    ::SetConfigFlags( FLAG_WINDOW_RESIZABLE );
+                    nFlags |= FLAG_WINDOW_RESIZABLE;
+
+                if( bFullscreen )
+                    nFlags |= FLAG_WINDOW_HIDDEN;
+
+                if( nFlags != 0 )
+                    ::SetConfigFlags( nFlags );
 
                 ::InitWindow( nWidth, nHeight, szTitle );
 
-                return ::IsWindowReady();
+                if( !::IsWindowReady() )
+                    return false;
+
+                if( bFullscreen )  {
+                    SetFullscreen( true, strategy );
+                    ::ClearWindowState( FLAG_WINDOW_HIDDEN );
+                }
+
+                return true;
             }
 
             /**
@@ -167,6 +197,18 @@ namespace SunLight  {
             bool RaylibWindow :: GetFullscreen( void )  {
 
                 return ::IsWindowState( FLAG_FULLSCREEN_MODE ) || ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE );
+            }
+
+            /**
+             * @brief The strategy in effect, read from the same window
+             * state flags GetFullscreen reads: borderless-windowed when that
+             * flag is set, real fullscreen otherwise (also the answer while
+             * windowed - only meaningful while fullscreen).
+             */
+            SunLight :: Window :: FullscreenStrategy RaylibWindow :: GetFullscreenStrategy( void )  {
+
+                return ::IsWindowState( FLAG_BORDERLESS_WINDOWED_MODE ) ? SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED :
+                                                                          SunLight :: Window :: FULLSCREEN_STRATEGY_REAL;
             }
 
             /**

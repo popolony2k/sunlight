@@ -58,7 +58,9 @@ namespace SunLight  {
 
                 NullWindow( SunLight :: General :: VirtualClock &clock, bool bRealTimePacing );
 
-                bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable ) override;
+                bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
+                             bool bFullscreen = false,
+                             SunLight :: Window :: FullscreenStrategy strategy = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL ) override;
                 void Close( void ) override;
                 bool ShouldClose( void ) override;
                 void SetExitKey( SunLight :: Input :: KeyboardKey key ) override;
@@ -71,6 +73,7 @@ namespace SunLight  {
                                     SunLight :: Window :: FullscreenStrategy strategy =
                                         SunLight :: Window :: FULLSCREEN_STRATEGY_REAL ) override;
                 bool GetFullscreen( void ) override;
+                SunLight :: Window :: FullscreenStrategy GetFullscreenStrategy( void ) override;
 
                 double GetElapsedTime( void ) override;
 
@@ -90,6 +93,7 @@ namespace SunLight  {
                 bool                                 m_bRealTimePacing;
                 bool                                 m_bCreated        = false;
                 bool                                 m_bFullscreen     = false;
+                SunLight :: Window :: FullscreenStrategy m_Strategy    = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL;
                 int                                  m_nWidth          = 0;
                 int                                  m_nHeight         = 0;
                 int                                  m_nTargetFps      = 60;

@@ -83,10 +83,23 @@ namespace SunLight  {
              * applied at creation - the only point at which a backend can
              * set this without a live toggle (see @see
              * SetWindowResizeable for changing it afterward);
+             * @param bFullscreen Whether the window must come up already
+             * fullscreen, with no visible windowed phase first (the point of
+             * asking here instead of calling @see SetFullscreen right after
+             * Create: a backend can hide the window until the mode is
+             * applied). Behaves exactly like @see SetFullscreen( true,
+             * strategy ) called on the created window - same strategy, same
+             * resulting state, @see GetFullscreen true afterwards - just
+             * without the flash of an ordinary window. A backend without a
+             * real window (the null backend) accepts and ignores it;
+             * @param strategy Which fullscreen strategy to use when
+             * bFullscreen is true (ignored otherwise);
              * @return true if the window was created and is usable, false
              * if creation failed;
              */
-            virtual bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable ) = 0;
+            virtual bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
+                                 bool bFullscreen = false,
+                                 FullscreenStrategy strategy = FULLSCREEN_STRATEGY_REAL ) = 0;
 
             /**
              * @brief Must be implemented to destroy the window created by
@@ -191,6 +204,14 @@ namespace SunLight  {
              * @return true if the window is fullscreen, false if windowed;
              */
             virtual bool GetFullscreen( void ) = 0;
+
+            /**
+             * @brief Must be implemented to report which fullscreen
+             * strategy is in effect. Meaningful only while @see
+             * GetFullscreen is true; while windowed it answers
+             * FULLSCREEN_STRATEGY_REAL, the default.
+             */
+            virtual FullscreenStrategy GetFullscreenStrategy( void ) = 0;
 
             /**
              * @brief Must be implemented to report elapsed time in

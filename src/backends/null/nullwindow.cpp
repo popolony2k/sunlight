@@ -42,9 +42,12 @@ namespace SunLight  {
 
             /**
              * @brief "Create" the window: it just records its size and
-             * starts its elapsed-time count. Always succeeds.
+             * starts its elapsed-time count. Always succeeds. There is nothing
+             * to make fullscreen: the fullscreen request is accepted and IGNORED
+             * (never an error), so one configuration runs headless and windowed
+             * alike, and GetFullscreen() stays false until SetFullscreen is called.
              */
-            bool NullWindow :: Create( int nWidth, int nHeight, const char *, bool )  {
+            bool NullWindow :: Create( int nWidth, int nHeight, const char *, bool, bool, SunLight :: Window :: FullscreenStrategy )  {
 
                 m_nWidth         = nWidth;
                 m_nHeight        = nHeight;
@@ -130,9 +133,21 @@ namespace SunLight  {
                     m_FrameDeadline = now;
             }
 
-            void NullWindow :: SetFullscreen( bool bFullscreen, SunLight :: Window :: FullscreenStrategy )  {
+            void NullWindow :: SetFullscreen( bool bFullscreen, SunLight :: Window :: FullscreenStrategy strategy )  {
 
                 m_bFullscreen = bFullscreen;
+
+                if( bFullscreen )
+                    m_Strategy = strategy;
+            }
+
+            /**
+             * @brief The strategy last requested while fullscreen; REAL (the
+             * default) while windowed.
+             */
+            SunLight :: Window :: FullscreenStrategy NullWindow :: GetFullscreenStrategy( void )  {
+
+                return ( m_bFullscreen ? m_Strategy : SunLight :: Window :: FULLSCREEN_STRATEGY_REAL );
             }
 
             bool NullWindow :: GetFullscreen( void )  {
