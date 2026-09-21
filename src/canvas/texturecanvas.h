@@ -81,6 +81,8 @@ namespace SunLight {
             void SetAnimationMode( AnimationMode mode );
             AnimationMode GetAnimationMode( void );
 
+            void Advance( void );
+            void Draw( void );
             void Update( void );
         };
     }

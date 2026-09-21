@@ -52,8 +52,19 @@ namespace SunLight {
             SunLight :: Collision :: Collider& GetCollider( void );
 
             /**
+             * A frame is two halves: STATE (advance animation) and DRAWING
+             * (put the current state on screen). Advance() must run once per
+             * frame; Draw() changes no state, so it may run several times for
+             * the same frame (e.g. once per view). Children with animation
+             * state implement both; the defaults do nothing.
+             */
+            virtual void Advance( void )  {};
+            virtual void Draw( void )  {};
+
+            /**
              * Must be implemented by children objects to provide
-             * it's own draw behavior.
+             * it's own draw behavior. The classic single-call frame step:
+             * Advance() followed by Draw().
              */
             virtual void Update( void )  {};
         };

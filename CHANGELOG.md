@@ -13,6 +13,18 @@ here — see the git log for that period.
 
 ## [Unreleased]
 
+### Added
+
+- `TextureCanvas`/`Sprite` frame step split into its two halves: `Advance()` (the STATE half -
+  the animation mode's frame index, and for a `Sprite` the texture map's frame choice; once per
+  frame) and `Draw()` (puts the current state on screen and changes none, so it may run several
+  times for one frame - the groundwork for drawing the same scene into more than one view).
+  `Canvas` gained the virtual `Advance()`/`Draw()` (no-op defaults). `Update()` is unchanged in
+  behaviour: it is exactly `Advance()` then `Draw()`, and the renderer still calls it. Verified
+  byte-for-byte against the previous release: 219,133 recorded lines / 41,400 draw calls over all
+  six animation modes, several tile sizes, on-screen / partly off-screen / fully off-screen
+  positions, clock steps, frame delays, `Reset()`, sequence switches and visibility toggles.
+
 ### Changed
 
 - **BREAKING (semantics): a viewport's `size` is now a width/height, everywhere.** A

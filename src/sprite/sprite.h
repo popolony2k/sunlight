@@ -45,6 +45,10 @@ namespace SunLight {
             TextureSequenceList :: iterator m_itActiveSequence;
             bool                            m_bIsValidActiveSequence;
 
+            // Set by Advance(): this frame the texture map did NOT step to a
+            // new frame, so the current one is held (see Advance/Draw).
+            bool                            m_bFrameHeld;
+
             public:
 
             Sprite( void );
@@ -61,6 +65,8 @@ namespace SunLight {
 
             void Move( SunLight :: TileMap :: stCoordinate2D& step );
 
+            void Advance( void );
+            void Draw( void );
             void Update( void );
             void Unload( void );
         };
