@@ -27,6 +27,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <set>
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "drawsurface/idrawsurface.h"
@@ -154,6 +155,12 @@ namespace SunLight {
             View                                       *m_pActiveView;
             int                                        m_nNextViewId;
 
+            // Multi-pass frame (only used once an extra view exists - see RenderMap): the
+            // sprites already advanced this frame (a sprite advances ONCE per frame, however
+            // many views draw it), and the views of this frame's passes in draw order.
+            std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvancedSprites;
+            std :: vector<View*>                       m_PassViews;
+
             friend class View;
 
             View* ActivateView( View *pView );
@@ -245,6 +252,8 @@ namespace SunLight {
             inline void HandleUserUpdate( void );
             inline void HandleUserCollisions( void );
             inline void HandleSpriteUpdate( int nLayerId );
+            SunLight :: Base :: stColor BackgroundColorOf( View &view );
+            void DrawViewPasses( void );
 
             // Internal layer handlers
             void CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer );
@@ -283,6 +292,7 @@ namespace SunLight {
             int  GetTargetFPS( void );
             void SetWindowBackgroundColor( uint32_t nWindowBkColor );
             void SetClearBackground( bool bStatus );
+            bool GetClearBackground( void );
             void SetDrawFPS( bool bDrawFPS );
             bool GetDrawFPS( void );
             void SetFullscreen( bool bFullscreen,

@@ -49,6 +49,44 @@ here — see the git log for that period.
 
 ### Added
 
+- **Extra views are now DRAWN: the multi-view frame.** Each visible view gets its own pass over the
+  same map into the one render target, in draw order, painter's style (a later view paints over an
+  earlier one where they overlap): background cleared once, whole, as always -> for each view in
+  order: make it the active one, fill its rectangle with its background (extra views only), draw the
+  layers its mask lets through -> FPS counter once. A renderer that never calls `CreateView` runs the
+  exact same single call as before (animation trace identical to the previous release; camera trace
+  byte-identical). New on `IView`:
+  - `SetVisible`/`GetVisible` (a hidden view is skipped and keeps its state; the default view can be
+    hidden too), `SetDrawOrder`/`GetDrawOrder` (ascending; ties by id; the default view starts at 0, a
+    new view at its own id, so extras start on top);
+  - `SetClearBackground`/`GetClearBackground`, `SetBackgroundColor`, `UseMapBackgroundColor`: whether
+    the view's rectangle is filled before drawing, and with what (the map's own color by default; an
+    alpha < 255 blends over what is underneath). For the default view this is the frame's own
+    background - the same flag as `TileMapRenderer::SetClearBackground`, which also gained the missing
+    `GetClearBackground()`;
+  - the **layer mask**: `ShowLayer(id | name, bool)`, `ShowOnlyLayers(ids)`, `ShowAllLayers()`,
+    `IsLayerShown(id)`. A masked layer is skipped whole in that view - and so are the sprites
+    registered against it (they belong to their layer), exactly like `visible="0"` but for one view.
+    A masked group hides all of its children; a shown group applies the mask to each child - so
+    `ShowOnlyLayers` must list a child's group as well as the child. The mask is kept by id, so it
+    can be set before a map is loaded (by name needs the map);
+  - `FitToMap()`: largest zoom at which the whole map fits the view + camera at the map's top-left
+    (the minimap setup), computed in whole zoom steps (exact for a view that is exactly a fraction of
+    the map), clamped to the zoom range; `false` with no map.
+  Also `Viewport::GetZoomLimits(min&, max&)` (both INCLUSIVE, like `SetMinZoom`/`SetMaxZoom`).
+  Sprites advance **once per frame** however many views draw them: the first pass that reaches a sprite
+  runs `Update()`, later passes only `Draw()` (the `Advance()`/`Draw()` split of v0.30.0).
+  **Limits, by design of this first version:**
+  - every visible extra view costs another full pass over the map's tiles per frame (cost is N x);
+  - a sprite's position is relative to the viewport that draws it (no world coordinates yet), so the
+    same sprite appears at the same offset inside each view showing its layer - masks are how a view
+    is given the sprites it should show;
+  - a sprite that is outside the first pass's viewport does not advance that frame even if a later
+    view has it on screen;
+  - image layers (drawn at the screen origin, blind to camera and viewport) are drawn by the default
+    view only;
+  - collisions and input stay in default-view space.
+
 - `IView::GetScrollStepSize(int&, int&)` and `TileMapRenderer::GetScrollStepSize(int&, int&)`: read a
   view's scroll step back (until now only the setter existed, so the value - including the map tile
   size a `-1` resolves to at `LoadMap` - was readable nowhere). Reads exactly what the next

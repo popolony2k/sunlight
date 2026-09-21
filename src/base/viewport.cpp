@@ -165,6 +165,22 @@ namespace SunLight  {
         }
 
         /**
+         * Read the zoom limits back: the lowest and the highest zoom
+         * POSITION the viewport may be at, BOTH INCLUSIVE - the same
+         * convention @see SetMinZoom and @see SetMaxZoom take, so what was
+         * set is what is read (a viewport that was never limited reads
+         * ZOOM_POS_MIN and ZOOM_POS_MAX). The stored upper bound is
+         * exclusive internally; that is not what is returned.
+         * @param nMinPos Receives the minimum zoom position;
+         * @param nMaxPos Receives the maximum zoom position;
+         */
+        void Viewport :: GetZoomLimits( unsigned &nMinPos, unsigned &nMaxPos )  {
+
+            nMinPos = m_ZoomBorderLimits.first;
+            nMaxPos = m_ZoomBorderLimits.second - 1;
+        }
+
+        /**
          * Set zoom programatically.
          * @param nZoomPos The zoom to be applied;
          */
