@@ -32,14 +32,27 @@ namespace SunLight  {
              * path instead). Success is judged by IsWindowReady() rather
              * than InitWindow itself, which returns nothing.
              *
-             * A window that must come up fullscreen is created HIDDEN
-             * (FLAG_WINDOW_HIDDEN is honoured at creation: GLFW's visible hint),
-             * switched with exactly the call SetFullscreen makes - so each
-             * strategy, macOS's real fullscreen included, ends in the same
-             * state as switching a window that was already open - and only
-             * then shown, so the first thing ever on screen is the
-             * fullscreen window and not an ordinary one that jumps. Raylib's own
-             * creation-time flags are not used for this on purpose:
+             * A window that must come up fullscreen is switched with exactly the
+             * call SetFullscreen makes - so each strategy ends in the same state
+             * as switching a window that was already open - INSIDE this call,
+             * before it returns and so before any frame is drawn. That is the same
+             * moment Caravellius' Display.init() switches today (after the window
+             * exists, before the first frame), which is known to work on macOS.
+             *
+             * The two strategies differ in one thing: whether the window is hidden
+             * while it switches, to avoid a windowed flash.
+             *  - BORDERLESS_WINDOWED is created hidden (FLAG_WINDOW_HIDDEN is
+             *    honoured at creation: GLFW's visible hint), switched, then shown, so
+             *    the first thing on screen is the borderless window. Confirmed on
+             *    macOS by hand: it comes up correctly.
+             *  - REAL is NOT hidden. A window that entered macOS's real fullscreen
+             *    while hidden was seen (macOS, tested by hand by the project owner
+             *    through Scarab) to come up as an enlarged mirror of the desktop that
+             *    never rendered anything; the very same call on a visible window works.
+             *    So for REAL the window is created visible and switched immediately,
+             *    which costs at most a brief windowed window before the switch.
+             *
+             * Raylib's own creation-time flags are not used for this on purpose:
              * FLAG_FULLSCREEN_MODE at InitWindow picks its own video mode (the
              * closest one at least as large as the requested size) instead of
              * going through the same window-size switch SetFullscreen does, and
@@ -48,12 +61,14 @@ namespace SunLight  {
             bool RaylibWindow :: Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
                                          bool bFullscreen, SunLight :: Window :: FullscreenStrategy strategy )  {
 
-                unsigned int  nFlags = 0;
+                bool          bHideWhileSwitching = ( bFullscreen &&
+                                                      ( strategy == SunLight :: Window :: FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED ) );
+                unsigned int  nFlags              = 0;
 
                 if( bResizeable )
                     nFlags |= FLAG_WINDOW_RESIZABLE;
 
-                if( bFullscreen )
+                if( bHideWhileSwitching )
                     nFlags |= FLAG_WINDOW_HIDDEN;
 
                 if( nFlags != 0 )
@@ -66,7 +81,9 @@ namespace SunLight  {
 
                 if( bFullscreen )  {
                     SetFullscreen( true, strategy );
-                    ::ClearWindowState( FLAG_WINDOW_HIDDEN );
+
+                    if( bHideWhileSwitching )
+                        ::ClearWindowState( FLAG_WINDOW_HIDDEN );
                 }
 
                 return true;

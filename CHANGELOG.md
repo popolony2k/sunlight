@@ -135,11 +135,14 @@ here — see the git log for that period.
   gained two defaulted parameters (`bool bFullscreen = false, FullscreenStrategy strategy = REAL`), applied at
   every `Start()` like the exit key, and validated (`RendererConfig::Validate` / `TileMapRenderer::Create`
   reject a strategy outside the enum with `unknown fullscreen strategy value N`, even when fullscreen is
-  off). On the raylib backend the window is created HIDDEN, switched with exactly the call
-  `SetFullscreen( true, strategy )` makes - so each strategy, macOS's real fullscreen included, ends in the
-  same state as switching an open window (same monitor, same video-mode switch, same letterboxed result;
-  the engine still renders at its fixed internal resolution) - and only then shown, so the first thing on
-  screen is the fullscreen window and not an ordinary one that jumps. Raylib's own creation-time
+  off). On the raylib backend the window is switched with exactly the call
+  `SetFullscreen( true, strategy )` makes, inside `Create()` and so before the first frame - so each strategy,
+  macOS's real fullscreen included, ends in the same state as switching an open window (same monitor, same
+  video-mode switch, same letterboxed result; the engine still renders at its fixed internal resolution).
+  `BORDERLESS_WINDOWED` is created hidden and shown once switched (no windowed flash). `REAL` is created
+  VISIBLE and switched at once (at most a brief windowed window): on macOS, tested by hand through Scarab,
+  a window that entered real fullscreen while HIDDEN came up as a mirrored desktop that never rendered,
+  while the same call on a visible window works - exactly what Caravellius' `Display.init()` does today. Raylib's own creation-time
   `FLAG_FULLSCREEN_MODE` is deliberately NOT used: it picks its own video mode (the closest one at least as
   large as the requested size), and `FLAG_BORDERLESS_WINDOWED_MODE` is not applied at creation at all.
   `GetFullscreen()` reports the state right after `Create()`/`Start()`. The null backend accepts and
