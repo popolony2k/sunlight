@@ -48,7 +48,7 @@ namespace SunLight  {
 
                 m_nWidth         = nWidth;
                 m_nHeight        = nHeight;
-                m_dCreateSeconds = m_Clock.GetSeconds();
+                m_Elapsed        = SunLight :: General :: VirtualClock();
                 m_FrameDeadline  = RealClock :: now();
                 m_bCreated       = true;
 
@@ -99,7 +99,8 @@ namespace SunLight  {
             }
 
             /**
-             * @brief End a frame: advance virtual time by one frame, and -
+             * @brief End a frame: advance virtual time by one frame (counted,
+             * so time stays exact - see VirtualClock), and -
              * with real-time pacing - sleep until this frame's real-time
              * deadline. The deadline advances by a fixed step (no drift); if
              * the loop is running behind it is reset to "now" rather than
@@ -110,7 +111,11 @@ namespace SunLight  {
                 int     nFps = ( m_nTargetFps > 0 ) ? m_nTargetFps : __FALLBACK_FPS;
                 double  dDt  = 1.0 / ( double ) nFps;
 
-                m_Clock.Advance( dDt );
+                // Count the frame on both timelines at the current rate.
+                m_Clock.SetFrameRate( nFps );
+                m_Clock.AdvanceFrame();
+                m_Elapsed.SetFrameRate( nFps );
+                m_Elapsed.AdvanceFrame();
 
                 if( !m_bRealTimePacing )
                     return;
@@ -136,11 +141,12 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Virtual seconds since Create(); 0.0 before it and after Close().
+             * @brief Virtual seconds since Create() - exactly frames / fps,
+             * counted, not accumulated; 0.0 before it and after Close().
              */
             double NullWindow :: GetElapsedTime( void )  {
 
-                return m_bCreated ? ( m_Clock.GetSeconds() - m_dCreateSeconds ) : 0.0;
+                return m_bCreated ? m_Elapsed.GetSeconds() : 0.0;
             }
 
             /**

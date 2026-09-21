@@ -40,7 +40,8 @@ namespace SunLight  {
              * It also owns the run's notion of time. Each EndFrame() advances
              * the shared VirtualClock by one frame's worth (1 / target FPS),
              * so everything reading SunLight::General::Clock sees
-             * frames x dt. GetElapsedTime() mirrors the real backend's
+             * frames x dt (counted, not summed - exact at every whole-second
+             * boundary). GetElapsedTime() mirrors the real backend's
              * shape: 0.0 before Create(), counted from Create() and
              * restarting at zero on the next one, 0.0 again after Close().
              *
@@ -92,7 +93,12 @@ namespace SunLight  {
                 int                                  m_nWidth          = 0;
                 int                                  m_nHeight         = 0;
                 int                                  m_nTargetFps      = 60;
-                double                               m_dCreateSeconds  = 0.0;
+                // This window's own timeline: frames since Create(), counted
+                // (never summed) so GetElapsedTime is exact - see
+                // VirtualClock. Separate from the shared m_Clock so a
+                // restart's elapsed time is not a difference of two rounded
+                // values.
+                SunLight :: General :: VirtualClock  m_Elapsed;
                 RealClock :: time_point              m_FrameDeadline;
             };
         }

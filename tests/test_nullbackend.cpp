@@ -347,20 +347,113 @@ TEST_SUITE( "general/VirtualClock" )  {
         CHECK( clock.NowMilliseconds() == 1500 );
     }
 
-    TEST_CASE( "Whole frames of 1/60 s read back as intuitive milliseconds, with no drift over 18000 frames" )  {
+    TEST_CASE( "Counted frames are EXACT at every frame and every whole-second boundary (no accumulated drift)" )  {
+
+        SunLight :: General :: VirtualClock  clock;
+        int                                  nMismatches = 0;
+
+        clock.SetFrameRate( 60 );
+
+        for( int nFrame = 1; nFrame <= 18000; nFrame++ )  {
+            clock.AdvanceFrame();
+
+            // Exactly one division of the frame count - bit-for-bit.
+            if( clock.GetSeconds() != ( double ) nFrame / 60.0 )
+                nMismatches++;
+
+            // ...so every whole second is EXACTLY that integer (summing
+            // 1/60 misses all 300 of these: 300 frames = 4.999999999999988).
+            if( ( nFrame % 60 == 0 ) && ( clock.GetSeconds() != ( double ) ( nFrame / 60 ) ) )
+                nMismatches++;
+        }
+
+        CHECK( nMismatches == 0 );
+        CHECK( clock.GetSeconds() == 300.0 );
+        CHECK( clock.NowMilliseconds() == 300000 );
+    }
+
+    TEST_CASE( "The exact boundaries a script waiting on 'elapsed >= N' depends on: 5 s, 9 s and 84 s" )  {
 
         SunLight :: General :: VirtualClock  clock;
 
+        clock.SetFrameRate( 60 );
+
+        for( int nFrame = 0; nFrame < 300; nFrame++ )
+            clock.AdvanceFrame();
+        CHECK( clock.GetSeconds() == 5.0 );           // summed: 4.999999999999988
+        CHECK( clock.GetSeconds() >= 5.0 );
+
+        for( int nFrame = 300; nFrame < 540; nFrame++ )
+            clock.AdvanceFrame();
+        CHECK( clock.GetSeconds() == 9.0 );           // summed: 9.000000000000027
+
+        for( int nFrame = 540; nFrame < 5040; nFrame++ )
+            clock.AdvanceFrame();
+        CHECK( clock.GetSeconds() == 84.0 );          // summed: 83.99999999999652
+        CHECK( clock.GetSeconds() >= 84.0 );
+    }
+
+    TEST_CASE( "Milliseconds round to the nearest whole ms: 3 frames of 1/60 s read 50, not 49" )  {
+
+        SunLight :: General :: VirtualClock  clock;
+
+        clock.SetFrameRate( 60 );
+
         for( int nFrame = 0; nFrame < 3; nFrame++ )
-            clock.Advance( 1.0 / 60.0 );
+            clock.AdvanceFrame();
 
-        CHECK( clock.NowMilliseconds() == 50 );   // rounds, so 3 frames read 50, not 49
+        CHECK( clock.NowMilliseconds() == 50 );
+    }
 
-        for( int nFrame = 3; nFrame < 18000; nFrame++ )
-            clock.Advance( 1.0 / 60.0 );
+    TEST_CASE( "Changing the frame rate keeps the time so far and counts on at the new rate, exactly" )  {
 
-        CHECK( clock.GetSeconds() == doctest :: Approx( 300.0 ).epsilon( 1e-9 ) );
-        CHECK( clock.NowMilliseconds() == 300000 );
+        SunLight :: General :: VirtualClock  clock;
+
+        clock.SetFrameRate( 10 );
+
+        for( int nFrame = 0; nFrame < 20; nFrame++ )
+            clock.AdvanceFrame();
+        CHECK( clock.GetSeconds() == 2.0 );
+
+        clock.SetFrameRate( 60 );
+        CHECK( clock.GetSeconds() == 2.0 );           // nothing already elapsed is re-scaled
+
+        for( int nFrame = 0; nFrame < 60; nFrame++ )
+            clock.AdvanceFrame();
+        CHECK( clock.GetSeconds() == 3.0 );
+
+        // Setting the same rate again is a no-op (doesn't disturb the count).
+        clock.SetFrameRate( 60 );
+        clock.AdvanceFrame();
+        CHECK( clock.GetSeconds() == 3.0 + 1.0 / 60.0 );
+    }
+
+    TEST_CASE( "A non-positive frame rate falls back to 60" )  {
+
+        SunLight :: General :: VirtualClock  clock;
+
+        clock.SetFrameRate( 0 );
+
+        for( int nFrame = 0; nFrame < 60; nFrame++ )
+            clock.AdvanceFrame();
+        CHECK( clock.GetSeconds() == 1.0 );
+
+        clock.SetFrameRate( -5 );
+        clock.AdvanceFrame();
+        CHECK( clock.GetSeconds() == 1.0 + 1.0 / 60.0 );
+    }
+
+    TEST_CASE( "Advance and counted frames combine" )  {
+
+        SunLight :: General :: VirtualClock  clock;
+
+        clock.SetFrameRate( 10 );
+        clock.Advance( 5.0 );
+
+        for( int nFrame = 0; nFrame < 10; nFrame++ )
+            clock.AdvanceFrame();
+
+        CHECK( clock.GetSeconds() == 6.0 );
     }
 }
 
@@ -392,7 +485,7 @@ TEST_SUITE( "backends/null/NullWindow" )  {
         for( int nFrame = 0; nFrame < 60; nFrame++ )
             window.EndFrame();
 
-        CHECK( clock.GetSeconds() == doctest :: Approx( 1.0 ).epsilon( 1e-9 ) );
+        CHECK( clock.GetSeconds() == 1.0 );
 
         // A different rate changes the step.
         window.SetTargetFPS( 10 );
@@ -403,6 +496,57 @@ TEST_SUITE( "backends/null/NullWindow" )  {
         window.SetTargetFPS( 0 );
         window.EndFrame();
         CHECK( clock.GetSeconds() == doctest :: Approx( 1.1 + 1.0 / 60.0 ).epsilon( 1e-9 ) );
+    }
+
+    TEST_CASE( "GetElapsedTime is EXACTLY frames/fps: whole seconds are exact integers, never one frame late" )  {
+
+        SunLight :: General :: VirtualClock         clock;
+        SunLight :: Window :: Null :: NullWindow    window( clock, false );
+        int                                         nMismatches = 0;
+
+        window.Create( 100, 100, "t", false );
+        window.SetTargetFPS( 60 );
+
+        for( int nFrame = 1; nFrame <= 18000; nFrame++ )  {
+            window.EndFrame();
+
+            if( window.GetElapsedTime() != ( double ) nFrame / 60.0 )
+                nMismatches++;
+
+            // A script doing "while elapsed - start < D" must release on
+            // exactly the D-th second, not one frame later.
+            if( ( nFrame % 60 == 0 ) && ( window.GetElapsedTime() != ( double ) ( nFrame / 60 ) ) )
+                nMismatches++;
+
+            if( clock.GetSeconds() != window.GetElapsedTime() )
+                nMismatches++;
+        }
+
+        CHECK( nMismatches == 0 );
+        CHECK( window.GetElapsedTime() == 300.0 );
+    }
+
+    TEST_CASE( "Elapsed time restarts exactly from Create even when the shared clock is at an inexact time" )  {
+
+        SunLight :: General :: VirtualClock         clock;
+        SunLight :: Window :: Null :: NullWindow    window( clock, false );
+
+        window.SetTargetFPS( 60 );
+        window.Create( 100, 100, "t", false );
+
+        // 7 frames leaves the shared clock at 7/60 - not representable.
+        for( int nFrame = 0; nFrame < 7; nFrame++ )
+            window.EndFrame();
+
+        window.Close();
+        window.Create( 100, 100, "t", false );
+        CHECK( window.GetElapsedTime() == 0.0 );
+
+        for( int nFrame = 0; nFrame < 300; nFrame++ )
+            window.EndFrame();
+
+        // Not (7/60 + 300/60) - 7/60 with its rounding: exactly 5.
+        CHECK( window.GetElapsedTime() == 5.0 );
     }
 
     TEST_CASE( "GetElapsedTime is 0 before Create, counts virtual time from Create, restarts on the next Create, and is 0 after Close" )  {
@@ -692,7 +836,7 @@ TEST_SUITE( "backends/null/NullBackend + renderer" )  {
         pRenderer -> Run();
 
         // 120 frames at 60 FPS = exactly 2 virtual seconds.
-        CHECK( pRenderer -> GetElapsedTime() == doctest :: Approx( 2.0 ).epsilon( 1e-9 ) );
+        CHECK( pRenderer -> GetElapsedTime() == 2.0 );
 
         pRenderer -> Stop();
         CHECK( pRenderer -> GetElapsedTime() == 0.0 );   // after Stop, like the real backend
@@ -772,8 +916,12 @@ TEST_SUITE( "backends/null/NullBackend + renderer" )  {
         pRenderer -> Run();
 
         CHECK( listener.nUpdates == 18000 );
-        CHECK( pRenderer -> GetElapsedTime() == doctest :: Approx( 300.0 ).epsilon( 1e-6 ) );
-        CHECK( ( dTimeAtFrame9 - dTimeAtFrame1 ) == doctest :: Approx( 84.0 ).epsilon( 1e-6 ) );
+        // EXACT, not approximately: 18000 / 60 and 5040 / 60 are exact
+        // quotients (see VirtualClock) - a wait for "elapsed >= 84" must
+        // release on exactly the 5041st frame, not one after.
+        CHECK( pRenderer -> GetElapsedTime() == 300.0 );
+        CHECK( dTimeAtFrame1 == 0.0 );
+        CHECK( dTimeAtFrame9 == 84.0 );
 
         pRenderer -> Stop();
     }

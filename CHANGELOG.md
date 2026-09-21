@@ -13,6 +13,20 @@ here — see the git log for that period.
 
 ## [Unreleased]
 
+### Fixed
+
+- The null backend's virtual time drifted: `VirtualClock` summed `1/fps` per frame
+  (300 frames read 4.999999999999988, 5040 read 83.99999999999652 - all 300
+  whole-second boundaries up to 18000 frames were inexact), so a script waiting
+  for `elapsed >= N` seconds released one frame late whenever the sum undershot
+  (Caravellius' 84.0 s intro sync measured 84.133 s). Frames are now COUNTED and
+  time is `base + frames / fps` - one division, exact at every whole second
+  (`300 / 60` is exactly `5.0`, `5040 / 60` exactly `84.0`). `NullWindow` keeps
+  its own counted timeline for `GetElapsedTime`, so a restart's elapsed time is
+  exact too. `VirtualClock` gained `SetFrameRate`/`AdvanceFrame`; `Advance(double)`
+  remains for arbitrary steps. The tests now assert EXACT equality (they used a
+  tolerance, which is why they missed it).
+
 ### Changed
 
 - **Breaking (backend implementers only):** the window operations moved off
