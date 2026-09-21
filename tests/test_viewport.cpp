@@ -118,14 +118,152 @@ TEST_SUITE( "base/Viewport" )  {
         CHECK( vp.GetZoomFactor( 5000 ) == 1.9375f );  // (30 + 1) x 0.0625
 
         // Narrowing the border turns positions outside it into fallbacks;
-        // the upper bound is exclusive, the lower inclusive.
+        // both bounds are inclusive positions.
         vp.SetMaxZoom( 100 );
         vp.SetMinZoom( 10 );
-        CHECK( vp.GetZoomFactor( 99 )  == 6.25f );     // last valid position
-        CHECK( vp.GetZoomFactor( 100 ) == 1.9375f );   // excluded upper bound
+        CHECK( vp.GetZoomFactor( 100 ) == 6.3125f );   // last valid position (101 x 0.0625)
+        CHECK( vp.GetZoomFactor( 101 ) == 1.9375f );   // just past it: fallback
         CHECK( vp.GetZoomFactor( 150 ) == 1.9375f );
         CHECK( vp.GetZoomFactor( 10 )  == 0.6875f );   // first valid position
-        CHECK( vp.GetZoomFactor( 9 )   == 1.9375f );   // below the lower bound
+        CHECK( vp.GetZoomFactor( 9 )   == 1.9375f );   // just below it: fallback
+    }
+
+    TEST_CASE( "Zoom limits can be widened again as well as narrowed (validated against the absolute scale)" )  {
+
+        Viewport vp;
+
+        vp.SetMinZoom( 50 );
+        vp.SetMaxZoom( 60 );
+
+        vp.SetZoom( 20 );                                        // outside [50, 60]
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 50 );   // (clamped there by the narrowing, and stays)
+        vp.SetZoom( 100 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 50 );
+
+        // Widen both ways - used to be impossible (a one-way ratchet).
+        vp.SetMinZoom( 10 );
+        vp.SetMaxZoom( 200 );
+
+        vp.SetZoom( 20 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 20 );
+        vp.SetZoom( 200 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 200 );
+        vp.SetZoom( 201 );                                       // still outside
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 200 );
+
+        // Back to the full scale.
+        vp.SetMinZoom( ZOOM_POS_MIN );
+        vp.SetMaxZoom( ZOOM_POS_MAX );
+
+        vp.SetZoom( ZOOM_POS_MIN );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == ZOOM_POS_MIN );
+        vp.SetZoom( ZOOM_POS_MAX );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == ZOOM_POS_MAX );
+    }
+
+    TEST_CASE( "SetMaxZoom is an inclusive position: SetMaxZoom( ZOOM_POS_MAX ) leaves the whole scale usable" )  {
+
+        Viewport vp;
+
+        vp.SetMaxZoom( ZOOM_POS_MAX );
+
+        vp.SetZoom( ZOOM_POS_MAX );                      // used to be unreachable (254 was the last)
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == ZOOM_POS_MAX );
+        CHECK( vp.GetZoomProperties().fZoomFactor == ZOOM_FACTOR_MAX );
+
+        // ZoomIn stops AT the maximum, not one short of it.
+        vp.ZoomIn();
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == ZOOM_POS_MAX );
+
+        vp.SetMaxZoom( 20 );
+        vp.SetMinZoom( 10 );
+        vp.SetZoom( 20 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 20 );   // the maximum itself is allowed
+        vp.ZoomIn();
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 20 );
+
+        vp.SetZoom( 10 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 10 );   // so is the minimum
+        vp.ZoomOut();
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 10 );
+
+        vp.SetZoom( 21 );                                        // one past the maximum
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 10 );
+    }
+
+    TEST_CASE( "Zoom limit requests off the scale, or that would cross the other limit, are rejected and change nothing" )  {
+
+        Viewport vp;
+
+        vp.SetMinZoom( 10 );
+        vp.SetMaxZoom( 20 );
+
+        vp.SetMaxZoom( ZOOM_POS_COUNT );        // one past the last valid position
+        vp.SetMaxZoom( 5000 );
+        vp.SetMinZoom( ZOOM_POS_COUNT );
+        vp.SetMaxZoom( 5 );                     // would put max below min (10)
+        vp.SetMinZoom( 30 );                    // would put min above max (20)
+
+        // Limits still exactly [10, 20]: the edges accepted, beyond rejected.
+        vp.SetZoom( 20 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 20 );
+        vp.SetZoom( 10 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 10 );
+        vp.SetZoom( 21 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 10 );
+        vp.SetZoom( 9 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 10 );
+
+        // Min == max is a legal single-position range.
+        vp.SetMaxZoom( 10 );
+        vp.SetZoom( 10 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 10 );
+        vp.SetZoom( 11 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 10 );
+    }
+
+    TEST_CASE( "Narrowing the limits clamps the current and preferred zoom (and the factor) into the new range" )  {
+
+        Viewport vp;
+
+        vp.SetZoom( 100 );
+        vp.SetPreferredZoom( 100 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 100 );
+
+        // Max below the current position: both come down to the max.
+        vp.SetMaxZoom( 50 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 50 );
+        CHECK( vp.GetZoomProperties().nPreferredZoomPos == 50 );
+        CHECK( vp.GetZoomProperties().fZoomFactor == 3.1875f );   // 51 x 0.0625
+
+        // Min above them: both come up to the min.
+        vp.SetMaxZoom( ZOOM_POS_MAX );
+        vp.SetMinZoom( 120 );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 120 );
+        CHECK( vp.GetZoomProperties().nPreferredZoomPos == 120 );
+        CHECK( vp.GetZoomProperties().fZoomFactor == 7.5625f );   // 121 x 0.0625
+
+        // ResetZoom lands on the (clamped) preferred position, inside the range.
+        vp.ResetZoom();
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 120 );
+
+        // Widening doesn't move anything.
+        vp.SetMinZoom( ZOOM_POS_MIN );
+        CHECK( vp.GetZoomProperties().nCurrentZoomPos == 120 );
+    }
+
+    TEST_CASE( "GetEnableUserZoom reads back what SetEnableUserZoom last set" )  {
+
+        Viewport vp;
+
+        CHECK( vp.GetEnableUserZoom() == true );        // default: user zoom on
+
+        vp.SetEnableUserZoom( false );
+        CHECK( vp.GetEnableUserZoom() == false );
+        CHECK( vp.GetZoomProperties().bEnabledUserZoom == false );
+
+        vp.SetEnableUserZoom( true );
+        CHECK( vp.GetEnableUserZoom() == true );
     }
 
     TEST_CASE( "The public ZOOM_* constants describe the scale the viewport is actually built from" )  {

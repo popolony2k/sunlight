@@ -75,6 +75,7 @@ namespace SunLight  {
 
 
             void InitializeZoomEngine( void );
+            void ClampZoomToLimits( void );
 
             public:
 
@@ -82,6 +83,7 @@ namespace SunLight  {
             virtual ~Viewport( void );
 
             virtual void SetEnableUserZoom( bool bEnabled );
+            virtual bool GetEnableUserZoom( void );
             virtual void SetPreferredZoom( unsigned nZoomPos );
             virtual void SetMinZoom( unsigned nMinPos );
             virtual void SetMaxZoom( unsigned nMaxPos );
