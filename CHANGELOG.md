@@ -15,6 +15,39 @@ here — see the git log for that period.
 
 ### Fixed
 
+- **Two animation modes stepped through the wrong frames** (audited by caravellius-a5 against the code; the
+  frame sequences below are what the real library draws, measured before and after):
+  - **`TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR` stepped one frame PAST the last one every cycle.** It
+    wrapped to frame 0 only once the position had *reached* the sheet's width, so on a sheet of N frames it
+    also drew a source rectangle entirely outside the sheet (`[N]` below) once per cycle. It now wraps when
+    the *next* position would fall outside the sheet: every frame once per cycle, period N. (The first
+    `Update()` still shows frame 1, not frame 0 - unchanged.)
+  - **`TEXTURE_ANIMATION_MODE_AUTOMATIC_RIGHT_LEFT` held its two ends unevenly**: the last frame twice and
+    frame 0 THREE times in a row (period 2N + 1), because its turn-round steps re-showed the frame they
+    turned on and the next pass began by showing frame 0 again. It is now a true ping-pong that shows each
+    end once (period 2N - 2, the classic 0 1 2 3 2 1 0 1 ...); a sheet of fewer than two frames stays on
+    frame 0. Chosen by the owner after comparing the current version, "hold each end twice" and this one
+    side by side on the real Alien/Galileo/player-option sheets.
+  Tile shown at each successive step (N = frames on the sheet, starting index 0):
+
+  | Mode | N | Before | After |
+  |---|---|---|---|
+  | CIRCULAR | 3 | 1 2 [3] 0 1 2 [3] 0 | 1 2 0 1 2 0 1 2 0 |
+  | CIRCULAR | 4 | 1 2 3 [4] 0 1 2 3 [4] 0 | 1 2 3 0 1 2 3 0 1 2 3 0 |
+  | CIRCULAR | 5 | 1 2 3 4 [5] 0 1 2 3 4 [5] 0 | 1 2 3 4 0 1 2 3 4 0 |
+  | CIRCULAR | 8 | 1 2 3 4 5 6 7 [8] 0 1 2 … | 1 2 3 4 5 6 7 0 1 2 3 … |
+  | RIGHT_LEFT | 3 | 0 1 2 2 1 0 0 0 1 2 2 1 0 0 0 | 0 1 2 1 0 1 2 1 0 1 2 1 |
+  | RIGHT_LEFT | 4 | 0 1 2 3 3 2 1 0 0 0 1 2 3 3 2 1 0 0 0 | 0 1 2 3 2 1 0 1 2 3 2 1 0 |
+  | RIGHT_LEFT | 5 | 0 1 2 3 4 4 3 2 1 0 0 0 1 2 3 4 4 … | 0 1 2 3 4 3 2 1 0 1 2 3 4 3 2 1 0 |
+  | RIGHT_LEFT | 8 | 0 1 … 7 7 6 … 1 0 0 0 1 … | 0 1 … 7 6 5 4 3 2 1 0 1 … |
+
+  `ANIMATE_RIGHT`, `ANIMATE_LEFT`, `ANIMATE_CENTER` and `MANUAL` are unchanged (pinned by a test per mode).
+  Behaviour change to expect: a CIRCULAR cycle is one step shorter, and a RIGHT_LEFT cycle is 2N - 2 steps
+  instead of 2N + 1 (e.g. 6 instead of 9 on a 4-frame sheet, so it runs faster at the same delay). Sprite
+  animation trace over all six modes, several tile sizes, positions, clocks and delays: MANUAL and the three
+  `ANIMATE_*` modes byte-identical to the previous release; CIRCULAR and RIGHT_LEFT differ in 39 of 102 traced
+  cases each.
+
 - **`TextureMap` no longer keeps a `std::deque` iterator as its cursor (use-after-free once a sequence had
   thousands of entries).** The cursor - the texture currently shown - was a deque iterator set when the FIRST
   texture was added and kept across every later `push_back`, which the standard invalidates: once the deque
