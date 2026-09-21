@@ -22,6 +22,7 @@
 #define __ITILEMAP_H__
 
 #include "sprite/sprite.h"
+#include "tilemap/iview.h"
 #include "input/iinputhandler.h"
 #include "collision/icollisionmanager.h"
 
@@ -110,6 +111,45 @@ namespace SunLight {
              * @return S\The reference to IInputHandler object;
              */
             virtual SunLight :: Input :: IInputHandler& GetInputHandler( void ) = 0;
+
+            /**
+             * @brief The DEFAULT view (id 0): the one every camera, zoom
+             * and viewport operation on this interface refers to. Always
+             * exists, is never removed, and its handle is valid for the
+             * renderer's whole life. See @see IView.
+             */
+            virtual SunLight :: TileMap :: IView& GetDefaultView( void ) = 0;
+
+            /**
+             * @brief Create an additional view, showing the same world
+             * through its own camera, zoom and rectangle.
+             *
+             * @param rect The rectangle of the render target the view is
+             * shown in - [pos, pos + size), see Viewport;
+             * @return The new view's id (always > 0), to use with @see
+             * GetView and @see RemoveView;
+             */
+            virtual int CreateView( const SunLight :: TileMap :: stDimension2D& rect ) = 0;
+
+            /**
+             * @brief Get a view by id: 0 is the default view.
+             * @return The view, or nullptr if no such view exists;
+             */
+            virtual SunLight :: TileMap :: IView* GetView( int nViewId ) = 0;
+
+            /**
+             * @brief Remove a view created by @see CreateView. Its handle
+             * is invalid afterwards. The default view cannot be removed.
+             * @return true if it was removed, false if there is no such
+             * view (or it is the default view);
+             */
+            virtual bool RemoveView( int nViewId ) = 0;
+
+            /**
+             * @brief The number of views, the default view included (so at
+             * least 1).
+             */
+            virtual int GetViewCount( void ) = 0;
 
             /**
              * @brief Reset zoom to it's default state.

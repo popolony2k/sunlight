@@ -43,6 +43,27 @@ here — see the git log for that period.
 
 ### Added
 
+- **Views (state half): every renderer now has a default view, and more can be created.** A view
+  is the part of the scene's state that differs between two windows onto the same world: a
+  viewport (rectangle + zoom) and a camera position + scroll step. The map, its layers and the
+  sprites stay shared. New `SunLight::TileMap::IView` (`GetId`, `GetViewport`, `ZoomIn/Out`,
+  `ResetZoom`, `MoveCamera*`, `SetCameraPosition`/`GetCameraPosition`, `SetScrollStepSize`,
+  `ResetCamera`, `TileMapToTileMatrix`) and, on `ITileMap`/`TileMapRenderer`, `GetDefaultView()`
+  (view 0: wraps the renderer's own viewport and camera, so `renderer.MoveCameraLeft()` and
+  `renderer.GetDefaultView().MoveCameraLeft()` are the same operation), `CreateView(rect)` (returns
+  a new id; ids are never reused), `GetView(id)`, `RemoveView(id)` (the default view cannot be
+  removed) and `GetViewCount()`. A view does not reimplement camera/zoom logic: operating on one
+  briefly makes its state the renderer's working state, runs the renderer's own code, and puts
+  everything back - so an additional view scrolls, clamps and zooms exactly as the default one
+  (tested step by step against it) and cannot drift from it. A view created before a map is loaded
+  gets the map's tile size as its scroll step when `LoadMap` runs, like the default view.
+  **Additional views are not drawn yet**: this release adds only their state and control; drawing
+  them (with per-view layer masks, visibility, order) is the next release. Zero behaviour change
+  for existing code, proven against the previous release: the recorded animation trace is
+  identical and the camera/alignment trace differs only in the 42 lines already changed by the
+  previous release's `toTile` fix. New pure virtuals on `ITileMap` (`GetDefaultView`, `CreateView`,
+  `GetView`, `RemoveView`, `GetViewCount`) - a class implementing `ITileMap` itself must add them.
+
 - `TextureCanvas`/`Sprite` frame step split into its two halves: `Advance()` (the STATE half -
   the animation mode's frame index, and for a `Sprite` the texture map's frame choice; once per
   frame) and `Draw()` (puts the current state on screen and changes none, so it may run several

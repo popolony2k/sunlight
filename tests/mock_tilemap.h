@@ -56,6 +56,14 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
         throw std :: logic_error( "MockTileMap::GetInputHandler not mocked" );
     }
 
+    SunLight :: TileMap :: IView& GetDefaultView( void )  {
+        throw std :: logic_error( "MockTileMap::GetDefaultView not mocked" );
+    }
+    int CreateView( const SunLight :: TileMap :: stDimension2D & )  { return -1; }
+    SunLight :: TileMap :: IView* GetView( int )  { return nullptr; }
+    bool RemoveView( int )  { return false; }
+    int GetViewCount( void )  { return 1; }
+
     void ResetZoom( void )  {}
     void ZoomIn( void )  {}
     void ZoomOut( void )  {}
