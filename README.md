@@ -3,6 +3,10 @@
 <div align="center">
 <img src="/resources/sunny.png" alt="sunlight logo" title="sunny">
 
+[![CI](https://github.com/popolony2k/sunlight/actions/workflows/ci.yml/badge.svg)](https://github.com/popolony2k/sunlight/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/popolony2k/sunlight)](https://github.com/popolony2k/sunlight/releases/latest)
+[![License: zlib](https://img.shields.io/badge/license-zlib-blue.svg)](LICENSE)
+
 `sunlight` is an open source library written in C++ to make 2D games. Overall, its present main features include a manager that can deal with map, collision, sprites and graphic primitives.
 
 [raylib](https://www.raylib.com/) was used for graphic backend, but the project aims to be extended to SDL and many others. Rendering is exposed through an `IEngine` interface (`src/engines/`) so a new backend only needs its own implementation plus one line in the engine factory, without touching the rest of the codebase.
@@ -10,11 +14,14 @@
 
 ## Table of Contents :pushpin:
 * [API documentation](https://popolony2k.github.io/sunlight/) :book:
+* [Changelog](CHANGELOG.md) :scroll:
+* [License](LICENSE) (zlib) :page_facing_up:
 * [Requirements](#requirements-memo)
     - [CMake 3.24](#cmake-324)
     - [vcpkg](#vcpkg-windows-only)
     - [LibXML2](#libxml2)
     - [zlib](#zlib)
+    - [PhysFS](#physfs)
     - [raylib on linux](#raylib-dependencies-on-linux)
 * [HowTo](#howto-bulb)
     - [Using samples](#using-samples)
@@ -73,6 +80,10 @@ apt-get install zlib1g-dev
 
     Install zlib through [MacPorts](https://www.macports.org/) or [Homebrew](https://brew.sh/).
 
+### PhysFS
+
+[PhysFS](https://icculus.org/physfs/) backs `sunlight`'s virtual filesystem (mounting a loose directory or an archive so every resource read — textures, sound, tilemaps — goes through one path space). Like LibXML2/tmx/raylib, it is fetched and built automatically via `FetchContent`; no separate install is required.
+
 ### raylib dependencies on Linux
 
 You may find the detailed instructions by clicking [here](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux) and following the steps regarding the operational system you're using.
@@ -115,8 +126,14 @@ If you intend to use VsCode as your IDE, follow the instructions shown [here](/d
 
 ## Samples :sunny:
 
+Each sample takes its own directory as `argv[1]` and resolves its resources relative to it, e.g.:
+```shell
+./build/samples/sprite/sprite_test samples/sprite/
+```
+
 * [tilemaprenderer](/samples/tilemaprenderer/docs/README.md) — the minimal setup: loads a Tiled map and drives the renderer's camera/zoom, no sprites.
 * [sprite](/samples/sprite/docs/README.md) — builds on `tilemaprenderer` by adding an animated `Sprite` on top of the map.
 * [collision](/samples/collision/docs/README.md) — builds on `sprite` by making the sprite player-controlled and colliding it with a static obstacle via `CollisionManager`.
 * [gamepad](/samples/gamepad/docs/README.md) — builds on `collision` by giving two independent characters their own controller: one gamepad's left stick/DPad drives Sunny, the right stick/face buttons drive a second sprite.
 * [scriptprocessor](/samples/scriptprocessor/docs/README.md) — a scripted "stage intro" cutscene demonstrating `ScriptProcessor`: queued commands load a stage, slide sprites on screen, and play/pause/resume a tone via `SoundManager`, exercising every control-flow command (`WAIT_CMD`, `WAIT_SPRITES_QUEUE_EMPTY`, `LOOP_CMD`/`END_LOOP_CMD`, `LABEL_CMD`/`GOTO_LABEL_CMD`).
+* [multiview](/samples/multiview/docs/README.md) — the same map and the same character shown in three places at once (a main view, a minimap, and a zoomed close-up that follows the character), demonstrating `sunlight`'s multiple views (`TileMapRenderer::CreateView`) and world-space sprites (`Sprite::SetWorldSpace`).
