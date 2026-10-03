@@ -14,13 +14,13 @@ changes).
 
 | # | Item | Status |
 |---|------|--------|
-| A1 | AddressSanitizer job in CI | TODO |
+| A1 | AddressSanitizer job in CI | DONE |
 | A2 | Reject non-orthogonal maps with a clear error | TODO |
 | A3 | Compile-time check for the key mapping | TODO |
 | A4 | Document `Concurrent::Timer` hazards in its header | TODO |
 | A5 | Consolidate planning docs into this file (remove TODO, FIXME, MISSING_FEATURES) | TODO |
 | A6 | Reproduce the scroll-past-boundary FIXME, then close or fix it | TODO |
-| A7 | Fix `ScriptProcessor` deleting derived commands through `BaseCommand*` (found by ASan in A1) | TODO |
+| A7 | Fix `ScriptProcessor` deleting derived commands through `BaseCommand*` (found by ASan in A1) | DONE |
 
 **A1: AddressSanitizer in CI.** Add one Linux job, using the default GCC with
 `-fsanitize=address`, that builds and runs the full test suite with leak detection. It is
