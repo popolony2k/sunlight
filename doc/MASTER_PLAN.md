@@ -22,9 +22,11 @@ changes).
 | A6 | Reproduce the scroll-past-boundary FIXME, then close or fix it | TODO |
 | A7 | Fix `ScriptProcessor` deleting derived commands through `BaseCommand*` (found by ASan in A1) | TODO |
 
-**A1: AddressSanitizer in CI.** Add one Linux job (Clang, `-fsanitize=address`) running
-the full test suite. Linux is chosen because it is the cheapest runner and catches the
-same memory errors.
+**A1: AddressSanitizer in CI.** Add one Linux job, using the default GCC with
+`-fsanitize=address`, that builds and runs the full test suite with leak detection. It is
+Linux-only to keep build time down; Linux is the fastest runner and catches the same
+memory errors. AddressSanitizer also exists in MSVC (`/fsanitize=address`), so a Windows
+job can be added later if the Linux job finds problems that are worth checking there too.
 - Test items: the job runs the whole suite and fails on any ASan report; a deliberate
   use-after-free in a throwaway test fails the job.
 
