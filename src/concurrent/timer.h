@@ -33,8 +33,27 @@ namespace SunLight {
     namespace Concurrent  {
 
         /**
-         * @brief Timer class impleentation for handling interval event
-         * handling.
+         * @brief Calls a handler every interval, on a background thread, in REAL time.
+         *
+         * Read this before using it. The handler does NOT run on the thread that drives
+         * the renderer or the game:
+         *  - It runs on the timer's own thread, after each real-time sleep of the interval.
+         *    Nothing is synchronized with the frame loop, and the timeline is the wall
+         *    clock, not the injectable virtual clock (SunLight::General::Clock). Under a
+         *    headless run that is faster or slower than real time, the ticks land at
+         *    different points of the game than they would in a real window.
+         *  - A tick is skipped whenever the owner of the handler is busy. The Lua binding
+         *    (Scarab's timer_set) takes its lock with try_lock, so a tick that finds the
+         *    main thread inside Lua does nothing and is not retried.
+         *  - The handler must not touch engine, renderer or script state directly. Any
+         *    state it reads or writes must be protected by the same lock the main thread
+         *    uses, and it must not block on that lock, or Stop() can deadlock (Stop joins
+         *    this thread).
+         *  - Stop() joins the thread, so it must not be called from inside the handler.
+         *
+         * Use it for independent, real-time work that does not change game state (for
+         * example a timed log or a watchdog). Anything that must happen at a given point
+         * of the game belongs in the frame loop, driven by the game clock.
          */
         class Timer : public SunLight :: Base :: Object {
 
