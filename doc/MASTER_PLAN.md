@@ -18,7 +18,7 @@ changes).
 | A2 | Reject non-orthogonal maps with a clear error | TODO |
 | A3 | Compile-time check for the key mapping | TODO |
 | A4 | Document `Concurrent::Timer` hazards in its header | TODO |
-| A5 | Correct `doc/TODO.txt` against the code | TODO |
+| A5 | Consolidate planning docs into this file (remove TODO, FIXME, MISSING_FEATURES) | TODO |
 | A6 | Reproduce the scroll-past-boundary FIXME, then close or fix it | TODO |
 
 **A1: AddressSanitizer in CI.** Add one Linux job (Clang, `-fsanitize=address`) running
@@ -46,11 +46,14 @@ state except through the mutex. Keep the class: it is useful for independent tim
 tasks.
 - Test items: documentation only; the header is reviewed against the code.
 
-**A5: correct `doc/TODO.txt`.** Remove or correct items that are implemented (per-object
-visibility and position, layer visibility, opacity and offset) and mark what is still
-open (per-object opacity, sprite draw order within a layer, parallax and per-layer
-camera, isometric and hexagonal maps).
-- Test items: each line is checked against the code.
+**A5: consolidate planning docs.** This file is the only plan. Remove `doc/TODO.txt`,
+`doc/FIXME.txt` and `doc/MISSING_FEATURES.md`, moving any open item into this file first
+(their content is already here: the FIXME is A6, the TODO items are in C, D, E and L,
+and the open gaps are in "Docs, samples and tests"). Update the "Known issues" section
+of `CLAUDE.md` to point here. The CHANGELOG keeps its historical mention of
+`MISSING_FEATURES.md`, which is history rather than a live reference.
+- Test items: none of the three files exists; `CLAUDE.md` points to this file; every open
+  item from the three files appears here with a status.
 
 **A6: scroll-past-boundary FIXME.** `SetCameraPosition` deliberately does not clamp.
 Reproduce the reported access violation with a test that moves the camera outside the
@@ -286,9 +289,25 @@ Test items:
 
 ## Docs, samples and tests
 
-Done last, once the features they describe are settled: tidy the CHANGELOG (its
-Unreleased sections have grown long), update the README and sample docs, and extend the
-samples and tests where a feature needs a demonstration.
+Done last, once the features they describe are settled.
+
+| # | Item | Status |
+|---|------|--------|
+| T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | TODO |
+| T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | TODO |
+| T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | TODO |
+| T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | TODO |
+| T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | TODO |
+
+- T1: each warning is fixed, and the Doxygen run reports no new warnings.
+- T2 and T3: tests fail on a deliberate break of the loader or dispatch path.
+- T4 and T5: checked against the features as they are when this item is reached.
+
+## Out of scope for this plan
+
+- **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
+  today. The SDL backend is a large change of its own, and will be handled in a separate
+  plan, not in this one.
 
 ## Process
 
