@@ -69,10 +69,12 @@ empty tile for them without reading, and the tile-animation path and gid table h
 same bound checks. Tests: `tests/test_tilelookup_bounds.cpp` (the lookup and `GetTile` cases)
 and `tests/test_tilelookup_tilesets.cpp` (a gid past the tileset, and an animation frame past
 it, drawn through the renderer). Each fails on the old code and passes on the fix.
-- Peer impact (not yet raised): the earlier note that Caravellius is unaffected because
-  the game clamps the camera is wrong; the bad read does not depend on the camera. Any
-  game whose sprites reach the last strip of the map is affected, and the fix changes
-  their collision result there from a wrong tile to no tile.
+- Peer impact: the earlier note that Caravellius is unaffected because the game clamps the
+  camera was wrong - the bad read does not depend on the camera. Any game whose sprites
+  reach the last strip of the map can hit it, and the fix changes that collision result
+  from a wrong tile to no tile. Caravellius has not hit it so far (the maintainer's
+  observation, not a test). A stronger check against Caravellius is planned at the end of
+  the master plan, with its session.
 
 **A7: ScriptProcessor command deletion.** Commands are queued as `BaseCommand*` but are
 larger derived structs, and `BaseCommand` had no virtual destructor. Deleting through the
