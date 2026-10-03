@@ -98,9 +98,10 @@ Both were caught by reading the actual vendored source (`build/_deps/raylib-src/
 - Build and run the *full* suite (`./build/tests/sunlight_tests`) before calling a change done, not just the tests you touched.
 - **For a change that touches object lifetimes (destructors, raw-pointer holders like `Sprite`/`TileMapRenderer`'s registered sprites, shared/removed handles), also run the suite under AddressSanitizer** - a use-after-free or use-after-scope is invisible in a normal run when the stale read happens to see zeroes (it hid `~Sprite` reading dead canvases for years). Offline, reusing the sources a normal configure already fetched: `D=$PWD/build/_deps; cmake -B /tmp/build-asan -S . -DBUILD_LIBRARY_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DFETCHCONTENT_FULLY_DISCONNECTED=ON -DFETCHCONTENT_SOURCE_DIR_{LIBXML2=$D/libxml2-src,TMX=$D/tmx-src,RAYLIB=$D/raylib-src,PHYSFS=$D/physfs-src,DOCTEST=$D/doctest-src}` plus `-fsanitize=address -fno-omit-frame-pointer -g` in `CMAKE_C_FLAGS`/`CMAKE_CXX_FLAGS` and `-fsanitize=address` in `CMAKE_EXE_LINKER_FLAGS`/`CMAKE_SHARED_LINKER_FLAGS` (spell the four `-DFETCHCONTENT_SOURCE_DIR_*` options out - the brace form is shorthand), then build `sunlight_tests` and run it. A mutation that only ASAN can see (a dangling read that "works") cannot be proven by a plain test run.
 
-## Known issues (tracked in `doc/`)
-- `doc/FIXME.txt`: access violation when map scroll goes past viewport boundaries.
-- `doc/TODO.txt`: no isometric/hexagonal map support; per-layer parallax scrolling and per-object property management (opacity/visible/position) not implemented; sprite/layer draw-order still being finished.
+## Known issues and planned work
+
+The plan of record is `doc/MASTER_PLAN.md`: known bugs (the scroll-boundary FIXME is item A6),
+planned features, and open gaps are tracked there, with a status for each item.
 
 ## Git workflow
 
