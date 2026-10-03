@@ -882,7 +882,10 @@ namespace SunLight {
 
                                 if( pTilesetList )  {
                                     nNextFrmGID = ( pTilesetList -> firstgid + pTmxAnimFrm -> tile_id );
-                                    pAnimInfo -> pNextTile = m_pTmxMap -> tiles[nNextFrmGID];
+                                    // Same tilecount bound as GetTile: a frame gid past
+                                    // the tiles[] table has no tile to show.
+                                    pAnimInfo -> pNextTile = ( nNextFrmGID < m_pTmxMap -> tilecount ?
+                                                               m_pTmxMap -> tiles[nNextFrmGID] : NULL );
                                     pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration + nMillis );
                                     pTile = pAnimInfo -> pNextTile;
                                 }
@@ -892,6 +895,10 @@ namespace SunLight {
                             }
                             else  {
                                 pTile = ( ( __stTileAnimInfo * ) pTile -> user_data.pointer ) -> pNextTile;
+
+                                // A frame with no tile (see above) keeps the base tile on screen.
+                                if( !pTile )
+                                    pTile = tile.pTile;
                             }
                         }
 
@@ -2519,11 +2526,25 @@ namespace SunLight {
                                          const SunLight :: TileMap :: stLayer& layer,
                                          SunLight :: TileMap :: stTile& tile ) {
 
+            // A position off the map has no gid. Reading gids[] there would run past the
+            // array - the collision lookup reaches this with a sprite's position, and
+            // TileMapToTileMatrix used to hand back row/column values past the far edge
+            // (A6). An empty tile is the answer for those, same as for an unset gid.
+            if( ( pos.nTileRow < 0 ) || ( pos.nTileRow >= ( int ) m_pTmxMap -> height ) ||
+                ( pos.nTileCol < 0 ) || ( pos.nTileCol >= ( int ) m_pTmxMap -> width ) )  {
+                tile.nGID  = 0;
+                tile.pTile = NULL;
+
+                return false;
+            }
+
             tile.nGID = layer.pLayer -> content.gids[( pos.nTileRow *
                                                      m_pTmxMap -> width ) +
                                                      pos.nTileCol] &
                                                     TMX_FLIP_BITS_REMOVAL;
-            tile.pTile = ( m_pTmxMap -> tiles ? m_pTmxMap -> tiles[tile.nGID] : NULL );
+            // libtmx's tiles[] is only tilecount entries long: a gid past it has no tile.
+            tile.pTile = ( ( m_pTmxMap -> tiles && ( tile.nGID < m_pTmxMap -> tilecount ) ) ?
+                           m_pTmxMap -> tiles[tile.nGID] : NULL );
 
             if( !tile.pTile )  {
                 tile.nGID  = 0;
@@ -2567,7 +2588,14 @@ namespace SunLight {
                     pos.nTileRow = ( int ) ( ( ( coord.y + vp.pos.y ) -
                                              m_CameraPos.y ) / m_pTmxMap -> tile_height );
 
-                    return ( ( pos.nTileCol >= 0 ) && ( pos.nTileRow >=0 ) );
+                    // Both edges: GetTile indexes gids[] with these, and a
+                    // row/column past the far edge would read past the array. Only
+                    // the near edge used to be checked, so a sprite in the last
+                    // viewport-origin-sized strip of the map (the origin is added
+                    // above) got row/column == width/height (A6).
+                    return ( ( pos.nTileCol >= 0 ) && ( pos.nTileRow >= 0 ) &&
+                             ( pos.nTileCol < ( int ) m_pTmxMap -> width ) &&
+                             ( pos.nTileRow < ( int ) m_pTmxMap -> height ) );
                 }
             }
 
