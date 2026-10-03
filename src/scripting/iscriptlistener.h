@@ -23,32 +23,11 @@
 
 #include <stdint.h>
 #include <string>
+#include "scripting/command.h"
 
 
 namespace SunLight {
     namespace Scripting  {
-
-        /**
-         * @brief Scripting commands available for processing;
-         */
-        enum Commands  {
-            WAIT_CMD = 0,
-            MOVE_SPRITES_TO_SCREEN_CMD,
-            WAIT_SPRITES_QUEUE_EMPTY,
-            LOOP_CMD,
-            END_LOOP_CMD,
-            LABEL_CMD,
-            GOTO_LABEL_CMD,
-            PLAY_SONG_CMD,
-            PAUSE_SONG_CMD,
-            RESUME_SONG_CMD,
-            STOP_SONG_CMD,
-            PLAY_SONG_DIRECT_CMD,
-            PAUSE_SONG_DIRECT_CMD,
-            RESUME_SONG_DIRECT_CMD,
-            STOP_SONG_DIRECT_CMD,
-            LOAD_STAGE_CMD
-        };
 
         /**
          * @brief Event listener interface to respond script events.

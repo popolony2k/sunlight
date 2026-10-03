@@ -24,48 +24,12 @@
 #include <deque>
 #include <map>
 #include "base/object.h"
+#include "scripting/command.h"
 #include "scripting/iscriptlistener.h"
 
 
 namespace SunLight {
     namespace Scripting  {
-
-        /**
-         * @brief Base command used for all other defined commands;
-         */
-        struct BaseCommand  {
-            SunLight :: Scripting :: Commands   cmd;
-
-            /*
-             * The queue owns its commands through BaseCommand pointers, but the
-             * concrete commands are larger (they add parameters), so deleting one
-             * through a BaseCommand* without a virtual destructor is undefined
-             * behaviour - AddressSanitizer reports it as new-delete-type-mismatch.
-             */
-            virtual ~BaseCommand( void )  {}
-        };
-
-        /**
-         * @brief One parameter command data struct;
-         */
-        struct OneParmCommand : public SunLight :: Scripting :: BaseCommand  {
-            uint16_t      nParm;
-        };
-
-        /**
-         * @brief Two parameters command data struct;
-         */
-        struct TwoParmsCommand : public SunLight :: Scripting :: BaseCommand  {
-            uint16_t      nParm1;
-            uint16_t      nParm2;
-
-            /**
-             * @brief Internal command data;
-             */
-            struct CommandData  {
-                uint16_t      nCounter;
-            } data;
-        };
 
         /**
          * @brief Command queue definition;
