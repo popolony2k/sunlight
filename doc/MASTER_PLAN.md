@@ -66,8 +66,9 @@ heap-buffer-overflow at `GetTile`, with the camera at its default position: the 
 origin alone pushes a sprite in the last strip of the map past the edge. A camera offset
 widens that strip. Fixed: the lookup refuses positions off the map, `GetTile` returns an
 empty tile for them without reading, and the tile-animation path and gid table have the
-same bound checks. Tests: `tests/test_tilelookup_bounds.cpp` - it fails on the old lookup
-(three lookup cases, and the `GetTile` case aborts under ASan) and passes on the fix.
+same bound checks. Tests: `tests/test_tilelookup_bounds.cpp` (the lookup and `GetTile` cases)
+and `tests/test_tilelookup_tilesets.cpp` (a gid past the tileset, and an animation frame past
+it, drawn through the renderer). Each fails on the old code and passes on the fix.
 - Peer impact (not yet raised): the earlier note that Caravellius is unaffected because
   the game clamps the camera is wrong; the bad read does not depend on the camera. Any
   game whose sprites reach the last strip of the map is affected, and the fix changes
