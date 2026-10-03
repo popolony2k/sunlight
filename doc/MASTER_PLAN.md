@@ -20,6 +20,7 @@ changes).
 | A4 | Document `Concurrent::Timer` hazards in its header | TODO |
 | A5 | Consolidate planning docs into this file (remove TODO, FIXME, MISSING_FEATURES) | TODO |
 | A6 | Reproduce the scroll-past-boundary FIXME, then close or fix it | TODO |
+| A7 | Fix `ScriptProcessor` deleting derived commands through `BaseCommand*` (found by ASan in A1) | TODO |
 
 **A1: AddressSanitizer in CI.** Add one Linux job (Clang, `-fsanitize=address`) running
 the full test suite. Linux is chosen because it is the cheapest runner and catches the
@@ -62,6 +63,13 @@ keep the camera in bounds. Caravellius is not affected, because the game clamps 
 camera itself.
 - Test items: a failing reproduction test exists before the fix; after the fix it
   passes; if documented instead, a test pins the documented behaviour.
+
+**A7: ScriptProcessor command deletion.** Commands are queued as `BaseCommand*` but are
+larger derived structs, and `BaseCommand` had no virtual destructor. Deleting through the
+base pointer is undefined behaviour; the ASan job reports it as `new-delete-type-mismatch`
+in `ScriptProcessor::Clear()`. The fix is a virtual destructor on `BaseCommand`.
+- Test items: the ASan job passes on the fixed code and failed on the old code; the
+  scripting tests pass unchanged.
 
 ## Phase B: tile, text and remaining objects
 

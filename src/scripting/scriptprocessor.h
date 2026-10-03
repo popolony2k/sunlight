@@ -35,6 +35,14 @@ namespace SunLight {
          */
         struct BaseCommand  {
             SunLight :: Scripting :: Commands   cmd;
+
+            /*
+             * The queue owns its commands through BaseCommand pointers, but the
+             * concrete commands are larger (they add parameters), so deleting one
+             * through a BaseCommand* without a virtual destructor is undefined
+             * behaviour - AddressSanitizer reports it as new-delete-type-mismatch.
+             */
+            virtual ~BaseCommand( void )  {}
         };
 
         /**
