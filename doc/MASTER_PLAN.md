@@ -144,13 +144,28 @@ the viewport boundary.
 - Mutation checks: each rule has a deliberate mutant (wrong cap length, wrong edge rule,
   wrong zoom rounding) that a test must catch.
 
-## Phase D: isometric, staggered and hexagonal maps
+## Phase D: object rotation
 
 | # | Item | Status |
 |---|------|--------|
-| D1 | Isometric rendering (tile to pixel, pixel to tile) | TODO |
-| D2 | Staggered rendering | TODO |
-| D3 | Hexagonal rendering | TODO |
+| D1 | Apply Tiled object rotation to shapes, text and tile objects | TODO |
+
+**D1: object rotation.** libtmx parses each object's `rotation`, but `DrawObjects`
+ignores it. Rotate each shape's points about its pivot before drawing, so rotated shapes
+also get the thick-primitive work from Phase C. The pivot must follow Tiled's convention,
+which differs between rectangle, tile and text objects, so it is verified against Tiled
+before implementation.
+- Test items: rotation 0 is byte-identical to today; a 90 degree rectangle matches a
+  reference; a rotated text object is drawn at the rotated position; a rotated tile object
+  uses Tiled's pivot; a rotated thick outline matches the reference from Phase C.
+
+## Phase E: isometric, staggered and hexagonal maps
+
+| # | Item | Status |
+|---|------|--------|
+| E1 | Isometric rendering (tile to pixel, pixel to tile) | TODO |
+| E2 | Staggered rendering | TODO |
+| E3 | Hexagonal rendering | TODO |
 
 This is the largest feature. It needs its own design before implementation: coordinate
 conversion in both directions, `TileMapToTileMatrix` for each orientation, culling of
@@ -163,13 +178,47 @@ small test map, and a real-window check by the owner.
 
 ## Later
 
-| # | Item | Status |
-|---|------|--------|
-| L1 | Per-layer camera and parallax | TODO |
-| L2 | Per-object opacity | TODO |
-| L3 | Sprite draw order within a layer | TODO |
+### L1: per-layer camera and parallax
+Decisions taken:
+- Factors come from two sources: Tiled's `parallaxx`/`parallaxy` (libtmx already reads
+  them) and a code API (`SetLayerParallax`). The code value overrides the Tiled value.
+- A sprite follows its layer's factor only if it is in screen space. World-space
+  sprites stay in map coordinates.
+- Each layer's camera offset is `camera × factor`, and the map's parallax origin is
+  respected. A factor of 1 is unchanged.
 
-These need their own design before implementation.
+Test items:
+- A factor of 1 is byte-identical to today.
+- A factor of 0.5 moves the layer half as far as the camera, against a reference.
+- The parallax origin shifts the layer as expected.
+- The clamp and margins keep each layer's visible area inside its bounds.
+- Each view applies the factor to its own camera.
+- The code API overrides the Tiled value.
+- A screen-space sprite follows its layer's factor; a world-space sprite does not.
+
+### L2: per-object opacity
+Decision taken: option A. The object's custom `opacity` property (0 to 1) is used when
+present. Tiled objects have no opacity field of their own, but custom properties can be
+set on any object in the editor. When the property is absent, the object uses its
+layer's opacity, which is the current behaviour.
+
+Test items:
+- With no property, output is identical to the layer opacity.
+- A property of 0.5 halves the alpha of the drawn colour.
+- An invalid value logs a warning and falls back to the layer opacity.
+- A text object follows the same rule once B1 is done.
+
+### L3: sprite draw order within a layer
+- Add `SetZOrder(int)` to `Sprite`, default 0.
+- Sort each layer's sprites with a stable sort, only when a z-order changed. Equal
+  values keep insertion order.
+- Z-order applies only within a layer. Layers already order sprites between each other.
+
+Test items:
+- With every z-order at 0, output is byte-identical to today.
+- A higher z-order is drawn after a lower one on the same layer.
+- The sort is stable: equal values keep insertion order.
+- Sprites on different layers keep the layer order, whatever their z-values.
 
 ## Docs, samples and tests
 
