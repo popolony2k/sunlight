@@ -54,3 +54,43 @@ jobs:
 
       - name: Run unit tests
         run: ctest --test-dir build --output-on-failure -C Release
+
+  asan:
+    name: AddressSanitizer (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            zlib1g-dev \
+            libasound2-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            libglu1-mesa-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libwayland-dev \
+            libxkbcommon-dev
+
+      - name: Configure with AddressSanitizer
+        env:
+          ASAN_FLAGS: -fsanitize=address -fno-omit-frame-pointer -g
+        run: >
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DBUILD_LIBRARY_TESTS=ON
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          "-DCMAKE_C_FLAGS=$ASAN_FLAGS" "-DCMAKE_CXX_FLAGS=$ASAN_FLAGS"
+          "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address" "-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=address"
+
+      - name: Build unit tests
+        run: cmake --build build --target sunlight_tests -j 4
+
+      - name: Run unit tests under AddressSanitizer
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:abort_on_error=1
+        run: ./build/tests/sunlight_tests
