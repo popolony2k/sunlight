@@ -74,12 +74,13 @@ class MemoryFileSystemFixture  {
  * object layer holding one rectangle object.
  */
 inline Bytes MakeSquareTmx( int nTiles, int nTileSize, bool bWithRectangleObject = false,
-                            int nObjX = 0, int nObjY = 0, int nObjW = 0, int nObjH = 0 )  {
+                            int nObjX = 0, int nObjY = 0, int nObjW = 0, int nObjH = 0,
+                            const char *szOrientation = "orthogonal" )  {
 
     std :: ostringstream  tmx;
 
     tmx << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-        << "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"" << nTiles
+        << "<map version=\"1.0\" orientation=\"" << szOrientation << "\" renderorder=\"right-down\" width=\"" << nTiles
         << "\" height=\"" << nTiles << "\" tilewidth=\"" << nTileSize << "\" tileheight=\"" << nTileSize << "\">"
         << "<layer id=\"1\" name=\"ground\" width=\"" << nTiles << "\" height=\"" << nTiles << "\"><data encoding=\"csv\">";
 
