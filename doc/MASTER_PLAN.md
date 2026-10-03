@@ -79,35 +79,18 @@ tile's image at the object's position.
   tile object crossing the viewport edge is clipped.
 
 **B3: unknown types.** Object types that are not handled, and unknown layer types, log
-a warning once. Point objects are handled in Phase D5, not here.
+a warning once. Point objects are handled in Phase C5, not here.
 - Test items: an unknown type logs once; known types log nothing.
 
-## Phase C: isometric, staggered and hexagonal maps
+## Phase C: thick primitives
 
 | # | Item | Status |
 |---|------|--------|
-| C1 | Isometric rendering (tile to pixel, pixel to tile) | TODO |
-| C2 | Staggered rendering | TODO |
-| C3 | Hexagonal rendering | TODO |
-
-This is the largest feature. It needs its own design before implementation: coordinate
-conversion in both directions, `TileMapToTileMatrix` for each orientation, culling of
-off-screen tiles, and the draw order of tiles and sprites. Each orientation needs a
-small test map, and a real-window check by the owner.
-
-- Test items per orientation: tile-to-pixel and pixel-to-tile round-trip for every tile
-  of a small map; drawn positions match a reference; the viewport clip matches the
-  orthogonal rule; the existing orthogonal harnesses are unchanged.
-
-## Phase D: thick primitives
-
-| # | Item | Status |
-|---|------|--------|
-| D1 | Thick lines, with square caps | TODO |
-| D2 | Thick polylines and polygons | TODO |
-| D3 | Thick rectangles | TODO |
-| D4 | Thick ellipses | TODO |
-| D5 | Points as squares | TODO |
+| C1 | Thick lines, with square caps | TODO |
+| C2 | Thick polylines and polygons | TODO |
+| C3 | Thick rectangles | TODO |
+| C4 | Thick ellipses | TODO |
+| C5 | Points as squares | TODO |
 
 **Decisions already taken:**
 - Stroke width scales with zoom: screen width is `thickness × zoomFactor`, rounded
@@ -128,7 +111,7 @@ clipped to the viewport before the engine is called. A per-pixel `SetPixel` loop
 used, because it costs one engine call per pixel, and a single engine call would bypass
 the viewport boundary.
 
-**D1: thick lines.** Perpendicular span code and the square cap rule.
+**C1: thick lines.** Perpendicular span code and the square cap rule.
 - Test items: width 1 is byte-identical to today's `LineBresenham`, including lines on
   the top and left viewport edges; widths 2 to 5 at several angles match a brute-force
   reference rasterizer; a line crossing each viewport edge and a corner is cut at the
@@ -137,29 +120,46 @@ the viewport boundary.
   of `DrawFilledRectangle` calls equals the number of spans and is far below the pixel
   count.
 
-**D2: thick polylines and polygons.** Joins have no gaps.
+**C2: thick polylines and polygons.** Joins have no gaps.
 - Test items: a sharp corner has no gap, checked against the reference; a polygon's
   closing segment is drawn only with more than two points, as today; width 1 output is
   byte-identical.
 
-**D3: thick rectangles.** Four thick edges.
+**C3: thick rectangles.** Four thick edges.
 - Test items: matches the reference, including shared corners; width 1 output is
   byte-identical.
 
-**D4: thick ellipses.** A ring between an outer and an inner radius.
+**C4: thick ellipses.** A ring between an outer and an inner radius.
 - Test items: matches a reference ring; width 1 output is byte-identical to the midpoint
   output; an ellipse crossing the boundary is clipped at the reference's pixels.
 
-**D5: points.** A point of size `s` at zoom `z` is a filled square of side
+**C5: points.** A point of size `s` at zoom `z` is a filled square of side
 `round(s × z)`, minimum 1. This also closes the point-object gap from B.
 - Test items: the side length follows the rule; a point on the viewport edge follows the
   strict rule; a Tiled point object draws as a point.
 
-**Across all of Phase D**
+**Across all of Phase C**
 - Byte-identical harnesses at default width (the animation and camera traces).
 - Full suite under AddressSanitizer.
 - Mutation checks: each rule has a deliberate mutant (wrong cap length, wrong edge rule,
   wrong zoom rounding) that a test must catch.
+
+## Phase D: isometric, staggered and hexagonal maps
+
+| # | Item | Status |
+|---|------|--------|
+| D1 | Isometric rendering (tile to pixel, pixel to tile) | TODO |
+| D2 | Staggered rendering | TODO |
+| D3 | Hexagonal rendering | TODO |
+
+This is the largest feature. It needs its own design before implementation: coordinate
+conversion in both directions, `TileMapToTileMatrix` for each orientation, culling of
+off-screen tiles, and the draw order of tiles and sprites. Each orientation needs a
+small test map, and a real-window check by the owner.
+
+- Test items per orientation: tile-to-pixel and pixel-to-tile round-trip for every tile
+  of a small map; drawn positions match a reference; the viewport clip matches the
+  orthogonal rule; the existing orthogonal harnesses are unchanged.
 
 ## Later
 
