@@ -2579,6 +2579,24 @@ namespace SunLight {
          * @param szTmxMapFile Renderer map file;
          * @param alignment Map alignment according @link MapAlignment enumerator;
          */
+        namespace {
+
+            /**
+             * The name of a map orientation, for messages.
+             * @param orient The orientation libtmx parsed;
+             */
+            const char* OrientationName( tmx_map_orient orient )  {
+
+                switch( orient )  {
+                    case O_ORT : return "orthogonal";
+                    case O_ISO : return "isometric";
+                    case O_STA : return "staggered";
+                    case O_HEX : return "hexagonal";
+                    default    : return "unknown";
+                }
+            }
+        }
+
         bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
 
             if( m_bIsStarted )  {
@@ -2652,6 +2670,26 @@ namespace SunLight {
 
                 if( !m_pTmxMap ) {
                     ::tmx_perror( "Cannot load map" );
+
+                    if( pRcMgr )
+                        ::tmx_free_resource_manager( pRcMgr );
+
+                    return false;
+                }
+
+                /*
+                 * Only orthogonal maps are drawn correctly: the tile-to-pixel maths
+                 * assumes a square grid. An isometric, staggered or hexagonal map would
+                 * load and draw in the wrong places with no error, so refuse it here.
+                 * Freed the same way UnloadMap frees a map: the map first, then the
+                 * manager it points into.
+                 */
+                if( m_pTmxMap -> orient != O_ORT )  {
+                    fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal maps are supported.\n",
+                             szTmxMapFile, OrientationName( m_pTmxMap -> orient ) );
+
+                    ::tmx_map_free( m_pTmxMap );
+                    m_pTmxMap = nullptr;
 
                     if( pRcMgr )
                         ::tmx_free_resource_manager( pRcMgr );

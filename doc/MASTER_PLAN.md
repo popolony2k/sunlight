@@ -15,7 +15,7 @@ changes).
 | # | Item | Status |
 |---|------|--------|
 | A1 | AddressSanitizer job in CI | DONE |
-| A2 | Reject non-orthogonal maps with a clear error | TODO |
+| A2 | Reject non-orthogonal maps with a clear error | DONE |
 | A3 | Compile-time check for the key mapping | TODO |
 | A4 | Document `Concurrent::Timer` hazards in its header | TODO |
 | A5 | Consolidate planning docs into this file (remove TODO, FIXME, MISSING_FEATURES) | TODO |
