@@ -19,7 +19,7 @@ changes).
 | A3 | Key codes match raylib by name, with compile-time tables | DONE |
 | A4 | Document `Concurrent::Timer` hazards in its header | DONE |
 | A5 | Consolidate planning docs into this file (remove TODO, FIXME, MISSING_FEATURES) | DONE |
-| A6 | Reproduce the scroll-past-boundary FIXME, then close or fix it | TODO |
+| A6 | Reproduce the scroll-past-boundary FIXME, then close or fix it | DONE |
 | A7 | Fix `ScriptProcessor` deleting derived commands through `BaseCommand*` (found by ASan in A1) | DONE |
 
 **A1: AddressSanitizer in CI.** Add one Linux job, using the default GCC with
@@ -58,13 +58,23 @@ of `CLAUDE.md` to point here. The CHANGELOG keeps its historical mention of
 - Test items: none of the three files exists; `CLAUDE.md` points to this file; every open
   item from the three files appears here with a status.
 
-**A6: scroll-past-boundary FIXME.** `SetCameraPosition` deliberately does not clamp.
-Reproduce the reported access violation with a test that moves the camera outside the
-map. Then either fix it (clamp, or guard the draw path) or document that callers must
-keep the camera in bounds. Caravellius is not affected, because the game clamps the
-camera itself.
-- Test items: a failing reproduction test exists before the fix; after the fix it
-  passes; if documented instead, a test pins the documented behaviour.
+**A6: scroll-past-boundary FIXME.** `SetCameraPosition` deliberately does not clamp, but
+the camera was not the cause. The collision lookup (`TileMapToTileMatrix`, then `GetTile`)
+checked row and column only against zero, so a sprite near the far edge produced a row or
+column at the map's size and `GetTile` read `gids[]` past its end. ASan reports this as a
+heap-buffer-overflow at `GetTile`, with the camera at its default position: the viewport
+origin alone pushes a sprite in the last strip of the map past the edge. A camera offset
+widens that strip. Fixed: the lookup refuses positions off the map, `GetTile` returns an
+empty tile for them without reading, and the tile-animation path and gid table have the
+same bound checks. Tests: `tests/test_tilelookup_bounds.cpp` (the lookup and `GetTile` cases)
+and `tests/test_tilelookup_tilesets.cpp` (a gid past the tileset, and an animation frame past
+it, drawn through the renderer). Each fails on the old code and passes on the fix.
+- Peer impact: the earlier note that Caravellius is unaffected because the game clamps the
+  camera was wrong - the bad read does not depend on the camera. Any game whose sprites
+  reach the last strip of the map can hit it, and the fix changes that collision result
+  from a wrong tile to no tile. Caravellius has not hit it so far (the maintainer's
+  observation, not a test). A stronger check against Caravellius is planned at the end of
+  the master plan, with its session.
 
 **A7: ScriptProcessor command deletion.** Commands are queued as `BaseCommand*` but are
 larger derived structs, and `BaseCommand` had no virtual destructor. Deleting through the
