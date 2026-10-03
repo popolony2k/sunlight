@@ -176,6 +176,70 @@ small test map, and a real-window check by the owner.
   of a small map; drawn positions match a reference; the viewport clip matches the
   orthogonal rule; the existing orthogonal harnesses are unchanged.
 
+## Phase F: input configuration
+
+| # | Item | Status |
+|---|------|--------|
+| F1 | Device list and hot-plug events | TODO |
+| F2 | Player slots: claim, release, reassign after unplug | TODO |
+| F3 | Action map: named actions, rebinding, load and save | TODO |
+| F4 | Tunable dead zones and thresholds per pad and axis | TODO |
+| F5 | Duplicate pad registration is ignored | TODO |
+| F6 | Default handlers are opt-in, and a game can take over input | TODO |
+| F7a | Rumble interface, factory, null and mock implementations (no real device) | TODO |
+| F7b | Real rumble backend, once a platform that vibrates is chosen | TODO |
+
+Today the renderer only polls gamepads a caller has added with `AddGamePad`. It does
+not detect devices, react to connect or disconnect, or let a game remap actions.
+Dead zones are fixed at 0.1 and triggers at -0.9. Default handlers are installed unless
+`bUseDefaultKeyHandler` is false. Caravellius polls its own input through the Lua
+functions that Scarab provides.
+
+**Coordination rule for this phase:** any change to a sunlight input signature also
+lists the Scarab wrappers and Caravellius call sites it affects, and those are updated in
+the same coordination.
+
+**F1: device list and hot-plug.** Expose the connected pads and their names, and raise
+connect and disconnect events. This needs new `IInputHandler` methods, so the mock is
+updated in the same change.
+- Test items: a scripted connect and disconnect through the mock is reported once each;
+  the null backend reports no devices.
+
+**F2: player slots.** A pad is claimed by a slot, released on request, and reassigned
+after an unplug. Slots are a sunlight concept, so the game decides how many there are.
+- Test items: unplug and replug keeps the slot; releasing a slot frees the pad; claiming
+  an already claimed pad is refused.
+
+**F3: action map.** Named actions bound to keys, buttons or axes, with rebinding at run
+time and load and save. Sunlight provides the mechanism. Each game names its own actions
+and keeps its bindings in its own files. The file format is decided before implementation.
+- Test items: a rebind round trip; a saved file reloads to the same bindings; a
+  conflicting binding is reported.
+
+**F4: dead zones and thresholds.** Configurable per pad and per axis, with today's values
+as the defaults.
+- Test items: a value exactly at the boundary behaves as specified; defaults match today.
+
+**F5: duplicate pads.** A pad added twice is dispatched once.
+- Test items: adding the same id twice produces one dispatch per event.
+
+**F6: opt-in default handlers.** The camera handlers become opt-in, and the docs explain
+how a game takes over input.
+- Test items: with the defaults off, no camera handler fires; the samples still work.
+
+**F7a: rumble interface.** A separate `IGamepadHaptics` interface with `IsSupported`,
+`SetVibration(pad, left, right, duration)` and `Stop(pad)`, strengths from 0 to 1. It
+gets a factory, a null implementation that reports unsupported, and a recording mock.
+Nothing is wired to a real device.
+- Test items: a game that checks `IsSupported` can skip an effect; calls reach the mock
+  with the exact arguments; the null implementation never errors.
+
+**F7b: rumble backend.** A real implementation, once a platform that vibrates is chosen.
+raylib's desktop build does not vibrate, so this may need another library or a custom
+backend. Real behaviour can only be proven here, so this item stays open until then.
+- Test items: on the chosen platform, each motor responds and stops on `Stop`; a
+  disconnected pad reports unsupported.
+
 ## Later
 
 ### L1: per-layer camera and parallax
