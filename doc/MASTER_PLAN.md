@@ -319,6 +319,13 @@ Done last, once the features they describe are settled.
   today. The SDL backend is a large change of its own, and will be handled in a separate
   plan, not in this one.
 
+## Design decisions
+
+- **libtmx types in the public API (decided, as is).** `stLayer::pLayer`, `stTile::pTile`
+  and `stMapInfo::pMap` expose libtmx's own structures. libtmx is a supported dependency,
+  and these fields are for advanced use. Whether to hide them behind opaque handles is a
+  possible future discussion, not part of this plan.
+
 ## Process
 
 - Items are closed one at a time, in phase order, unless the owner decides otherwise.
