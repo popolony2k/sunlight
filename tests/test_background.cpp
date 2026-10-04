@@ -19,9 +19,9 @@ typedef MockEngine :: Event              Event;
 
 namespace  {
 
-    // The map colour is ARGB: 0xFF102030 is R 0x10, G 0x20, B 0x30.
-    const uint32_t  g_nMapColor    = 0xFF102030;
-    const uint32_t  g_nWindowColor = 0xFF301010;
+    // The map colour is "#ff102030" in the TMX (ARGB): R 0x10, G 0x20, B 0x30.
+    const SunLight :: Base :: stColor  g_MapColor    { 0x10, 0x20, 0x30, 0xFF };
+    const SunLight :: Base :: stColor  g_WindowColor { 0x30, 0x10, 0x10, 0xFF };
 
     Bytes MakeMap( void )  {
 
@@ -94,9 +94,8 @@ namespace  {
             return nullptr;
         }
 
-        static bool SameColor( SunLight :: Base :: stColor c, uint32_t nArgb )  {
-            return c.nAlpha == ( ( nArgb >> 24 ) & 0xFF ) && c.nRed == ( ( nArgb >> 16 ) & 0xFF ) &&
-                   c.nGreen == ( ( nArgb >> 8 ) & 0xFF ) && c.nBlue == ( nArgb & 0xFF );
+        static bool SameColor( SunLight :: Base :: stColor a, SunLight :: Base :: stColor b )  {
+            return a.nRed == b.nRed && a.nGreen == b.nGreen && a.nBlue == b.nBlue && a.nAlpha == b.nAlpha;
         }
     };
 }
@@ -110,7 +109,7 @@ TEST_SUITE( "renderer/background colours" )  {
         scene.RunFrames( 1 );
 
         REQUIRE( scene.FirstClear() != nullptr );
-        CHECK( Scene :: SameColor( scene.FirstClear() -> color, g_nMapColor ) );
+        CHECK( Scene :: SameColor( scene.FirstClear() -> color, g_MapColor ) );
         CHECK( scene.FirstFill() == nullptr );
     }
 
@@ -118,15 +117,15 @@ TEST_SUITE( "renderer/background colours" )  {
 
         Scene  scene;
 
-        scene.pRenderer -> SetWindowBackgroundColor( g_nWindowColor );
+        scene.pRenderer -> SetWindowBackgroundColor( g_WindowColor );
         scene.RunFrames( 1 );
 
         REQUIRE( scene.FirstClear() != nullptr );
-        CHECK( Scene :: SameColor( scene.FirstClear() -> color, g_nWindowColor ) );
+        CHECK( Scene :: SameColor( scene.FirstClear() -> color, g_WindowColor ) );
 
         // The viewport is filled after the window clear, with the map's colour, over the viewport's rectangle.
         REQUIRE( scene.FirstFill() != nullptr );
-        CHECK( Scene :: SameColor( scene.FirstFill() -> color, g_nMapColor ) );
+        CHECK( Scene :: SameColor( scene.FirstFill() -> color, g_MapColor ) );
         CHECK( scene.FirstFill() -> x == 40.0f );
         CHECK( scene.FirstFill() -> y == 40.0f );
         CHECK( scene.FirstFill() -> w == 1000.0f );
@@ -137,7 +136,7 @@ TEST_SUITE( "renderer/background colours" )  {
 
         Scene  scene;
 
-        scene.pRenderer -> SetWindowBackgroundColor( g_nWindowColor );
+        scene.pRenderer -> SetWindowBackgroundColor( g_WindowColor );
         scene.pRenderer -> SetClearBackground( false );
         scene.RunFrames( 1 );
 

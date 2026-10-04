@@ -119,7 +119,7 @@ namespace SunLight {
             float                                      m_fWindowWidth;
             float                                      m_fWindowHeight;
             int                                        m_nTargetFps;
-            uint32_t                                   m_nWindowBackgroundColor;
+            SunLight :: Base :: stColor                m_WindowBackgroundColor;
             bool                                       m_bWindowBackgroundSet;   // SetWindowBackgroundColor was called: the window area is not the map's colour
             __AnimInfoList                             m_AnimInfoList;
             std :: string                              m_strTitle;
@@ -321,7 +321,7 @@ namespace SunLight {
             bool GetExitRequested( void );
             void SetTargetFPS( int nTargetFps );
             int  GetTargetFPS( void );
-            void SetWindowBackgroundColor( uint32_t nWindowBkColor );
+            void SetWindowBackgroundColor( SunLight :: Base :: stColor color );
             void SetClearBackground( bool bStatus );
             bool GetClearBackground( void );
             void SetDrawFPS( bool bDrawFPS );

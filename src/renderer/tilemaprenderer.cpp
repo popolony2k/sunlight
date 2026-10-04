@@ -44,8 +44,9 @@
  */
 #define __DEFAULT_FPS                   30
 #define __DEFAULT_VISIBLE_STATUS        true
+#define __DEFAULT_TEXT_PIXEL_SIZE       16      // Tiled's own default when a text object gives no pixelsize
+#define __MISSING_FONT_PLACEHOLDER      "??????"  // drawn in place of a text object whose font is not registered
 #define __DEFAULT_CLEAR_BACKGROUND      true
-#define __DEFAULT_WINDOW_BK_COLOR       0xFF000000
 
 
 /*
@@ -857,7 +858,7 @@ namespace SunLight {
             double  fBoxW = pObject -> width * fZoom;
             double  fBoxH = pObject -> height * fZoom;
 
-            int  nFontSize   = ( pText -> pixelsize > 0 ) ? pText -> pixelsize : 16;
+            int  nFontSize   = ( pText -> pixelsize > 0 ) ? pText -> pixelsize : __DEFAULT_TEXT_PIXEL_SIZE;
             int  nScreenSize = std :: max( 1, ( int ) std :: lround( nFontSize * fZoom ) );
 
             // Culled when the box is entirely outside the viewport. A zero
@@ -875,7 +876,7 @@ namespace SunLight {
 
             if( pFont == nullptr )  {
                 WarnMissingFont( szFamily, bBold, bItalic );
-                strText = "??????";   // no font: the engine's active font draws the placeholder
+                strText = __MISSING_FONT_PLACEHOLDER;   // no font: the engine's active font draws the placeholder
             }
 
             SunLight :: Engines :: IEngine&  engine = SunLight :: Engines :: EngineFactory :: GetEngine();
@@ -1209,7 +1210,10 @@ namespace SunLight {
             if( view.m_bExplicitBackground )
                 return view.m_Background;
 
-            return IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor );
+            if( m_pTmxMap )
+                return IntToColor( m_pTmxMap -> backgroundcolor );
+
+            return m_WindowBackgroundColor;
         }
 
         /**
@@ -1285,7 +1289,7 @@ namespace SunLight {
                     // The window area takes the window colour; the viewport is then filled with the map's own.
                     SunLight :: TileMap :: stDimension2D  &vp = m_pDefaultView -> GetViewport().GetDimension2D();
 
-                    engine.ClearBackground( IntToColor( m_nWindowBackgroundColor ) );
+                    engine.ClearBackground( m_WindowBackgroundColor );
                     engine.DrawFilledRectangle( ( int ) vp.pos.x, ( int ) vp.pos.y,
                                                 vp.size.nWidth, vp.size.nHeight,
                                                 BackgroundColorOf( *m_pDefaultView ) );
@@ -1751,7 +1755,7 @@ namespace SunLight {
             m_nScrollStepWidth            = config.nScrollStepWidth;
             m_nScrollStepHeight           = config.nScrollStepHeight;
             m_ViewControlMode             = config.viewControlMode;
-            m_nWindowBackgroundColor      = __DEFAULT_WINDOW_BK_COLOR;
+            m_WindowBackgroundColor       = BLACK_COLOR;
             m_bWindowBackgroundSet        = false;
             m_pInputHandler              = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
             m_pNullInputEventHandler      = nullptr;
@@ -2061,11 +2065,11 @@ namespace SunLight {
         /**
          * Set the window background color. This color is used when there's no color on any layer or
          * when there's no map loaded.
-         * @param nWindowBackgroundColor The background color to set;
+         * @param color The background color to set;
          */
-        void TileMapRenderer :: SetWindowBackgroundColor( uint32_t nWindowBackgroundColor )  {
+        void TileMapRenderer :: SetWindowBackgroundColor( SunLight :: Base :: stColor color )  {
 
-            m_nWindowBackgroundColor = nWindowBackgroundColor;
+            m_WindowBackgroundColor = color;
 
             // Once set, the area outside the default viewport takes this colour and the
             // viewport takes the map's own (see RenderMap). Until then both use the map's
