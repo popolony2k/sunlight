@@ -87,7 +87,7 @@ in `ScriptProcessor::Clear()`. The fix is a virtual destructor on `BaseCommand`.
 
 | # | Item | Status |
 |---|------|--------|
-| B1 | Draw Tiled text objects (`OT_TEXT`) | TODO |
+| B1 | Draw Tiled text objects (`OT_TEXT`) | DONE |
 | B2 | Draw Tiled tile objects (`OT_TILE`) | TODO |
 | B3 | Warn on unknown object and layer types | TODO |
 
