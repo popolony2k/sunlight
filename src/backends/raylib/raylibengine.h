@@ -23,6 +23,10 @@
 
 #include "raylib.h"
 #include "engines/iengine.h"
+#include "backends/raylib/raylibfont.h"
+
+#include <memory>
+#include <vector>
 
 namespace SunLight  {
     namespace Engines  {
@@ -67,6 +71,11 @@ namespace SunLight  {
 
                 bool SetFont( const char *szFilePath ) override;
 
+                std :: unique_ptr<SunLight :: Engines :: IFont> LoadFont( const char *szFilePath ) override;
+
+                void BeginClip( SunLight :: Base :: stRectangle rect ) override;
+                void EndClip( void ) override;
+
                 void DrawText( const char *szText,
                                int nPosX,
                                int nPosY,
@@ -93,10 +102,10 @@ namespace SunLight  {
 
                 private:
 
-                // Releases this class's own GPU-context-tied state - just
-                // the custom font tracking, at the moment. Registered as a
-                // close handler on the backend's window (see the
-                // constructor), so it runs right before the window/context
+                // Releases this class's own GPU-context-tied state - the
+                // active custom font and every font LoadFont still holds.
+                // Registered as a close handler on the backend's window (see
+                // the constructor), so it runs right before the window/context
                 // is destroyed.
                 void ReleaseWindowState( void );
 
@@ -106,7 +115,13 @@ namespace SunLight  {
 
                 // Shared by DrawText/MeasureText - the font either of them
                 // should use right now (see m_CurrentFont's own comment).
-                Font  GetActiveFont( void );
+                ::Font  GetActiveFont( void );
+
+                // Every font LoadFont handed out that may still be alive. The
+                // engine holds them weakly: each font owns its own state, and
+                // the window's close handler marks the live ones invalid, so a
+                // font destroyed afterwards does not release them twice.
+                std :: vector<std :: weak_ptr<__stRaylibFont>>  m_LiveFonts;
 
                 // Font currently used by DrawText, loaded via SetFont - only
                 // valid (and only ever Unload'd) when m_bCustomFontLoaded is

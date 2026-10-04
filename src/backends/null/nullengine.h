@@ -23,6 +23,9 @@
 
 #include "engines/iengine.h"
 
+#include <memory>
+#include <vector>
+
 namespace SunLight  {
     namespace Engines  {
         namespace Null  {
@@ -77,6 +80,12 @@ namespace SunLight  {
                                           SunLight :: Base :: stColor color ) override;
 
                 bool SetFont( const char *szFilePath ) override;
+
+                std :: unique_ptr<SunLight :: Engines :: IFont> LoadFont( const char *szFilePath ) override;
+
+                // Draws nothing, so there is nothing to clip.
+                void BeginClip( SunLight :: Base :: stRectangle rect ) override;
+                void EndClip( void ) override;
 
                 void DrawText( const char *szText,
                                int nPosX,
