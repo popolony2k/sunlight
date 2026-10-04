@@ -9,13 +9,13 @@
   <object id="10" name="cut-left" x="40" y="300" width="0" height="0">
    <text fontfamily="Sans" pixelsize="28" color="#ffffffff" valign="center">&lt;- cut at the LEFT edge</text>
   </object>
-  <object id="11" name="cut-top" x="300" y="50" width="0" height="0">
+  <object id="11" name="cut-top" x="300" y="80" width="0" height="0">
    <text fontfamily="Sans" pixelsize="40" color="#ffffffff">cut at the TOP edge</text>
   </object>
   <object id="12" name="cut-right" x="960" y="300" width="0" height="0">
    <text fontfamily="Sans" pixelsize="28" color="#ffffffff">cut at the RIGHT edge -&gt;</text>
   </object>
-  <object id="13" name="cut-bottom" x="300" y="850" width="0" height="0">
+  <object id="13" name="cut-bottom" x="300" y="880" width="0" height="0">
    <text fontfamily="Sans" pixelsize="40" color="#ffffffff">cut at the BOTTOM edge</text>
   </object>
   <object id="14" name="corner" x="40" y="40" width="0" height="0">
