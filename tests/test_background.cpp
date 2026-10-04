@@ -19,9 +19,9 @@ typedef MockEngine :: Event              Event;
 
 namespace  {
 
-    // The map colour is "#ff102030" in the TMX (ARGB): R 0x10, G 0x20, B 0x30.
-    const SunLight :: Base :: stColor  g_MapColor    { 0x10, 0x20, 0x30, 0xFF };
-    const SunLight :: Base :: stColor  g_WindowColor { 0x30, 0x10, 0x10, 0xFF };
+    // The map colour is DARK_GREEN_COLOR in the TMX below; the window colour is DARK_RED_COLOR.
+    const SunLight :: Base :: stColor  g_MapColor    = DARK_GREEN_COLOR;
+    const SunLight :: Base :: stColor  g_WindowColor = DARK_RED_COLOR;
 
     Bytes MakeMap( void )  {
 
@@ -29,7 +29,7 @@ namespace  {
 
         tmx << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
             << "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"4\" height=\"4\""
-            << " tilewidth=\"16\" tileheight=\"16\" backgroundcolor=\"#ff102030\"></map>";
+            << " tilewidth=\"16\" tileheight=\"16\" backgroundcolor=\"#ff006400\"></map>";
 
         std :: string  str = tmx.str();
 

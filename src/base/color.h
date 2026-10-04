@@ -39,7 +39,17 @@ namespace SunLight  {
 /**
  * Pre-defined colors.
  */
-#define WHITE_COLOR   SunLight :: Base :: stColor  { 255, 255, 255, 255 }
-#define BLACK_COLOR   SunLight :: Base :: stColor  { 0, 0, 0, 255 }
+#define WHITE_COLOR         SunLight :: Base :: stColor  { 255, 255, 255, 255 }
+#define BLACK_COLOR         SunLight :: Base :: stColor  { 0, 0, 0, 255 }
+#define RED_COLOR           SunLight :: Base :: stColor  { 255, 0, 0, 255 }
+#define GREEN_COLOR         SunLight :: Base :: stColor  { 0, 255, 0, 255 }
+#define BLUE_COLOR          SunLight :: Base :: stColor  { 0, 0, 255, 255 }
+#define YELLOW_COLOR        SunLight :: Base :: stColor  { 255, 255, 0, 255 }
+#define MAGENTA_COLOR       SunLight :: Base :: stColor  { 255, 0, 255, 255 }
+#define CYAN_COLOR          SunLight :: Base :: stColor  { 0, 255, 255, 255 }
+#define GRAY_COLOR          SunLight :: Base :: stColor  { 128, 128, 128, 255 }
+#define DARK_RED_COLOR      SunLight :: Base :: stColor  { 128, 0, 0, 255 }
+#define DARK_GREEN_COLOR    SunLight :: Base :: stColor  { 0, 100, 0, 255 }
+#define DARK_BLUE_COLOR     SunLight :: Base :: stColor  { 0, 0, 139, 255 }
 
 #endif /* __COLOR_H__ */

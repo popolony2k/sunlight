@@ -39,8 +39,6 @@ namespace  {
     const int  __VIEWPORT_HEIGHT = 800;
     const int  __START_CAMERA_X  = 100;
     const int  __START_CAMERA_Y  = 100;
-    // Dark red around the viewport; the viewport itself keeps the map's dark green.
-    const SunLight :: Base :: stColor  __WINDOW_BACKGROUND_COLOR { 0x30, 0x10, 0x10, 0xFF };
 }
 
 int main( int argc, char **argv ) {
@@ -110,7 +108,7 @@ int main( int argc, char **argv ) {
 
     pRenderer -> SetCameraPosition( __START_CAMERA_X, __START_CAMERA_Y );
 
-    pRenderer -> SetWindowBackgroundColor( __WINDOW_BACKGROUND_COLOR );
+    pRenderer -> SetWindowBackgroundColor( DARK_RED_COLOR );   // around the viewport; the viewport keeps the map's dark green
 
     printf( "Arrows scroll the map. Watch each label cut at the edge it crosses.\n" );
     printf( "Esc quits.\n" );
