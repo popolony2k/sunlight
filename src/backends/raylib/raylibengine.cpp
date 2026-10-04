@@ -407,7 +407,7 @@ namespace SunLight  {
              */
             bool RaylibEngine :: SetFont( const char *szFilePath )  {
 
-                Font  newFont = ::LoadFont( szFilePath );
+                ::Font  newFont = ::LoadFont( szFilePath );
 
                 // On failure raylib's own ::LoadFont returns an all-zero,
                 // never-allocated Font (confirmed in raylib's own source -
@@ -442,7 +442,7 @@ namespace SunLight  {
              * @see SetFont: raylib's own ::LoadFont, which returns an
              * all-zero Font on failure, nothing allocated to free.
              */
-            std :: unique_ptr<SunLight :: Engines :: IFont> RaylibEngine :: LoadFont( const char *szFilePath )  {
+            std :: unique_ptr<SunLight :: Font :: IFont> RaylibEngine :: LoadFont( const char *szFilePath )  {
 
                 ::Font  newFont = ::LoadFont( szFilePath );
 

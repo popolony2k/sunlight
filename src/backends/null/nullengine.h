@@ -81,7 +81,7 @@ namespace SunLight  {
 
                 bool SetFont( const char *szFilePath ) override;
 
-                std :: unique_ptr<SunLight :: Engines :: IFont> LoadFont( const char *szFilePath ) override;
+                std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath ) override;
 
                 // Draws nothing, so there is nothing to clip.
                 void BeginClip( SunLight :: Base :: stRectangle rect ) override;

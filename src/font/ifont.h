@@ -25,7 +25,7 @@
 
 namespace SunLight {
 
-    namespace Engines {
+    namespace Font {
 
         /**
          * @brief A font an @see IEngine loaded with LoadFont. Its size is passed

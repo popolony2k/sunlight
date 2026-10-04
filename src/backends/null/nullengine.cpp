@@ -169,7 +169,7 @@ namespace SunLight  {
              * existed: the null backend's metrics do not depend on the font, and
              * nothing is drawn, so there is nothing else to hold.
              */
-            class NullFont : public SunLight :: Engines :: IFont  {
+            class NullFont : public SunLight :: Font :: IFont  {
 
                 public:
 
@@ -188,7 +188,7 @@ namespace SunLight  {
             /**
              * @brief Succeeds iff the font file exists (see @see IEngine::LoadFont).
              */
-            std :: unique_ptr<SunLight :: Engines :: IFont> NullEngine :: LoadFont( const char *szFilePath )  {
+            std :: unique_ptr<SunLight :: Font :: IFont> NullEngine :: LoadFont( const char *szFilePath )  {
 
                 if( !SetFont( szFilePath ) )
                     return nullptr;

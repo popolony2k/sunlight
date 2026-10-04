@@ -25,7 +25,7 @@
 #include <string>
 #include "base/color.h"
 #include "base/primitives.h"
-#include "engines/ifont.h"
+#include "font/ifont.h"
 
 
 namespace SunLight  {
@@ -168,7 +168,7 @@ namespace SunLight  {
              * @param szFilePath Path to the font file to load;
              * @return The loaded font, or nullptr if it failed to load;
              */
-            virtual std :: unique_ptr<IFont> LoadFont( const char *szFilePath ) = 0;
+            virtual std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath ) = 0;
 
             /**
              * @brief Must be implemented to restrict everything drawn after

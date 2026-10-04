@@ -31,7 +31,7 @@
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "drawsurface/idrawsurface.h"
-#include "engines/ifont.h"
+#include "font/ifont.h"
 #include "renderer/rendererconfig.h"
 #include "input/iinputhandler.h"
 #include "base/color.h"
@@ -171,7 +171,7 @@ namespace SunLight {
                 std :: string                                 strFamily;
                 bool                                          bBold;
                 bool                                          bItalic;
-                std :: unique_ptr<SunLight :: Engines :: IFont>  pFont;   // owned here; released by ReleaseRegisteredFonts
+                std :: unique_ptr<SunLight :: Font :: IFont>  pFont;   // owned here; released by ReleaseRegisteredFonts
             };
             std :: vector<__stRegisteredFont>          m_RegisteredFonts;
             std :: set<std :: string>                  m_WarnedFonts;       // "family|bold|italic" keys already warned about
@@ -247,7 +247,7 @@ namespace SunLight {
             // Draws one text object (B1). See DrawTextObject's own comment for
             // the placeholder used when its font is not registered.
             void DrawTextObject( tmx_object *pObject, tmx_layer *pLayer );
-            SunLight :: Engines :: IFont* FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic );
+            SunLight :: Font :: IFont* FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic );
             void WarnMissingFont( const char *szFamily, bool bBold, bool bItalic );
             void ReleaseRegisteredFonts( void );
             void DrawImageLayer( tmx_layer *pLayer );

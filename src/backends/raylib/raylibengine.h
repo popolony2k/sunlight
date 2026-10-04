@@ -71,7 +71,7 @@ namespace SunLight  {
 
                 bool SetFont( const char *szFilePath ) override;
 
-                std :: unique_ptr<SunLight :: Engines :: IFont> LoadFont( const char *szFilePath ) override;
+                std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath ) override;
 
                 void BeginClip( SunLight :: Base :: stRectangle rect ) override;
                 void EndClip( void ) override;
@@ -128,7 +128,7 @@ namespace SunLight  {
                 // true; otherwise DrawText falls back to raylib's own
                 // built-in GetFontDefault(), which this class never owns
                 // and must never Unload.
-                Font  m_CurrentFont       {};
+                ::Font  m_CurrentFont       {};
                 bool  m_bCustomFontLoaded = false;
             };
         }

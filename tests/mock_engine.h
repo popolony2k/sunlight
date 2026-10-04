@@ -41,7 +41,7 @@ class MockEngine;
  * MockEngine, so the engine's event log and counters see font calls the same way
  * they see its own, and destroying it is counted (nFontsDestroyed).
  */
-class MockFont : public SunLight :: Engines :: IFont  {
+class MockFont : public SunLight :: Font :: IFont  {
 
     public:
 
@@ -200,7 +200,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return bSetFontResult;
     }
 
-    std :: unique_ptr<SunLight :: Engines :: IFont> LoadFont( const char *szFilePath );   // defined after MockFont
+    std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath );   // defined after MockFont
 
     void BeginClip( SunLight :: Base :: stRectangle rect )  {
         nBeginClipCalls++;
@@ -293,7 +293,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
  * MockEngine instance for the fixture's lifetime, restoring the default
  * (real) backend on destruction.
  */
-inline std :: unique_ptr<SunLight :: Engines :: IFont> MockEngine :: LoadFont( const char *szFilePath )  {
+inline std :: unique_ptr<SunLight :: Font :: IFont> MockEngine :: LoadFont( const char *szFilePath )  {
 
     nLoadFontCalls++;
     strLastLoadFontPath = szFilePath;

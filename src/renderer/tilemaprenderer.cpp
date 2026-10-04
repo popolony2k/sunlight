@@ -871,7 +871,7 @@ namespace SunLight {
                 ( ( fBoxH > 0 ) && ( fBoxY + fBoxH <= vp.pos.y ) ) )
                 return;
 
-            SunLight :: Engines :: IFont   *pFont   = FindRegisteredFont( szFamily, bBold, bItalic );
+            SunLight :: Font :: IFont   *pFont   = FindRegisteredFont( szFamily, bBold, bItalic );
             std :: string                   strText = ( pText -> text != nullptr ) ? pText -> text : "";
 
             if( pFont == nullptr )  {
@@ -979,7 +979,7 @@ namespace SunLight {
          * @brief The font RegisterFont registered for a family and style, or
          * nullptr when none is (see @see DrawTextObject).
          */
-        SunLight :: Engines :: IFont* TileMapRenderer :: FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic )  {
+        SunLight :: Font :: IFont* TileMapRenderer :: FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic )  {
 
             for( const __stRegisteredFont &registered : m_RegisteredFonts )  {
                 if( ( registered.strFamily == szFamily ) && ( registered.bBold == bBold ) && ( registered.bItalic == bItalic ) )
@@ -2632,7 +2632,7 @@ namespace SunLight {
             if( !m_bIsStarted || ( szFamily == nullptr ) || ( szFilePath == nullptr ) )
                 return false;
 
-            std :: unique_ptr<SunLight :: Engines :: IFont>  pFont = SunLight :: Engines :: EngineFactory :: GetEngine().LoadFont( szFilePath );
+            std :: unique_ptr<SunLight :: Font :: IFont>  pFont = SunLight :: Engines :: EngineFactory :: GetEngine().LoadFont( szFilePath );
 
             if( pFont == nullptr )
                 return false;

@@ -22,7 +22,7 @@
 #define __RAYLIBFONT_H__
 
 #include "raylib.h"
-#include "engines/ifont.h"
+#include "font/ifont.h"
 
 #include <memory>
 
@@ -53,7 +53,7 @@ namespace SunLight  {
              * raylib Font. Its methods are no-ops once the window has closed
              * and the engine released it.
              */
-            class RaylibFont : public SunLight :: Engines :: IFont  {
+            class RaylibFont : public SunLight :: Font :: IFont  {
 
                 public:
 
