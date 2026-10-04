@@ -36,7 +36,7 @@ This produces the `text_test` executable under `build/samples/text/`, along with
 The green rectangle is the viewport's frame in the map. The viewport is the area inside it; anything drawn outside it must not be visible.
 
 **Clipping at the edges**
-- **`<- cut at the LEFT edge`**, starts left of the frame: its first letters are cut at the left edge.
+- **`cut at the LEFT edge`**, starts just left of the frame: its first letter is cut in half by the left edge.
 - **`cut at the TOP edge`**, crosses the top edge: its upper part is cut off.
 - **`cut at the RIGHT edge ->`**, runs past the right edge: its end is cut.
 - **`cut at the BOTTOM edge`**, crosses the bottom edge: its lower part is cut.

@@ -6,8 +6,8 @@
  </objectgroup>
  <objectgroup id="2" name="labels" color="#ffffffff">
   <!-- Each label straddles one edge of the viewport, so that edge cuts it. -->
-  <object id="10" name="cut-left" x="40" y="300" width="0" height="0">
-   <text fontfamily="Sans" pixelsize="28" color="#ffffffff" valign="center">&lt;- cut at the LEFT edge</text>
+  <object id="10" name="cut-left" x="86" y="300" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="28" color="#ffffffff" valign="center">cut at the LEFT edge</text>
   </object>
   <object id="11" name="cut-top" x="300" y="80" width="0" height="0">
    <text fontfamily="Sans" pixelsize="40" color="#ffffffff">cut at the TOP edge</text>
