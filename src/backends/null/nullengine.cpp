@@ -162,14 +162,61 @@ namespace SunLight  {
                            SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFilePath ) );
             }
 
+            static int NullTextWidth( const char *szText, int nFontSize );
+
+            /**
+             * @brief A font LoadFont returned. It only remembers that its file
+             * existed: the null backend's metrics do not depend on the font, and
+             * nothing is drawn, so there is nothing else to hold.
+             */
+            class NullFont : public SunLight :: Font :: IFont  {
+
+                public:
+
+                bool IsValid( void ) const override  {
+                    return true;
+                }
+
+                int MeasureText( const char *szText, int nFontSize ) override  {
+                    return NullTextWidth( szText, nFontSize );
+                }
+
+                void DrawText( const char *, int, int, int, SunLight :: Base :: stColor ) override  {
+                }
+            };
+
+            /**
+             * @brief Succeeds iff the font file exists (see @see IEngine::LoadFont).
+             */
+            std :: unique_ptr<SunLight :: Font :: IFont> NullEngine :: LoadFont( const char *szFilePath )  {
+
+                if( !SetFont( szFilePath ) )
+                    return nullptr;
+
+                return std :: make_unique<NullFont>();
+            }
+
+            /**
+             * @brief No-op: the null backend draws nothing, so there is no
+             * output to clip (see @see IEngine::BeginClip).
+             */
+            void NullEngine :: BeginClip( SunLight :: Base :: stRectangle )  {
+            }
+
+            /**
+             * @brief No-op counterpart of BeginClip.
+             */
+            void NullEngine :: EndClip( void )  {
+            }
+
             /**
              * @brief Deterministic fixed-metric width: number of characters
              * (UTF-8 code points, not bytes) x nFontSize / 2. Not
              * pixel-accurate to any real font - it exists so layout code
              * that positions things from this value behaves identically on
-             * every machine.
+             * every machine. The font is not consulted (see LoadFont).
              */
-            int NullEngine :: MeasureText( const char *szText, int nFontSize )  {
+            static int NullTextWidth( const char *szText, int nFontSize )  {
 
                 if( szText == nullptr )
                     return 0;
@@ -183,6 +230,15 @@ namespace SunLight  {
                 }
 
                 return ( int ) ( ( nCharacters * ( long ) nFontSize ) / 2 );
+            }
+
+            /**
+             * @brief The active font's width for a line - the same fixed metric
+             * the loaded fonts use (see @see IEngine::MeasureText).
+             */
+            int NullEngine :: MeasureText( const char *szText, int nFontSize )  {
+
+                return NullTextWidth( szText, nFontSize );
             }
 
             /**

@@ -31,6 +31,7 @@
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "drawsurface/idrawsurface.h"
+#include "font/ifont.h"
 #include "renderer/rendererconfig.h"
 #include "input/iinputhandler.h"
 #include "base/color.h"
@@ -118,7 +119,8 @@ namespace SunLight {
             float                                      m_fWindowWidth;
             float                                      m_fWindowHeight;
             int                                        m_nTargetFps;
-            uint32_t                                   m_nWindowBackgroundColor;
+            SunLight :: Base :: stColor                m_WindowBackgroundColor;
+            bool                                       m_bWindowBackgroundSet;   // SetWindowBackgroundColor was called: the window area is not the map's colour
             __AnimInfoList                             m_AnimInfoList;
             std :: string                              m_strTitle;
             float                                      m_fScreenFadeAlpha;
@@ -165,6 +167,14 @@ namespace SunLight {
             // Multi-pass frame (only used once an extra view exists - see RenderMap): the
             // sprites already advanced this frame (a sprite advances ONCE per frame, however
             // many views draw it), and the views of this frame's passes in draw order.
+            struct __stRegisteredFont  {
+                std :: string                                 strFamily;
+                bool                                          bBold;
+                bool                                          bItalic;
+                std :: unique_ptr<SunLight :: Font :: IFont>  pFont;   // owned here; released by ReleaseRegisteredFonts
+            };
+            std :: vector<__stRegisteredFont>          m_RegisteredFonts;
+            std :: set<std :: string>                  m_WarnedFonts;       // "family|bold|italic" keys already warned about
             std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvancedSprites;
             std :: set<SunLight :: Sprite :: Sprite*>  m_FramePendingSprites;       // reached by a pass, but not on screen there (yet)
             std :: vector<View*>                       m_PassViews;
@@ -233,6 +243,13 @@ namespace SunLight {
 
             // High level primitive map handlers
             void DrawObjects( tmx_layer *pLayer );
+
+            // Draws one text object (B1). See DrawTextObject's own comment for
+            // the placeholder used when its font is not registered.
+            void DrawTextObject( tmx_object *pObject, tmx_layer *pLayer );
+            SunLight :: Font :: IFont* FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic );
+            void WarnMissingFont( const char *szFamily, bool bBold, bool bItalic );
+            void ReleaseRegisteredFonts( void );
             void DrawImageLayer( tmx_layer *pLayer );
             void DrawLayer( tmx_layer *pLayer );
             void DrawAllLayers( tmx_layer *pLayer );
@@ -304,7 +321,7 @@ namespace SunLight {
             bool GetExitRequested( void );
             void SetTargetFPS( int nTargetFps );
             int  GetTargetFPS( void );
-            void SetWindowBackgroundColor( uint32_t nWindowBkColor );
+            void SetWindowBackgroundColor( SunLight :: Base :: stColor color );
             void SetClearBackground( bool bStatus );
             bool GetClearBackground( void );
             void SetDrawFPS( bool bDrawFPS );
@@ -360,6 +377,12 @@ namespace SunLight {
 
             // Text rendering
             bool SetFont( const char *szFilePath );
+
+            // Register a font for text objects: a text object whose fontfamily
+            // and bold/italic flags match these draws with it. Needs a started
+            // renderer (a font needs the window's render context). Registering
+            // the same family and style again replaces the earlier font.
+            bool RegisterFont( const char *szFamily, const char *szFilePath, bool bBold, bool bItalic );
             void DrawText( const char *szText,
                            int nPosX,
                            int nPosY,

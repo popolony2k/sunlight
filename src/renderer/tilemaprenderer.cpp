@@ -44,8 +44,9 @@
  */
 #define __DEFAULT_FPS                   30
 #define __DEFAULT_VISIBLE_STATUS        true
+#define __DEFAULT_TEXT_PIXEL_SIZE       16      // Tiled's own default when a text object gives no pixelsize
+#define __MISSING_FONT_PLACEHOLDER      "??????"  // drawn in place of a text object whose font is not registered
 #define __DEFAULT_CLEAR_BACKGROUND      true
-#define __DEFAULT_WINDOW_BK_COLOR       0xFF000000
 
 
 /*
@@ -798,7 +799,7 @@ namespace SunLight {
                             break;
 
                         case OT_TEXT :
-                            // TODO: FINISH HIM !!!
+                            DrawTextObject( head, pLayer );
                             break;
 
                         case OT_POINT :
@@ -809,6 +810,210 @@ namespace SunLight {
 
                 head = head -> next;
             }
+        }
+
+        /**
+         * @brief Draw one text object (Tiled's OT_TEXT).
+         *
+         * The object's box - its x, y, width and height, mapped to the
+         * screen the way DrawRectangle maps a shape - is where its text is
+         * laid out: wrapped at the box's width when the object asks for wrap,
+         * and aligned as Tiled's halign and valign say. A box with no width
+         * or no height has no edge on that side, so nothing is aligned
+         * against it. Font size is the object's pixelsize, scaled by zoom.
+         *
+         * The font is the one RegisterFont registered for this object's
+         * fontfamily and bold/italic flags. When there is none, the object's
+         * text is NOT drawn: "??????" is drawn in its place, in the object's
+         * colour, with the active font, and a warning is logged once for
+         * that family and style. The placeholder is deliberate - the mistake
+         * shows on screen, not only in the log.
+         *
+         * Culled when its box lies entirely outside the viewport. A box that
+         * straddles the viewport edge is drawn whole, not cut at the edge,
+         * because IEngine::DrawText has no clip rectangle.
+         *
+         * Rotation is not applied yet (plan item D1).
+         *
+         * @param pObject The text object to draw;
+         * @param pLayer The object group it belongs to (its offset applies);
+         */
+        void TileMapRenderer :: DrawTextObject( tmx_object *pObject, tmx_layer *pLayer )  {
+
+            if( !pObject -> content.text )
+                return;
+
+            tmx_text                              *pText    = pObject -> content.text;
+            SunLight :: TileMap :: stDimension2D&  vp       = GetViewport().GetDimension2D();
+            SunLight :: Base :: stZoomProperties&  zp       = GetViewport().GetZoomProperties();
+            SunLight :: Base :: stColor            color    = IntToColor( pText -> color );
+            const char                            *szFamily = ( pText -> fontfamily != nullptr ) ? pText -> fontfamily : "";
+            bool                                   bBold    = ( pText -> bold != 0 );
+            bool                                   bItalic  = ( pText -> italic != 0 );
+            double                                 fZoom    = zp.fZoomFactor;
+
+            // Same screen mapping as DrawRectangle: (position + camera) x zoom + viewport origin.
+            double  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vp.pos.x;
+            double  fBoxY = ( ( pObject -> y + pLayer -> offsety + m_CameraPos.y ) * fZoom ) + vp.pos.y;
+            double  fBoxW = pObject -> width * fZoom;
+            double  fBoxH = pObject -> height * fZoom;
+
+            int  nFontSize   = ( pText -> pixelsize > 0 ) ? pText -> pixelsize : __DEFAULT_TEXT_PIXEL_SIZE;
+            int  nScreenSize = std :: max( 1, ( int ) std :: lround( nFontSize * fZoom ) );
+
+            // Culled when the box is entirely outside the viewport. A zero
+            // width or height has no far edge, so it is not tested on that side.
+            double  fVpRight  = vp.pos.x + vp.size.nWidth;
+            double  fVpBottom = vp.pos.y + vp.size.nHeight;
+
+            if( ( fBoxX >= fVpRight ) || ( fBoxY >= fVpBottom ) ||
+                ( ( fBoxW > 0 ) && ( fBoxX + fBoxW <= vp.pos.x ) ) ||
+                ( ( fBoxH > 0 ) && ( fBoxY + fBoxH <= vp.pos.y ) ) )
+                return;
+
+            SunLight :: Font :: IFont   *pFont   = FindRegisteredFont( szFamily, bBold, bItalic );
+            std :: string                   strText = ( pText -> text != nullptr ) ? pText -> text : "";
+
+            if( pFont == nullptr )  {
+                WarnMissingFont( szFamily, bBold, bItalic );
+                strText = __MISSING_FONT_PLACEHOLDER;   // no font: the engine's active font draws the placeholder
+            }
+
+            SunLight :: Engines :: IEngine&  engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+            bool                             bWrap  = ( pText -> wrap != 0 ) && ( fBoxW > 0 );
+
+            auto  Width = [&]( const std :: string &strLine ) {
+                return pFont ? pFont -> MeasureText( strLine.c_str(), nScreenSize )
+                             : engine.MeasureText( strLine.c_str(), nScreenSize );
+            };
+
+            // One paragraph (text between newlines): greedy word wrap, a word
+            // wider than the box stays whole on its own line.
+            auto  WrapParagraph = [&]( const std :: string &strParagraph, std :: vector<std :: string> &lines ) {
+                std :: vector<std :: string>  words;
+                size_t                        nPos = 0;
+
+                while( nPos <= strParagraph.size() )  {
+                    size_t  nSpace = strParagraph.find( ' ', nPos );
+
+                    if( nSpace == std :: string :: npos )
+                        nSpace = strParagraph.size();
+
+                    if( nSpace > nPos )
+                        words.push_back( strParagraph.substr( nPos, nSpace - nPos ) );
+
+                    nPos = nSpace + 1;
+                }
+
+                std :: string  strCurrent;
+
+                for( const std :: string &strWord : words )  {
+                    std :: string  strCandidate = strCurrent.empty() ? strWord : strCurrent + " " + strWord;
+
+                    if( bWrap && !strCurrent.empty() && ( Width( strCandidate ) > fBoxW ) )  {
+                        lines.push_back( strCurrent );
+                        strCurrent = strWord;
+                    }
+                    else
+                        strCurrent = strCandidate;
+                }
+
+                lines.push_back( strCurrent );   // an empty paragraph is one empty line
+            };
+
+            std :: vector<std :: string>  lines;
+            size_t                        nStart = 0;
+
+            while( true )  {
+                size_t       nEnd       = strText.find( '\n', nStart );
+                std :: string  strParagraph = strText.substr( nStart, ( nEnd == std :: string :: npos ) ? std :: string :: npos : nEnd - nStart );
+
+                WrapParagraph( strParagraph, lines );
+
+                if( nEnd == std :: string :: npos )
+                    break;
+
+                nStart = nEnd + 1;
+            }
+
+            // Line spacing is the font size; the block is aligned inside the box.
+            double  fBlockH = ( double ) lines.size() * nScreenSize;
+            double  fTop    = fBoxY;
+
+            if( fBoxH > 0 )  {
+                if( pText -> valign == VA_CENTER )
+                    fTop = fBoxY + ( ( fBoxH - fBlockH ) / 2 );
+                else if( pText -> valign == VA_BOTTOM )
+                    fTop = fBoxY + fBoxH - fBlockH;
+            }
+
+            // The lines are cut at the viewport's edge: IEngine::DrawText has no clip of its own.
+            engine.BeginClip( SunLight :: Base :: stRectangle { ( float ) vp.pos.x, ( float ) vp.pos.y,
+                                                                ( float ) vp.size.nWidth, ( float ) vp.size.nHeight } );
+
+            for( size_t nIdx = 0; nIdx < lines.size(); nIdx++ )  {
+                double  fLeft = fBoxX;
+
+                if( fBoxW > 0 )  {
+                    double  fLineW = Width( lines[nIdx] );
+
+                    if( pText -> halign == HA_CENTER )
+                        fLeft = fBoxX + ( ( fBoxW - fLineW ) / 2 );
+                    else if( pText -> halign == HA_RIGHT )
+                        fLeft = fBoxX + fBoxW - fLineW;
+                }
+
+                int  nX = ( int ) std :: lround( fLeft );
+                int  nY = ( int ) std :: lround( fTop + ( nIdx * nScreenSize ) );
+
+                if( pFont )
+                    pFont -> DrawText( lines[nIdx].c_str(), nX, nY, nScreenSize, color );
+                else
+                    engine.DrawText( lines[nIdx].c_str(), nX, nY, nScreenSize, color );
+            }
+
+            engine.EndClip();
+        }
+
+        /**
+         * @brief The font RegisterFont registered for a family and style, or
+         * nullptr when none is (see @see DrawTextObject).
+         */
+        SunLight :: Font :: IFont* TileMapRenderer :: FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic )  {
+
+            for( const __stRegisteredFont &registered : m_RegisteredFonts )  {
+                if( ( registered.strFamily == szFamily ) && ( registered.bBold == bBold ) && ( registered.bItalic == bItalic ) )
+                    return registered.pFont.get();
+            }
+
+            return nullptr;
+        }
+
+        /**
+         * @brief Log, once per family and style, that a text object's font
+         * is not registered. Standard error, like the map-load refusals.
+         */
+        void TileMapRenderer :: WarnMissingFont( const char *szFamily, bool bBold, bool bItalic )  {
+
+            std :: string  strKey = std :: string( szFamily ) + ( bBold ? "|bold" : "|regular" ) + ( bItalic ? "|italic" : "|upright" );
+
+            if( !m_WarnedFonts.insert( strKey ).second )
+                return;
+
+            fprintf( stderr, "Text object font [%s%s%s] is not registered (RegisterFont); its text is drawn as ?????? instead.\n",
+                     szFamily, bBold ? " bold" : "", bItalic ? " italic" : "" );
+        }
+
+        /**
+         * @brief Release every font RegisterFont loaded, and forget the
+         * warnings already given. Called by Stop() while the window and its
+         * render context still exist, and by the destructor.
+         */
+        void TileMapRenderer :: ReleaseRegisteredFonts( void )  {
+
+            // Each font is destroyed here, which releases it while the window is open.
+            m_RegisteredFonts.clear();
+            m_WarnedFonts.clear();
         }
 
         /**
@@ -1005,7 +1210,10 @@ namespace SunLight {
             if( view.m_bExplicitBackground )
                 return view.m_Background;
 
-            return IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor );
+            if( m_pTmxMap )
+                return IntToColor( m_pTmxMap -> backgroundcolor );
+
+            return m_WindowBackgroundColor;
         }
 
         /**
@@ -1074,8 +1282,21 @@ namespace SunLight {
          */
         void TileMapRenderer :: RenderMap( void ) {
 
-            if( m_bClearBackground )
-                SunLight :: Engines :: EngineFactory :: GetEngine().ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
+            if( m_bClearBackground )  {
+                SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+
+                if( m_bWindowBackgroundSet && m_pTmxMap && !m_pDefaultView -> m_bExplicitBackground )  {
+                    // The window area takes the window colour; the viewport is then filled with the map's own.
+                    SunLight :: TileMap :: stDimension2D  &vp = m_pDefaultView -> GetViewport().GetDimension2D();
+
+                    engine.ClearBackground( m_WindowBackgroundColor );
+                    engine.DrawFilledRectangle( ( int ) vp.pos.x, ( int ) vp.pos.y,
+                                                vp.size.nWidth, vp.size.nHeight,
+                                                BackgroundColorOf( *m_pDefaultView ) );
+                }
+                else
+                    engine.ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
+            }
 
             if( m_pTmxMap )  {
                 if( m_ExtraViews.empty() )  {
@@ -1534,8 +1755,9 @@ namespace SunLight {
             m_nScrollStepWidth            = config.nScrollStepWidth;
             m_nScrollStepHeight           = config.nScrollStepHeight;
             m_ViewControlMode             = config.viewControlMode;
-            m_nWindowBackgroundColor      = __DEFAULT_WINDOW_BK_COLOR;
-            m_pInputHandler               = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
+            m_WindowBackgroundColor       = BLACK_COLOR;
+            m_bWindowBackgroundSet        = false;
+            m_pInputHandler              = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
             m_pNullInputEventHandler      = nullptr;
             m_TileMapListenerList.clear();
             m_KeyInputEventHandlerList.clear();
@@ -1636,6 +1858,7 @@ namespace SunLight {
 
             m_pDefaultView -> Detach();
 
+            ReleaseRegisteredFonts();
             UnloadMap();
 
             /*
@@ -1842,11 +2065,16 @@ namespace SunLight {
         /**
          * Set the window background color. This color is used when there's no color on any layer or
          * when there's no map loaded.
-         * @param nWindowBackgroundColor The background color to set;
+         * @param color The background color to set;
          */
-        void TileMapRenderer :: SetWindowBackgroundColor( uint32_t nWindowBackgroundColor )  {
+        void TileMapRenderer :: SetWindowBackgroundColor( SunLight :: Base :: stColor color )  {
 
-            m_nWindowBackgroundColor = nWindowBackgroundColor;
+            m_WindowBackgroundColor = color;
+
+            // Once set, the area outside the default viewport takes this colour and the
+            // viewport takes the map's own (see RenderMap). Until then both use the map's
+            // colour, as they always have, so games that never call this are unchanged.
+            m_bWindowBackgroundSet   = true;
         }
 
         /**
@@ -2377,6 +2605,50 @@ namespace SunLight {
         bool TileMapRenderer :: SetFont( const char *szFilePath )  {
 
             return SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( szFilePath );
+        }
+
+        /**
+         * @brief Register a font for text objects (see DrawTextObject): a
+         * text object draws with the font whose family and bold/italic flags
+         * match its own. Loads through the engine's LoadFont, which does not
+         * change the active font (SetFont).
+         *
+         * Needs a started renderer: loading a font needs the window's render
+         * context, which Start() creates. The font is released by Stop(),
+         * before the window closes. Registering the same family and style
+         * again replaces the earlier font, so a game can swap a font without
+         * stopping the renderer.
+         *
+         * @param szFamily Family name, as Tiled's fontfamily spells it;
+         * @param szFilePath Font file to load (same formats as SetFont);
+         * @param bBold Whether this is the bold face of the family;
+         * @param bItalic Whether this is the italic face of the family;
+         * @return true if the font loaded and is registered, false otherwise
+         * (nothing is registered, and an earlier font for the same family and
+         * style is kept).
+         */
+        bool TileMapRenderer :: RegisterFont( const char *szFamily, const char *szFilePath, bool bBold, bool bItalic )  {
+
+            if( !m_bIsStarted || ( szFamily == nullptr ) || ( szFilePath == nullptr ) )
+                return false;
+
+            std :: unique_ptr<SunLight :: Font :: IFont>  pFont = SunLight :: Engines :: EngineFactory :: GetEngine().LoadFont( szFilePath );
+
+            if( pFont == nullptr )
+                return false;
+
+            for( __stRegisteredFont &registered : m_RegisteredFonts )  {
+                if( ( registered.strFamily == szFamily ) && ( registered.bBold == bBold ) && ( registered.bItalic == bItalic ) )  {
+                    // Assigning destroys the old font, which releases it.
+                    registered.pFont = std :: move( pFont );
+
+                    return true;
+                }
+            }
+
+            m_RegisteredFonts.push_back( __stRegisteredFont { szFamily, bBold, bItalic, std :: move( pFont ) } );
+
+            return true;
         }
 
         /**
@@ -3103,6 +3375,10 @@ namespace SunLight {
 
             if( m_bIsStarted )  {
                 UnloadMap();
+
+                // Fonts go before the window closes: the engine's close handler
+                // would release them too, but that is its own state, not ours.
+                ReleaseRegisteredFonts();
 
                 if( m_pRenderTexture != nullptr )  {
                     SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( m_pRenderTexture );

@@ -23,6 +23,8 @@
 
 #include "engines/iengine.h"
 #include "engines/enginefactory.h"
+#include <cstring>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,6 +34,36 @@
  * arguments and returns per-instance, configurable results, with no real
  * window/render context involved.
  */
+class MockEngine;
+
+/**
+ * @brief The font LoadFont returns. It draws and measures through its owning
+ * MockEngine, so the engine's event log and counters see font calls the same way
+ * they see its own, and destroying it is counted (nFontsDestroyed).
+ */
+class MockFont : public SunLight :: Font :: IFont  {
+
+    public:
+
+    MockEngine  *pOwner;
+
+    explicit MockFont( MockEngine *pEngine ) : pOwner( pEngine )  {}
+
+    ~MockFont( void ) override;
+
+    bool IsValid( void ) const override  {
+        return true;
+    }
+
+    int MeasureText( const char *szText, int nFontSize ) override;
+
+    void DrawText( const char *szText,
+                   int nPosX,
+                   int nPosY,
+                   int nFontSize,
+                   SunLight :: Base :: stColor color ) override;
+};
+
 class MockEngine : public SunLight :: Engines :: IEngine  {
 
     public:
@@ -64,14 +96,17 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     // Every draw-ish call in order, for tests that care about WHICH pass drew what and in what order
     // (the multi-view frame): kind + the rectangle it was given (x, y, w, h; zeros where it has none).
     struct Event  {
-        enum Kind  { CLEAR, FILL, TILE, FPS };
+        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END };   // CLIP_BEGIN: x, y, w, h = the rectangle
 
         Kind   kind;
         float  x, y, w, h;
         float  scale;
         float  srcX;                 // TILE only: the source rectangle's x
         void   *handle;              // TILE only: the texture drawn
-        SunLight :: Base :: stColor  color;   // CLEAR and FILL only
+        SunLight :: Base :: stColor  color;   // CLEAR, FILL and TEXT
+        std :: string                text;    // TEXT only: the string drawn
+        const void                  *font = nullptr;     // TEXT only: the MockFont drawn with (nullptr = active font)
+        int                          nFontSize = 0;      // TEXT only
     };
     std :: vector<Event>                events;
 
@@ -88,6 +123,16 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
     bool                                bSetFontResult             = true;
     std :: string                       strLastSetFontPath;
+
+    int                                 nBeginClipCalls            = 0;
+    int                                 nEndClipCalls              = 0;
+    int                                 nLoadFontCalls             = 0;
+    int                                 nFontsDestroyed            = 0;   // MockFont objects destroyed
+    bool                                bLoadFontResult            = true;
+    std :: string                       strLastLoadFontPath;
+    const void                          *hLastLoadedFont           = nullptr;   // the font LoadFont last returned
+    const void                          *hLastMeasuredFont         = nullptr;   // the font MeasureText/IFont last measured with
+    bool                                bMeasureByLength           = false;
     std :: string                       strLastDrawnText;
     SunLight :: Base :: stColor         lastClearBackgroundColor   { 0, 0, 0, 0 };
     SunLight :: Base :: TextureHandle   hLoadRenderTargetResult    = ( SunLight :: Base :: TextureHandle )  0x2;
@@ -155,14 +200,47 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return bSetFontResult;
     }
 
-    void DrawText( const char *szText, int, int, int, SunLight :: Base :: stColor )  {
-        nDrawTextCalls++;
-        strLastDrawnText = szText;
+    std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath );   // defined after MockFont
+
+    void BeginClip( SunLight :: Base :: stRectangle rect )  {
+        nBeginClipCalls++;
+        events.push_back( Event { Event :: CLIP_BEGIN, rect.x, rect.y, rect.width, rect.height, 0.0f, 0.0f, nullptr,
+                                  SunLight :: Base :: stColor { 0, 0, 0, 0 } } );
     }
 
-    int MeasureText( const char*, int )  {
+    void EndClip( void )  {
+        nEndClipCalls++;
+        events.push_back( Event { Event :: CLIP_END, 0, 0, 0, 0, 0.0f, 0.0f, nullptr,
+                                  SunLight :: Base :: stColor { 0, 0, 0, 0 } } );
+    }
+
+    // Records a TEXT event. font is the MockFont drawing it, or nullptr for the active font.
+    void RecordText( const void *font, const char *szText, int nPosX, int nPosY, int nFontSize,
+                     SunLight :: Base :: stColor color )  {
+        nDrawTextCalls++;
+        strLastDrawnText = szText;
+        events.push_back( Event { Event :: TEXT, ( float ) nPosX, ( float ) nPosY, 0, 0, 0.0f, 0.0f, nullptr, color,
+                                  szText, font, nFontSize } );
+    }
+
+    // By default the width is nMeasureTextResult. With bMeasureByLength set, it is
+    // the string's length x size / 2, so a test can make wrapping depend on the text.
+    int RecordMeasure( const void *font, const char *szText, int nFontSize )  {
         nMeasureTextCalls++;
+        hLastMeasuredFont = font;
+
+        if( bMeasureByLength )
+            return ( int ) ( strlen( szText ) * ( size_t ) nFontSize / 2 );
+
         return nMeasureTextResult;
+    }
+
+    void DrawText( const char *szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
+        RecordText( nullptr, szText, nPosX, nPosY, nFontSize, color );
+    }
+
+    int MeasureText( const char *szText, int nFontSize )  {
+        return RecordMeasure( nullptr, szText, nFontSize );
     }
 
     void ClearBackground( SunLight :: Base :: stColor color )  {
@@ -215,6 +293,34 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
  * MockEngine instance for the fixture's lifetime, restoring the default
  * (real) backend on destruction.
  */
+inline std :: unique_ptr<SunLight :: Font :: IFont> MockEngine :: LoadFont( const char *szFilePath )  {
+
+    nLoadFontCalls++;
+    strLastLoadFontPath = szFilePath;
+
+    if( !bLoadFontResult )
+        return nullptr;
+
+    std :: unique_ptr<MockFont>  pFont = std :: make_unique<MockFont>( this );
+
+    hLastLoadedFont = pFont.get();
+
+    return pFont;
+}
+
+inline MockFont :: ~MockFont( void )  {
+    if( pOwner )
+        pOwner -> nFontsDestroyed++;
+}
+
+inline int MockFont :: MeasureText( const char *szText, int nFontSize )  {
+    return pOwner -> RecordMeasure( this, szText, nFontSize );
+}
+
+inline void MockFont :: DrawText( const char *szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
+    pOwner -> RecordText( this, szText, nPosX, nPosY, nFontSize, color );
+}
+
 class MockEngineFixture  {
 
     public:

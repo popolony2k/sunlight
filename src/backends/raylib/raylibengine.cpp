@@ -25,12 +25,6 @@
 #include <cstring>
 #include <vector>
 
-// Extra spacing (in pixels) DrawTextEx adds between characters, on top of
-// whatever a font's own glyph metrics already provide - 0 means "use the
-// font as authored, no extra letter-spacing", the correct default for a
-// generic engine primitive with no per-call spacing parameter of it's own.
-#define __DEFAULT_TEXT_SPACING   0.0f
-
 namespace SunLight  {
     namespace Engines  {
         namespace Raylib  {
@@ -413,7 +407,7 @@ namespace SunLight  {
              */
             bool RaylibEngine :: SetFont( const char *szFilePath )  {
 
-                Font  newFont = ::LoadFont( szFilePath );
+                ::Font  newFont = ::LoadFont( szFilePath );
 
                 // On failure raylib's own ::LoadFont returns an all-zero,
                 // never-allocated Font (confirmed in raylib's own source -
@@ -437,16 +431,64 @@ namespace SunLight  {
              * default font if SetFont has never been called (or every
              * call to it so far has failed).
              */
-            Font  RaylibEngine :: GetActiveFont( void )  {
+            ::Font  RaylibEngine :: GetActiveFont( void )  {
 
                 return m_bCustomFontLoaded ? m_CurrentFont : ::GetFontDefault();
             }
 
             /**
-             * @brief Draw a line of text in screen space, using whichever
-             * font is currently active - the backend's own built-in
-             * default font until @see SetFont is called for the first
-             * time (see @see IEngine::DrawText).
+             * @brief Load a font without making it the active font (see
+             * @see IEngine::LoadFont). Same loader and validity check as
+             * @see SetFont: raylib's own ::LoadFont, which returns an
+             * all-zero Font on failure, nothing allocated to free.
+             */
+            std :: unique_ptr<SunLight :: Font :: IFont> RaylibEngine :: LoadFont( const char *szFilePath )  {
+
+                ::Font  newFont = ::LoadFont( szFilePath );
+
+                if( !::IsFontValid( newFont ) )
+                    return nullptr;
+
+                // Forget the fonts already destroyed, so the list does not grow without limit.
+                for( auto pIt = m_LiveFonts.begin(); pIt != m_LiveFonts.end(); )  {
+                    if( pIt -> expired() )
+                        pIt = m_LiveFonts.erase( pIt );
+                    else
+                        ++pIt;
+                }
+
+                std :: shared_ptr<__stRaylibFont>  pState = std :: make_shared<__stRaylibFont>();
+
+                pState -> font = newFont;
+                m_LiveFonts.push_back( pState );
+
+                return std :: make_unique<RaylibFont>( pState );
+            }
+
+            /**
+             * @brief Restrict drawing to a rectangle with raylib's scissor
+             * test (see @see IEngine::BeginClip). Scissor is not nestable in
+             * raylib either: BeginScissorMode replaces the active rectangle,
+             * EndScissorMode restores the full target.
+             */
+            void RaylibEngine :: BeginClip( SunLight :: Base :: stRectangle rect )  {
+
+                ::BeginScissorMode( ( int ) rect.x, ( int ) rect.y, ( int ) rect.width, ( int ) rect.height );
+            }
+
+            /**
+             * @brief End the scissor clip started by BeginClip (see
+             * @see IEngine::EndClip).
+             */
+            void RaylibEngine :: EndClip( void )  {
+
+                ::EndScissorMode();
+            }
+
+            /**
+             * @brief Draw a line of text in screen space, using whichever font
+             * is currently active - the backend's built-in default until
+             * @see SetFont is called (see @see IEngine::DrawText).
              */
             void RaylibEngine :: DrawText( const char *szText,
                                            int nPosX,
@@ -455,45 +497,56 @@ namespace SunLight  {
                                            SunLight :: Base :: stColor color )  {
 
                 ::DrawTextEx( GetActiveFont(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY },
-                             ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
-                             Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+                              ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
+                              Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }
 
             /**
-             * @brief Measure a line of text's rendered width, using
-             * whichever font is currently active - same font resolution
-             * as @see DrawText (see @see IEngine::MeasureText).
+             * @brief Measure a line of text's rendered width, using the same
+             * font as @see DrawText (see @see IEngine::MeasureText).
              */
             int RaylibEngine :: MeasureText( const char *szText, int nFontSize )  {
 
-                Vector2  size = ::MeasureTextEx( GetActiveFont(), szText,
-                                                 ( float ) nFontSize, __DEFAULT_TEXT_SPACING );
+                Vector2  size = ::MeasureTextEx( GetActiveFont(), szText, ( float ) nFontSize, __DEFAULT_TEXT_SPACING );
 
                 return ( int ) size.x;
             }
 
             /**
-             * @brief Release this class's own GPU-context-tied state
-             * before the window/context goes away (fired by the window's
-             * close handlers, see the constructor) - just the custom font
-             * tracking, at the moment. Deliberately does NOT call ::UnloadFont here
-             * first - not because the context is already gone (it isn't:
-             * this runs before CloseWindow() is even called, so the GL
-             * context is still fully valid at this point, an explicit
-             * unload would be perfectly safe here too), but because it
-             * would be redundant work for no benefit - CloseWindow()'s own
-             * teardown (rlglClose(), then ClosePlatform()'s
-             * glfwDestroyWindow()) discards the whole GL context
-             * immediately after this runs anyway, taking every GPU handle
-             * in it with it, including this one. This only clears this
-             * class's own bookkeeping, so a *future* window (if Start() is
-             * ever called again) doesn't inherit a stale handle pointing
-             * at a texture that no longer exists.
+             * @brief Release this class's GPU-context-tied font state before
+             * the window/context goes away (fired by the window's close
+             * handlers, see the constructor). This runs before CloseWindow(),
+             * so the GL context is still valid: every font this engine
+             * loaded is unloaded here, and marked invalid so the IFont that
+             * owns it does nothing afterwards. The active font is released
+             * the same way, and the bookkeeping is cleared, so a future
+             * window (if Start() is ever called again) starts clean.
              */
             void RaylibEngine :: ReleaseWindowState( void )  {
 
-                m_CurrentFont       = Font {};
+                // The close handler runs before the window's context is
+                // destroyed (see IWindow::AddCloseHandler), so unloading here
+                // frees each font's GPU texture while it is still valid.
+                // Unloading the active font here also fixes its leak: this
+                // used to only reset the handle, never calling ::UnloadFont.
+                if( m_bCustomFontLoaded )
+                    ::UnloadFont( m_CurrentFont );
+
+                m_CurrentFont       = ::Font {};
                 m_bCustomFontLoaded = false;
+
+                // Each live font is released here and marked invalid, so the
+                // RaylibFont that owns it does not release it a second time.
+                for( std :: weak_ptr<__stRaylibFont> &pWeak : m_LiveFonts )  {
+                    std :: shared_ptr<__stRaylibFont>  pState = pWeak.lock();
+
+                    if( pState && pState -> bValid )  {
+                        ::UnloadFont( pState -> font );
+                        pState -> bValid = false;
+                    }
+                }
+
+                m_LiveFonts.clear();
             }
 
             /**

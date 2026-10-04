@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="60" height="40" tilewidth="32" tileheight="32" nextlayerid="10" nextobjectid="30" backgroundcolor="#ff006400">
+ <!-- The viewport in the sample is 1000 x 800 px and starts with the camera at (100, 100): its edges are the rectangle drawn in "frame". -->
+ <objectgroup id="1" name="frame" color="#ff00ff00">
+  <object id="1" name="viewport" x="100" y="100" width="1000" height="800"/>
+ </objectgroup>
+ <objectgroup id="2" name="labels" color="#ffffffff">
+  <!-- Each label straddles one edge of the viewport, so that edge cuts it. -->
+  <object id="10" name="cut-left" x="86" y="300" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="28" color="#ffffffff" valign="center">cut at the LEFT edge</text>
+  </object>
+  <object id="11" name="cut-top" x="300" y="80" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="40" color="#ffffffff">cut at the TOP edge</text>
+  </object>
+  <object id="12" name="cut-right" x="960" y="300" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="28" color="#ffffffff">cut at the RIGHT edge -&gt;</text>
+  </object>
+  <object id="13" name="cut-bottom" x="300" y="880" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="40" color="#ffffffff">cut at the BOTTOM edge</text>
+  </object>
+  <object id="14" name="corner" x="40" y="40" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="40" color="#ffff8080">corner</text>
+  </object>
+
+  <!-- The same kind of sentence in three languages. The accents are in the bitmap font too. -->
+  <object id="22" name="lang-en" x="300" y="120" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="24" color="#ffffffff">English: the quick brown fox jumps</text>
+  </object>
+  <object id="23" name="lang-pt" x="300" y="150" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="24" color="#ffffff80">Português: coração, ação, é, õ, ã</text>
+  </object>
+  <object id="24" name="lang-es" x="300" y="180" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="24" color="#ff80ff80">Español: ¡Hola, mañana! ¿Qué tal?</text>
+  </object>
+
+  <!-- Mono is registered in all four faces (Anonymous Pro). -->
+  <object id="25" name="mono-italic" x="300" y="210" width="0" height="0">
+   <text fontfamily="Mono" pixelsize="24" italic="1" color="#ff80ffff">Mono italic: Anonymous Pro Italic</text>
+  </object>
+
+  <!-- Serif is never registered: its label shows ?????? in its colour. -->
+  <object id="26" name="serif-missing" x="300" y="240" width="0" height="0">
+   <text fontfamily="Serif" pixelsize="24" color="#ffff8080">Serif: not registered</text>
+  </object>
+
+  <!-- A box with wrap, centre alignment on both axes. -->
+  <object id="15" name="wrapped" x="300" y="300" width="400" height="200">
+   <text fontfamily="Sans" pixelsize="24" color="#ffffff00" wrap="1" halign="center" valign="center">Wrapped, centred text inside a box. Quebra de linha entre palavras: ação e coração.</text>
+  </object>
+  <!-- A box aligned to its right and bottom edges. -->
+  <object id="16" name="right-bottom" x="740" y="300" width="300" height="200">
+   <text fontfamily="Sans" pixelsize="24" color="#ff80ffff" halign="right" valign="bottom">right / bottom</text>
+  </object>
+
+  <!-- Bold: the bold face of Sans is registered. -->
+  <object id="17" name="bold" x="300" y="540" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="28" bold="1" color="#ffffffff">Bold face: Caravellius 8x8</text>
+  </object>
+  <!-- Italic: no italic face of Sans is registered, so this draws ?????? in its colour. -->
+  <object id="18" name="italic-missing" x="300" y="600" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="28" italic="1" color="#ffff8080">Sans italic: not registered</text>
+  </object>
+  <!-- Mono bold italic: a face that is registered. -->
+  <object id="27" name="mono-bold-italic" x="300" y="650" width="0" height="0">
+   <text fontfamily="Mono" pixelsize="28" bold="1" italic="1" color="#ff80ff80">Mono bold italic</text>
+  </object>
+  <!-- A pixel family from Press Start 2P, with accents. -->
+  <object id="21" name="pixel" x="300" y="750" width="0" height="0">
+   <text fontfamily="Pixel" pixelsize="24" color="#ff80ffff">Press Start 2P: ção, ñ</text>
+  </object>
+  <!-- Multi-line text: a line break in the text starts a new line. -->
+  <object id="20" name="lines" x="300" y="700" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="24" color="#ffffffff">first line
+second line</text>
+  </object>
+ </objectgroup>
+</map>

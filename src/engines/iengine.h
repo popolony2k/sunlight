@@ -21,9 +21,11 @@
 #ifndef __IENGINE_H__
 #define __IENGINE_H__
 
+#include <memory>
 #include <string>
 #include "base/color.h"
 #include "base/primitives.h"
+#include "font/ifont.h"
 
 
 namespace SunLight  {
@@ -152,11 +154,51 @@ namespace SunLight  {
             virtual bool SetFont( const char *szFilePath ) = 0;
 
             /**
+             * @brief Must be implemented to load a font file for use with
+             * @see DrawText and @see MeasureText, without making it the
+             * active font. Several fonts can be loaded at once, which is
+             * what a map needs when its text objects name different
+             * families or styles. Same file-format rules as @see SetFont.
+             *
+             * The font is owned by the caller through the returned pointer.
+             * Destroying it releases the font; if the window has closed
+             * first, the engine has already released it and the object is
+             * invalid (see IFont).
+             *
+             * @param szFilePath Path to the font file to load;
+             * @return The loaded font, or nullptr if it failed to load;
+             */
+            virtual std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath ) = 0;
+
+            /**
+             * @brief Must be implemented to restrict everything drawn after
+             * it to a screen-space rectangle, until @see EndClip. Anything
+             * outside the rectangle is not drawn - this is what cuts a text
+             * line at the viewport's edge, since @see DrawText has no clip of
+             * its own. Backends with no clipping may ignore it, but then
+             * callers that need a cut must not rely on it.
+             *
+             * Not nestable: a second BeginClip before EndClip replaces the
+             * first, and one EndClip ends whatever clip is active. Callers
+             * pair them one to one.
+             *
+             * @param rect Rectangle to clip to, in the same screen-space
+             * coordinates as DrawText;
+             */
+            virtual void BeginClip( SunLight :: Base :: stRectangle rect ) = 0;
+
+            /**
+             * @brief Must be implemented to end the clip started by
+             * @see BeginClip. Drawing is unrestricted again afterwards.
+             */
+            virtual void EndClip( void ) = 0;
+
+            /**
              * @brief Must be implemented to draw a line of text on chosen
              * target engine, in screen space - same as every other draw
              * method on this interface, with no viewport/camera transform
              * of its own, and using whichever font is currently active (see
-             * @see SetFont).
+             * @see SetFont). A font from @see LoadFont is drawn through IFont.
              *
              * @param szText The text to draw;
              * @param nPosX X coordinate to draw at;
@@ -173,8 +215,7 @@ namespace SunLight  {
             /**
              * @brief Must be implemented to measure how wide a line of
              * text would render, in pixels, at a given font size, using
-             * whichever font is currently active (see @see SetFont) - the
-             * same font @see DrawText itself would use.
+             * whichever font is currently active (see @see SetFont).
              *
              * @param szText The text to measure;
              * @param nFontSize Font size, in pixels;
