@@ -34,6 +34,7 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/collision)
     add_subdirectory(samples/gamepad)
     add_subdirectory(samples/scriptprocessor)
+    add_subdirectory(samples/text)
 endif(BUILD_LIBRARY_SAMPLES)
 
 # Unit tests
