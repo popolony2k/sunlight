@@ -21,29 +21,52 @@
   <object id="14" name="corner" x="40" y="40" width="0" height="0">
    <text fontfamily="Sans" pixelsize="40" color="#ffff8080">corner</text>
   </object>
+
+  <!-- The same kind of sentence in three languages. The accents are in the bitmap font too. -->
+  <object id="22" name="lang-en" x="300" y="120" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="24" color="#ffffffff">English: the quick brown fox jumps</text>
+  </object>
+  <object id="23" name="lang-pt" x="300" y="150" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="24" color="#ffffff80">Português: coração, ação, é, õ, ã</text>
+  </object>
+  <object id="24" name="lang-es" x="300" y="180" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="24" color="#ff80ff80">Español: ¡Hola, mañana! ¿Qué tal?</text>
+  </object>
+
+  <!-- Mono is registered in all four faces (Anonymous Pro). -->
+  <object id="25" name="mono-italic" x="300" y="210" width="0" height="0">
+   <text fontfamily="Mono" pixelsize="24" italic="1" color="#ff80ffff">Mono italic: Anonymous Pro Italic</text>
+  </object>
+
+  <!-- Serif is never registered: its label shows ?????? in its colour. -->
+  <object id="26" name="serif-missing" x="300" y="240" width="0" height="0">
+   <text fontfamily="Serif" pixelsize="24" color="#ffff8080">Serif: not registered</text>
+  </object>
+
   <!-- A box with wrap, centre alignment on both axes. -->
   <object id="15" name="wrapped" x="300" y="300" width="400" height="200">
-   <text fontfamily="Sans" pixelsize="24" color="#ffffff00" wrap="1" halign="center" valign="center">Wrapped, centred text inside a box. Lines break between words and stay inside the box width.</text>
+   <text fontfamily="Sans" pixelsize="24" color="#ffffff00" wrap="1" halign="center" valign="center">Wrapped, centred text inside a box. Quebra de linha entre palavras: ação e coração.</text>
   </object>
   <!-- A box aligned to its right and bottom edges. -->
   <object id="16" name="right-bottom" x="740" y="300" width="300" height="200">
    <text fontfamily="Sans" pixelsize="24" color="#ff80ffff" halign="right" valign="bottom">right / bottom</text>
   </object>
+
   <!-- Bold: the bold face of Sans is registered. -->
   <object id="17" name="bold" x="300" y="540" width="0" height="0">
-   <text fontfamily="Sans" pixelsize="28" bold="1" color="#ffffffff">Bold face (Anonymous Pro)</text>
+   <text fontfamily="Sans" pixelsize="28" bold="1" color="#ffffffff">Bold face: Caravellius 8x8</text>
   </object>
-  <!-- Italic: no italic face is registered, so the object draws ?????? in its colour. -->
+  <!-- Italic: no italic face of Sans is registered, so this draws ?????? in its colour. -->
   <object id="18" name="italic-missing" x="300" y="600" width="0" height="0">
-   <text fontfamily="Sans" pixelsize="28" italic="1" color="#ffff8080">italic is not registered</text>
+   <text fontfamily="Sans" pixelsize="28" italic="1" color="#ffff8080">Sans italic: not registered</text>
   </object>
-  <!-- A family that is never registered: also ??????. -->
-  <object id="19" name="family-missing" x="300" y="650" width="0" height="0">
-   <text fontfamily="Mono" pixelsize="28" color="#ff80ff80">Mono is not registered</text>
+  <!-- Mono bold italic: a face that is registered. -->
+  <object id="27" name="mono-bold-italic" x="300" y="650" width="0" height="0">
+   <text fontfamily="Mono" pixelsize="28" bold="1" italic="1" color="#ff80ff80">Mono bold italic</text>
   </object>
-  <!-- A label in a second registered family, a pixel font. -->
+  <!-- A pixel family from Press Start 2P, with accents. -->
   <object id="21" name="pixel" x="300" y="750" width="0" height="0">
-   <text fontfamily="Pixel" pixelsize="24" color="#ff80ffff">Press Start 2P</text>
+   <text fontfamily="Pixel" pixelsize="24" color="#ff80ffff">Press Start 2P: ção, ñ</text>
   </object>
   <!-- Multi-line text: a line break in the text starts a new line. -->
   <object id="20" name="lines" x="300" y="700" width="0" height="0">

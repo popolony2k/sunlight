@@ -87,17 +87,24 @@ int main( int argc, char **argv ) {
         return EXIT_FAILURE;
     }
 
-    // "Sans" has a regular and a bold face (both bitmap fonts designed for Caravellius), and
-    // "Pixel" is Press Start 2P. Italic and "Mono" are deliberately not registered, so their
-    // labels show ?????? (and a warning on stderr) - that is the behaviour under test.
-    if( !pRenderer -> RegisterFont( "Sans", "resources/fonts/caravellius8x8.fnt", false, false ) )
-        fprintf( stderr, "Cannot load the regular Sans font\n" );
+    // Sans: regular and bold, both bitmap fonts designed for Caravellius (no italic face).
+    // Mono: all four faces of Anonymous Pro. Pixel: Press Start 2P (regular only).
+    // "Sans italic" and "Serif" are deliberately not registered, so their labels show
+    // ?????? (and a warning on stderr) - that is the behaviour under test.
+    const struct  { const char *szFamily; const char *szFile; bool bBold; bool bItalic; }  faces[] = {
+        { "Sans",  "resources/fonts/caravellius8x8.fnt",           false, false },
+        { "Sans",  "resources/fonts/caravellius8x8_bold.fnt",      true,  false },
+        { "Mono",  "resources/fonts/AnonymousPro-Regular.ttf",     false, false },
+        { "Mono",  "resources/fonts/AnonymousPro-Bold.ttf",        true,  false },
+        { "Mono",  "resources/fonts/AnonymousPro-Italic.ttf",      false, true  },
+        { "Mono",  "resources/fonts/AnonymousPro-BoldItalic.ttf", true,  true  },
+        { "Pixel", "resources/fonts/pressstart2p-regular.ttf",    false, false },
+    };
 
-    if( !pRenderer -> RegisterFont( "Sans", "resources/fonts/caravellius8x8_bold.fnt", true, false ) )
-        fprintf( stderr, "Cannot load the bold Sans font\n" );
-
-    if( !pRenderer -> RegisterFont( "Pixel", "resources/fonts/pressstart2p-regular.ttf", false, false ) )
-        fprintf( stderr, "Cannot load the Pixel font\n" );
+    for( const auto &face : faces )  {
+        if( !pRenderer -> RegisterFont( face.szFamily, face.szFile, face.bBold, face.bItalic ) )
+            fprintf( stderr, "Cannot load %s (%s)\n", face.szFile, face.szFamily );
+    }
 
     pRenderer -> SetCameraPosition( __START_CAMERA_X, __START_CAMERA_Y );
 
