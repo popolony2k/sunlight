@@ -108,6 +108,9 @@ int main( int argc, char **argv ) {
 
     pRenderer -> SetCameraPosition( __START_CAMERA_X, __START_CAMERA_Y );
 
+    // The area outside the viewport is dark red; the viewport itself keeps the map's dark green.
+    pRenderer -> SetWindowBackgroundColor( 0xFF301010 );
+
     printf( "Arrows scroll the map. Watch each label cut at the edge it crosses.\n" );
     printf( "Esc quits.\n" );
 

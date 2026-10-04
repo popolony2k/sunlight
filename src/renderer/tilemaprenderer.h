@@ -120,6 +120,7 @@ namespace SunLight {
             float                                      m_fWindowHeight;
             int                                        m_nTargetFps;
             uint32_t                                   m_nWindowBackgroundColor;
+            bool                                       m_bWindowBackgroundSet;   // SetWindowBackgroundColor was called: the window area is not the map's colour
             __AnimInfoList                             m_AnimInfoList;
             std :: string                              m_strTitle;
             float                                      m_fScreenFadeAlpha;

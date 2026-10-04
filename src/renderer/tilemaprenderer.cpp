@@ -1278,8 +1278,21 @@ namespace SunLight {
          */
         void TileMapRenderer :: RenderMap( void ) {
 
-            if( m_bClearBackground )
-                SunLight :: Engines :: EngineFactory :: GetEngine().ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
+            if( m_bClearBackground )  {
+                SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+
+                if( m_bWindowBackgroundSet && m_pTmxMap && !m_pDefaultView -> m_bExplicitBackground )  {
+                    // The window area takes the window colour; the viewport is then filled with the map's own.
+                    SunLight :: TileMap :: stDimension2D  &vp = m_pDefaultView -> GetViewport().GetDimension2D();
+
+                    engine.ClearBackground( IntToColor( m_nWindowBackgroundColor ) );
+                    engine.DrawFilledRectangle( ( int ) vp.pos.x, ( int ) vp.pos.y,
+                                                vp.size.nWidth, vp.size.nHeight,
+                                                BackgroundColorOf( *m_pDefaultView ) );
+                }
+                else
+                    engine.ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
+            }
 
             if( m_pTmxMap )  {
                 if( m_ExtraViews.empty() )  {
@@ -1739,7 +1752,8 @@ namespace SunLight {
             m_nScrollStepHeight           = config.nScrollStepHeight;
             m_ViewControlMode             = config.viewControlMode;
             m_nWindowBackgroundColor      = __DEFAULT_WINDOW_BK_COLOR;
-            m_pInputHandler               = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
+            m_bWindowBackgroundSet        = false;
+            m_pInputHandler              = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
             m_pNullInputEventHandler      = nullptr;
             m_TileMapListenerList.clear();
             m_KeyInputEventHandlerList.clear();
@@ -2052,6 +2066,11 @@ namespace SunLight {
         void TileMapRenderer :: SetWindowBackgroundColor( uint32_t nWindowBackgroundColor )  {
 
             m_nWindowBackgroundColor = nWindowBackgroundColor;
+
+            // Once set, the area outside the default viewport takes this colour and the
+            // viewport takes the map's own (see RenderMap). Until then both use the map's
+            // colour, as they always have, so games that never call this are unchanged.
+            m_bWindowBackgroundSet   = true;
         }
 
         /**
