@@ -178,9 +178,9 @@ namespace SunLight  {
              * its own. Backends with no clipping may ignore it, but then
              * callers that need a cut must not rely on it.
              *
-             * Not nestable: a second BeginClip before EndClip replaces the
-             * first, and one EndClip ends whatever clip is active. Callers
-             * pair them one to one.
+             * Nestable: a BeginClip inside another clip is intersected with it, so
+             * it can only narrow the clip. Each EndClip ends the innermost clip
+             * and restores the one outside it. Callers pair them one to one.
              *
              * @param rect Rectangle to clip to, in the same screen-space
              * coordinates as DrawText;

@@ -123,6 +123,11 @@ namespace SunLight  {
                 // font destroyed afterwards does not release them twice.
                 std :: vector<std :: weak_ptr<__stRaylibFont>>  m_LiveFonts;
 
+                // Clips in effect, innermost last. The scissor always matches the last one (see ApplyClip).
+                std :: vector<SunLight :: Base :: stRectangle>  m_ClipStack;
+
+                void ApplyClip( SunLight :: Base :: stRectangle rect );
+
                 // Font currently used by DrawText, loaded via SetFont - only
                 // valid (and only ever Unload'd) when m_bCustomFontLoaded is
                 // true; otherwise DrawText falls back to raylib's own

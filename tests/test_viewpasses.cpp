@@ -25,6 +25,7 @@
  */
 
 #include <doctest/doctest.h>
+#include <vector>
 #include <memory>
 #include <sstream>
 #include "renderer/tilemaprenderer.h"
@@ -183,6 +184,50 @@ TEST_SUITE( "renderer/viewpasses" )  {
         CHECK( scene.FrameClear() == 0 );
         CHECK( scene.Count( Event :: FILL ) == 0 );
         CHECK( scene.Count( Event :: TILE ) == 18 );        // ground 16 + props 1 + glow 1
+    }
+
+    TEST_CASE( "Each view's pass is clipped to its own rectangle, and the clip ends with the pass" )  {
+
+        Scene  scene;
+
+        int  nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+        scene.RunFrames( 1 );
+
+        // Two passes (default and extra): one clip each, begun and ended around the pass's own draws.
+        std :: vector<Event>  begins;
+        int                   nBegins = 0;
+        int                   nEnds   = 0;
+        int                   nDepth  = 0;
+        int                   nMaxDepth = 0;
+
+        for( const Event &evt : scene.engine().events )  {
+            if( evt.kind == Event :: CLIP_BEGIN )  {
+                begins.push_back( evt );
+                nBegins++;
+                nDepth++;
+                nMaxDepth = ( nDepth > nMaxDepth ) ? nDepth : nMaxDepth;
+            }
+            else if( evt.kind == Event :: CLIP_END )  {
+                nEnds++;
+                nDepth--;
+            }
+        }
+
+        REQUIRE( nBegins == 2 );
+        CHECK( nEnds == nBegins );
+        CHECK( nDepth == 0 );
+        CHECK( nMaxDepth == 1 );
+
+        // The rectangles are the two views' own: the default view first, the extra view second.
+        CHECK( begins[0].x == g_DefaultRect.pos.x );
+        CHECK( begins[0].y == g_DefaultRect.pos.y );
+        CHECK( begins[0].w == g_DefaultRect.size.nWidth );
+        CHECK( begins[0].h == g_DefaultRect.size.nHeight );
+        CHECK( begins[1].x == g_SideRect.pos.x );
+        CHECK( begins[1].y == g_SideRect.pos.y );
+        CHECK( begins[1].w == g_SideRect.size.nWidth );
+        CHECK( begins[1].h == g_SideRect.size.nHeight );
     }
 
     TEST_CASE( "An extra view draws the same map again, in its own rectangle, after clearing that rectangle" )  {

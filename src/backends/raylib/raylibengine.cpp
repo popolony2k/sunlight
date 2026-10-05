@@ -22,6 +22,7 @@
 #include "filesystem/filesystemfactory.h"
 #include "window/windowfactory.h"
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -466,23 +467,53 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Restrict drawing to a rectangle with raylib's scissor
-             * test (see @see IEngine::BeginClip). Scissor is not nestable in
-             * raylib either: BeginScissorMode replaces the active rectangle,
-             * EndScissorMode restores the full target.
+             * @brief Restrict drawing to a rectangle, nested in any clip already active (see
+             * @see IEngine::BeginClip). The clip is the intersection of the new rectangle and the
+             * active one, so a clip inside another can only narrow it. Two rectangles that do not
+             * overlap give an empty clip, and nothing is drawn through it.
              */
             void RaylibEngine :: BeginClip( SunLight :: Base :: stRectangle rect )  {
 
-                ::BeginScissorMode( ( int ) rect.x, ( int ) rect.y, ( int ) rect.width, ( int ) rect.height );
+                if( !m_ClipStack.empty() )  {
+                    const SunLight :: Base :: stRectangle  &outer = m_ClipStack.back();
+                    float  fLeft   = std :: max( rect.x, outer.x );
+                    float  fTop    = std :: max( rect.y, outer.y );
+                    float  fRight  = std :: min( rect.x + rect.width, outer.x + outer.width );
+                    float  fBottom = std :: min( rect.y + rect.height, outer.y + outer.height );
+
+                    rect = SunLight :: Base :: stRectangle { fLeft, fTop, std :: max( 0.0f, fRight - fLeft ),
+                                                              std :: max( 0.0f, fBottom - fTop ) };
+                }
+
+                m_ClipStack.push_back( rect );
+                ApplyClip( rect );
             }
 
             /**
-             * @brief End the scissor clip started by BeginClip (see
-             * @see IEngine::EndClip).
+             * @brief End the innermost clip (see @see IEngine::EndClip). The clip that was active
+             * before it comes back; when none is left, raylib's scissor is turned off. An EndClip
+             * with no clip active does nothing.
              */
             void RaylibEngine :: EndClip( void )  {
 
-                ::EndScissorMode();
+                if( m_ClipStack.empty() )
+                    return;
+
+                m_ClipStack.pop_back();
+
+                if( m_ClipStack.empty() )
+                    ::EndScissorMode();
+                else
+                    ApplyClip( m_ClipStack.back() );
+            }
+
+            /**
+             * @brief Make raylib's scissor test match a rectangle. BeginScissorMode flushes the
+             * pending batch first, so draws before the change keep the clip they were made with.
+             */
+            void RaylibEngine :: ApplyClip( SunLight :: Base :: stRectangle rect )  {
+
+                ::BeginScissorMode( ( int ) rect.x, ( int ) rect.y, ( int ) rect.width, ( int ) rect.height );
             }
 
             /**

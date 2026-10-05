@@ -1357,6 +1357,14 @@ namespace SunLight {
             for( View *pView : m_PassViews )  {
                 ActivateView( pView );
 
+                // The whole pass is cut to its view's rectangle (the engine's clip stack keeps any
+                // clip a draw starts inside it), so nothing the pass draws lands outside its view.
+                SunLight :: Base :: stDimension2D  &passRect = pView -> m_pViewport -> GetDimension2D();
+
+                SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
+                    ( float ) passRect.pos.x, ( float ) passRect.pos.y,
+                    ( float ) passRect.size.nWidth, ( float ) passRect.size.nHeight } );
+
                 if( ( pView != pDefault ) && pView -> m_bClear )  {
                     SunLight :: Base :: stDimension2D  &rect = pView -> m_pViewport -> GetDimension2D();
 
@@ -1368,6 +1376,8 @@ namespace SunLight {
                 }
 
                 DrawAllLayers( m_pTmxMap -> ly_head );
+
+                SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
             }
 
             ActivateView( pDefault );
