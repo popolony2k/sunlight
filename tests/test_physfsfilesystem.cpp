@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <physfs.h>
 #include "backends/physfs/physfsfilesystem.h"
 
 using namespace SunLight :: FileSystem :: PhysFs;
@@ -57,6 +58,26 @@ namespace  {
 }
 
 TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
+
+    TEST_CASE( "Mount works as the very first call: no Init and no read before it" )  {
+
+        ScratchDirFixture  fixture;
+
+        // Start from a process where PhysFS was never set up - what a consumer that mounts first sees.
+        if( ::PHYSFS_isInit() )
+            ::PHYSFS_deinit();
+
+        PhysFsFileSystem  fs;
+
+        REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "/subdir/greeting.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
+
+        fs.Shutdown();
+    }
 
     TEST_CASE( "Mount over a loose directory makes it's contents readable" )  {
 

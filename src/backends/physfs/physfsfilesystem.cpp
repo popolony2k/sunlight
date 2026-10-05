@@ -68,6 +68,11 @@ namespace SunLight  {
              */
             bool PhysFsFileSystem :: Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath )  {
 
+                // A mount can be the first call a consumer makes, before any read, so PhysFS is
+                // set up here too. Init does nothing when it is already set up (Scarab calls it first).
+                if( !m_bInitialized )
+                    Init( nullptr );
+
                 bool  bMounted = ::PHYSFS_mount( strRealPath.c_str(), strMountPoint.c_str(), bAppendToPath ? 1 : 0 ) != 0;
 
                 if( bMounted )
