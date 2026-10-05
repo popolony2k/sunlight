@@ -89,7 +89,7 @@ in `ScriptProcessor::Clear()`. The fix is a virtual destructor on `BaseCommand`.
 |---|------|--------|
 | B1 | Draw Tiled text objects (`OT_TEXT`) | DONE |
 | B2 | Draw Tiled tile objects (`OT_TILE`) | DONE |
-| B3 | Warn on unknown object and layer types | TODO |
+| B3 | Warn on unknown object and layer types | DONE |
 
 **B1: text objects.** Use the existing `IEngine::DrawText` and font loading. Respect the
 object's font size, colour and position.
@@ -104,6 +104,8 @@ tile's image at the object's position.
 **B3: unknown types.** Object types that are not handled, and unknown layer types, log
 a warning once. Point objects are handled in Phase C5, not here.
 - Test items: an unknown type logs once; known types log nothing.
+
+**B3: unknown types, closed with nothing to warn about.** libtmx gives every layer and object kind the renderer can receive: its layer kinds are the tile layer, object group, image layer and group, and it skips any other element while parsing. Its object kinds cover all seven Tiled shapes, and it turns an object with no shape into a point. So the `L_NONE` and `OT_NONE` cases cannot occur; they remain only so the switch covers every enumerator. Unknown element names are dropped by libtmx before the renderer sees them, so there is nothing for a warning in the renderer to catch.
 
 ## Phase C: thick primitives
 

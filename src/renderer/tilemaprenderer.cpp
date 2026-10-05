@@ -792,7 +792,9 @@ namespace SunLight {
                             break;
                         
                         case OT_NONE :
-                            // TODO: FINISH HIM !!!
+                            // libtmx turns an object with no shape into OT_POINT while parsing, so this
+                            // kind never reaches the renderer. The case stays so the switch covers every
+                            // enumerator.
                             break;
                         
                         case OT_TILE :
@@ -1267,7 +1269,9 @@ namespace SunLight {
                             DrawLayer( pLayer );
                             break;
                         case L_NONE :
-                            // TODO: FINISH HIM !!!
+                            // libtmx never gives a layer this kind: it skips any element that is not
+                            // a tile layer, object group, image layer or group. The case stays so the
+                            // switch covers every enumerator.
                             break;
                     }
 
