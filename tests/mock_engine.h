@@ -96,7 +96,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     // Every draw-ish call in order, for tests that care about WHICH pass drew what and in what order
     // (the multi-view frame): kind + the rectangle it was given (x, y, w, h; zeros where it has none).
     struct Event  {
-        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END };   // CLIP_BEGIN: x, y, w, h = the rectangle
+        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED };   // CLIP_BEGIN: x, y, w, h = the rectangle
 
         Kind   kind;
         float  x, y, w, h;
@@ -107,6 +107,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         std :: string                text;    // TEXT only: the string drawn
         const void                  *font = nullptr;     // TEXT only: the MockFont drawn with (nullptr = active font)
         int                          nFontSize = 0;      // TEXT only
+        float                        srcY = 0.0f, srcW = 0.0f, srcH = 0.0f;   // SCALED only: the source rectangle (srcX is its x)
     };
     std :: vector<Event>                events;
 
@@ -285,6 +286,8 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         hLastDrawnTexture           = hTexture;
         lastDrawTextureScaledSource = source;
         lastDrawTextureScaledDest   = dest;
+        events.push_back( Event { Event :: SCALED, dest.x, dest.y, dest.width, dest.height, 0.0f, source.x, hTexture,
+                                  tint, std :: string(), nullptr, 0, source.y, source.width, source.height } );
     }
 };
 

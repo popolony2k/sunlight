@@ -62,7 +62,7 @@ A text that is entirely outside the viewport is not drawn at all.
 
 ## Fonts
 
-All the fonts are under the SIL Open Font License 1.1 or the zlib License, and each has its licence text in `resources/fonts/`.
+All the fonts are under the SIL Open Font License 1.1 or the zlib License, and each has its licence text in `../shared/fonts/`.
 
 - `caravellius8x8.fnt` and `caravellius8x8_bold.fnt` (with their `.png` atlases): Caravellius 8x8, regular and bold, designed by PopolonY2k and Leidson Campos A. Ferreira. Dual-licensed under the zlib License or the SIL Open Font License 1.1 (`OFL-caravellius8x8.txt`). It covers the accented letters used in the labels.
 - `AnonymousPro-Regular.ttf`, `AnonymousPro-Bold.ttf`, `AnonymousPro-Italic.ttf` and `AnonymousPro-BoldItalic.ttf`: Anonymous Pro, Copyright (c) 2009, Mark Simonson. SIL Open Font License 1.1 (`OFL-anonymouspro.txt`).

@@ -33,7 +33,7 @@ namespace  {
 
     // The viewport is 1000 x 800 px at (40, 40). The camera starts at (100, 100), so the
     // viewport shows the map from x = 100 to 1100 and y = 100 to 900 - the rectangle drawn
-    // as "frame" in the map. Labels near those edges are cut by them.
+    // as "frame" in the map. The tile objects near those edges are cut by them.
     const int  __VIEWPORT_POS_X  = 40;
     const int  __VIEWPORT_POS_Y  = 40;
     const int  __VIEWPORT_WIDTH  = 1000;
@@ -45,7 +45,7 @@ namespace  {
 int main( int argc, char **argv ) {
 
     if( argc < 2 )  {
-        fprintf( stderr, "Invalid command line arguments: text_test <sample directory>\n" );
+        fprintf( stderr, "Invalid command line arguments: objects_test <sample directory>\n" );
         return EXIT_FAILURE;
     }
 
@@ -70,9 +70,9 @@ int main( int argc, char **argv ) {
 
     RendererConfig  config;
 
-    config.fWidth   = 1260.0f;
-    config.fHeight  = 920.0f;
-    config.strTitle = "Text objects and clipping";
+    config.fWidth     = 1260.0f;
+    config.fHeight    = 920.0f;
+    config.strTitle   = "Tile objects: size, edges, animation and flip";
     config.nTargetFps = 60;
     config.viewport.emplace();
     config.viewport -> pos.x        = __VIEWPORT_POS_X;
@@ -92,36 +92,18 @@ int main( int argc, char **argv ) {
         return EXIT_FAILURE;
     }
 
-    if( !pRenderer -> LoadMap( "resources/map/text.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) )  {
-        fprintf( stderr, "Cannot load resources/map/text.tmx\n" );
+    if( !pRenderer -> LoadMap( "resources/map/objects.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) )  {
+        fprintf( stderr, "Cannot load resources/map/objects.tmx\n" );
         return EXIT_FAILURE;
     }
 
-    // Sans: regular and bold, both bitmap fonts designed for Caravellius (no italic face).
-    // Mono: all four faces of Anonymous Pro. Pixel: Press Start 2P (regular only).
-    // "Sans italic" and "Serif" are deliberately not registered, so their labels show
-    // ?????? (and a warning on stderr) - that is the behaviour under test.
-    const struct  { const char *szFamily; const char *szFile; bool bBold; bool bItalic; }  faces[] = {
-        { "Sans",  "/shared/fonts/caravellius8x8.fnt",           false, false },
-        { "Sans",  "/shared/fonts/caravellius8x8_bold.fnt",      true,  false },
-        { "Mono",  "/shared/fonts/AnonymousPro-Regular.ttf",     false, false },
-        { "Mono",  "/shared/fonts/AnonymousPro-Bold.ttf",        true,  false },
-        { "Mono",  "/shared/fonts/AnonymousPro-Italic.ttf",      false, true  },
-        { "Mono",  "/shared/fonts/AnonymousPro-BoldItalic.ttf", true,  true  },
-        { "Pixel", "/shared/fonts/pressstart2p-regular.ttf",    false, false },
-    };
-
-    for( const auto &face : faces )  {
-        if( !pRenderer -> RegisterFont( face.szFamily, face.szFile, face.bBold, face.bItalic ) )
-            fprintf( stderr, "Cannot load %s (%s)\n", face.szFile, face.szFamily );
-    }
+    // The labels are in "Sans", the regular face of Caravellius 8x8 (a bitmap font).
+    if( !pRenderer -> RegisterFont( "Sans", "/shared/fonts/caravellius8x8.fnt", false, false ) )
+        fprintf( stderr, "Cannot load the Sans font\n" );
 
     pRenderer -> SetCameraPosition( __START_CAMERA_X, __START_CAMERA_Y );
 
-    pRenderer -> SetWindowBackgroundColor( DARK_RED_COLOR );   // around the viewport; the viewport keeps the map's dark green
-
-    printf( "Arrows scroll the map. Watch each label cut at the edge it crosses.\n" );
-    printf( "Esc quits.\n" );
+    printf( "Each numbered row is one tile object case. Arrows scroll the map, Esc quits.\n" );
 
     pRenderer -> Run();
     pRenderer -> Stop();

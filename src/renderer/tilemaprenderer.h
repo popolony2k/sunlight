@@ -247,11 +247,15 @@ namespace SunLight {
             // Draws one text object (B1). See DrawTextObject's own comment for
             // the placeholder used when its font is not registered.
             void DrawTextObject( tmx_object *pObject, tmx_layer *pLayer );
+
+            // Draws one tile object (B2): the tile its gid names, at the object's position.
+            void DrawTileObject( tmx_object *pObject, tmx_layer *pLayer );
             SunLight :: Font :: IFont* FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic );
             void WarnMissingFont( const char *szFamily, bool bBold, bool bItalic );
             void ReleaseRegisteredFonts( void );
             void DrawImageLayer( tmx_layer *pLayer );
             void DrawLayer( tmx_layer *pLayer );
+            tmx_tile* AnimatedFrameOf( tmx_tile *pBase, unsigned int nGID );
             void DrawAllLayers( tmx_layer *pLayer );
             void RenderMap( void );
 
