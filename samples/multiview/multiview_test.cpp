@@ -61,9 +61,9 @@
 
 namespace  {
 
-    SunLight :: TileMap :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
+    SunLight :: Base :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
 
-        SunLight :: TileMap :: stDimension2D  rect {};
+        SunLight :: Base :: stDimension2D  rect {};
 
         rect.pos.x = nX;  rect.pos.y = nY;  rect.size.nWidth = nW;  rect.size.nHeight = nH;
 
@@ -135,7 +135,7 @@ int main( int argc, char **argv )  {
 
     canvas.SetTileSize( __SUNNY_SIZE );
     canvas.SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
-    canvas.SetDimension2D( SunLight :: TileMap :: stDimension2D { { 0, 0 }, { __SUNNY_SIZE, __SUNNY_SIZE } } );
+    canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { __SUNNY_SIZE, __SUNNY_SIZE } } );
     sunny.AddTextureSequence( 0, &canvas, __SUNNY_ANIMATION_DELAY );
     sunny.SetActiveTextureSequence( 0 );
     sunny.SetVisible( true );
@@ -153,7 +153,7 @@ int main( int argc, char **argv )  {
      * the map point shown at the view's top-left.
      */
     auto  followSunny = [&]()  {
-        SunLight :: TileMap :: stDimension2D  &closeUpRect = pCloseUp -> GetViewport().GetDimension2D();
+        SunLight :: Base :: stDimension2D  &closeUpRect = pCloseUp -> GetViewport().GetDimension2D();
         float  fZoom  = pCloseUp -> GetViewport().GetZoomProperties().fZoomFactor;
         int    nVisW  = ( int ) ( closeUpRect.size.nWidth  / fZoom );      // map pixels visible in the close-up
         int    nVisH  = ( int ) ( closeUpRect.size.nHeight / fZoom );
@@ -180,7 +180,7 @@ int main( int argc, char **argv )  {
     };
 
     auto  moveSunny = [&]( int nDX, int nDY )  {
-        SunLight :: TileMap :: stDimension2D  &dim = sunny.GetDimension2D();
+        SunLight :: Base :: stDimension2D  &dim = sunny.GetDimension2D();
 
         dim.pos.x = std :: max( 0, std :: min( dim.pos.x + nDX, nMapWidth  - __SUNNY_SIZE ) );
         dim.pos.y = std :: max( 0, std :: min( dim.pos.y + nDY, nMapHeight - __SUNNY_SIZE ) );

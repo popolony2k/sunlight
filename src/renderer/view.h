@@ -126,7 +126,7 @@ namespace SunLight {
             bool IsLayerShown( int nLayerId ) override;
             bool FitToMap( void ) override;
 
-            bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+            bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                       SunLight :: TileMap :: stMatrixPosition& pos ) override;
         };
     }

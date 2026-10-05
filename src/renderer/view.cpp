@@ -337,7 +337,7 @@ namespace SunLight {
             if( ( nMapW <= 0 ) || ( nMapH <= 0 ) )
                 return false;
 
-            SunLight :: TileMap :: stDimension2D  &dim = m_pViewport -> GetDimension2D();
+            SunLight :: Base :: stDimension2D  &dim = m_pViewport -> GetDimension2D();
             long  nStepsW = ( ( long ) dim.size.nWidth  * nStepsPerUnit ) / nMapW;
             long  nStepsH = ( ( long ) dim.size.nHeight * nStepsPerUnit ) / nMapH;
             long  nSteps  = ( nStepsW < nStepsH ? nStepsW : nStepsH );
@@ -354,7 +354,7 @@ namespace SunLight {
             return true;
         }
 
-        bool View :: TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+        bool View :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                           SunLight :: TileMap :: stMatrixPosition& pos )  {
 
             bool  bResult = false;

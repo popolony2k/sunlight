@@ -66,7 +66,7 @@ namespace SunLight {
             virtual ~Collider( void );
 
             bool Hit( SunLight :: TileMap :: stTile &tile );
-            bool Hit( SunLight :: TileMap :: stDimension2D &dimension );
+            bool Hit( SunLight :: Base :: stDimension2D &dimension );
             bool Hit( Collider &other );
 
             /**

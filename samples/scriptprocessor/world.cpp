@@ -184,7 +184,7 @@ void World :: OnUpdate( SunLight :: TileMap :: ITileMap& tileMap )  {
             m_bSunnyCircling = true;
         }
         else  {
-            SunLight :: TileMap :: stCoordinate2D  step = { __SLIDE_STEP, 0 };
+            SunLight :: Base :: stCoordinate2D  step = { __SLIDE_STEP, 0 };
             m_pSpriteSunny -> Move( step );
         }
     }
@@ -200,7 +200,7 @@ void World :: OnUpdate( SunLight :: TileMap :: ITileMap& tileMap )  {
             m_nMonkeyPatrolEdge = 0;
         }
         else  {
-            SunLight :: TileMap :: stCoordinate2D  step = { -__SLIDE_STEP, 0 };
+            SunLight :: Base :: stCoordinate2D  step = { -__SLIDE_STEP, 0 };
             m_pSpriteMonkey -> Move( step );
         }
     }
@@ -236,8 +236,8 @@ void World :: LoadStage( uint16_t nStageId )  {
 
     switch( nStageId )  {
         case __STAGE_ID :
-            m_pSpriteSunny -> SetDimension2D( SunLight :: TileMap :: stDimension2D { { __OFFSCREEN_LEFT_X, __SUNNY_Y }, { 32, 32 } } );
-            m_pSpriteMonkey -> SetDimension2D( SunLight :: TileMap :: stDimension2D { { __OFFSCREEN_RIGHT_X, __MONKEY_Y }, { 32, 32 } } );
+            m_pSpriteSunny -> SetDimension2D( SunLight :: Base :: stDimension2D { { __OFFSCREEN_LEFT_X, __SUNNY_Y }, { 32, 32 } } );
+            m_pSpriteMonkey -> SetDimension2D( SunLight :: Base :: stDimension2D { { __OFFSCREEN_RIGHT_X, __MONKEY_Y }, { 32, 32 } } );
             m_pSpriteSunny -> SetVisible( false );
             m_pSpriteMonkey -> SetVisible( false );
             m_bSunnySliding     = false;
@@ -264,7 +264,7 @@ void World :: StartSpriteEntrance( uint16_t nSpriteId )  {
 
     switch( nSpriteId )  {
         case __SUNNY_SPRITE_ID :
-            m_pSpriteSunny -> SetDimension2D( SunLight :: TileMap :: stDimension2D { { __OFFSCREEN_LEFT_X, __SUNNY_Y }, { 32, 32 } } );
+            m_pSpriteSunny -> SetDimension2D( SunLight :: Base :: stDimension2D { { __OFFSCREEN_LEFT_X, __SUNNY_Y }, { 32, 32 } } );
             m_pSpriteSunny -> SetVisible( true );
             m_bSunnySliding  = true;
             m_bSunnyCircling = false;
@@ -273,7 +273,7 @@ void World :: StartSpriteEntrance( uint16_t nSpriteId )  {
         break;
 
         case __MONKEY_SPRITE_ID :
-            m_pSpriteMonkey -> SetDimension2D( SunLight :: TileMap :: stDimension2D { { __OFFSCREEN_RIGHT_X, __MONKEY_Y }, { 32, 32 } } );
+            m_pSpriteMonkey -> SetDimension2D( SunLight :: Base :: stDimension2D { { __OFFSCREEN_RIGHT_X, __MONKEY_Y }, { 32, 32 } } );
             m_pSpriteMonkey -> SetVisible( true );
             m_bMonkeySliding    = true;
             m_bMonkeyPatrolling = false;
@@ -296,7 +296,7 @@ void World :: StartSpriteEntrance( uint16_t nSpriteId )  {
  */
 void World :: UpdateSunnyCircle( void )  {
 
-    SunLight :: TileMap :: stDimension2D  dim = m_pSpriteSunny -> GetDimension2D();
+    SunLight :: Base :: stDimension2D  dim = m_pSpriteSunny -> GetDimension2D();
 
     m_fSunnyCircleAngle += __SUNNY_CIRCLE_STEP;
 
@@ -317,7 +317,7 @@ void World :: UpdateSunnyCircle( void )  {
  */
 void World :: UpdateMonkeyPatrol( void )  {
 
-    SunLight :: TileMap :: stDimension2D  dim = m_pSpriteMonkey -> GetDimension2D();
+    SunLight :: Base :: stDimension2D  dim = m_pSpriteMonkey -> GetDimension2D();
 
     switch( m_nMonkeyPatrolEdge )  {
         case 0 :  // top edge, walking right
@@ -457,7 +457,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
 
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
 

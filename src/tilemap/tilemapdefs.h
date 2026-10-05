@@ -23,34 +23,11 @@
 
 #include <tmx.h>
 #include <string>
+#include "base/primitives.h"
 
 
 namespace SunLight  {
     namespace TileMap  {
-        /**
-         * 2D coordinate structs.
-         */
-        struct stCoordinate2D  {
-            int            x;
-            int            y;
-        };
-
-        /**
-         * 2D size struct.
-         */
-        struct stSize2D  {
-            int            nWidth;
-            int            nHeight;
-        };
-
-        /**
-         * 2D dimension struct;
-         */
-        struct stDimension2D  {
-            stCoordinate2D pos;
-            stSize2D       size;
-        };
-
         /**
          * Matrix position struct.
          */
@@ -65,7 +42,7 @@ namespace SunLight  {
         struct stLayer  {
             bool           bVisible;
             int            nOpacity;
-            stCoordinate2D offset;
+            Base :: stCoordinate2D offset;
             tmx_layer      *pLayer;
         };
 
@@ -77,7 +54,7 @@ namespace SunLight  {
                                     * a tile at map scope.
                                     * https://libtmx.readthedocs.io/en/latest/glossary.html#term-gid
                                     */
-            stDimension2D  dimension; // Position and size based on layer
+            Base :: stDimension2D  dimension; // Position and size based on layer
             tmx_tile       *pTile;
         };
 
@@ -85,8 +62,8 @@ namespace SunLight  {
          * Map definition struct.
          */
         struct stMapInfo  {
-            stSize2D       mapSize;
-            stSize2D       tileSize;
+            Base :: stSize2D       mapSize;
+            Base :: stSize2D       tileSize;
             tmx_map        *pMap;
         };
 
@@ -97,7 +74,7 @@ namespace SunLight  {
          */
         struct stObject  {
             std :: string  strName;
-            stDimension2D  dimension;
+            Base :: stDimension2D  dimension;
         };
     }
 }

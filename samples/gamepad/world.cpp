@@ -52,7 +52,7 @@
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveSunnyUp( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { 0, -__PLAYER_MOVE_STEP };
+    SunLight :: Base :: stCoordinate2D  step = { 0, -__PLAYER_MOVE_STEP };
     m_pSpriteSunny -> Move( step );
 }
 
@@ -62,7 +62,7 @@ void World :: MoveSunnyUp( SunLight :: Input :: ControllerType type, int nId )  
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveSunnyDown( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { 0, __PLAYER_MOVE_STEP };
+    SunLight :: Base :: stCoordinate2D  step = { 0, __PLAYER_MOVE_STEP };
     m_pSpriteSunny -> Move( step );
 }
 
@@ -72,7 +72,7 @@ void World :: MoveSunnyDown( SunLight :: Input :: ControllerType type, int nId )
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveSunnyLeft( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { -__PLAYER_MOVE_STEP, 0 };
+    SunLight :: Base :: stCoordinate2D  step = { -__PLAYER_MOVE_STEP, 0 };
     m_pSpriteSunny -> Move( step );
 }
 
@@ -82,7 +82,7 @@ void World :: MoveSunnyLeft( SunLight :: Input :: ControllerType type, int nId )
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveSunnyRight( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { __PLAYER_MOVE_STEP, 0 };
+    SunLight :: Base :: stCoordinate2D  step = { __PLAYER_MOVE_STEP, 0 };
     m_pSpriteSunny -> Move( step );
 }
 
@@ -94,7 +94,7 @@ void World :: MoveSunnyRight( SunLight :: Input :: ControllerType type, int nId 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveMonkeyUp( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { 0, -__PLAYER_MOVE_STEP };
+    SunLight :: Base :: stCoordinate2D  step = { 0, -__PLAYER_MOVE_STEP };
     m_pSpriteMonkey -> Move( step );
 }
 
@@ -104,7 +104,7 @@ void World :: MoveMonkeyUp( SunLight :: Input :: ControllerType type, int nId ) 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveMonkeyDown( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { 0, __PLAYER_MOVE_STEP };
+    SunLight :: Base :: stCoordinate2D  step = { 0, __PLAYER_MOVE_STEP };
     m_pSpriteMonkey -> Move( step );
 }
 
@@ -114,7 +114,7 @@ void World :: MoveMonkeyDown( SunLight :: Input :: ControllerType type, int nId 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveMonkeyLeft( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { -__PLAYER_MOVE_STEP, 0 };
+    SunLight :: Base :: stCoordinate2D  step = { -__PLAYER_MOVE_STEP, 0 };
     m_pSpriteMonkey -> Move( step );
 }
 
@@ -124,7 +124,7 @@ void World :: MoveMonkeyLeft( SunLight :: Input :: ControllerType type, int nId 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveMonkeyRight( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { __PLAYER_MOVE_STEP, 0 };
+    SunLight :: Base :: stCoordinate2D  step = { __PLAYER_MOVE_STEP, 0 };
     m_pSpriteMonkey -> Move( step );
 }
 
@@ -159,8 +159,8 @@ bool World :: LoadSprites( void ) {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) &&
         m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) ) {
-        SunLight :: TileMap :: stDimension2D    dimSunny;
-        SunLight :: TileMap :: stDimension2D    dimMonkey;
+        SunLight :: Base :: stDimension2D    dimSunny;
+        SunLight :: Base :: stDimension2D    dimMonkey;
 
         // Sprites don't scroll with the camera in this library - see the
         // collision sample's LoadSprites() for the full explanation. At this
@@ -227,7 +227,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
 
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
 

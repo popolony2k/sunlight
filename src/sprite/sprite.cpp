@@ -112,8 +112,8 @@ namespace SunLight {
                                            int64_t nDelayMilli ) {
 
             TextureSequenceList :: iterator       itItem     = m_Sequences.find( nSequence );
-            SunLight :: TileMap :: stDimension2D& spritePos  = GetDimension2D();
-            SunLight :: TileMap :: stDimension2D  texturePos = pTexture -> GetDimension2D();
+            SunLight :: Base :: stDimension2D& spritePos  = GetDimension2D();
+            SunLight :: Base :: stDimension2D  texturePos = pTexture -> GetDimension2D();
             BaseCanvas                            *pParent   = GetParent();
 
             if( !pParent )
@@ -255,9 +255,9 @@ namespace SunLight {
         * @param step Reference to a @link stCoordinate2D containing
         * the x,y move steps;
         */
-        void Sprite :: Move( SunLight :: TileMap :: stCoordinate2D& step )  {
+        void Sprite :: Move( SunLight :: Base :: stCoordinate2D& step )  {
 
-            SunLight :: TileMap :: stDimension2D& dimension = GetDimension2D();
+            SunLight :: Base :: stDimension2D& dimension = GetDimension2D();
 
             dimension.pos.x+=step.x;
             dimension.pos.y+=step.y;

@@ -55,7 +55,7 @@ namespace SunLight {
          * @param pDimension Pointer to the new @link stDimension2D object
          * that will be used by this entity;
          */
-        void Canvas :: SetDimension2DPtr( SunLight :: TileMap :: stDimension2D* pDimension )  {
+        void Canvas :: SetDimension2DPtr( SunLight :: Base :: stDimension2D* pDimension )  {
 
             BaseCanvas :: SetDimension2DPtr( pDimension );
             m_Collider.SetDimension2DPtr( pDimension );

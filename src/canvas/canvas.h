@@ -44,7 +44,7 @@ namespace SunLight {
             virtual ~Canvas( void );
 
             void SetParent( BaseCanvas *pParent );
-            void SetDimension2DPtr( SunLight :: TileMap :: stDimension2D* pDimension );
+            void SetDimension2DPtr( SunLight :: Base :: stDimension2D* pDimension );
 
             void SetColor( SunLight :: Base :: stColor color );
             SunLight :: Base :: stColor& GetColor( void );

@@ -29,8 +29,8 @@ TEST_SUITE( "collision/Collider" )  {
     TEST_CASE( "Hit detects overlapping rectangles" )  {
 
         Collider      collider;
-        stDimension2D self  { { 0, 0 }, { 50, 50 } };
-        stDimension2D other { { 25, 25 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D other { { 25, 25 }, { 50, 50 } };
 
         collider.SetDimension2D( self );
 
@@ -40,8 +40,8 @@ TEST_SUITE( "collision/Collider" )  {
     TEST_CASE( "Hit rejects disjoint rectangles" )  {
 
         Collider      collider;
-        stDimension2D self  { { 0, 0 }, { 50, 50 } };
-        stDimension2D other { { 100, 100 }, { 20, 20 } };
+        SunLight :: Base :: stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D other { { 100, 100 }, { 20, 20 } };
 
         collider.SetDimension2D( self );
 
@@ -51,8 +51,8 @@ TEST_SUITE( "collision/Collider" )  {
     TEST_CASE( "Hit treats exactly touching edges as a collision" )  {
 
         Collider      collider;
-        stDimension2D self  { { 0, 0 }, { 50, 50 } };
-        stDimension2D other { { 50, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D other { { 50, 0 }, { 50, 50 } };
 
         collider.SetDimension2D( self );
 
@@ -62,8 +62,8 @@ TEST_SUITE( "collision/Collider" )  {
     TEST_CASE( "SetInset defaults to zero - unchanged full-size behavior" )  {
 
         Collider      collider;
-        stDimension2D self  { { 0, 0 }, { 50, 50 } };
-        stDimension2D other { { 45, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D other { { 45, 0 }, { 50, 50 } };
 
         collider.SetDimension2D( self );
 
@@ -78,8 +78,8 @@ TEST_SUITE( "collision/Collider" )  {
         Collider      collider;
         // 50x50 self, 20% inset on every edge -> effective rect is
         // (10,10)-(40,40), a 30x30 box centered in the original 50x50.
-        stDimension2D self  { { 0, 0 }, { 50, 50 } };
-        stDimension2D other { { 45, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D other { { 45, 0 }, { 50, 50 } };
 
         collider.SetDimension2D( self );
         collider.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
@@ -93,8 +93,8 @@ TEST_SUITE( "collision/Collider" )  {
     TEST_CASE( "SetInset still detects overlap within the shrunk box" )  {
 
         Collider      collider;
-        stDimension2D self  { { 0, 0 }, { 50, 50 } };
-        stDimension2D other { { 35, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D self  { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D other { { 35, 0 }, { 50, 50 } };
 
         collider.SetDimension2D( self );
         collider.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
@@ -103,13 +103,13 @@ TEST_SUITE( "collision/Collider" )  {
         CHECK( collider.Hit( other ) == true );
     }
 
-    // Hit(Collider&) - unlike Hit(stDimension2D&) above (which only ever
+    // Hit(Collider&) - unlike Hit(SunLight :: Base :: stDimension2D&) above (which only ever
     // applies "self"'s own inset against the other side's raw, full
     // dimension - by design, since the other side there isn't necessarily
     // a Collider at all), this overload applies BOTH colliders' own
     // SetInset shrink. Regression coverage for a real bug found via
     // Caravellius (2026-08-11): CollisionManager::Update() used to call
-    // the stDimension2D overload for it's collider-to-collider rule
+    // the SunLight :: Base :: stDimension2D overload for it's collider-to-collider rule
     // checks, which silently ignored the SECOND collider's own inset
     // entirely - an enemy's own SetInset never took effect against a
     // player bullet, however aggressively it was shrunk, purely because
@@ -119,8 +119,8 @@ TEST_SUITE( "collision/Collider" )  {
 
         Collider      first;
         Collider      second;
-        stDimension2D firstDim  { { 0, 0 }, { 50, 50 } };
-        stDimension2D secondDim { { 45, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D firstDim  { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D secondDim { { 45, 0 }, { 50, 50 } };
 
         first.SetDimension2D( firstDim );
         second.SetDimension2D( secondDim );
@@ -132,7 +132,7 @@ TEST_SUITE( "collision/Collider" )  {
         // so they no longer overlap even though their raw, full boxes
         // still would (same setup as the "shrinks the collider's own
         // side" test above, just on the "other" side of the pairing this
-        // time - the exact case Hit(stDimension2D&) could never express).
+        // time - the exact case Hit(SunLight :: Base :: stDimension2D&) could never express).
         second.SetInset( 0.2f, 0.2f, 0.2f, 0.2f );
 
         CHECK( first.Hit( second ) == false );
@@ -150,8 +150,8 @@ TEST_SUITE( "collision/Collider" )  {
 
         Collider      first;
         Collider      second;
-        stDimension2D firstDim  { { 0, 0 }, { 50, 50 } };
-        stDimension2D secondDim { { 35, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D firstDim  { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D secondDim { { 35, 0 }, { 50, 50 } };
 
         first.SetDimension2D( firstDim );
         second.SetDimension2D( secondDim );
@@ -166,7 +166,7 @@ TEST_SUITE( "collision/Collider" )  {
         CHECK( first.Hit( second ) == false );
 
         // A closer pair, still with both sides shrunk, that does overlap.
-        stDimension2D closerDim { { 25, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D closerDim { { 25, 0 }, { 50, 50 } };
         Collider      closer;
 
         closer.SetDimension2D( closerDim );

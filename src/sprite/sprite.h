@@ -107,7 +107,7 @@ namespace SunLight {
             // and camera.
             bool IsOnScreen( void );
 
-            void Move( SunLight :: TileMap :: stCoordinate2D& step );
+            void Move( SunLight :: Base :: stCoordinate2D& step );
 
             void Advance( void );
             void Draw( void );

@@ -34,9 +34,9 @@ using namespace SunLight :: Renderer;
 
 namespace  {
 
-    SunLight :: TileMap :: stDimension2D  MakeViewport( int nX, int nY, int nW, int nH )  {
+    SunLight :: Base :: stDimension2D  MakeViewport( int nX, int nY, int nW, int nH )  {
 
-        SunLight :: TileMap :: stDimension2D  dim {};
+        SunLight :: Base :: stDimension2D  dim {};
 
         dim.pos.x       = nX;
         dim.pos.y       = nY;
@@ -276,8 +276,8 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
         byHand.GetViewport().SetZoom( 60 );
         byHand.GetViewport().SetDimension2D( MakeViewport( 10, 10, 1250, 910 ) );
 
-        SunLight :: TileMap :: stDimension2D  &configVp = fromConfig.GetViewport().GetDimension2D();
-        SunLight :: TileMap :: stDimension2D  &handVp   = byHand.GetViewport().GetDimension2D();
+        SunLight :: Base :: stDimension2D  &configVp = fromConfig.GetViewport().GetDimension2D();
+        SunLight :: Base :: stDimension2D  &handVp   = byHand.GetViewport().GetDimension2D();
 
         CHECK( configVp.pos.x == 10 );
         CHECK( configVp.pos.y == 10 );
@@ -300,7 +300,7 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
                classic.GetViewport().GetZoomProperties().nCurrentZoomPos );
 
         // A zero-sized viewport used to make LoadMap divide by zero.
-        SunLight :: TileMap :: stDimension2D  &vp = fromConfig.GetViewport().GetDimension2D();
+        SunLight :: Base :: stDimension2D  &vp = fromConfig.GetViewport().GetDimension2D();
 
         CHECK( vp.pos.x == 0 );
         CHECK( vp.pos.y == 0 );

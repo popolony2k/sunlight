@@ -392,7 +392,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color )  {
 
-            SunLight :: TileMap :: stDimension2D& vp = GetViewport().GetDimension2D();
+            SunLight :: Base :: stDimension2D& vp = GetViewport().GetDimension2D();
 
             // The visible rectangle is [pos, pos + size): a pixel is drawn
             // when it lies inside it (the top/left edge itself excluded, as
@@ -556,7 +556,7 @@ namespace SunLight {
                                               SunLight :: Base :: stColor color ) {
 
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
-            SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
+            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
 
             fOffset_x = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
             fOffset_y = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
@@ -583,7 +583,7 @@ namespace SunLight {
                                          int nPointsCount,
                                          SunLight :: Base :: stColor color ) {
 
-            SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
+            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
 
             DrawPolyline( fOffset_x,
                         fOffset_y,
@@ -621,7 +621,7 @@ namespace SunLight {
                                                double fHeight,
                                                SunLight :: Base :: stColor color )  {
 
-            SunLight :: TileMap :: stDimension2D&  vp          = GetViewport().GetDimension2D();
+            SunLight :: Base :: stDimension2D&  vp          = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
             double                                 fViewStartX = ( ( fOffset_x + m_CameraPos.x ) *
                                                                    zp.fZoomFactor ) + vp.pos.x;
@@ -674,7 +674,7 @@ namespace SunLight {
                                              double fHeight,
                                              SunLight :: Base :: stColor color )  {
 
-            SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
+            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
 
             fWidth-=( fWidth / 2.0 );
@@ -711,17 +711,17 @@ namespace SunLight {
                                           int32_t nDestY,
                                           float fOpacity ) {
 
-            SunLight :: TileMap :: stDimension2D  clip;
+            SunLight :: Base :: stDimension2D  clip;
             SunLight :: Base :: Viewport&         vp        = GetViewport();
             unsigned char                         op        = ( uint8_t ) ( 0xFF * fOpacity );
-            SunLight :: TileMap :: stDimension2D  dm        =  { { ( int ) ( nDestX + m_CameraPos.x ),
+            SunLight :: Base :: stDimension2D  dm        =  { { ( int ) ( nDestX + m_CameraPos.x ),
                                                                  ( int ) ( nDestY + m_CameraPos.y ) },
                                                                  { nSourceW, nSourceH } };
 
             if( vp.GetClippedRect( dm, clip ) )  {
 
                 float                                 fZoomFactor = vp.GetZoomProperties().fZoomFactor;
-                SunLight :: TileMap :: stDimension2D& vpDm        = vp.GetDimension2D();
+                SunLight :: Base :: stDimension2D& vpDm        = vp.GetDimension2D();
                 int32_t                               nClipX      = ( int32_t ) ( clip.pos.x == vpDm.pos.x ? nSourceX +
                                                                                   std :: abs( ( clip.size.nWidth /
                                                                                                 fZoomFactor ) -
@@ -847,7 +847,7 @@ namespace SunLight {
                 return;
 
             tmx_text                              *pText    = pObject -> content.text;
-            SunLight :: TileMap :: stDimension2D&  vp       = GetViewport().GetDimension2D();
+            SunLight :: Base :: stDimension2D&  vp       = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp       = GetViewport().GetZoomProperties();
             SunLight :: Base :: stColor            color    = IntToColor( pText -> color );
             const char                            *szFamily = ( pText -> fontfamily != nullptr ) ? pText -> fontfamily : "";
@@ -1067,7 +1067,7 @@ namespace SunLight {
             // A resized tile object is stretched into its box, as Tiled draws it. The box is
             // worked out in screen space (the same mapping as DrawRectangle), then cut to the viewport.
             SunLight :: Base :: Viewport&          vp     = GetViewport();
-            SunLight :: TileMap :: stDimension2D&  vpDm   = vp.GetDimension2D();
+            SunLight :: Base :: stDimension2D&  vpDm   = vp.GetDimension2D();
             float                                  fZoom  = vp.GetZoomProperties().fZoomFactor;
 
             float  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vpDm.pos.x;
@@ -1358,7 +1358,7 @@ namespace SunLight {
                 ActivateView( pView );
 
                 if( ( pView != pDefault ) && pView -> m_bClear )  {
-                    SunLight :: TileMap :: stDimension2D  &rect = pView -> m_pViewport -> GetDimension2D();
+                    SunLight :: Base :: stDimension2D  &rect = pView -> m_pViewport -> GetDimension2D();
 
                     SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( rect.pos.x,
                                                                                               rect.pos.y,
@@ -1390,7 +1390,7 @@ namespace SunLight {
 
                 if( m_bWindowBackgroundSet && m_pTmxMap && !m_pDefaultView -> m_bExplicitBackground )  {
                     // The window area takes the window colour; the viewport is then filled with the map's own.
-                    SunLight :: TileMap :: stDimension2D  &vp = m_pDefaultView -> GetViewport().GetDimension2D();
+                    SunLight :: Base :: stDimension2D  &vp = m_pDefaultView -> GetViewport().GetDimension2D();
 
                     engine.ClearBackground( m_WindowBackgroundColor );
                     engine.DrawFilledRectangle( ( int ) vp.pos.x, ( int ) vp.pos.y,
@@ -1885,7 +1885,7 @@ namespace SunLight {
                 // viewport is what LoadMap's alignment math divides by (and
                 // what clips drawing), so leaving it zero-sized crashed
                 // LoadMap with a divide-by-zero and would have drawn nothing.
-                SunLight :: TileMap :: stDimension2D  fullArea {};
+                SunLight :: Base :: stDimension2D  fullArea {};
 
                 fullArea.size.nWidth  = ( int ) config.fWidth;
                 fullArea.size.nHeight = ( int ) config.fHeight;
@@ -2329,7 +2329,7 @@ namespace SunLight {
          * "the tile size of whatever map is loaded next" if none is yet).
          * @param rect The rectangle of the render target it is shown in - [pos, pos + size);
          */
-        std :: shared_ptr<SunLight :: TileMap :: IView> TileMapRenderer :: CreateView( const SunLight :: TileMap :: stDimension2D& rect )  {
+        std :: shared_ptr<SunLight :: TileMap :: IView> TileMapRenderer :: CreateView( const SunLight :: Base :: stDimension2D& rect )  {
 
             std :: shared_ptr<View>  pView = std :: make_shared<View>( this, m_nNextViewId, nullptr );
 
@@ -2928,7 +2928,7 @@ namespace SunLight {
                 return false;
             }
 
-            SunLight :: TileMap :: stDimension2D&  vp = GetDimension2D();
+            SunLight :: Base :: stDimension2D&  vp = GetDimension2D();
 
             tile.dimension.pos.x        = ( ( pos.nTileCol * m_pTmxMap -> tile_width ) +
                                             vp.pos.x ) + ( int ) m_CameraPos.x;
@@ -2946,11 +2946,11 @@ namespace SunLight {
          * @param pos Reference to struct @link stMatrixPosition to receive the
          * tile matrix position based on world coordinate passed as parameter;
          */
-        bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+        bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                                      SunLight :: TileMap :: stMatrixPosition& pos )  {
 
             if( m_pTmxMap )  {
-                SunLight :: TileMap :: stDimension2D&  vp      = GetViewport().GetDimension2D();
+                SunLight :: Base :: stDimension2D&  vp      = GetViewport().GetDimension2D();
                 SunLight :: Base :: stZoomProperties&  zp      = GetViewport().GetZoomProperties();
                 int                                    nCoordX = ( int ) ( coord.x / zp.fZoomFactor );
                 int                                    nCoordY = ( int ) ( coord.y / zp.fZoomFactor );
@@ -3106,7 +3106,7 @@ namespace SunLight {
                 m_nMapWidth  = ( m_pTmxMap -> width * m_pTmxMap -> tile_width );
                 m_nMapHeight = ( m_pTmxMap -> height * m_pTmxMap -> tile_height );
 
-                SunLight :: TileMap :: stDimension2D vp          = GetViewport().GetDimension2D();
+                SunLight :: Base :: stDimension2D vp          = GetViewport().GetDimension2D();
                 float                                fZoomFactor = GetViewport().GetZoomProperties().fZoomFactor;
 
                 // The viewport's right/bottom EDGES (pos + size). The

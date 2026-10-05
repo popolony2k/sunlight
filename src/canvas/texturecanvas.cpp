@@ -56,7 +56,7 @@ namespace SunLight {
          */
         bool TextureCanvas :: Load( std :: string strTextureFile )  {
 
-            SunLight :: TileMap :: stDimension2D& dimension = GetDimension2D();
+            SunLight :: Base :: stDimension2D& dimension = GetDimension2D();
 
             m_hTexture = SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strTextureFile.c_str(),
                                                                                           m_nTextureWidth,
@@ -193,8 +193,8 @@ namespace SunLight {
          * @param clip Receives the visible, scaled part;
          * @return false if none of it is inside the viewport;
          */
-        bool TextureCanvas :: GetScreenRect( SunLight :: TileMap :: stDimension2D &dm,
-                                             SunLight :: TileMap :: stDimension2D &clip )  {
+        bool TextureCanvas :: GetScreenRect( SunLight :: Base :: stDimension2D &dm,
+                                             SunLight :: Base :: stDimension2D &clip )  {
 
             dm = GetDimension2D();
 
@@ -220,8 +220,8 @@ namespace SunLight {
          */
         bool TextureCanvas :: IsOnScreen( void )  {
 
-            SunLight :: TileMap :: stDimension2D  dm;
-            SunLight :: TileMap :: stDimension2D  clip;
+            SunLight :: Base :: stDimension2D  dm;
+            SunLight :: Base :: stDimension2D  clip;
 
             return ( GetVisible() && GetScreenRect( dm, clip ) );
         }
@@ -239,8 +239,8 @@ namespace SunLight {
         void TextureCanvas :: Advance( void )  {
 
             if( GetVisible() )  {
-                SunLight :: TileMap :: stDimension2D  dm;
-                SunLight :: TileMap :: stDimension2D  clip;
+                SunLight :: Base :: stDimension2D  dm;
+                SunLight :: Base :: stDimension2D  clip;
 
                 if( GetScreenRect( dm, clip ) ) {
 
@@ -355,9 +355,9 @@ namespace SunLight {
 
             if( GetVisible() )  {
                 SunLight :: Base :: Viewport&       vp   = GetViewport();
-                SunLight :: TileMap :: stDimension2D& vpDm = vp.GetDimension2D();
-                SunLight :: TileMap :: stDimension2D  dm;
-                SunLight :: TileMap :: stDimension2D  clip;
+                SunLight :: Base :: stDimension2D& vpDm = vp.GetDimension2D();
+                SunLight :: Base :: stDimension2D  dm;
+                SunLight :: Base :: stDimension2D  clip;
 
                 if( GetScreenRect( dm, clip ) ) {
 

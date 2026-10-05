@@ -126,7 +126,7 @@ namespace SunLight {
             // Viewport rectangle (screen-space clip/scroll window) and zoom
             // position. Left unset, the viewport covers the whole render
             // area and the zoom keeps the renderer's own default.
-            std :: optional<SunLight :: TileMap :: stDimension2D>  viewport;
+            std :: optional<SunLight :: Base :: stDimension2D>  viewport;
             std :: optional<unsigned>                              nZoomPos;
 
             /**

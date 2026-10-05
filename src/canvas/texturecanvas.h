@@ -61,8 +61,8 @@ namespace SunLight {
             bool                        m_bIsResetting;
             AnimationMode               m_AnimationMode;
 
-            bool GetScreenRect( SunLight :: TileMap :: stDimension2D &dm,
-                                SunLight :: TileMap :: stDimension2D &clip );
+            bool GetScreenRect( SunLight :: Base :: stDimension2D &dm,
+                                SunLight :: Base :: stDimension2D &clip );
 
 
             public:

@@ -123,7 +123,7 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
  */
 void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: Collision :: Collider *pSecond )  {
 
-    SunLight :: TileMap :: stCoordinate2D  revert = { -m_LastStep.x, -m_LastStep.y };
+    SunLight :: Base :: stCoordinate2D  revert = { -m_LastStep.x, -m_LastStep.y };
 
     m_pSpriteSunny -> Move( revert );
 }
@@ -139,8 +139,8 @@ bool World :: LoadSprites( void ) {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) &&
         m_pCanvasObstacle -> Load( __OBSTACLE_IMAGE ) ) {
-        SunLight :: TileMap :: stDimension2D    dimSunny;
-        SunLight :: TileMap :: stDimension2D    dimObstacle;
+        SunLight :: Base :: stDimension2D    dimSunny;
+        SunLight :: Base :: stDimension2D    dimObstacle;
 
         // Sprites don't scroll with the camera in this library -
         // TextureCanvas::Update() -> Viewport::GetClippedRect() computes
@@ -229,7 +229,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
 
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
 

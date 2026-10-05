@@ -41,9 +41,9 @@ typedef MockEngine :: Event              Event;
 
 namespace  {
 
-    SunLight :: TileMap :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
+    SunLight :: Base :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
 
-        SunLight :: TileMap :: stDimension2D  rect {};
+        SunLight :: Base :: stDimension2D  rect {};
 
         rect.pos.x = nX;  rect.pos.y = nY;  rect.size.nWidth = nW;  rect.size.nHeight = nH;
 
@@ -118,7 +118,7 @@ namespace  {
         }
 
         // Number of tile draws that landed inside the rectangle (their top-left is inside it).
-        int TilesIn( const SunLight :: TileMap :: stDimension2D &rect )  {
+        int TilesIn( const SunLight :: Base :: stDimension2D &rect )  {
             int  nCount = 0;
 
             for( const Event &evt : engine().events )  {
@@ -168,8 +168,8 @@ namespace  {
         }
     };
 
-    const SunLight :: TileMap :: stDimension2D  g_DefaultRect = Rect( 10, 10, 100, 100 );
-    const SunLight :: TileMap :: stDimension2D  g_SideRect    = Rect( 300, 10, 100, 100 );
+    const SunLight :: Base :: stDimension2D  g_DefaultRect = Rect( 10, 10, 100, 100 );
+    const SunLight :: Base :: stDimension2D  g_SideRect    = Rect( 300, 10, 100, 100 );
 }
 
 TEST_SUITE( "renderer/viewpasses" )  {
@@ -652,7 +652,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
             canvas.SetTileSize( 16 );
             canvas.SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
-            canvas.SetDimension2D( SunLight :: TileMap :: stDimension2D { { 20, 20 }, { 16, 16 } } );
+            canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 20, 20 }, { 16, 16 } } );
             sprite.AddTextureSequence( 0, &canvas, 0 );
             sprite.SetActiveTextureSequence( 0 );
             sprite.SetVisible( true );
@@ -1226,7 +1226,7 @@ TEST_SUITE( "renderer/viewhandles" )  {
 
         SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
 
-        CHECK( pHandle -> TileMapToTileMatrix( SunLight :: TileMap :: stCoordinate2D { 100, 100 }, pos ) == false );
+        CHECK( pHandle -> TileMapToTileMatrix( SunLight :: Base :: stCoordinate2D { 100, 100 }, pos ) == false );
         CHECK( pHandle -> FitToMap() == false );
         CHECK( pHandle -> ShowLayer( "ground", false ) == false );
 
@@ -1362,7 +1362,7 @@ TEST_SUITE( "renderer/viewhandles" )  {
             pView -> SetClearBackground( false );
             pView -> SetVisible( false );
             pView -> UseMapBackgroundColor();
-            CHECK( pView -> TileMapToTileMatrix( SunLight :: TileMap :: stCoordinate2D { 1, 1 }, pos ) == false );
+            CHECK( pView -> TileMapToTileMatrix( SunLight :: Base :: stCoordinate2D { 1, 1 }, pos ) == false );
             CHECK( pView -> FitToMap() == false );
             CHECK( pView -> ShowLayer( "ground", true ) == false );
             CHECK( pView -> GetClearBackground() == false );

@@ -333,13 +333,13 @@ TEST_SUITE( "base/Viewport" )  {
 
         // (10, 10, 1240, 900): x in [10, 1250), y in [10, 910).
         Viewport      vp;
-        stDimension2D viewportDim { { 10, 10 }, { 1240, 900 } };
+        SunLight :: Base :: stDimension2D viewportDim { { 10, 10 }, { 1240, 900 } };
 
         vp.SetDimension2D( viewportDim );
 
         // Inside: only translated by the viewport's position.
-        stDimension2D  inside { { 100, 200 }, { 50, 40 } };
-        stDimension2D  dst;
+        SunLight :: Base :: stDimension2D  inside { { 100, 200 }, { 50, 40 } };
+        SunLight :: Base :: stDimension2D  dst;
 
         CHECK( vp.GetClippedRect( inside, dst ) == true );
         CHECK( dst.pos.x == 110 );
@@ -349,33 +349,33 @@ TEST_SUITE( "base/Viewport" )  {
 
         // View-local x = 1200 lands at screen x = 1210; width 100 -> ends at 1310,
         // 60 past the right edge (1250): 40 pixels stay.
-        stDimension2D  crossing { { 1200, 100 }, { 100, 20 } };
+        SunLight :: Base :: stDimension2D  crossing { { 1200, 100 }, { 100, 20 } };
 
         CHECK( vp.GetClippedRect( crossing, dst ) == true );
         CHECK( dst.pos.x == 1210 );
         CHECK( dst.size.nWidth == 40 );
 
         // A rectangle ending exactly on the edge is untouched...
-        stDimension2D  touching { { 1200, 100 }, { 40, 20 } };
+        SunLight :: Base :: stDimension2D  touching { { 1200, 100 }, { 40, 20 } };
 
         CHECK( vp.GetClippedRect( touching, dst ) == true );
         CHECK( dst.size.nWidth == 40 );
 
         // ...and one pixel more is trimmed by exactly one.
-        stDimension2D  onePast { { 1200, 100 }, { 41, 20 } };
+        SunLight :: Base :: stDimension2D  onePast { { 1200, 100 }, { 41, 20 } };
 
         CHECK( vp.GetClippedRect( onePast, dst ) == true );
         CHECK( dst.size.nWidth == 40 );
 
         // Same on the vertical axis: bottom edge is y = 910.
-        stDimension2D  tall { { 100, 850 }, { 20, 100 } };
+        SunLight :: Base :: stDimension2D  tall { { 100, 850 }, { 20, 100 } };
 
         CHECK( vp.GetClippedRect( tall, dst ) == true );
         CHECK( dst.pos.y == 860 );
         CHECK( dst.size.nHeight == 50 );
 
         // Entirely beyond the right edge (screen x 1260..1280): not visible.
-        stDimension2D  beyond { { 1250, 100 }, { 20, 20 } };
+        SunLight :: Base :: stDimension2D  beyond { { 1250, 100 }, { 20, 20 } };
 
         CHECK( vp.GetClippedRect( beyond, dst ) == false );
     }
@@ -386,20 +386,20 @@ TEST_SUITE( "base/Viewport" )  {
         // "x < 200") rejected sprites at screen x 250..270 - inside the real rectangle
         // [100, 300). This is the case that motivated the change.
         Viewport      vp;
-        stDimension2D viewportDim { { 100, 100 }, { 200, 200 } };
-        stDimension2D dst;
+        SunLight :: Base :: stDimension2D viewportDim { { 100, 100 }, { 200, 200 } };
+        SunLight :: Base :: stDimension2D dst;
 
         vp.SetDimension2D( viewportDim );
 
-        stDimension2D  s1 { { 150, 10 }, { 20, 20 } };      // screen x 250..270
+        SunLight :: Base :: stDimension2D  s1 { { 150, 10 }, { 20, 20 } };      // screen x 250..270
         CHECK( vp.GetClippedRect( s1, dst ) == true );
         CHECK( dst.size.nWidth == 20 );
 
-        stDimension2D  s2 { { 100, 10 }, { 20, 20 } };      // screen x 200..220
+        SunLight :: Base :: stDimension2D  s2 { { 100, 10 }, { 20, 20 } };      // screen x 200..220
         CHECK( vp.GetClippedRect( s2, dst ) == true );
         CHECK( dst.size.nWidth == 20 );                     // used to be clipped to 0
 
-        stDimension2D  s3 { { 190, 10 }, { 20, 20 } };      // screen x 290..310: 10 past the edge (300)
+        SunLight :: Base :: stDimension2D  s3 { { 190, 10 }, { 20, 20 } };      // screen x 290..310: 10 past the edge (300)
         CHECK( vp.GetClippedRect( s3, dst ) == true );
         CHECK( dst.size.nWidth == 10 );
     }
@@ -407,12 +407,12 @@ TEST_SUITE( "base/Viewport" )  {
     TEST_CASE( "GetClippedRect trims src coordinates before the viewport origin, at a non-zero pos too" )  {
 
         Viewport      vp;
-        stDimension2D viewportDim { { 50, 60 }, { 400, 300 } };
-        stDimension2D dst;
+        SunLight :: Base :: stDimension2D viewportDim { { 50, 60 }, { 400, 300 } };
+        SunLight :: Base :: stDimension2D dst;
 
         vp.SetDimension2D( viewportDim );
 
-        stDimension2D  src { { -10, -20 }, { 100, 100 } };
+        SunLight :: Base :: stDimension2D  src { { -10, -20 }, { 100, 100 } };
 
         CHECK( vp.GetClippedRect( src, dst ) == true );
         CHECK( dst.pos.x == 50 );                    // clamped to the viewport's origin
@@ -428,7 +428,7 @@ TEST_SUITE( "base/Viewport" )  {
         // same answer - that is what keeps Caravellius/Scarab (10, 10, 1250, 910 -> 10, 10,
         // 1240, 900) pixel-identical. A deterministic sweep, not random noise.
         struct Legacy  {
-            static bool Clip( int px, int py, int farX, int farY, float fZoom, stDimension2D src, stDimension2D &dst )  {
+            static bool Clip( int px, int py, int farX, int farY, float fZoom, SunLight :: Base :: stDimension2D src, SunLight :: Base :: stDimension2D &dst )  {
 
                 float    fClippingX;
                 float    fClippingY;
@@ -488,7 +488,7 @@ TEST_SUITE( "base/Viewport" )  {
 
         for( const auto &v : aViewports )  {
             Viewport       vp;
-            stDimension2D  viewportDim { { v[0], v[1] }, { v[2], v[3] } };
+            SunLight :: Base :: stDimension2D  viewportDim { { v[0], v[1] }, { v[2], v[3] } };
 
             vp.SetDimension2D( viewportDim );
 
@@ -501,9 +501,9 @@ TEST_SUITE( "base/Viewport" )  {
                 for( int nX = -60; nX < 1500; nX += 37 )  {
                     for( int nY = -60; nY < 1100; nY += 41 )  {
                         for( int nSize : { 1, 16, 64, 300 } )  {
-                            stDimension2D  src { { nX, nY }, { nSize, nSize + 7 } };
-                            stDimension2D  dstNew {};
-                            stDimension2D  dstOld {};
+                            SunLight :: Base :: stDimension2D  src { { nX, nY }, { nSize, nSize + 7 } };
+                            SunLight :: Base :: stDimension2D  dstNew {};
+                            SunLight :: Base :: stDimension2D  dstOld {};
 
                             bool  bNew = vp.GetClippedRect( src, dstNew );
                             bool  bOld = Legacy :: Clip( v[0], v[1], v[0] + v[2], v[1] + v[3], fZoom, src, dstOld );
@@ -532,9 +532,9 @@ TEST_SUITE( "base/Viewport" )  {
     TEST_CASE( "GetClippedRect keeps a rectangle fully inside the viewport unchanged" )  {
 
         Viewport      vp;
-        stDimension2D dst;
-        stDimension2D viewportDim { { 0, 0 }, { 800, 600 } };
-        stDimension2D src         { { 10, 10 }, { 100, 100 } };
+        SunLight :: Base :: stDimension2D dst;
+        SunLight :: Base :: stDimension2D viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D src         { { 10, 10 }, { 100, 100 } };
 
         vp.SetDimension2D( viewportDim );
 
@@ -548,9 +548,9 @@ TEST_SUITE( "base/Viewport" )  {
     TEST_CASE( "GetClippedRect trims a rectangle crossing the right/bottom edge" )  {
 
         Viewport      vp;
-        stDimension2D dst;
-        stDimension2D viewportDim { { 0, 0 }, { 800, 600 } };
-        stDimension2D src         { { 750, 10 }, { 100, 100 } };
+        SunLight :: Base :: stDimension2D dst;
+        SunLight :: Base :: stDimension2D viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D src         { { 750, 10 }, { 100, 100 } };
 
         vp.SetDimension2D( viewportDim );
 
@@ -561,9 +561,9 @@ TEST_SUITE( "base/Viewport" )  {
     TEST_CASE( "GetClippedRect rejects a rectangle fully outside the viewport" )  {
 
         Viewport      vp;
-        stDimension2D dst;
-        stDimension2D viewportDim { { 0, 0 }, { 800, 600 } };
-        stDimension2D src         { { 900, 10 }, { 100, 100 } };
+        SunLight :: Base :: stDimension2D dst;
+        SunLight :: Base :: stDimension2D viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D src         { { 900, 10 }, { 100, 100 } };
 
         vp.SetDimension2D( viewportDim );
 
@@ -573,9 +573,9 @@ TEST_SUITE( "base/Viewport" )  {
     TEST_CASE( "GetClippedRect trims a rectangle starting before the viewport origin" )  {
 
         Viewport      vp;
-        stDimension2D dst;
-        stDimension2D viewportDim { { 0, 0 }, { 800, 600 } };
-        stDimension2D src         { { -30, 10 }, { 100, 100 } };
+        SunLight :: Base :: stDimension2D dst;
+        SunLight :: Base :: stDimension2D viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D src         { { -30, 10 }, { 100, 100 } };
 
         vp.SetDimension2D( viewportDim );
 

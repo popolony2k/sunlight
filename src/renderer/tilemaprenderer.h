@@ -341,7 +341,7 @@ namespace SunLight {
 
             // Views
             SunLight :: TileMap :: IView& GetDefaultView( void );
-            std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: TileMap :: stDimension2D& rect );
+            std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: Base :: stDimension2D& rect );
             std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int nViewId );
             bool RemoveView( int nViewId );
             bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView );
@@ -419,7 +419,7 @@ namespace SunLight {
                           SunLight :: TileMap :: stTile& tile );
 
             // Coordinate conversion
-            bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+            bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                       SunLight :: TileMap :: stMatrixPosition& pos );
 
             // Map management

@@ -109,7 +109,7 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 bool World :: LoadSprites( void ) {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) ) {
-        SunLight :: TileMap :: stDimension2D    dim;
+        SunLight :: Base :: stDimension2D    dim;
 
         dim.pos.x = 100;
         dim.pos.y = 100;
@@ -152,7 +152,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
     
     m_pRenderer -> SetScrollStepSize( __W_SCROLL_STEP_SIZE, __H_SCROLL_STEP_SIZE );
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );

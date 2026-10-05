@@ -14,7 +14,7 @@
 
 using namespace SunLight :: Renderer;
 typedef SunLight :: TileMap :: ITileMap  ITM;
-typedef SunLight :: TileMap :: stCoordinate2D    Coord;
+typedef SunLight :: Base :: stCoordinate2D    Coord;
 typedef SunLight :: TileMap :: stMatrixPosition  MatrixPos;
 typedef SunLight :: TileMap :: stLayer           Layer;
 typedef SunLight :: TileMap :: stTile            Tile;

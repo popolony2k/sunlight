@@ -140,7 +140,7 @@ namespace SunLight {
              * the renderer; an empty pointer means a backend that could not
              * create the view;
              */
-            virtual std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: TileMap :: stDimension2D& rect ) = 0;
+            virtual std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: Base :: stDimension2D& rect ) = 0;
 
             /**
              * @brief Get a view by id: 0 is the default view. Same shared
@@ -295,7 +295,7 @@ namespace SunLight {
              * @param pos Reference to struct @link stTilePosition to receive the
              * tile position based on world coordinate passed as parameter;
              */
-            virtual bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+            virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                               SunLight :: TileMap :: stMatrixPosition& pos ) = 0;
 
             /**
