@@ -44,6 +44,7 @@
  */
 #define __DEFAULT_FPS                   30
 #define __DEFAULT_VISIBLE_STATUS        true
+#define __OPAQUE_CHANNEL                0xFF    // a colour channel at full strength
 #define __DEFAULT_TEXT_PIXEL_SIZE       16      // Tiled's own default when a text object gives no pixelsize
 #define __MISSING_FONT_PLACEHOLDER      "??????"  // drawn in place of a text object whose font is not registered
 #define __DEFAULT_CLEAR_BACKGROUND      true
@@ -795,7 +796,7 @@ namespace SunLight {
                             break;
                         
                         case OT_TILE :
-                            // TODO: FINISH HIM !!!
+                            DrawTileObject( head, pLayer );
                             break;
 
                         case OT_TEXT :
@@ -1017,6 +1018,86 @@ namespace SunLight {
         }
 
         /**
+         * @brief Draw one tile object (Tiled's OT_TILE): the tile its gid names,
+         * at the object's position.
+         *
+         * Tiled places a tile object by its bottom-left corner, so the tile's
+         * top-left is at (x, y - tile height). The tile is drawn at its own
+         * size through DrawTile, which clips it to the viewport exactly as a
+         * map tile is clipped. The layer's opacity applies, as it does to tiles.
+         *
+         * A gid of 0, or a gid past the tileset's table, draws nothing. The
+         * flip bits Tiled puts in the gid are ignored (flipping is not drawn
+         * yet). Animated tile objects draw their first frame only.
+         *
+         * @param pObject The tile object to draw;
+         * @param pLayer The object group it belongs to (its offset and opacity apply);
+         */
+        void TileMapRenderer :: DrawTileObject( tmx_object *pObject, tmx_layer *pLayer )  {
+
+            unsigned int  nGID = pObject -> content.gid & TMX_FLIP_BITS_REMOVAL;
+
+            if( ( nGID == 0 ) || ( m_pTmxMap -> tiles == nullptr ) || ( nGID >= m_pTmxMap -> tilecount ) )
+                return;
+
+            tmx_tile  *pBase = m_pTmxMap -> tiles[nGID];
+
+            if( pBase == nullptr )
+                return;
+
+            tmx_tile      *pTile   = ( pBase -> animation_len != 0 ) ? AnimatedFrameOf( pBase, nGID ) : pBase;
+            tmx_tileset   *pTs     = pTile -> tileset;
+            void          *pImage  = ( pTile -> image != nullptr ) ? pTile -> image -> resource_image : pTs -> image -> resource_image;
+            float          fOpacity = ( float ) pLayer -> opacity;
+            int            nTileW   = ( int ) pTs -> tile_width;
+            int            nTileH   = ( int ) pTs -> tile_height;
+
+            // A tile object at its tile's own size is drawn exactly as a map tile is.
+            if( ( ( int ) pObject -> width == nTileW ) && ( ( int ) pObject -> height == nTileH ) )  {
+                DrawTile( pImage, pTile -> ul_x, pTile -> ul_y, nTileW, nTileH,
+                          ( int ) ( pObject -> x + pLayer -> offsetx ),
+                          ( int ) ( pObject -> y + pLayer -> offsety ) - nTileH,
+                          fOpacity );
+
+                return;
+            }
+
+            // A resized tile object is stretched into its box, as Tiled draws it. The box is
+            // worked out in screen space (the same mapping as DrawRectangle), then cut to the viewport.
+            SunLight :: Base :: Viewport&          vp     = GetViewport();
+            SunLight :: TileMap :: stDimension2D&  vpDm   = vp.GetDimension2D();
+            float                                  fZoom  = vp.GetZoomProperties().fZoomFactor;
+
+            float  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vpDm.pos.x;
+            float  fBoxY = ( ( pObject -> y + pLayer -> offsety - pObject -> height + m_CameraPos.y ) * fZoom ) + vpDm.pos.y;
+            float  fBoxW = pObject -> width * fZoom;
+            float  fBoxH = pObject -> height * fZoom;
+
+            float  fVpL = ( float ) vpDm.pos.x;
+            float  fVpT = ( float ) vpDm.pos.y;
+            float  fVpR = fVpL + ( float ) vpDm.size.nWidth;
+            float  fVpB = fVpT + ( float ) vpDm.size.nHeight;
+
+            float  fL = std :: max( fBoxX, fVpL );
+            float  fT = std :: max( fBoxY, fVpT );
+            float  fR = std :: min( fBoxX + fBoxW, fVpR );
+            float  fB = std :: min( fBoxY + fBoxH, fVpB );
+
+            if( ( fR <= fL ) || ( fB <= fT ) )
+                return;
+
+            // The visible part of the box, mapped back onto the matching part of the tile.
+            SunLight :: Base :: stRectangle  source { pTile -> ul_x + ( ( fL - fBoxX ) / fBoxW * nTileW ),
+                                                       pTile -> ul_y + ( ( fT - fBoxY ) / fBoxH * nTileH ),
+                                                       ( fR - fL ) / fBoxW * nTileW,
+                                                       ( fB - fT ) / fBoxH * nTileH };
+            SunLight :: Base :: stRectangle  dest   { fL, fT, fR - fL, fB - fT };
+            SunLight :: Base :: stColor      tint   { __OPAQUE_CHANNEL, __OPAQUE_CHANNEL, __OPAQUE_CHANNEL, ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) };
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureScaled( pImage, source, dest, tint );
+        }
+
+        /**
          * Draw image layer on canvas;
          * @param pImage Pointer to layer containing image to draw;
          */
@@ -1028,6 +1109,77 @@ namespace SunLight {
                                                                               0,
                                                                               0,
                                                                               SunLight :: Base :: stColor { 0xFF, 0xFF, 0xFF, 0xFF } );
+        }
+
+        /**
+         * @brief The frame of an animated tile that is on screen now, advancing
+         * its animation by the clock (shared by tile layers and tile objects, so
+         * an animated tile moves the same way wherever it is drawn).
+         *
+         * A frame whose gid has no tile in the tile table has nothing to show:
+         * the base tile stays on screen for it.
+         *
+         * @param pBase The tile as its gid names it (its animation_len is not zero);
+         * @param nGID The gid that named pBase;
+         * @return The tile to draw now; pBase when there is no other to show.
+         */
+        tmx_tile* TileMapRenderer :: AnimatedFrameOf( tmx_tile *pBase, unsigned int nGID )  {
+
+            tmx_tile  *pTile = pBase;
+
+            int64_t                    nMillis = SunLight :: General :: Clock :: NowMilliseconds();
+            __stTileAnimInfo           *pAnimInfo = ( __stTileAnimInfo * ) pTile -> user_data.pointer;
+            tmx_tileset_list           *pTilesetList;
+
+            if( !pAnimInfo )  {
+                std :: unique_ptr<__stTileAnimInfo>  pOwnedAnimInfo = std :: make_unique<__stTileAnimInfo>();
+
+                memset( pOwnedAnimInfo.get(), 0, sizeof( __stTileAnimInfo ) );
+                pOwnedAnimInfo -> nMillis   = nMillis;
+                pOwnedAnimInfo -> pNextTile = pTile;
+                pAnimInfo = pOwnedAnimInfo.get();
+                pTile -> user_data.pointer = pAnimInfo;
+                m_AnimInfoList.push_back( std :: move( pOwnedAnimInfo ) );
+            }
+
+            if( pAnimInfo -> nMillis <= nMillis )  {
+                unsigned int     nNextFrmGID;
+                _tmx_frame       *pTmxAnimFrm;
+
+                if( pAnimInfo -> nCounter < pTile -> animation_len )  {
+                    pTmxAnimFrm = &pTile -> animation[pAnimInfo -> nCounter];
+                    pAnimInfo -> nCounter++;
+                }
+                else  {
+                    pAnimInfo -> nCounter = 0;
+                    pTmxAnimFrm = &pTile -> animation[0];
+                }
+              
+                pTilesetList = GetTilesetList( pTile -> tileset );
+                pTile = nullptr;
+
+                if( pTilesetList )  {
+                    nNextFrmGID = ( pTilesetList -> firstgid + pTmxAnimFrm -> tile_id );
+                    // Same tilecount bound as GetTile: a frame gid past
+                    // the tiles[] table has no tile to show.
+                    pAnimInfo -> pNextTile = ( nNextFrmGID < m_pTmxMap -> tilecount ?
+                                               m_pTmxMap -> tiles[nNextFrmGID] : NULL );
+                    pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration + nMillis );
+                    pTile = pAnimInfo -> pNextTile;
+                }
+
+                if( !pTile )
+                    pTile = m_pTmxMap -> tiles[nGID];
+            }
+            else  {
+                pTile = ( ( __stTileAnimInfo * ) pTile -> user_data.pointer ) -> pNextTile;
+
+                // A frame with no tile (see above) keeps the base tile on screen.
+                if( !pTile )
+                    pTile = pBase;
+            }
+
+            return pTile;
         }
 
         /**
@@ -1050,62 +1202,9 @@ namespace SunLight {
                         tmx_tileset    *pTs;
                         void           *pImage;
 
-                        /*
-                        * Perform tile animation
-                        */
-                        if( pTile -> animation_len )  {
-                            int64_t                    nMillis = SunLight :: General :: Clock :: NowMilliseconds();
-                            __stTileAnimInfo           *pAnimInfo = ( __stTileAnimInfo * ) pTile -> user_data.pointer;
-                            tmx_tileset_list           *pTilesetList;
-
-                            if( !pAnimInfo )  {
-                                std :: unique_ptr<__stTileAnimInfo>  pOwnedAnimInfo = std :: make_unique<__stTileAnimInfo>();
-
-                                memset( pOwnedAnimInfo.get(), 0, sizeof( __stTileAnimInfo ) );
-                                pOwnedAnimInfo -> nMillis   = nMillis;
-                                pOwnedAnimInfo -> pNextTile = pTile;
-                                pAnimInfo = pOwnedAnimInfo.get();
-                                pTile -> user_data.pointer = pAnimInfo;
-                                m_AnimInfoList.push_back( std :: move( pOwnedAnimInfo ) );
-                            }
-
-                            if( pAnimInfo -> nMillis <= nMillis )  {
-                                unsigned int     nNextFrmGID;
-                                _tmx_frame       *pTmxAnimFrm;
-
-                                if( pAnimInfo -> nCounter < pTile -> animation_len )  {
-                                    pTmxAnimFrm = &pTile -> animation[pAnimInfo -> nCounter];
-                                    pAnimInfo -> nCounter++;
-                                }
-                                else  {
-                                    pAnimInfo -> nCounter = 0;
-                                    pTmxAnimFrm = &pTile -> animation[0];
-                                }
-                              
-                                pTilesetList = GetTilesetList( pTile -> tileset );
-                                pTile = nullptr;
-
-                                if( pTilesetList )  {
-                                    nNextFrmGID = ( pTilesetList -> firstgid + pTmxAnimFrm -> tile_id );
-                                    // Same tilecount bound as GetTile: a frame gid past
-                                    // the tiles[] table has no tile to show.
-                                    pAnimInfo -> pNextTile = ( nNextFrmGID < m_pTmxMap -> tilecount ?
-                                                               m_pTmxMap -> tiles[nNextFrmGID] : NULL );
-                                    pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration + nMillis );
-                                    pTile = pAnimInfo -> pNextTile;
-                                }
-
-                                if( !pTile )
-                                    pTile = m_pTmxMap -> tiles[tile.nGID];
-                            }
-                            else  {
-                                pTile = ( ( __stTileAnimInfo * ) pTile -> user_data.pointer ) -> pNextTile;
-
-                                // A frame with no tile (see above) keeps the base tile on screen.
-                                if( !pTile )
-                                    pTile = tile.pTile;
-                            }
-                        }
+                        // Perform tile animation (shared with tile objects, see AnimatedFrameOf).
+                        if( pTile -> animation_len )
+                            pTile = AnimatedFrameOf( pTile, tile.nGID );
 
                         pTs = pTile -> tileset;
 
