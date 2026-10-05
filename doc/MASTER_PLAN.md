@@ -107,6 +107,21 @@ a warning once. Point objects are handled in Phase C5, not here.
 
 **B3: unknown types, closed with nothing to warn about.** libtmx gives every layer and object kind the renderer can receive: its layer kinds are the tile layer, object group, image layer and group, and it skips any other element while parsing. Its object kinds cover all seven Tiled shapes, and it turns an object with no shape into a point. So the `L_NONE` and `OT_NONE` cases cannot occur; they remain only so the switch covers every enumerator. Unknown element names are dropped by libtmx before the renderer sees them, so there is nothing for a warning in the renderer to catch.
 
+## Prerequisite: shared geometry
+
+Done before Phase C, because the thick primitives work on these shapes. This is an API change, so it is
+not part of Phase A. Its peer impact is recorded in [doc/BREAKAGES.md](BREAKAGES.md).
+
+| # | Item | Status |
+|---|------|--------|
+| G1 | Move `stCoordinate2D`, `stSize2D` and `stDimension2D` from `SunLight::TileMap` to `SunLight::Base` (`base/primitives.h`), so sprites and canvases use them too | IN PROGRESS |
+
+**G1: shared geometry.** The three integer structs are plain geometry, not tile-map data, and sprites and
+canvases already use them. Moved to `SunLight::Base` with no aliases kept, so Scarab's references are
+renamed when integration starts. `stRectangle` (floating-point) is not merged with them yet.
+- Test items: the full suite passes; the text, objects and tilemap samples build; Scarab's 12 references
+  are listed in `doc/BREAKAGES.md` item 14.
+
 ## Phase C: thick primitives
 
 | # | Item | Status |
@@ -340,6 +355,7 @@ Done last, once the features they describe are settled.
 
 ## Process
 
+- Peer breakages: [doc/BREAKAGES.md](BREAKAGES.md) lists every change that affects Scarab or Caravellius, and what to do when integration starts. Add an entry for each such change as it is made. The file is removed when this plan is merged to `main`, after the peers have been told.
 - Items are closed one at a time, in phase order, unless the owner decides otherwise.
 - Each item is closed only when its test items pass and the owner has confirmed it.
 - Item 7 of the original review (manual review of documentation and code) stays manual
