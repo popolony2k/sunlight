@@ -88,7 +88,7 @@ in `ScriptProcessor::Clear()`. The fix is a virtual destructor on `BaseCommand`.
 | # | Item | Status |
 |---|------|--------|
 | B1 | Draw Tiled text objects (`OT_TEXT`) | DONE |
-| B2 | Draw Tiled tile objects (`OT_TILE`) | TODO |
+| B2 | Draw Tiled tile objects (`OT_TILE`) | DONE |
 | B3 | Warn on unknown object and layer types | TODO |
 
 **B1: text objects.** Use the existing `IEngine::DrawText` and font loading. Respect the
