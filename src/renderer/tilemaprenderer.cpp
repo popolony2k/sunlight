@@ -22,6 +22,7 @@
 #include "window/windowfactory.h"
 #include "backends/null/nullbackend.h"
 #include "renderer/view.h"
+#include "base/clipmode.h"
 #include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
 #include "filesystem/filesystemfactory.h"
@@ -722,6 +723,8 @@ namespace SunLight {
 
                 float                                 fZoomFactor = vp.GetZoomProperties().fZoomFactor;
                 SunLight :: Base :: stDimension2D& vpDm        = vp.GetDimension2D();
+#if SUNLIGHT_SOFTWARE_CLIP
+
                 int32_t                               nClipX      = ( int32_t ) ( clip.pos.x == vpDm.pos.x ? nSourceX +
                                                                                   std :: abs( ( clip.size.nWidth /
                                                                                                 fZoomFactor ) -
@@ -744,6 +747,22 @@ namespace SunLight {
                                                       0.0f,
                                                       fZoomFactor,
                                                       SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, op } );
+#else
+                // Study: the whole tile is drawn at its zoomed size; the view pass's clip cuts it.
+                SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
+                                                      SunLight :: Base :: stRectangle  { ( float ) nSourceX,
+                                                                   ( float ) nSourceY,
+                                                                   ( float ) nSourceW,
+                                                                   ( float ) nSourceH },
+                                                      SunLight :: Base :: stRectangle  { dm.pos.x * fZoomFactor + vpDm.pos.x,
+                                                                   dm.pos.y * fZoomFactor + vpDm.pos.y,
+                                                                   nSourceW * fZoomFactor,
+                                                                   nSourceH * fZoomFactor },
+                                                      SunLight :: Base :: stVector2D  { 0, 0 },
+                                                      0.0f,
+                                                      fZoomFactor,
+                                                      SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, op } );
+#endif
             }
         }
 
@@ -951,8 +970,12 @@ namespace SunLight {
             }
 
             // The lines are cut at the viewport's edge: IEngine::DrawText has no clip of its own.
+            // Study: the view's own clip (its pass, or the single-view frame) already covers this
+            // rectangle, so the text does not open a clip of its own.
+#if SUNLIGHT_SOFTWARE_CLIP
             engine.BeginClip( SunLight :: Base :: stRectangle { ( float ) vp.pos.x, ( float ) vp.pos.y,
                                                                 ( float ) vp.size.nWidth, ( float ) vp.size.nHeight } );
+#endif
 
             for( size_t nIdx = 0; nIdx < lines.size(); nIdx++ )  {
                 double  fLeft = fBoxX;
@@ -975,7 +998,9 @@ namespace SunLight {
                     engine.DrawText( lines[nIdx].c_str(), nX, nY, nScreenSize, color );
             }
 
+#if SUNLIGHT_SOFTWARE_CLIP
             engine.EndClip();
+#endif
         }
 
         /**
@@ -1418,8 +1443,21 @@ namespace SunLight {
                      * is this one call, as it always was (the default view's mask and
                      * visibility are the only new inputs, and default to "show all").
                      */
-                    if( m_pDefaultView -> m_bVisible )
+                    if( m_pDefaultView -> m_bVisible )  {
+#if !SUNLIGHT_SOFTWARE_CLIP
+                        // Study: nothing cuts the single view's draws in software any more, so the viewport
+                        // is the clip for the whole frame (the view passes set their own).
+                        SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.x,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.y,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nWidth,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nHeight } );
+#endif
                         DrawAllLayers( m_pTmxMap -> ly_head );
+#if !SUNLIGHT_SOFTWARE_CLIP
+                        SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
+#endif
+                    }
                 }
                 else  {
                     DrawViewPasses();
