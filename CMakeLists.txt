@@ -35,6 +35,7 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/gamepad)
     add_subdirectory(samples/scriptprocessor)
     add_subdirectory(samples/text)
+    add_subdirectory(samples/multiview_overlap)
     add_subdirectory(samples/objects)
 endif(BUILD_LIBRARY_SAMPLES)
 
