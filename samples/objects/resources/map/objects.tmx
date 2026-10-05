@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="60" height="40" tilewidth="32" tileheight="32" nextlayerid="10" nextobjectid="40">
+ <!-- The viewport in the sample is 1000 x 800 px and starts with the camera at (100, 100): its edges are the rectangle drawn in "frame". -->
+ <tileset firstgid="1" source="tileset_house.tsx"/>
+ <objectgroup id="1" name="frame" color="#ff00ff00">
+  <object id="1" name="viewport" x="100" y="100" width="1000" height="800"/>
+ </objectgroup>
+ <!-- Tile objects: each row is one case, with its label beside it. A tile object's y is its bottom edge. -->
+ <objectgroup id="2" name="tile objects" color="#ffffffff">
+  <!-- 1: a tile object at its tile's own size (32 px). -->
+  <object id="10" name="own-size" gid="1" x="200" y="200" width="32" height="32"/>
+  <!-- 2: a resized tile object (64 px): stretched into its box, as Tiled draws it. -->
+  <object id="11" name="resized" gid="1" x="200" y="300" width="64" height="64"/>
+  <!-- 3: a resized tile object that starts left of the viewport's left edge (x = 100): the edge cuts it. -->
+  <object id="12" name="cut-left" gid="1" x="60" y="400" width="64" height="64"/>
+  <!-- 4: an animated tile (tile 3 of the house tileset cycles through four frames). -->
+  <object id="13" name="animated" gid="4" x="200" y="500" width="32" height="32"/>
+  <!-- 5: a flipped gid (0x80000001 = tile 0 flipped horizontally): the flip is not drawn yet, so it looks unflipped. -->
+  <object id="14" name="flipped" gid="2147483649" x="200" y="600" width="32" height="32"/>
+  <!-- 6: a resized tile object that the bottom edge (y = 900) cuts. -->
+  <object id="15" name="cut-bottom" gid="1" x="600" y="920" width="64" height="64"/>
+ </objectgroup>
+ <!-- Labels: one per tile object, beside it. -->
+ <objectgroup id="3" name="labels" color="#ffffffff">
+  <object id="20" name="title" x="200" y="130" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffff00">Tile objects: one row per case</text>
+  </object>
+  <object id="21" name="label-own-size" x="260" y="176" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">1. tile object at its own size (32 px)</text>
+  </object>
+  <object id="22" name="label-resized" x="280" y="262" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">2. resized: stretched to its 64 px box</text>
+  </object>
+  <object id="23" name="label-cut-left" x="140" y="370" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">3. cut by the left viewport edge</text>
+  </object>
+  <object id="24" name="label-animated" x="260" y="476" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">4. animated: the tile cycles its frames</text>
+  </object>
+  <object id="25" name="label-flipped" x="260" y="576" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">5. flip bits ignored: drawn unflipped</text>
+  </object>
+  <object id="26" name="label-cut-bottom" x="680" y="828" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">6. cut by the bottom viewport edge</text>
+  </object>
+ </objectgroup>
+</map>
