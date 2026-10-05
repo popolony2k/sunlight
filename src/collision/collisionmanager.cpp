@@ -343,7 +343,7 @@ namespace SunLight {
                     SunLight :: TileMap :: stLayer     layer;
 
                     if( m_pParent -> GetLayer( pPair -> second, layer ) )  {
-                        SunLight :: TileMap :: stDimension2D&    spritePos = pFirst -> GetDimension2D();
+                        SunLight :: Base :: stDimension2D&    spritePos = pFirst -> GetDimension2D();
                         SunLight :: TileMap :: stMatrixPosition  tilePos   = { 0, 0 };
 
                         if( m_pParent -> TileMapToTileMatrix( spritePos.pos, tilePos ) ) {

@@ -123,7 +123,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
     
     m_pRenderer -> SetScrollStepSize( __W_SCROLL_STEP_SIZE, __H_SCROLL_STEP_SIZE );
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );

@@ -97,7 +97,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
     TEST_CASE( "TileMapToTileMatrix reports failure when no map has been loaded" )  {
 
         TileMapRenderer   renderer( 800, 600, "test", -1, false );
-        stCoordinate2D    coord { 0, 0 };
+        SunLight :: Base :: stCoordinate2D    coord { 0, 0 };
         stMatrixPosition  pos   { 0, 0 };
 
         CHECK( renderer.TileMapToTileMatrix( coord, pos ) == false );

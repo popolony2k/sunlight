@@ -283,13 +283,13 @@ namespace SunLight  {
          * @param dst Reference to destination clipped area;
          * @return false if nothing of src is inside the viewport;
          */
-        bool Viewport :: GetClippedRect( SunLight :: TileMap :: stDimension2D src,
-                                        SunLight :: TileMap :: stDimension2D& dst ) {
+        bool Viewport :: GetClippedRect( SunLight :: Base :: stDimension2D src,
+                                        SunLight :: Base :: stDimension2D& dst ) {
 
             float                                fClippingX;
             float                                fClippingY;
             int32_t                              nPos;
-            SunLight :: TileMap :: stDimension2D&  vp = GetDimension2D();
+            SunLight :: Base :: stDimension2D&  vp = GetDimension2D();
 
             // The viewport's far corner: the first column/row past it.
             int32_t                              nFarX = vp.pos.x + vp.size.nWidth;

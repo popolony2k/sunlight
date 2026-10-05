@@ -61,8 +61,8 @@ namespace  {
         canvas.SetAnimationMode( mode );
         canvas.SetCenterTileIndex( nCenterIndex );
         canvas.SetActiveTileIndex( nStartIndex );
-        canvas.SetDimension2D( SunLight :: TileMap :: stDimension2D { { 100, 100 }, { g_TileSize, g_TileSize } } );
-        canvas.GetViewport().SetDimension2D( SunLight :: TileMap :: stDimension2D { { 0, 0 }, { 800, 600 } } );
+        canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 100, 100 }, { g_TileSize, g_TileSize } } );
+        canvas.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 800, 600 } } );
         canvas.SetVisible( true );
 
         std :: vector<int>  tiles;

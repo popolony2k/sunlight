@@ -262,7 +262,7 @@ namespace SunLight {
              * position under it (see ITileMap::TileMapToTileMatrix, which
              * does the same for the default view).
              */
-            virtual bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+            virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                               SunLight :: TileMap :: stMatrixPosition& pos ) = 0;
         };
     }

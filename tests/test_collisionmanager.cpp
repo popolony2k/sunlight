@@ -145,9 +145,9 @@ TEST_SUITE( "collision/CollisionManager" )  {
         CollisionManager        manager( &tileMap );
         TestCollisionListener   listener;
         Collider                colliderA, colliderB, colliderC;
-        stDimension2D           dimA { { 0, 0 },     { 50, 50 } };
-        stDimension2D           dimB { { 25, 25 },   { 50, 50 } };  // overlaps A
-        stDimension2D           dimC { { 500, 500 }, { 10, 10 } };  // does not overlap A
+        SunLight :: Base :: stDimension2D           dimA { { 0, 0 },     { 50, 50 } };
+        SunLight :: Base :: stDimension2D           dimB { { 25, 25 },   { 50, 50 } };  // overlaps A
+        SunLight :: Base :: stDimension2D           dimC { { 500, 500 }, { 10, 10 } };  // does not overlap A
 
         colliderA.SetDimension2D( dimA );
         colliderB.SetDimension2D( dimB );
@@ -184,8 +184,8 @@ TEST_SUITE( "collision/CollisionManager" )  {
         CollisionManager        manager( &tileMap );
         TestCollisionListener   listener;
         Collider                colliderA, colliderB;
-        stDimension2D           dimA { { 0, 0 },  { 50, 50 } };
-        stDimension2D           dimB { { 45, 0 }, { 50, 50 } };  // overlaps A's raw box
+        SunLight :: Base :: stDimension2D           dimA { { 0, 0 },  { 50, 50 } };
+        SunLight :: Base :: stDimension2D           dimB { { 45, 0 }, { 50, 50 } };  // overlaps A's raw box
 
         colliderA.SetDimension2D( dimA );
         colliderB.SetDimension2D( dimB );
@@ -207,7 +207,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
         CollisionManager        manager( &tileMap );
         TestCollisionListener   listener;
         Collider                colliderA, colliderB;
-        stDimension2D           dim { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D           dim { { 0, 0 }, { 50, 50 } };
 
         colliderA.SetDimension2D( dim );
         colliderB.SetDimension2D( dim );
@@ -228,7 +228,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
         CollisionManager        manager( &tileMap );
         TestCollisionListener   listener;
         Collider                colliderA, colliderB;
-        stDimension2D           dim { { 0, 0 }, { 50, 50 } };
+        SunLight :: Base :: stDimension2D           dim { { 0, 0 }, { 50, 50 } };
 
         colliderA.SetDimension2D( dim );
         colliderB.SetDimension2D( dim );
@@ -279,7 +279,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
         MockTileMap                     tileMap;
         CollisionManager                manager( &tileMap );
         Collider                        colliderA, colliderB, colliderC, colliderD;
-        stDimension2D                   dim { { 0, 0 }, { 50, 50 } };  // all mutually overlapping
+        SunLight :: Base :: stDimension2D                   dim { { 0, 0 }, { 50, 50 } };  // all mutually overlapping
 
         colliderA.SetDimension2D( dim );
         colliderB.SetDimension2D( dim );
@@ -334,7 +334,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
         DeletingCollisionListener  listener;
         Collider                colliderA;
         Collider                *pColliderB = new Collider();
-        stDimension2D            dim { { 0, 0 }, { 50, 50 } };  // overlapping
+        SunLight :: Base :: stDimension2D            dim { { 0, 0 }, { 50, 50 } };  // overlapping
 
         colliderA.SetDimension2D( dim );
         pColliderB -> SetDimension2D( dim );
@@ -382,7 +382,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
 
         CollisionManager  manager( &tileMap );
 
-        collider.SetDimension2D( stDimension2D { { 0, 0 }, { 32, 32 } } );
+        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } } );
         manager.AddCollider( 0, &collider );
         manager.AddColliderToTileRule( 0, 7 );
         manager.AddCollisionListener( &listener );
@@ -404,7 +404,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
 
         CollisionManager  manager( &tileMap );
 
-        collider.SetDimension2D( stDimension2D { { 0, 0 }, { 32, 32 } } );
+        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } } );
         manager.AddCollider( 0, &collider );
         manager.AddColliderToTileRule( 0, 7 );
         manager.AddCollisionListener( &listener );
@@ -425,11 +425,11 @@ TEST_SUITE( "collision/CollisionManager" )  {
         tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
         tileMap.bGetTileResult = true;
         tileMap.getTileResult.pTile = &fakeTile;
-        tileMap.getTileResult.dimension = stDimension2D { { 0, 0 }, { 32, 32 } };
+        tileMap.getTileResult.dimension = SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } };
 
         CollisionManager  manager( &tileMap );
 
-        collider.SetDimension2D( stDimension2D { { 0, 0 }, { 32, 32 } } );
+        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } } );
         manager.AddCollider( 0, &collider );
         manager.AddColliderToTileRule( 0, 7 );
         manager.AddCollisionListener( &listener );

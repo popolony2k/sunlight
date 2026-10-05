@@ -110,8 +110,8 @@ namespace SunLight  {
             void SetZoomPropertiesPtr( stZoomProperties *pProps );
             stZoomProperties& GetZoomProperties( void );
 
-            virtual bool GetClippedRect( SunLight :: TileMap :: stDimension2D src,
-                                         SunLight :: TileMap :: stDimension2D& dst );
+            virtual bool GetClippedRect( SunLight :: Base :: stDimension2D src,
+                                         SunLight :: Base :: stDimension2D& dst );
 
             protected:
 

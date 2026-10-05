@@ -64,7 +64,7 @@ namespace SunLight  {
          * @param pDimension Pointer to the new @link stDimension2D object
          * that will be used by this entity;
          */
-        void GraphicObject :: SetDimension2DPtr( SunLight :: TileMap :: stDimension2D* pDimension )  {
+        void GraphicObject :: SetDimension2DPtr( SunLight :: Base :: stDimension2D* pDimension )  {
 
             m_pDimension = pDimension;
         }
@@ -73,7 +73,7 @@ namespace SunLight  {
          * Set the dimension of this entity.
          * @param dimension The new dimension of this entity;
          */
-        void GraphicObject :: SetDimension2D( SunLight :: TileMap :: stDimension2D dimension )  {
+        void GraphicObject :: SetDimension2D( SunLight :: Base :: stDimension2D dimension )  {
 
             *m_pDimension = dimension;
         }
@@ -81,7 +81,7 @@ namespace SunLight  {
         /**
          * Get the reference of this entity object.
          */
-        SunLight :: TileMap :: stDimension2D& GraphicObject :: GetDimension2D( void )  {
+        SunLight :: Base :: stDimension2D& GraphicObject :: GetDimension2D( void )  {
 
             return *m_pDimension;
         }

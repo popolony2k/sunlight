@@ -53,7 +53,7 @@ namespace  {
         config.fWidth      = 1000.0f;
         config.fHeight     = 1000.0f;
 
-        SunLight :: TileMap :: stDimension2D  viewport {};
+        SunLight :: Base :: stDimension2D  viewport {};
 
         viewport.size.nWidth  = nViewportWidth;
         viewport.size.nHeight = nViewportHeight;

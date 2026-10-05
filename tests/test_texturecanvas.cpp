@@ -48,7 +48,7 @@ TEST_SUITE( "canvas/TextureCanvas" )  {
 
         MockEngineFixture  fixture;
         TextureCanvas      canvas;
-        stDimension2D      dim { { 0, 0 }, { 48, 0 } };
+        SunLight :: Base :: stDimension2D      dim { { 0, 0 }, { 48, 0 } };
 
         canvas.SetDimension2D( dim );
 
@@ -92,8 +92,8 @@ TEST_SUITE( "canvas/TextureCanvas" )  {
 
         MockEngineFixture  fixture;
         TextureCanvas      canvas;
-        stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
-        stDimension2D      canvasDim   { { 10, 10 }, { 32, 32 } };
+        SunLight :: Base :: stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D      canvasDim   { { 10, 10 }, { 32, 32 } };
 
         canvas.GetViewport().SetDimension2D( viewportDim );
         canvas.SetDimension2D( canvasDim );
@@ -112,8 +112,8 @@ TEST_SUITE( "canvas/TextureCanvas" )  {
 
         MockEngineFixture  fixture;
         TextureCanvas      canvas;
-        stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
-        stDimension2D      canvasDim   { { 10, 10 }, { 32, 32 } };
+        SunLight :: Base :: stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D      canvasDim   { { 10, 10 }, { 32, 32 } };
 
         canvas.GetViewport().SetDimension2D( viewportDim );
         canvas.SetDimension2D( canvasDim );
@@ -128,8 +128,8 @@ TEST_SUITE( "canvas/TextureCanvas" )  {
 
         MockEngineFixture  fixture;
         TextureCanvas      canvas;
-        stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
-        stDimension2D      canvasDim   { { 900, 10 }, { 32, 32 } };
+        SunLight :: Base :: stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D      canvasDim   { { 900, 10 }, { 32, 32 } };
 
         canvas.GetViewport().SetDimension2D( viewportDim );
         canvas.SetDimension2D( canvasDim );
@@ -168,8 +168,8 @@ namespace  {
         fixture.engine.nLoadTextureWidth  = 64;
         fixture.engine.nLoadTextureHeight = 16;
         canvas.Load( "sheet.png" );
-        canvas.GetViewport().SetDimension2D( stDimension2D { { 10, 10 }, { 300, 200 } } );
-        canvas.SetDimension2D( stDimension2D { { nCanvasX, 20 }, { 16, 16 } } );
+        canvas.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 300, 200 } } );
+        canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { nCanvasX, 20 }, { 16, 16 } } );
         canvas.SetVisible( true );
         canvas.SetTileSize( 16 );
         canvas.SetCenterTileIndex( 2 );
@@ -213,8 +213,8 @@ TEST_SUITE( "canvas/TextureCanvas Advance/Draw" )  {
         fixture.engine.nLoadTextureWidth  = 64;
         fixture.engine.nLoadTextureHeight = 16;
         canvas.Load( "sheet.png" );
-        canvas.GetViewport().SetDimension2D( stDimension2D { { 0, 0 }, { 800, 600 } } );
-        canvas.SetDimension2D( stDimension2D { { 10, 10 }, { 16, 16 } } );
+        canvas.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 800, 600 } } );
+        canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 16, 16 } } );
         canvas.SetVisible( true );
         canvas.SetTileSize( 16 );
         canvas.SetAnimationMode( TEXTURE_ANIMATION_MODE_ANIMATE_RIGHT );
@@ -237,8 +237,8 @@ TEST_SUITE( "canvas/TextureCanvas Advance/Draw" )  {
         fixture.engine.nLoadTextureWidth  = 64;
         fixture.engine.nLoadTextureHeight = 16;
         canvas.Load( "sheet.png" );
-        canvas.GetViewport().SetDimension2D( stDimension2D { { 0, 0 }, { 800, 600 } } );
-        canvas.SetDimension2D( stDimension2D { { 10, 10 }, { 16, 16 } } );
+        canvas.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 800, 600 } } );
+        canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 16, 16 } } );
         canvas.SetVisible( true );
         canvas.SetTileSize( 16 );
         canvas.SetAnimationMode( TEXTURE_ANIMATION_MODE_ANIMATE_RIGHT );
@@ -306,12 +306,12 @@ TEST_SUITE( "canvas/TextureCanvas Advance/Draw" )  {
         fixture.engine.nLoadTextureWidth  = 64;
         fixture.engine.nLoadTextureHeight = 16;
         canvas.Load( "sheet.png" );
-        canvas.GetViewport().SetDimension2D( stDimension2D { { 0, 0 }, { 800, 600 } } );
+        canvas.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 800, 600 } } );
         canvas.SetTileSize( 16 );
         canvas.SetAnimationMode( TEXTURE_ANIMATION_MODE_ANIMATE_RIGHT );
 
         // Fully outside the viewport.
-        canvas.SetDimension2D( stDimension2D { { 900, 10 }, { 16, 16 } } );
+        canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 900, 10 }, { 16, 16 } } );
         canvas.SetVisible( true );
         canvas.Advance();
         canvas.Draw();
@@ -319,7 +319,7 @@ TEST_SUITE( "canvas/TextureCanvas Advance/Draw" )  {
         CHECK( fixture.engine.nDrawTextureTiledCalls == 0 );
 
         // Inside, but invisible.
-        canvas.SetDimension2D( stDimension2D { { 10, 10 }, { 16, 16 } } );
+        canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 16, 16 } } );
         canvas.SetVisible( false );
         canvas.Advance();
         canvas.Draw();

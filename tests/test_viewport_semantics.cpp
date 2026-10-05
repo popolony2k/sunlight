@@ -61,7 +61,7 @@ namespace  {
         config.fHeight     = 920.0f;
         config.nZoomPos    = v.nZoomPos;
 
-        SunLight :: TileMap :: stDimension2D  viewport {};
+        SunLight :: Base :: stDimension2D  viewport {};
 
         viewport.pos.x        = v.nPosX;
         viewport.pos.y        = v.nPosY;
@@ -228,7 +228,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         config.fHeight     = 920.0f;
         config.nZoomPos    = 60;
 
-        SunLight :: TileMap :: stDimension2D  viewport {};
+        SunLight :: Base :: stDimension2D  viewport {};
 
         viewport.pos.x = 10;  viewport.pos.y = 10;  viewport.size.nWidth = 1240;  viewport.size.nHeight = 900;
         config.viewport = viewport;
@@ -311,14 +311,14 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         // pos.x != pos.y is what tells them apart: (10, 40).
         VpCase                              v { 10, 40, 500, 500, 15 };
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, ITM :: MAP_ALIGNMENT_TOP_LEFT );
-        SunLight :: TileMap :: stCoordinate2D    coord { 100, 100 };
+        SunLight :: Base :: stCoordinate2D    coord { 100, 100 };
         SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
 
         REQUIRE( pRenderer -> TileMapToTileMatrix( coord, pos ) == true );
         CHECK( pos.nTileCol == ( 100 + 10 ) / 16 );        // 6
         CHECK( pos.nTileRow == ( 100 + 40 ) / 16 );        // 8   (was (100 + 10) / 16 = 6)
 
-        SunLight :: TileMap :: stCoordinate2D    coord2 { 20, 30 };
+        SunLight :: Base :: stCoordinate2D    coord2 { 20, 30 };
 
         REQUIRE( pRenderer -> TileMapToTileMatrix( coord2, pos ) == true );
         CHECK( pos.nTileCol == ( 20 + 10 ) / 16 );         // 1
@@ -343,7 +343,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         config.fWidth  = 1260.0f;
         config.fHeight = 920.0f;
 
-        SunLight :: TileMap :: stDimension2D  viewport {};
+        SunLight :: Base :: stDimension2D  viewport {};
 
         viewport.pos.x = 10;  viewport.pos.y = 10;  viewport.size.nWidth = 100;  viewport.size.nHeight = 100;
         config.viewport = viewport;

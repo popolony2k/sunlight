@@ -100,7 +100,7 @@ namespace SunLight {
          */
         void Collider :: GetEffectiveRect( float &fX, float &fY, float &fWidth, float &fHeight )  {
 
-            SunLight :: TileMap :: stDimension2D&  self = GetDimension2D();
+            SunLight :: Base :: stDimension2D&  self = GetDimension2D();
             float                                 fInsetLeftPx   = self.size.nWidth  * m_fInsetLeft;
             float                                 fInsetTopPx    = self.size.nHeight * m_fInsetTop;
             float                                 fInsetRightPx  = self.size.nWidth  * m_fInsetRight;
@@ -118,7 +118,7 @@ namespace SunLight {
          */
         bool Collider :: Hit( SunLight :: TileMap :: stTile &tile )  {
 
-            SunLight :: TileMap :: stDimension2D&  viewport    = GetViewport().GetDimension2D();
+            SunLight :: Base :: stDimension2D&  viewport    = GetViewport().GetDimension2D();
             tmx_object                           *pCollision = tile.pTile -> collision;
             bool                                 bHit        = false;
             float                                fSelfX, fSelfY, fSelfWidth, fSelfHeight;
@@ -175,7 +175,7 @@ namespace SunLight {
          * parameter.
          * @param dimension Reference to a struct containing the area to be checked;
          */
-        bool Collider :: Hit( SunLight :: TileMap :: stDimension2D &dimension )  {
+        bool Collider :: Hit( SunLight :: Base :: stDimension2D &dimension )  {
 
             float  fSelfX, fSelfY, fSelfWidth, fSelfHeight;
 
