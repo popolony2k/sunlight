@@ -446,3 +446,72 @@ TEST_SUITE( "Thick rectangles" )  {
         CHECK( frame.Of( MockEngine :: Event :: LINE ).empty() );
     }
 }
+
+namespace  {
+
+    // The ellipse object XML with the given box and line_width (an int). The ellipse is the box's own ellipse.
+    std :: string EllipseObject( int nX, int nY, int nW, int nH, int nLineWidth )  {
+
+        return "<object id=\"1\" x=\"" + std :: to_string( nX ) + "\" y=\"" + std :: to_string( nY ) + "\" width=\"" + std :: to_string( nW ) +
+               "\" height=\"" + std :: to_string( nH ) + "\">"
+               "<properties><property name=\"line_width\" type=\"int\" value=\"" + std :: to_string( nLineWidth ) + "\"/></properties>"
+               "<ellipse/></object>";
+    }
+
+    // The reference for a ring: a pixel centre is in it when it is strictly inside the outer ellipse (radius plus half
+    // the width) and not strictly inside the inner one (radius minus half the width, when that is positive).
+    std :: set<std :: pair<int, int>>  ReferenceRing( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY, int nWidth )  {
+
+        const double  eps = 1e-9;
+        double        h   = nWidth / 2.0;
+        double        ox  = fRadiusX + h, oy = fRadiusY + h;
+        double        ix  = fRadiusX - h, iy = fRadiusY - h;
+        bool          bHasInner = ( ix > 0.0 ) && ( iy > 0.0 );
+
+        auto  Inside = [&]( double px, double py, double rx, double ry )  {
+            double  dx = ( px - fCenterX ) / rx;
+            double  dy = ( py - fCenterY ) / ry;
+
+            return ( dx * dx + dy * dy ) < ( 1.0 - eps );
+        };
+
+        std :: set<std :: pair<int, int>>  pixels;
+
+        for( int nY = ( int ) std :: floor( fCenterY - oy ) - 2; nY <= ( int ) std :: ceil( fCenterY + oy ) + 2; nY++ )
+            for( int nX = ( int ) std :: floor( fCenterX - ox ) - 2; nX <= ( int ) std :: ceil( fCenterX + ox ) + 2; nX++ )  {
+                double  px = nX + 0.5;
+                double  py = nY + 0.5;
+
+                if( Inside( px, py, ox, oy ) && !( bHasInner && Inside( px, py, ix, iy ) ) )
+                    pixels.insert( std :: make_pair( nX, nY ) );
+            }
+
+        return pixels;
+    }
+}
+
+TEST_SUITE( "Thick ellipses" )  {
+
+    TEST_CASE( "A thick ellipse is the ring between its outer and inner radius" )  {
+
+        // Box 200 x 120 at object (100, 100): centre (210, 170), radii 100 and 60, width 4 - outer 102 and 62, inner 98 and 58.
+        Frame  frame( EllipseObject( 100, 100, 200, 120, 4 ) );
+
+        std :: set<std :: pair<int, int>>  expected = ReferenceRing( 210.0, 170.0, 100.0, 60.0, 4 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+        CHECK( frame.Of( MockEngine :: Event :: ELLIPSE ).empty() );
+    }
+
+    TEST_CASE( "A thick ellipse whose width reaches its centre is a filled ellipse" )  {
+
+        // Box 20 x 20 at (100, 100): centre (120, 120), radius 10; width 30 gives a half width of 15, past the centre.
+        Frame  frame( EllipseObject( 100, 100, 20, 20, 30 ) );
+
+        std :: set<std :: pair<int, int>>  expected = ReferenceRing( 120.0, 120.0, 10.0, 10.0, 30 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+    }
+}

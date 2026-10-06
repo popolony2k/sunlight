@@ -90,6 +90,19 @@ namespace SunLight  {
              * @param color Line color;
              */
             void DrawStrokedPath( const std :: vector<ScreenPoint> &points, bool bClosed, int nWidth, SunLight :: Base :: stColor color );
+
+            /**
+             * @brief Draw an ellipse outline of the given width as a ring: the pixels inside the outer ellipse (the
+             * radius plus half the width) and not inside the inner one (the radius minus half the width). When the
+             * inner radius is not positive the ring is a filled ellipse. Drawn as spans, cut by the engine's clip.
+             * @param fCenterX Centre X (screen pixels);
+             * @param fCenterY Centre Y;
+             * @param fRadiusX Radius X of the outline's centre line (screen pixels);
+             * @param fRadiusY Radius Y;
+             * @param nWidth Width in screen pixels, at least 2;
+             * @param color Outline color;
+             */
+            void DrawStrokedEllipse( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY, int nWidth, SunLight :: Base :: stColor color );
         }
     }
 }

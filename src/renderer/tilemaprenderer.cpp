@@ -384,6 +384,7 @@ namespace SunLight {
                                              double fOffset_y,
                                              double fWidth,
                                              double fHeight,
+                                             int nLineWidth,
                                              SunLight :: Base :: stColor color )  {
             ShapePrimitives :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
@@ -398,7 +399,15 @@ namespace SunLight {
             fOffset_y = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
                           zp.fZoomFactor ) + vp.pos.y;
 
-            // Study: the engine's own ellipse outline; the shape's PrimitiveClip keeps it inside the viewport.
+            // A wide outline is a ring of spans; a one-pixel outline is the engine's own ellipse. The shape's
+            // PrimitiveClip keeps either inside the viewport.
+            if( nLineWidth > __HAIRLINE_WIDTH ) {
+                ShapePrimitives :: DrawStrokedEllipse( fOffset_x, fOffset_y,
+                                                       fWidth * zp.fZoomFactor, fHeight * zp.fZoomFactor,
+                                                       nLineWidth, color );
+                return;
+            }
+
             SunLight :: Engines :: EngineFactory :: GetEngine().DrawEllipseOutline( ( float ) fOffset_x, ( float ) fOffset_y,
                                                                                     ( float ) ( fWidth * zp.fZoomFactor ),
                                                                                     ( float ) ( fHeight * zp.fZoomFactor ),
@@ -501,6 +510,8 @@ namespace SunLight {
                                          ( head -> y + pLayer -> offsety ),
                                          head -> width,
                                          head -> height,
+                                         ShapePrimitives :: ScreenLineWidth( ShapeObjects :: LineWidthOf( head ),
+                                                                             GetViewport().GetZoomProperties().fZoomFactor ),
                                          color );
                             break;
                         

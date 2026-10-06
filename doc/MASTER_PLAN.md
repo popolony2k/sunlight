@@ -141,7 +141,7 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
 | C1 | Thick lines, with square caps | DONE |
 | C2 | Thick polylines and polygons | DONE |
 | C3 | Thick rectangles | DONE |
-| C4 | Thick ellipses | TODO |
+| C4 | Thick ellipses | DONE |
 | C5 | Points as squares | TODO |
 
 **Decisions already taken:**
@@ -222,8 +222,19 @@ is the engine's line, not `LineBresenham` (removed in R1).
 - Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-5 rectangle, bottom right.
 
 **C4: thick ellipses.** A ring between an outer and an inner radius.
-- Test items: matches a reference ring; width 1 output is byte-identical to `MidPointEllipse`
-  at commit `07f0c3c`; an ellipse crossing the boundary is clipped at the reference's pixels.
+- Decided while building it: width 1 stays the engine's ellipse outline (`IEngine::DrawEllipseOutline`), as in C1, since
+  `MidPointEllipse` is gone. A wider outline is a ring: a pixel is in it when it is strictly inside the outer ellipse
+  (radius plus half the width) and not strictly inside the inner one (radius minus half the width). When the inner
+  radius is not positive, the ring is a filled ellipse. The ellipse takes the object's `line_width` property.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick ellipses" suite, 2 cases):
+  - A thick ellipse is the ring between its outer and inner radius: the spans equal the reference ring, and no engine
+    ellipse is drawn.
+  - A width that reaches the centre gives a filled ellipse, matching the reference.
+- Mutation check: ignoring the inner ellipse fails the ring case.
+- Full suite under AddressSanitizer: 374 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-4 ellipse at the bottom.
+- Not covered by a test: an ellipse crossing the viewport edge is cut by the engine's clip; the test only compares the
+  pixels inside the view's own rectangle, not the cut itself.
 
 **C5: points.** A point of size `s` at zoom `z` is a filled square of side
 `round(s × z)`, minimum 1. This also closes the point-object gap from B.

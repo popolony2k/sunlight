@@ -53,6 +53,7 @@ namespace SunLight  {
                 // comes out either way.
                 const double  __BOUNDARY_EPSILON       = 1e-9;
                 const int     __MIN_JOIN_VERTICES      = 3;       // a closed path needs at least this many vertices
+                const double  __ONE_UNIT               = 1.0;     // the normalised radius of an ellipse's edge
 
                 /**
                  * The stroke of one thick line, as geometry in screen pixels. The axis runs from the centre of the first
@@ -293,6 +294,31 @@ namespace SunLight  {
                         }
                     }
                 }
+
+                // A pixel centre is inside an ellipse when it is strictly inside, with the boundary tolerance.
+                bool InsideEllipse( double fX, double fY, double fCenterX, double fCenterY, double fRadiusX, double fRadiusY )  {
+
+                    double  dx = ( fX - fCenterX ) / fRadiusX;
+                    double  dy = ( fY - fCenterY ) / fRadiusY;
+
+                    return ( dx * dx + dy * dy ) < ( __ONE_UNIT - __BOUNDARY_EPSILON );
+                }
+
+                // The ring: inside the outer ellipse and not inside the inner one (none when there is no inner ellipse).
+                struct Ring  {
+                    double  fCenterX, fCenterY;
+                    double  fOuterX, fOuterY;
+                    double  fInnerX, fInnerY;
+                    bool    bHasInner;
+                };
+
+                bool InRing( const Ring &ring, double fX, double fY )  {
+
+                    if( !InsideEllipse( fX, fY, ring.fCenterX, ring.fCenterY, ring.fOuterX, ring.fOuterY ) )
+                        return false;
+
+                    return !( ring.bHasInner && InsideEllipse( fX, fY, ring.fCenterX, ring.fCenterY, ring.fInnerX, ring.fInnerY ) );
+                }
             }
 
             PrimitiveClip :: PrimitiveClip( const SunLight :: Base :: stDimension2D &vp )  {
@@ -330,6 +356,43 @@ namespace SunLight  {
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawLine( ( float ) nX0, ( float ) nY0,
                                                                               ( float ) nX1, ( float ) nY1,
                                                                               __EDGE_LINE_THICKNESS, color );
+            }
+            void DrawStrokedEllipse( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY, int nWidth, SunLight :: Base :: stColor color )  {
+
+                double  h = nWidth * __HALF;
+                Ring    ring { fCenterX, fCenterY, fRadiusX + h, fRadiusY + h, fRadiusX - h, fRadiusY - h,
+                               ( fRadiusX - h > __ORIGIN ) && ( fRadiusY - h > __ORIGIN ) };
+
+                int  nFirstRow = ( int ) std :: floor( fCenterY - ring.fOuterY - __HALF ) - __ROW_MARGIN;
+                int  nLastRow  = ( int ) std :: ceil( fCenterY + ring.fOuterY - __HALF ) + __ROW_MARGIN;
+
+                for( int nRow = nFirstRow; nRow <= nLastRow; nRow++ )  {
+
+                    double  cy = nRow + __HALF;
+                    double  dy = ( cy - fCenterY ) / ring.fOuterY;
+
+                    if( std :: fabs( dy ) >= __ONE_UNIT )
+                        continue;
+
+                    double  half   = ring.fOuterX * std :: sqrt( __ONE_UNIT - dy * dy );
+                    int     nFirst = ( int ) std :: floor( fCenterX - half - __HALF ) - __COLUMN_MARGIN;
+                    int     nLast  = ( int ) std :: ceil( fCenterX + half - __HALF ) + __COLUMN_MARGIN;
+                    bool    bInRun = false;
+                    int     nRunStart = 0;
+
+                    for( int nX = nFirst; nX <= nLast + __ONE_PIXEL; nX++ )  {
+                        bool  bIn = ( nX <= nLast ) && InRing( ring, nX + __HALF, cy );
+
+                        if( bIn && !bInRun )  {
+                            nRunStart = nX;
+                            bInRun = true;
+                        }
+                        else if( !bIn && bInRun )  {
+                            SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( nRunStart, nRow, nX - nRunStart, __SPAN_HEIGHT, color );
+                            bInRun = false;
+                        }
+                    }
+                }
             }
         }
     }
