@@ -225,6 +225,7 @@ namespace SunLight {
                                 double offset_y,
                                 double width,
                                 double height,
+                                int nLineWidth,
                                 SunLight :: Base :: stColor color );
             void DrawEllipse( double offset_x,
                               double offset_y,

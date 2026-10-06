@@ -140,7 +140,7 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
 |---|------|--------|
 | C1 | Thick lines, with square caps | DONE |
 | C2 | Thick polylines and polygons | DONE |
-| C3 | Thick rectangles | TODO |
+| C3 | Thick rectangles | DONE |
 | C4 | Thick ellipses | TODO |
 | C5 | Points as squares | TODO |
 
@@ -211,8 +211,15 @@ is the engine's line, not `LineBresenham` (removed in R1).
 - `doc/BREAKAGES.md` item 16 covers polygons too.
 
 **C3: thick rectangles.** Four thick edges.
-- Test items: matches the reference, including shared corners; width 1 output is
-  byte-identical.
+- Decided while building it: a rectangle is a closed path of its four corners, drawn by the same path renderer as C2.
+  Each corner is a round join, and no edge has an open end. A rectangle takes the object's `line_width` property.
+  Width 1 stays the four hairline edges, so its output does not change.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick rectangles" suite, 2 cases):
+  - A thick rectangle matches the reference: four closed edges with a round join at each shared corner.
+  - A thick rectangle has no open ends: no engine line is drawn, and the spans match the closed reference.
+- Mutation check: removing the joins fails the rectangle cases, as well as the C2 corner and triangle cases.
+- Full suite under AddressSanitizer: 372 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-5 rectangle, bottom right.
 
 **C4: thick ellipses.** A ring between an outer and an inner radius.
 - Test items: matches a reference ring; width 1 output is byte-identical to `MidPointEllipse`

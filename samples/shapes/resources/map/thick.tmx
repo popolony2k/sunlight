@@ -21,5 +21,7 @@
   <object id="201" name="label-polygon" x="600" y="610" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">polygon, width 3</text></object>
   <object id="202" name="sharp-4" x="100" y="680" width="0" height="0"><properties><property name="line_width" type="int" value="4"/></properties><polyline points="0,0 120,0 0,20"/></object>
   <object id="203" name="label-sharp" x="100" y="650" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">sharp corner, width 4 (no gap)</text></object>
+  <object id="204" name="rectangle-5" x="820" y="520" width="140" height="100"><properties><property name="line_width" type="int" value="5"/></properties></object>
+  <object id="205" name="label-rectangle" x="820" y="490" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">rect, width 5</text></object>
  </objectgroup>
 </map>

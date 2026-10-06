@@ -419,3 +419,30 @@ TEST_SUITE( "Thick joins" )  {
         CHECK( frame.Covered() == expected );
     }
 }
+
+TEST_SUITE( "Thick rectangles" )  {
+
+    TEST_CASE( "A thick rectangle matches the reference: four closed edges with a round join at each shared corner" )  {
+
+        // A plain object is a rectangle: 120 x 80 at object (100, 100), width 4.
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" width=\"120\" height=\"80\">"
+                      "<properties><property name=\"line_width\" type=\"int\" value=\"4\"/></properties></object>" );
+
+        std :: set<std :: pair<int, int>>  expected = ReferencePath( ScreenOf( { { 0, 0 }, { 120, 0 }, { 120, 80 }, { 0, 80 } } ), true, 4 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+    }
+
+    TEST_CASE( "A thick rectangle is four closed edges, so it has no open ends" )  {
+
+        // The four corners are the shared joins: no segment is capped at one of them.
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" width=\"120\" height=\"80\">"
+                      "<properties><property name=\"line_width\" type=\"int\" value=\"3\"/></properties></object>" );
+
+        std :: set<std :: pair<int, int>>  expected = ReferencePath( ScreenOf( { { 0, 0 }, { 120, 0 }, { 120, 80 }, { 0, 80 } } ), true, 3 );
+
+        CHECK( frame.Covered() == expected );
+        CHECK( frame.Of( MockEngine :: Event :: LINE ).empty() );
+    }
+}

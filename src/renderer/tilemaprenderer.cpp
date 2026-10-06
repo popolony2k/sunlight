@@ -313,6 +313,7 @@ namespace SunLight {
                                                double fOffset_y,
                                                double fWidth,
                                                double fHeight,
+                                               int nLineWidth,
                                                SunLight :: Base :: stColor color )  {
             ShapePrimitives :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
@@ -326,6 +327,18 @@ namespace SunLight {
                                                                    zp.fZoomFactor ) + vp.pos.x;
             double                                 fViewEndY   = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
                                                                    zp.fZoomFactor ) + vp.pos.y;
+
+            // A wide edge is the closed path of the four corners, so each corner is a round join.
+            if( nLineWidth > __HAIRLINE_WIDTH ) {
+                std :: vector<ShapePrimitives :: ScreenPoint>  corners {
+                    ShapePrimitives :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewStartY },
+                    ShapePrimitives :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewStartY },
+                    ShapePrimitives :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewEndY },
+                    ShapePrimitives :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewEndY } };
+
+                ShapePrimitives :: DrawStrokedPath( corners, true, nLineWidth, color );
+                return;
+            }
 
             // Top line
             DrawEdge( ( int ) fViewStartX,
@@ -458,6 +471,8 @@ namespace SunLight {
                                            ( head -> y + pLayer -> offsety ),
                                            head -> width,
                                            head -> height,
+                                           ShapePrimitives :: ScreenLineWidth( ShapeObjects :: LineWidthOf( head ),
+                                                                               GetViewport().GetZoomProperties().fZoomFactor ),
                                            color );
                             break;
 
