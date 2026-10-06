@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "renderer/shapeprimitives.h"
+#include "renderer/shape/shapeprimitives.h"
 #include "engines/enginefactory.h"
 #include <algorithm>
 #include <cmath>
@@ -28,7 +28,7 @@
 
 namespace SunLight  {
     namespace Renderer  {
-        namespace ShapePrimitives  {
+        namespace Shape  {
 
             namespace  {
 

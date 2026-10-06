@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "renderer/externalresources.h"
+#include "renderer/map/externalresources.h"
 #include "filesystem/filesystemfactory.h"
 #include <algorithm>
 #include <cctype>

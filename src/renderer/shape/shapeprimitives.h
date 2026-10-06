@@ -29,7 +29,7 @@
 
 namespace SunLight  {
     namespace Renderer  {
-        namespace ShapePrimitives  {
+        namespace Shape  {
 
             /**
              * @brief Clips the drawing of one shape to a viewport rectangle, for as long as it lives.

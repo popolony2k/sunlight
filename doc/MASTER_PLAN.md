@@ -170,7 +170,7 @@ is the engine's line, not `LineBresenham` (removed in R1).
   - Only polylines take the width in C1. Rectangles and polygons stay one pixel until C2 and C3.
   - A pixel is in a stroke when its centre is inside the rectangle around the axis, half-open on every side. The axis
     runs through the centres of the end pixels. A boundary tolerance of 1e-9 decides centres on an edge in exact arithmetic.
-  - Screen width is the map width times the zoom, rounded half-up, at least 1 (`ShapePrimitives::ScreenLineWidth`, in `src/renderer/shapeprimitives.h`). The thick-line span code lives there too.
+  - Screen width is the map width times the zoom, rounded half-up, at least 1 (`Shape::ScreenLineWidth`, in `src/renderer/shape/shapeprimitives.h`). The thick-line span code lives there too.
 - Test items, in `tests/test_thick_lines.cpp` (9 cases):
   - Width 2, width 3 with its one-pixel caps, and zoom 2 with width 3 (six rows): hand-derived spans.
   - Zoom 1.5 with width 3: 4.5 rounds up to 5 rows.
@@ -194,7 +194,7 @@ is the engine's line, not `LineBresenham` (removed in R1).
     interior vertices.
   - A polygon takes the same `line_width` property as a polyline (from its object). Width 1 stays the hairline path, so
     its output does not change.
-  - One path renderer draws both (`ShapePrimitives::DrawStrokedPath`). A single segment gives the same output as C1.
+  - One path renderer draws both (`Shape::DrawStrokedPath`). A single segment gives the same output as C1.
   - Square caps are only at the two ends of an open path. At a join the round join is the corner: a cap there would
     cut a flat step into its arc.
 - Test items, in `tests/test_thick_lines.cpp` (the "Thick joins" suite, 3 cases):

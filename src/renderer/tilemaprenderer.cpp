@@ -22,10 +22,10 @@
 #include "window/windowfactory.h"
 #include "backends/null/nullbackend.h"
 #include "renderer/view.h"
-#include "renderer/shapeprimitives.h"
-#include "renderer/externalresources.h"
-#include "renderer/shapeobjects.h"
-#include "renderer/maporientation.h"
+#include "renderer/shape/shapeprimitives.h"
+#include "renderer/map/externalresources.h"
+#include "renderer/shape/shapeobjects.h"
+#include "renderer/map/maporientation.h"
 #include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
 #include "filesystem/filesystemfactory.h"
@@ -186,12 +186,12 @@ namespace SunLight {
         }
 
         /**
-         * @brief Draw one straight edge of a shape, in screen pixels (see ShapePrimitives::DrawStrokedLine). The
+         * @brief Draw one straight edge of a shape, in screen pixels (see Shape::DrawStrokedLine). The
          * shape's PrimitiveClip keeps it inside the viewport.
          * @param nWidth Width in screen pixels;
          */
         void TileMapRenderer :: DrawEdge( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color )  {
-            ShapePrimitives :: DrawStrokedLine( nX0, nY0, nX1, nY1, nWidth, color );
+            Shape :: DrawStrokedLine( nX0, nY0, nX1, nY1, nWidth, color );
         }
 
         /**
@@ -205,15 +205,15 @@ namespace SunLight {
          * The vertices of a shape in screen pixels: each point scaled by the zoom, from an origin already in
          * screen pixels. Converted to whole pixels the same way the hairline edges are.
          */
-        std :: vector<ShapePrimitives :: ScreenPoint> TileMapRenderer :: ScreenPointsOf( double fOriginX,
+        std :: vector<Shape :: ScreenPoint> TileMapRenderer :: ScreenPointsOf( double fOriginX,
                                                                                          double fOriginY,
                                                                                          double **fPoints,
                                                                                          int nPointsCount,
                                                                                          double fZoom ) {
-            std :: vector<ShapePrimitives :: ScreenPoint>  points;
+            std :: vector<Shape :: ScreenPoint>  points;
 
             for( int i = 0; i < nPointsCount; i++ )
-                points.push_back( ShapePrimitives :: ScreenPoint { ( int ) ( fOriginX + ( fPoints[i][0] * fZoom ) ),
+                points.push_back( Shape :: ScreenPoint { ( int ) ( fOriginX + ( fPoints[i][0] * fZoom ) ),
                                                                    ( int ) ( fOriginY + ( fPoints[i][1] * fZoom ) ) } );
 
             return points;
@@ -225,7 +225,7 @@ namespace SunLight {
                                               int nPointsCount,
                                               int nLineWidth,
                                               SunLight :: Base :: stColor color ) {
-            ShapePrimitives :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
@@ -262,7 +262,7 @@ namespace SunLight {
                                          int nPointsCount,
                                          int nLineWidth,
                                          SunLight :: Base :: stColor color ) {
-            ShapePrimitives :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
 
@@ -315,7 +315,7 @@ namespace SunLight {
                                                double fHeight,
                                                int nLineWidth,
                                                SunLight :: Base :: stColor color )  {
-            ShapePrimitives :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp          = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
@@ -330,13 +330,13 @@ namespace SunLight {
 
             // A wide edge is the closed path of the four corners, so each corner is a round join.
             if( nLineWidth > __HAIRLINE_WIDTH ) {
-                std :: vector<ShapePrimitives :: ScreenPoint>  corners {
-                    ShapePrimitives :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewStartY },
-                    ShapePrimitives :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewStartY },
-                    ShapePrimitives :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewEndY },
-                    ShapePrimitives :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewEndY } };
+                std :: vector<Shape :: ScreenPoint>  corners {
+                    Shape :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewStartY },
+                    Shape :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewStartY },
+                    Shape :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewEndY },
+                    Shape :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewEndY } };
 
-                ShapePrimitives :: DrawStrokedPath( corners, true, nLineWidth, color );
+                Shape :: DrawStrokedPath( corners, true, nLineWidth, color );
                 return;
             }
 
@@ -386,7 +386,7 @@ namespace SunLight {
                                              double fHeight,
                                              int nLineWidth,
                                              SunLight :: Base :: stColor color )  {
-            ShapePrimitives :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
 
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
@@ -402,7 +402,7 @@ namespace SunLight {
             // A wide outline is a ring of spans; a one-pixel outline is the engine's own ellipse. The shape's
             // PrimitiveClip keeps either inside the viewport.
             if( nLineWidth > __HAIRLINE_WIDTH ) {
-                ShapePrimitives :: DrawStrokedEllipse( fOffset_x, fOffset_y,
+                Shape :: DrawStrokedEllipse( fOffset_x, fOffset_y,
                                                        fWidth * zp.fZoomFactor, fHeight * zp.fZoomFactor,
                                                        nLineWidth, color );
                 return;
@@ -480,7 +480,7 @@ namespace SunLight {
                                            ( head -> y + pLayer -> offsety ),
                                            head -> width,
                                            head -> height,
-                                           ShapePrimitives :: ScreenLineWidth( ShapeObjects :: LineWidthOf( head ),
+                                           Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
                                                                                GetViewport().GetZoomProperties().fZoomFactor ),
                                            color );
                             break;
@@ -490,7 +490,7 @@ namespace SunLight {
                                          ( head -> y + pLayer -> offsety ),
                                          head -> content.shape -> points,
                                          head -> content.shape -> points_len,
-                                         ShapePrimitives :: ScreenLineWidth( ShapeObjects :: LineWidthOf( head ),
+                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
                                                                              GetViewport().GetZoomProperties().fZoomFactor ),
                                          color );
                             break;
@@ -500,7 +500,7 @@ namespace SunLight {
                                           ( head -> y + pLayer -> offsety ),
                                           head -> content.shape -> points,
                                           head -> content.shape -> points_len,
-                                          ShapePrimitives :: ScreenLineWidth( ShapeObjects :: LineWidthOf( head ),
+                                          Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
                                                            GetViewport().GetZoomProperties().fZoomFactor ),
                                           color );
                             break;
@@ -510,7 +510,7 @@ namespace SunLight {
                                          ( head -> y + pLayer -> offsety ),
                                          head -> width,
                                          head -> height,
-                                         ShapePrimitives :: ScreenLineWidth( ShapeObjects :: LineWidthOf( head ),
+                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
                                                                              GetViewport().GetZoomProperties().fZoomFactor ),
                                          color );
                             break;

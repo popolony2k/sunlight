@@ -33,7 +33,7 @@
 #include "drawsurface/idrawsurface.h"
 #include "font/ifont.h"
 #include "renderer/rendererconfig.h"
-#include "renderer/shapeprimitives.h"
+#include "renderer/shape/shapeprimitives.h"
 #include "input/iinputhandler.h"
 #include "base/color.h"
 #include "base/primitives.h"
@@ -216,7 +216,7 @@ namespace SunLight {
                               int nPointsCount,
                               int nLineWidth,
                               SunLight :: Base :: stColor color );
-            std :: vector<ShapePrimitives :: ScreenPoint> ScreenPointsOf( double fOriginX,
+            std :: vector<Shape :: ScreenPoint> ScreenPointsOf( double fOriginX,
                                                                           double fOriginY,
                                                                           double **fPoints,
                                                                           int nPointsCount,

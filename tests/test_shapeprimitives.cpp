@@ -19,9 +19,9 @@
  */
 
 #include <doctest/doctest.h>
-#include "renderer/shapeprimitives.h"
+#include "renderer/shape/shapeprimitives.h"
 
-using namespace SunLight :: Renderer :: ShapePrimitives;
+using namespace SunLight :: Renderer :: Shape;
 
 TEST_SUITE( "Shape primitives" )  {
 

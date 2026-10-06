@@ -18,34 +18,20 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "renderer/shapeobjects.h"
+#include "renderer/map/maporientation.h"
 
 namespace SunLight  {
     namespace Renderer  {
-        namespace ShapeObjects  {
+        namespace MapOrientation  {
 
-            namespace  {
+            const char* OrientationName( tmx_map_orient orient )  {
 
-                const char * const  __LINE_WIDTH_PROPERTY  = "line_width";
-                const double        __DEFAULT_LINE_WIDTH   = 1.0;
-            }
-
-            double LineWidthOf( tmx_object *pObject )  {
-
-                tmx_property *pProperty = pObject -> properties ? tmx_get_property( pObject -> properties, __LINE_WIDTH_PROPERTY ) : nullptr;
-
-                if( pProperty == nullptr )
-                    return __DEFAULT_LINE_WIDTH;
-
-                switch( pProperty -> type )  {
-                    case PT_INT :
-                        return ( double ) pProperty -> value.integer;
-
-                    case PT_FLOAT :
-                        return ( double ) pProperty -> value.decimal;
-
-                    default :
-                        return __DEFAULT_LINE_WIDTH;
+                switch( orient )  {
+                    case O_ORT : return "orthogonal";
+                    case O_ISO : return "isometric";
+                    case O_STA : return "staggered";
+                    case O_HEX : return "hexagonal";
+                    default    : return "unknown";
                 }
             }
         }

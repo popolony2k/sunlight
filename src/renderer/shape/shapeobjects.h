@@ -25,7 +25,7 @@
 
 namespace SunLight  {
     namespace Renderer  {
-        namespace ShapeObjects  {
+        namespace Shape  {
 
             /**
              * @brief Width of a shape object's line, in map units: its line_width property (Tiled stores it as
