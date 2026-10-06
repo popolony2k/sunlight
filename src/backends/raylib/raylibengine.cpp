@@ -608,16 +608,6 @@ namespace SunLight  {
             }
 
             /**
-             * Draw  pixel according the specified position.
-             * @param nPosX The X coordinate to plot pixel;
-             * @param nPosY The Y coordinate to plot pixel;
-             * @param color Color of pixel;
-             */
-            void RaylibEngine :: SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color )  {
-                ::DrawPixel( nPosX, nPosY, Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
-            }
-
-            /**
              * @brief Load a texture from disk.
              * @param szFileName Texture file name to load;
              * @param nWidth Output parameter receiving the loaded texture width;

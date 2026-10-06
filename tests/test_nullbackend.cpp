@@ -265,7 +265,6 @@ TEST_SUITE( "backends/null/NullEngine" )  {
 
         engine.BeginRenderTarget( hTarget );
         engine.ClearBackground( color );
-        engine.SetPixel( 1, 1, color );
         engine.DrawFilledRectangle( 0, 0, 5, 5, color );
         engine.DrawText( "x", 0, 0, 10, color );
         engine.DrawFPS( 0, 0 );

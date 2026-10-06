@@ -21,7 +21,7 @@
 /*
  * The viewport is the rectangle [pos, pos + size) - size is a width/height, not the
  * coordinate of the far edge (which it was, in effect, before v0.29.0). These pin what
- * that means for everything in the renderer that reads it: SetPixel's visible area,
+ * that means for everything in the renderer that reads it: a shape's clip rectangle,
  * where LoadMap's alignments put the camera (incl. the modulo "snap to a whole viewport
  * height" of the bottom alignments), how far MoveCameraLeft/Up may scroll, and the
  * screen -> tile conversion. Every expectation is either an explicit number or the
@@ -327,7 +327,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "SetPixel draws inside [pos, pos + size) and nowhere else, so a shape reaches the viewport's true right/bottom edge" )  {
+    TEST_CASE( "A shape's clip covers [pos, pos + size) minus the top/left edge, so it reaches the viewport's true right/bottom edge" )  {
 
         // Viewport (10, 10, 100, 100) shows x, y in [10, 110). A rectangle object at (50, 50), 200 x 200 world
         // pixels, drawn at zoom 1 / camera 0 starts at screen (60, 60): its top and left lines cross the
@@ -356,30 +356,32 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         REQUIRE( pRenderer -> LoadMap( "maps/shape.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
         pRenderer -> Run();
 
-        const std :: vector<std :: pair<int, int>>  &pixels = engineFixture.engine.setPixelPositions;
+        // The frame's clip is the viewport (10, 10, 100, 100); the shape's own clip is the one from
+        // PrimitiveClip, which starts one pixel inside the top/left edge (see __PRIMITIVE_EDGE_INSET).
+        const std :: vector<MockEngine :: Event>  &events = engineFixture.engine.events;
+        const MockEngine :: Event                 *pShapeClip = nullptr;
 
-        REQUIRE( pixels.size() > 0 );
+        for( const MockEngine :: Event &evt : events )
+            if( ( evt.kind == MockEngine :: Event :: CLIP_BEGIN ) && ( evt.x == 11.0f ) )
+                pShapeClip = &evt;
 
-        int  nMinX = 100000, nMaxX = -100000, nMinY = 100000, nMaxY = -100000;
+        REQUIRE( pShapeClip != nullptr );
 
-        for( const auto &pixel : pixels )  {
-            nMinX = std :: min( nMinX, pixel.first );
-            nMaxX = std :: max( nMaxX, pixel.first );
-            nMinY = std :: min( nMinY, pixel.second );
-            nMaxY = std :: max( nMaxY, pixel.second );
-        }
+        // Top/left edge excluded (first pixel 11), far edge reached: x + w and y + h are the first
+        // pixel OUTSIDE the clip, so the last visible column and row are 109 - not 99 (size as far edge).
+        CHECK( pShapeClip -> x == 11.0f );
+        CHECK( pShapeClip -> y == 11.0f );
+        CHECK( pShapeClip -> x + pShapeClip -> w == 110.0f );
+        CHECK( pShapeClip -> y + pShapeClip -> h == 110.0f );
 
-        // Never outside the visible rectangle (its top/left edge itself excluded, as ever)...
-        CHECK( nMinX > 10 );
-        CHECK( nMinY > 10 );
-        CHECK( nMaxX < 110 );
-        CHECK( nMaxY < 110 );
+        // The rectangle's top-left corner is drawn at screen (60, 60), where the clip starts cutting it.
+        bool bCornerDrawn = false;
 
-        // ...and it reaches all the way to the last visible column and row.
-        CHECK( nMinX == 60 );
-        CHECK( nMinY == 60 );
-        CHECK( nMaxX == 109 );
-        CHECK( nMaxY == 109 );
+        for( const MockEngine :: Event &evt : events )
+            if( ( evt.kind == MockEngine :: Event :: LINE ) && ( evt.x == 60.0f ) && ( evt.y == 60.0f ) )
+                bCornerDrawn = true;
+
+        CHECK( bCornerDrawn );
 
         pRenderer -> Stop();
     }

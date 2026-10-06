@@ -22,7 +22,6 @@
 #include <cstring>
 #include "engines/enginefactory.h"
 #include "base/primitives.h"
-#include "base/clipmode.h"
 
 
 namespace SunLight {
@@ -380,24 +379,6 @@ namespace SunLight {
                                                                  ( int ) std :: abs( ( clip.size.nHeight / fZoomFactor ) -
                                                                  dm.size.nHeight ) : 0 );
 
-#if SUNLIGHT_SOFTWARE_CLIP
-                    SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled(
-                                                          m_hTexture,
-                                                          SunLight :: Base :: stRectangle { ( float ) m_nCurrentTile + nClipX,
-                                                                      ( float ) nClipY,
-                                                                      ( float ) ( m_nTileSize > 0 ?
-                                                                                  m_nTileSize :
-                                                                                  m_nTextureWidth ),
-                                                                      ( float ) m_nTextureHeight },
-                                                          SunLight :: Base :: stRectangle { ( float ) clip.pos.x,
-                                                                      ( float ) clip.pos.y,
-                                                                      ( float ) clip.size.nWidth,
-                                                                      ( float ) clip.size.nHeight },
-                                                          SunLight :: Base :: stVector2D { 0.0, 0.0 },
-                                                          0.0, // TODO: Rotation
-                                                          fZoomFactor,
-                                                          color );
-#else
                     // Study: the whole canvas is drawn at its zoomed size; the view pass's clip cuts it.
                     SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled(
                                                           m_hTexture,
@@ -415,7 +396,6 @@ namespace SunLight {
                                                           0.0,
                                                           fZoomFactor,
                                                           color );
-#endif
                 }
             }
         }

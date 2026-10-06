@@ -48,8 +48,6 @@ namespace SunLight  {
                                                                 int& nHeight ) override;
                 void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) override;
 
-                void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color ) override;
-
                 void DrawTexture( SunLight :: Base :: TextureHandle hTexture,
                                    int nPosX,
                                    int nPosY,

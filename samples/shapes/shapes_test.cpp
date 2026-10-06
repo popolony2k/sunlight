@@ -18,6 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -40,22 +41,42 @@ namespace  {
     const int  __VIEWPORT_HEIGHT = 800;
     const int  __START_CAMERA_X  = 0;
     const int  __START_CAMERA_Y  = 0;
+
+    // Command line: shapes_test <sample directory> [map file] [frames] [fps]
+    const int          __ARG_DIRECTORY = 1;
+    const int          __ARG_MAP       = 2;
+    const int          __ARG_FRAMES    = 3;
+    const int          __ARG_FPS       = 4;
+    const char * const __DEFAULT_MAP   = "shapes.tmx";
+    const char * const __MAP_FOLDER    = "resources/map/";
+    const int          __DEFAULT_FPS   = 60;
 }
 
+/**
+ * Shows the shapes map. With a frame count it benchmarks instead: runs that many frames and
+ * prints the average time per frame. Pass fps 0 to lift the frame cap, so the time measures
+ * the work rather than the pacing.
+ */
 int main( int argc, char **argv ) {
 
-    if( argc < 2 )  {
-        fprintf( stderr, "Invalid command line arguments: shapes_test <sample directory>\n" );
+    if( argc <= __ARG_DIRECTORY )  {
+        fprintf( stderr, "Invalid command line arguments: shapes_test <sample directory> [map file] [frames] [fps]\n" );
         return EXIT_FAILURE;
     }
 
     // Resources are loaded by name relative to the sample's own directory, so enter it first.
     std :: error_code  errorCode;
 
-    std :: filesystem :: current_path( argv[1], errorCode );
+    std :: string  mapFile = ( argc > __ARG_MAP ) ? argv[__ARG_MAP] : __DEFAULT_MAP;
+    int            frames  = ( argc > __ARG_FRAMES ) ? atoi( argv[__ARG_FRAMES] ) : 0;
+    int            fps     = ( argc > __ARG_FPS ) ? atoi( argv[__ARG_FPS] ) : __DEFAULT_FPS;
+
+    mapFile = __MAP_FOLDER + mapFile;
+
+    std :: filesystem :: current_path( argv[__ARG_DIRECTORY], errorCode );
 
     if( errorCode )  {
-        fprintf( stderr, "Cannot enter the sample directory [%s]: %s\n", argv[1], errorCode.message().c_str() );
+        fprintf( stderr, "Cannot enter the sample directory [%s]: %s\n", argv[__ARG_DIRECTORY], errorCode.message().c_str() );
         return EXIT_FAILURE;
     }
 
@@ -73,7 +94,8 @@ int main( int argc, char **argv ) {
     config.fWidth     = 1260.0f;
     config.fHeight    = 920.0f;
     config.strTitle   = "Shapes: rectangle, ellipse, polyline, polygon";
-    config.nTargetFps = 60;
+    config.nTargetFps = fps;
+    config.nMaxFrames = ( unsigned ) frames;
     config.viewport.emplace();
     config.viewport -> pos.x        = __VIEWPORT_POS_X;
     config.viewport -> pos.y        = __VIEWPORT_POS_Y;
@@ -92,8 +114,8 @@ int main( int argc, char **argv ) {
         return EXIT_FAILURE;
     }
 
-    if( !pRenderer -> LoadMap( "resources/map/shapes.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) )  {
-        fprintf( stderr, "Cannot load resources/map/shapes.tmx\n" );
+    if( !pRenderer -> LoadMap( mapFile.c_str(), ITM :: MAP_ALIGNMENT_TOP_LEFT ) )  {
+        fprintf( stderr, "Cannot load %s\n", mapFile.c_str() );
         return EXIT_FAILURE;
     }
 
@@ -105,7 +127,18 @@ int main( int argc, char **argv ) {
 
     printf( "Each numbered shape is drawn by the backend. Arrows scroll the map, Esc quits.\n" );
 
-    pRenderer -> Run();
+    if( frames > 0 )  {
+        auto  start = std :: chrono :: steady_clock :: now();
+
+        pRenderer -> Run();
+
+        double  fMillis = std :: chrono :: duration<double, std :: milli>( std :: chrono :: steady_clock :: now() - start ).count();
+
+        printf( "bench map=%s frames=%d ms_per_frame=%.4f\n", mapFile.c_str(), frames, fMillis / frames );
+    }
+    else
+        pRenderer -> Run();
+
     pRenderer -> Stop();
 
     return EXIT_SUCCESS;

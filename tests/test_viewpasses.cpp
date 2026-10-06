@@ -1257,7 +1257,11 @@ TEST_SUITE( "renderer/viewhandles" )  {
         scene.RunFrames( 1 );
         CHECK( scene.TilesIn( g_SideRect ) == 0 );
         CHECK( scene.Count( Event :: FILL ) == 0 );
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+
+        // The default camera is at (20, 30), so the 4x4 map (16 px tiles) starts 20 px left and 30 px above
+        // the view. Only the ground tiles at columns 2-3 and rows 2-3 start inside the view: 2 x 2 = 4. The
+        // props and glow tiles start outside it, so they are not counted (a tile is counted by its top-left).
+        CHECK( scene.TilesIn( g_DefaultRect ) == 4 );
 
         // What acts on the renderer does nothing / answers "no" - and changes nothing of the renderer's.
         pHandle -> MoveCameraLeft();

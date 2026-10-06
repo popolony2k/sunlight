@@ -199,19 +199,8 @@ namespace SunLight {
             SunLight :: Base :: stColor IntToColor( uint32_t color );
 
             // Graphics primitives miscellaneous
-            void SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color );
-            void MidPointEllipse( double fCoordX,
-                                  double fCoordY,
-                                  double fRadiusX,
-                                  double fRadiusY,
-                                  SunLight :: Base :: stColor color );
-            // One straight edge of a shape: LineBresenham in software builds, the engine's line in the study.
+            // One straight edge of a shape: the engine's own line (IEngine::DrawLine).
             void DrawEdge( int nX0, int nY0, int nX1, int nY1, SunLight :: Base :: stColor color );
-            void LineBresenham( int nX0,
-                                int nY0,
-                                int nX1,
-                                int nY1,
-                                SunLight :: Base :: stColor color );
 
             // Engine primitives
             void DrawPolyline( double fOffset_x,

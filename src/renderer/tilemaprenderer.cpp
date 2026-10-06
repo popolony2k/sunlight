@@ -22,7 +22,6 @@
 #include "window/windowfactory.h"
 #include "backends/null/nullbackend.h"
 #include "renderer/view.h"
-#include "base/clipmode.h"
 #include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
 #include "filesystem/filesystemfactory.h"
@@ -389,8 +388,8 @@ namespace SunLight {
 namespace  {
 
     // The primitives' boundary rule: a pixel is drawn only strictly inside the viewport, its top and left
-    // edge excluded. Software builds test each pixel (SetPixel). The study states the same rule as an engine
-    // clip one pixel in, nested in the view's own clip, so it only narrows it.
+    // edge excluded. The engine clip states it as a clip one pixel in, nested in the view's own clip, so it
+    // only narrows that clip.
     const int  __PRIMITIVE_EDGE_INSET  = 1;
 
     class PrimitiveClip  {
@@ -398,199 +397,25 @@ namespace  {
         public:
 
         explicit PrimitiveClip( const SunLight :: Base :: stDimension2D &vp )  {
-#if !SUNLIGHT_SOFTWARE_CLIP
             SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
                 ( float ) ( vp.pos.x + __PRIMITIVE_EDGE_INSET ), ( float ) ( vp.pos.y + __PRIMITIVE_EDGE_INSET ),
                 ( float ) ( vp.size.nWidth - __PRIMITIVE_EDGE_INSET ), ( float ) ( vp.size.nHeight - __PRIMITIVE_EDGE_INSET ) } );
-#else
-            ( void ) vp;
-#endif
         }
 
         ~PrimitiveClip( void )  {
-#if !SUNLIGHT_SOFTWARE_CLIP
             SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
-#endif
         }
     };
 }
 
         /**
-         * Draw  pixel according the specified position.
-         * @param nCoordX The X coordinate to plot pixel;
-         * @param nCoordY The Y coordinate to plot pixel;
-         * @param color Color of pixel;
-         */
-        void TileMapRenderer :: SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color )  {
-
-#if SUNLIGHT_SOFTWARE_CLIP
-            SunLight :: Base :: stDimension2D& vp = GetViewport().GetDimension2D();
-
-            // The visible rectangle is [pos, pos + size): a pixel is drawn
-            // when it lies inside it (the top/left edge itself excluded, as
-            // it always was).
-            if( ( nCoordX > vp.pos.x ) && ( nCoordX < ( vp.pos.x + vp.size.nWidth ) ) &&
-                ( nCoordY > vp.pos.y ) && ( nCoordY < ( vp.pos.y + vp.size.nHeight ) ) ) {
-                SunLight :: Engines :: EngineFactory :: GetEngine().SetPixel( nCoordX, nCoordY, color );
-            }
-#else
-            // Study: the primitive's clip (PrimitiveClip, set by the object that draws it) is the test.
-            SunLight :: Engines :: EngineFactory :: GetEngine().SetPixel( nCoordX, nCoordY, color );
-#endif
-        }
-
-        /**
-         * Midpoint ellipse drawing algorithm based on implementation found at
-         * https://www.geeksforgeeks.org/midpoint-ellipse-drawing-algorithm/
-         * @param fCoordX Ellipse X coordinate;
-         * @param fCoordY Ellipse Y coordinate;
-         * @param fRadiusX X radius;
-         * @param fRadiusX Y radius;
-         * @param color Ellipse color;
-         */
-        void TileMapRenderer :: MidPointEllipse( double fCoordX,
-                                                 double fCoordY,
-                                                 double fRadiusX,
-                                                 double fRadiusY,
-                                                 SunLight :: Base :: stColor color ) {
-
-            double          dx, dy;
-            double          d1, d2;
-            double          x = 0;
-            double          y = fRadiusY;
-
-            // Initial decision parameter of region 1
-            d1 = ( fRadiusY * fRadiusY ) -
-                 ( fRadiusX * fRadiusX * fRadiusY ) +
-                 ( 0.25 * fRadiusX * fRadiusX );
-            dx = ( 2 * fRadiusX * fRadiusY * x );
-            dy = ( 2 * fRadiusX * fRadiusX * y );
-
-            // For region 1
-            while( dx < dy )  {
-                int nXPos = ( int ) ( x + fCoordX );
-                int nYPos = ( int ) ( y + fCoordY );
-                int nXNeg = ( int ) ( -x + fCoordX );
-                int nYNeg = ( int ) ( -y + fCoordY );
-
-                // Print points based on 4-way symmetry
-                SetPixel( nXPos, nYPos, color );
-                SetPixel( nXNeg, nYPos, color );
-                SetPixel( nXPos, nYNeg, color );
-                SetPixel( nXNeg, nYNeg, color );
-
-                /* 
-                * Checking and updating value of decision parameter 
-                * based on algorithm.
-                */
-                if( d1 < 0 )  {
-                    x++;
-                    dx = ( dx + (2 * fRadiusY * fRadiusY ) );
-                    d1 = ( d1 + dx + ( fRadiusY * fRadiusY ) );
-                }
-                else  {
-                    x++;
-                    y--;
-                    dx = ( dx + ( 2 * fRadiusY * fRadiusY ) );
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d1 = ( d1 + dx - dy + ( fRadiusY * fRadiusY ) );
-                }
-            }
-
-            // Decision parameter of region 2
-            d2 = ( ( fRadiusY * fRadiusY ) * ( ( x + 0.5 ) * ( x + 0.5 ) ) ) +
-                 ( ( fRadiusX * fRadiusX ) * ( ( y - 1 ) * ( y - 1 ) ) ) -
-                 ( fRadiusX * fRadiusX * fRadiusY * fRadiusY );
-
-            // Plotting points of region 2
-            while( y >= 0 ) {
-
-                int nXPos = ( int ) ( x + fCoordX );
-                int nYPos = ( int ) ( y + fCoordY );
-                int nXNeg = ( int ) ( -x + fCoordX );
-                int nYNeg = ( int ) ( -y + fCoordY );
-
-                // Print points based on 4-way symmetry
-                SetPixel( nXPos, nYPos, color );
-                SetPixel( nXNeg, nYPos, color );
-                SetPixel( nXPos, nYNeg, color );
-                SetPixel( nXNeg, nYNeg, color );
-
-                /*
-                * Checking and updating parameter value based
-                * on algorithm.
-                */
-                if( d2 > 0 ) {
-                    y--;
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d2 = ( d2 + ( fRadiusX * fRadiusX ) - dy );
-                }
-                else  {
-                    y--;
-                    x++;
-                    dx = ( dx + ( 2 * fRadiusY * fRadiusY ) );
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d2 = ( d2 + dx - dy + ( fRadiusX * fRadiusX ) );
-                }
-            }
-        }
-
-        /**
-         * @brief Draw one straight edge of a shape. In software builds this is LineBresenham, as always.
-         * In the study the engine's own line is used (IEngine::DrawLine), and the shape's PrimitiveClip
+         * @brief Draw one straight edge of a shape with the engine's own line (IEngine::DrawLine). The shape's PrimitiveClip
          * keeps it inside the viewport, so the renderer has no line code of its own to run.
          */
         void TileMapRenderer :: DrawEdge( int nX0, int nY0, int nX1, int nY1, SunLight :: Base :: stColor color )  {
-#if SUNLIGHT_SOFTWARE_CLIP
-            LineBresenham( nX0, nY0, nX1, nY1, color );
-#else
             SunLight :: Engines :: EngineFactory :: GetEngine().DrawLine( ( float ) nX0, ( float ) nY0,
                                                                           ( float ) nX1, ( float ) nY1,
                                                                           __EDGE_LINE_THICKNESS, color );
-#endif
-        }
-
-        /**
-         * Bresenham line generation algorithm based on implementation found at
-         * https://gist.github.com/bert/1085538.
-         * @param nX0 Initial X line coordinate;
-         * @param nY0 Initial Y line coordinate;
-         * @param nX1 Final X line coordinate;
-         * @param nY1 Final Y line coordinate;
-         * @param color line color;
-         */
-        void TileMapRenderer :: LineBresenham( int nX0,
-                                               int nY0,
-                                               int nX1,
-                                               int nY1,
-                                               SunLight :: Base :: stColor color )  {
-
-            int             nE2; /* error value e_xy */
-            int             nDx  = std :: abs( nX1 - nX0 );
-            int             nSx  = ( nX0 < nX1 ? 1 : -1 );
-            int             nDy  = -std :: abs( nY1 - nY0 );
-            int             nSy  = ( nY0 < nY1 ? 1 : -1 );
-            int             nErr = nDx + nDy;
-
-            while( true )  {
-                // Print points based on 4-way symmetry
-                SetPixel( nX0, nY0, color );
-
-                if( ( nX0 == nX1 ) && ( nY0 == nY1 ) )
-                    break;
-
-                nE2 = ( 2 * nErr );
-
-                if( nE2 >= nDy ) {
-                    nErr+=nDy;
-                    nX0+=nSx;
-                } /* e_xy+e_x > 0 */
-
-                if( nE2 <= nDx ) {
-                    nErr+=nDx;
-                    nY0+=nSy;
-                } /* e_xy+e_y < 0 */
-            }
         }
 
         /**
@@ -742,19 +567,11 @@ namespace  {
             fOffset_y = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
                           zp.fZoomFactor ) + vp.pos.y;
 
-#if SUNLIGHT_SOFTWARE_CLIP
-            MidPointEllipse( fOffset_x,
-                             fOffset_y,
-                             ( fWidth * zp.fZoomFactor ),
-                             ( fHeight * zp.fZoomFactor ),
-                             color );
-#else
             // Study: the engine's own ellipse outline; the shape's PrimitiveClip keeps it inside the viewport.
             SunLight :: Engines :: EngineFactory :: GetEngine().DrawEllipseOutline( ( float ) fOffset_x, ( float ) fOffset_y,
                                                                                     ( float ) ( fWidth * zp.fZoomFactor ),
                                                                                     ( float ) ( fHeight * zp.fZoomFactor ),
                                                                                     color );
-#endif
         }
 
         /**
@@ -789,31 +606,6 @@ namespace  {
 
                 float                                 fZoomFactor = vp.GetZoomProperties().fZoomFactor;
                 SunLight :: Base :: stDimension2D& vpDm        = vp.GetDimension2D();
-#if SUNLIGHT_SOFTWARE_CLIP
-
-                int32_t                               nClipX      = ( int32_t ) ( clip.pos.x == vpDm.pos.x ? nSourceX +
-                                                                                  std :: abs( ( clip.size.nWidth /
-                                                                                                fZoomFactor ) -
-                                                                                  dm.size.nWidth ) : nSourceX );
-                int32_t                               nClipY      = ( int32_t ) ( clip.pos.y == vpDm.pos.y ? nSourceY +
-                                                                                  std :: abs( ( clip.size.nHeight /
-                                                                                                fZoomFactor ) -
-                                                                                  dm.size.nHeight ) : nSourceY );
-
-                SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
-                                                      SunLight :: Base :: stRectangle  { ( float ) nClipX,
-                                                                   ( float ) nClipY,
-                                                                   ( float ) nSourceW,
-                                                                   ( float ) nSourceH },
-                                                      SunLight :: Base :: stRectangle  { ( float ) clip.pos.x,
-                                                                   ( float ) clip.pos.y,
-                                                                   ( float ) clip.size.nWidth,
-                                                                   ( float ) clip.size.nHeight },
-                                                      SunLight :: Base :: stVector2D  { 0, 0 },
-                                                      0.0f,
-                                                      fZoomFactor,
-                                                      SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, op } );
-#else
                 // Study: the whole tile is drawn at its zoomed size; the view pass's clip cuts it.
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
                                                       SunLight :: Base :: stRectangle  { ( float ) nSourceX,
@@ -828,7 +620,6 @@ namespace  {
                                                       0.0f,
                                                       fZoomFactor,
                                                       SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, op } );
-#endif
             }
         }
 
@@ -1038,10 +829,6 @@ namespace  {
             // The lines are cut at the viewport's edge: IEngine::DrawText has no clip of its own.
             // Study: the view's own clip (its pass, or the single-view frame) already covers this
             // rectangle, so the text does not open a clip of its own.
-#if SUNLIGHT_SOFTWARE_CLIP
-            engine.BeginClip( SunLight :: Base :: stRectangle { ( float ) vp.pos.x, ( float ) vp.pos.y,
-                                                                ( float ) vp.size.nWidth, ( float ) vp.size.nHeight } );
-#endif
 
             for( size_t nIdx = 0; nIdx < lines.size(); nIdx++ )  {
                 double  fLeft = fBoxX;
@@ -1064,9 +851,6 @@ namespace  {
                     engine.DrawText( lines[nIdx].c_str(), nX, nY, nScreenSize, color );
             }
 
-#if SUNLIGHT_SOFTWARE_CLIP
-            engine.EndClip();
-#endif
         }
 
         /**
@@ -1510,7 +1294,6 @@ namespace  {
                      * visibility are the only new inputs, and default to "show all").
                      */
                     if( m_pDefaultView -> m_bVisible )  {
-#if !SUNLIGHT_SOFTWARE_CLIP
                         // Study: nothing cuts the single view's draws in software any more, so the viewport
                         // is the clip for the whole frame (the view passes set their own).
                         SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
@@ -1518,11 +1301,8 @@ namespace  {
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.y,
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nWidth,
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nHeight } );
-#endif
                         DrawAllLayers( m_pTmxMap -> ly_head );
-#if !SUNLIGHT_SOFTWARE_CLIP
                         SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
-#endif
                     }
                 }
                 else  {

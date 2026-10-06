@@ -65,16 +65,6 @@ namespace SunLight  {
             virtual void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) = 0;
 
             /**
-             * @brief Must be implemented to draw a pixel according the specified
-             * position on chosen target engine;
-             *
-             * @param nPosX The X coordinate to plot pixel;
-             * @param nPosY The Y coordinate to plot pixel;
-             * @param color Color of pixel;
-             */
-            virtual void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color ) = 0;
-
-            /**
              * @brief Must be implemented to draw a texture at the specified position
              * on chosen target engine;
              *
