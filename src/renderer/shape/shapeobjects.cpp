@@ -27,26 +27,39 @@ namespace SunLight  {
             namespace  {
 
                 const char * const  __LINE_WIDTH_PROPERTY  = "line_width";
+                const char * const  __POINT_SIZE_PROPERTY  = "point_size";
                 const double        __DEFAULT_LINE_WIDTH   = 1.0;
+                const double        __DEFAULT_POINT_SIZE   = 1.0;
+
+                // A numeric property of the object (Tiled stores it as an int or a float), or the default when it has none.
+                double NumberPropertyOf( tmx_object *pObject, const char *szName, double fDefault )  {
+
+                    tmx_property *pProperty = pObject -> properties ? tmx_get_property( pObject -> properties, szName ) : nullptr;
+
+                    if( pProperty == nullptr )
+                        return fDefault;
+
+                    switch( pProperty -> type )  {
+                        case PT_INT :
+                            return ( double ) pProperty -> value.integer;
+
+                        case PT_FLOAT :
+                            return ( double ) pProperty -> value.decimal;
+
+                        default :
+                            return fDefault;
+                    }
+                }
             }
 
             double LineWidthOf( tmx_object *pObject )  {
 
-                tmx_property *pProperty = pObject -> properties ? tmx_get_property( pObject -> properties, __LINE_WIDTH_PROPERTY ) : nullptr;
+                return NumberPropertyOf( pObject, __LINE_WIDTH_PROPERTY, __DEFAULT_LINE_WIDTH );
+            }
 
-                if( pProperty == nullptr )
-                    return __DEFAULT_LINE_WIDTH;
+            double PointSizeOf( tmx_object *pObject )  {
 
-                switch( pProperty -> type )  {
-                    case PT_INT :
-                        return ( double ) pProperty -> value.integer;
-
-                    case PT_FLOAT :
-                        return ( double ) pProperty -> value.decimal;
-
-                    default :
-                        return __DEFAULT_LINE_WIDTH;
-                }
+                return NumberPropertyOf( pObject, __POINT_SIZE_PROPERTY, __DEFAULT_POINT_SIZE );
             }
         }
     }

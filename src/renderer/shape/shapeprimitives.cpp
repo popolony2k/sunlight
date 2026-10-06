@@ -357,6 +357,11 @@ namespace SunLight  {
                                                                               ( float ) nX1, ( float ) nY1,
                                                                               __EDGE_LINE_THICKNESS, color );
             }
+            void DrawFilledSquare( int nX, int nY, int nSide, SunLight :: Base :: stColor color )  {
+
+                SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( nX, nY, nSide, nSide, color );
+            }
+
             void DrawStrokedEllipse( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY, int nWidth, SunLight :: Base :: stColor color )  {
 
                 double  h = nWidth * __HALF;

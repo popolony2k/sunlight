@@ -515,3 +515,87 @@ TEST_SUITE( "Thick ellipses" )  {
         CHECK( frame.Covered() == expected );
     }
 }
+
+namespace  {
+
+    // A point object XML as Tiled writes it: a <point/> child and no width or height attribute (libtmx makes any object
+    // with a height attribute a rectangle, even a zero-sized one). point_size is optional.
+    std :: string PointObject( int nX, int nY, double fSize, bool bWithSize )  {
+
+        std :: string  strProperties = bWithSize
+            ? "<properties><property name=\"point_size\" type=\"float\" value=\"" + std :: to_string( fSize ) + "\"/></properties>"
+            : std :: string();
+
+        return "<object id=\"1\" x=\"" + std :: to_string( nX ) + "\" y=\"" + std :: to_string( nY ) + "\">" +
+               strProperties + "<point/></object>";
+    }
+}
+
+TEST_SUITE( "Points" )  {
+
+    TEST_CASE( "A point is a filled square of side round(size x zoom), with its top-left at the point" )  {
+
+        // Point at object (100, 100), size 3 at zoom 1: the square is at screen (110, 110), three pixels a side.
+        Frame  frame( PointObject( 100, 100, 3.0, true ) );
+
+        std :: vector<MockEngine :: Event>  squares = frame.Of( MockEngine :: Event :: FILL );
+
+        REQUIRE( squares.size() == 1 );
+        CHECK( squares[0].x == 110.0f );
+        CHECK( squares[0].y == 110.0f );
+        CHECK( squares[0].w == 3.0f );
+        CHECK( squares[0].h == 3.0f );
+    }
+
+    TEST_CASE( "The side rounds half-up: size 1.25 at zoom 2 is 2.5, so 3 pixels" )  {
+
+        // Zoom 2 (position 31): the point at object (100, 100) is at screen (210, 210).
+        Frame  frame( PointObject( 100, 100, 1.25, true ), 31u );
+
+        REQUIRE( frame.pRenderer -> GetViewport().GetZoomProperties().fZoomFactor == 2.0f );
+
+        std :: vector<MockEngine :: Event>  squares = frame.Of( MockEngine :: Event :: FILL );
+
+        REQUIRE( squares.size() == 1 );
+        CHECK( squares[0].x == 210.0f );
+        CHECK( squares[0].y == 210.0f );
+        CHECK( squares[0].w == 3.0f );
+        CHECK( squares[0].h == 3.0f );
+    }
+
+    TEST_CASE( "A point is at least one pixel, and a point without point_size is one map unit" )  {
+
+        // Two renderers never live at once: each frame is in its own scope.
+        {
+            Frame  tiny( PointObject( 100, 100, 0.25, true ) );
+            std :: vector<MockEngine :: Event>  tinySquares = tiny.Of( MockEngine :: Event :: FILL );
+
+            REQUIRE( tinySquares.size() == 1 );
+            CHECK( tinySquares[0].w == 1.0f );
+            CHECK( tinySquares[0].h == 1.0f );
+        }
+
+        {
+            Frame  plain( PointObject( 100, 100, 0.0, false ) );
+            std :: vector<MockEngine :: Event>  plainSquares = plain.Of( MockEngine :: Event :: FILL );
+
+            REQUIRE( plainSquares.size() == 1 );
+            CHECK( plainSquares[0].w == 1.0f );
+        }
+    }
+
+    TEST_CASE( "A point on the viewport's top-left edge is cut by the strict clip, which starts one pixel in" )  {
+
+        // Viewport origin (10, 10): the point at object (0, 0) is at screen (10, 10), and the square's clip starts at (11, 11).
+        Frame  frame( PointObject( 0, 0, 1.0, true ) );
+
+        bool  bClipStartsInside = false;
+
+        for( const MockEngine :: Event &evt : frame.engineFixture.engine.events )
+            if( ( evt.kind == MockEngine :: Event :: CLIP_BEGIN ) && ( evt.x == 11.0f ) && ( evt.y == 11.0f ) )
+                bClipStartsInside = true;
+
+        CHECK( bClipStartsInside );
+        CHECK( frame.Of( MockEngine :: Event :: FILL ).size() == 1 );
+    }
+}

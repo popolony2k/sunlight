@@ -25,5 +25,9 @@
   <object id="205" name="label-rectangle" x="820" y="490" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">rect, width 5</text></object>
   <object id="206" name="ellipse-4" x="250" y="700" width="160" height="80"><properties><property name="line_width" type="int" value="4"/></properties><ellipse/></object>
   <object id="207" name="label-ellipse" x="430" y="730" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">ellipse, width 4</text></object>
+  <object id="208" name="point-4" x="700" y="770"><properties><property name="point_size" type="float" value="4"/></properties><point/></object>
+  <object id="209" name="point-10" x="760" y="770"><properties><property name="point_size" type="float" value="10"/></properties><point/></object>
+  <object id="210" name="point-2.5" x="840" y="770"><properties><property name="point_size" type="float" value="2.5"/></properties><point/></object>
+  <object id="211" name="label-points" x="700" y="740" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">points: 4, 10, 2.5</text></object>
  </objectgroup>
 </map>

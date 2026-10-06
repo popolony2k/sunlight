@@ -142,7 +142,7 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
 | C2 | Thick polylines and polygons | DONE |
 | C3 | Thick rectangles | DONE |
 | C4 | Thick ellipses | DONE |
-| C5 | Points as squares | TODO |
+| C5 | Points as squares | DONE |
 
 **Decisions already taken:**
 - Stroke width scales with zoom: screen width is `thickness × zoomFactor`, rounded
@@ -236,10 +236,24 @@ is the engine's line, not `LineBresenham` (removed in R1).
 - Not covered by a test: an ellipse crossing the viewport edge is cut by the engine's clip; the test only compares the
   pixels inside the view's own rectangle, not the cut itself.
 
-**C5: points.** A point of size `s` at zoom `z` is a filled square of side
-`round(s × z)`, minimum 1. This also closes the point-object gap from B.
-- Test items: the side length follows the rule; a point on the viewport edge follows the
-  strict rule; a Tiled point object draws as a point.
+**C5: points.** A point of size `s` at zoom `z` is a filled square of side `round(s × z)`, minimum 1. This also
+closes the point-object gap from B.
+- Decided while building it:
+  - The size comes from the object's `point_size` property (int or float), default one map unit, read the same way as
+    `line_width`.
+  - The square is drawn with `IEngine::DrawFilledRectangle` inside the shape's clip, not with `SetPixel` (removed in R1).
+    Its top-left corner is at the point's position.
+  - The side uses the same rule as a line's width (`Shape::ScreenLineWidth`).
+- Test items, in `tests/test_thick_lines.cpp` (the "Points" suite, 4 cases):
+  - A point is a filled square of side `round(size × zoom)`, with its top-left at the point.
+  - The side rounds half-up: size 1.25 at zoom 2 is 3 pixels.
+  - A point is at least one pixel, and a point with no `point_size` is one map unit.
+  - A point on the viewport's top-left edge is cut by the strict clip, which starts one pixel in.
+- Finding: libtmx makes any object with a `height` attribute a rectangle, even a zero-sized one. A point is written
+  as a `<point/>` child with no width or height attribute, as Tiled writes it.
+- Mutation checks: floor instead of half-up, and no one-pixel minimum, each fail their tests.
+- Full suite under AddressSanitizer: 378 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has three points at the bottom right, sizes 4, 10 and 2.5.
 
 **Across all of Phase C**
 - Byte-identical harnesses at default width (the animation and camera traces).

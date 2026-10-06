@@ -92,6 +92,16 @@ namespace SunLight  {
             void DrawStrokedPath( const std :: vector<ScreenPoint> &points, bool bClosed, int nWidth, SunLight :: Base :: stColor color );
 
             /**
+             * @brief Draw a filled square: a point object, at its screen position with its top-left corner there. The
+             * caller holds a PrimitiveClip, so the square is cut at the viewport like any other shape.
+             * @param nX Left of the square (screen pixels);
+             * @param nY Top of the square;
+             * @param nSide Side length in screen pixels, at least 1;
+             * @param color Fill color;
+             */
+            void DrawFilledSquare( int nX, int nY, int nSide, SunLight :: Base :: stColor color );
+
+            /**
              * @brief Draw an ellipse outline of the given width as a ring: the pixels inside the outer ellipse (the
              * radius plus half the width) and not inside the inner one (the radius minus half the width). When the
              * inner radius is not positive the ring is a filled ellipse. Drawn as spans, cut by the engine's clip.

@@ -380,6 +380,25 @@ namespace SunLight {
          * @param fHeight The ellipse height;
          * @param color ellipse color;
          */
+        /**
+         * Draw a point object as a filled square. Its side is the point's size times the zoom, rounded half-up and
+         * at least one pixel (the same rule as a line's width), with the top-left corner at the point's position.
+         * @param fOffset_x X of the point, in map units;
+         * @param fOffset_y Y of the point;
+         * @param fSize Size of the point, in map units;
+         */
+        void TileMapRenderer :: DrawPoint( double fOffset_x, double fOffset_y, double fSize, SunLight :: Base :: stColor color )  {
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+
+            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
+            SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
+
+            double  fScreenX = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
+            double  fScreenY = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
+
+            Shape :: DrawFilledSquare( ( int ) fScreenX, ( int ) fScreenY, Shape :: ScreenLineWidth( fSize, zp.fZoomFactor ), color );
+        }
+
         void TileMapRenderer :: DrawEllipse( double fOffset_x,
                                              double fOffset_y,
                                              double fWidth,
@@ -530,8 +549,11 @@ namespace SunLight {
                             break;
 
                         case OT_POINT :
-                        // TODO: FINISH HIM !!!
-                        break;
+                            DrawPoint( ( head -> x + pLayer -> offsetx ),
+                                       ( head -> y + pLayer -> offsety ),
+                                       Shape :: PointSizeOf( head ),
+                                       color );
+                            break;
                     }
                 }
 

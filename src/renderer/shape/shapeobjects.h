@@ -35,6 +35,14 @@ namespace SunLight  {
              * @return Width in map units;
              */
             double LineWidthOf( tmx_object *pObject );
+
+            /**
+             * @brief Size of a point object, in map units: its point_size property, or one map unit when the object
+             * has none. The same reading as LineWidthOf.
+             * @param pObject The object, as libtmx parsed it;
+             * @return Size in map units;
+             */
+            double PointSizeOf( tmx_object *pObject );
         }
     }
 }
