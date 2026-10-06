@@ -107,14 +107,26 @@ a warning once. Point objects are handled in Phase C5, not here.
 
 **B3: unknown types, closed with nothing to warn about.** libtmx gives every layer and object kind the renderer can receive: its layer kinds are the tile layer, object group, image layer and group, and it skips any other element while parsing. Its object kinds cover all seven Tiled shapes, and it turns an object with no shape into a point. So the `L_NONE` and `OT_NONE` cases cannot occur; they remain only so the switch covers every enumerator. Unknown element names are dropped by libtmx before the renderer sees them, so there is nothing for a warning in the renderer to catch.
 
-## Prerequisite: shared geometry
+## Prerequisites
 
-Done before Phase C, because the thick primitives work on these shapes. This is an API change, so it is
-not part of Phase A. Its peer impact is recorded in [doc/BREAKAGES.md](BREAKAGES.md).
+Done before Phase C, because the thick primitives work on these shapes and on the engine's clip. These are API
+changes, so they are not part of Phase A. Their peer impact is recorded in [doc/BREAKAGES.md](BREAKAGES.md).
 
 | # | Item | Status |
 |---|------|--------|
-| G1 | Move `stCoordinate2D`, `stSize2D` and `stDimension2D` from `SunLight::TileMap` to `SunLight::Base` (`base/primitives.h`), so sprites and canvases use them too | IN PROGRESS |
+| R1 | The engine clip is the only clip mode: `SUNLIGHT_SOFTWARE_CLIP`, the software cut and the per-pixel primitives are removed; `IEngine` gains `DrawLine` and `DrawEllipseOutline`, and loses `SetPixel` | DONE |
+| G1 | Move `stCoordinate2D`, `stSize2D` and `stDimension2D` from `SunLight::TileMap` to `SunLight::Base` (`base/primitives.h`), so sprites and canvases use them too | DONE |
+
+**R1: engine clip only.** Committed as `55ba435` on `refactor/engine-clip-only`, with the shapes benchmark mode and `samples/shapes/resources/map/stress.tmx`. Shapes are drawn by the backend, and tiles, text and shapes are cut by the engine's clip. Stress map on matched Release builds: about 1.39 ms per frame, against 2.26 ms with the software method.
+- Test items, all met:
+  - The full suite passes: 356 test cases (`tests/test_shape_engine_calls.cpp` adds five: the four edges of a rectangle at thickness 1, one ellipse outline with its centre and radii, a polyline with no closing edge, a polygon with its closing edge, and a two-point polygon with none).
+  - Three deliberate faults each fail the test written for them: the edge inset (`1` to `0`), the edge thickness (`1` to `2`), and the polygon closing rule (`> 2` to `> 1`). The renderer file was restored byte-for-byte after each.
+  - The full suite passes under AddressSanitizer, with no reports.
+  - Every sample builds.
+  - The clip's edge rule is checked by the clip test in `tests/test_viewport_semantics.cpp`.
+- Verified by eye, not by test: the nested clip stack in `RaylibEngine` (it needs a real window), and the samples' output (text, shapes, multiview).
+- Not repeatable: the pixel comparison of the shapes sample against the software method. It was done before the flag was removed, so the owner should take it as confirmed.
+- `doc/BREAKAGES.md` item 15 is written.
 
 **G1: shared geometry.** The three integer structs are plain geometry, not tile-map data, and sprites and
 canvases already use them. Moved to `SunLight::Base` with no aliases kept, so Scarab's references are
@@ -142,17 +154,17 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
   nothing and output stays unchanged.
 - The viewport boundary rule is unchanged: a pixel is drawn only if it is strictly
   inside the viewport, so the top and left edge are excluded, as they are today.
-- The engine never clips. The renderer clips each span before calling
-  `IEngine::DrawFilledRectangle`, so no new engine method is needed. A native primitive
+- The engine clips. The renderer draws each span with `IEngine::DrawFilledRectangle` inside
+  the viewport's engine clip (`BeginClip`/`EndClip`), so no new engine method is needed. A native primitive
   is only considered later, if the measured span count is too high.
 
 **Implementation approach.** Each stroke is drawn as one filled span per scanline,
-clipped to the viewport before the engine is called. A per-pixel `SetPixel` loop is not
-used, because it costs one engine call per pixel, and a single engine call would bypass
-the viewport boundary.
+inside the viewport's engine clip. A per-pixel draw loop is not used, because it costs one
+engine call per pixel.
 
 **C1: thick lines.** Perpendicular span code and the square cap rule.
-- Test items: width 1 is byte-identical to today's `LineBresenham`, including lines on
+- Test items: width 1 is byte-identical to `LineBresenham` as it was at commit `07f0c3c` (removed
+  by the engine-clip refactor), including lines on
   the top and left viewport edges; widths 2 to 5 at several angles match a brute-force
   reference rasterizer; a line crossing each viewport edge and a corner is cut at the
   reference's pixels; caps extend by the stated amount and nothing at width 1; at zoom 2 a
@@ -170,8 +182,8 @@ the viewport boundary.
   byte-identical.
 
 **C4: thick ellipses.** A ring between an outer and an inner radius.
-- Test items: matches a reference ring; width 1 output is byte-identical to the midpoint
-  output; an ellipse crossing the boundary is clipped at the reference's pixels.
+- Test items: matches a reference ring; width 1 output is byte-identical to `MidPointEllipse`
+  at commit `07f0c3c`; an ellipse crossing the boundary is clipped at the reference's pixels.
 
 **C5: points.** A point of size `s` at zoom `z` is a filled square of side
 `round(s × z)`, minimum 1. This also closes the point-object gap from B.

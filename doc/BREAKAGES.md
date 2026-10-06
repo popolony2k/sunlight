@@ -27,15 +27,17 @@ merged.
 | 11 | **B2** Tile objects (`OT_TILE`) are drawn: at their own size, or stretched into their box, clipped to the viewport, and animated. Before this they were invisible. | Any map with tile objects now shows them. | Tell the map authors, as for text objects. |
 | 12 | **PhysFS** `FileSystem::Mount` sets PhysFS up itself, so it can be the first call. Before, a mount before any `Init` or read crashed. | Code that mounts before `Init` (it crashed before). Scarab calls `Init(argv[0])` first, so it is unchanged. | Nothing. |
 | 13 | **Fonts** The sample fonts now live in `samples/shared/fonts`. | Samples only. No API change. | Nothing. |
+| 14 | **G1 Namespace** `stCoordinate2D`, `stSize2D` and `stDimension2D` move from `SunLight::TileMap` to `SunLight::Base` (file `src/base/primitives.h`). No aliases are kept. | Scarab has 12 references to them (`src/main.cpp`, `src/lua/luaspriteapi.cpp`, `src/lua/luatilemapapi.cpp`, `src/lua/luarendererapi.cpp`, `src/lua/luaviewapi.cpp`, `src/lua/luacameraapi.cpp`). Scarab will not compile until they are renamed. | Rename `SunLight::TileMap::` to `SunLight::Base::` for these three types in Scarab. Do this when integration starts. |
 
 ## Pending (on the working branch, not merged)
 
 | # | Change | Who it affects | What to do at integration |
 |---|--------|----------------|---------------------------|
-| 14 | **Namespace** `stCoordinate2D`, `stSize2D` and `stDimension2D` move from `SunLight::TileMap` to `SunLight::Base` (file `src/base/primitives.h`). No aliases are kept. | Scarab has 12 references to them (`src/main.cpp`, `src/lua/luaspriteapi.cpp`, `src/lua/luatilemapapi.cpp`, `src/lua/luarendererapi.cpp`, `src/lua/luaviewapi.cpp`, `src/lua/luacameraapi.cpp`). Scarab will not compile until they are renamed. | Rename `SunLight::TileMap::` to `SunLight::Base::` for these three types in Scarab. Do this when integration starts. |
+| 15 | **Engine clip** `SUNLIGHT_SOFTWARE_CLIP` and `src/base/clipmode.h` are removed: the engine clip is the only mode. `IEngine::SetPixel` is removed. `IEngine` gains `DrawLine` and `DrawEllipseOutline`. Shapes are drawn by the backend, so their pixels differ slightly from the old per-pixel routines (compared on the shapes sample only). Tile and text objects are drawn whole and cut by the clip; the tests cover that, not a pixel comparison. | Scarab and Caravellius call neither `SetPixel` nor the removed renderer methods (checked in their code; only their docs mention it). Any other `IEngine` implementer must drop `SetPixel` and implement `DrawLine` and `DrawEllipseOutline`. | Nothing for scripts. Check any game that draws shapes at the pin bump: shape edges may differ by a pixel. |
 
 ## Checked: no change for the peers
 
 - `IDrawSurface` and the Lua text API (`set_font`, `draw_text`, `measure_text`).
 - Scarab's startup order (`Init` before mounts).
 - Caravellius's own Lua font wrapper (`Text`), since `set_font` keeps its meaning.
+- Scarab and Caravellius code calls no `SetPixel` (their docs mention the old viewport behaviour only).
