@@ -201,6 +201,24 @@ namespace SunLight {
          * @param points array of points for this polygon;
          * @param points_count Number of items of points array;
          */
+        /**
+         * The vertices of a shape in screen pixels: each point scaled by the zoom, from an origin already in
+         * screen pixels. Converted to whole pixels the same way the hairline edges are.
+         */
+        std :: vector<ShapePrimitives :: ScreenPoint> TileMapRenderer :: ScreenPointsOf( double fOriginX,
+                                                                                         double fOriginY,
+                                                                                         double **fPoints,
+                                                                                         int nPointsCount,
+                                                                                         double fZoom ) {
+            std :: vector<ShapePrimitives :: ScreenPoint>  points;
+
+            for( int i = 0; i < nPointsCount; i++ )
+                points.push_back( ShapePrimitives :: ScreenPoint { ( int ) ( fOriginX + ( fPoints[i][0] * fZoom ) ),
+                                                                   ( int ) ( fOriginY + ( fPoints[i][1] * fZoom ) ) } );
+
+            return points;
+        }
+
         void TileMapRenderer :: DrawPolyline( double fOffset_x,
                                               double fOffset_y,
                                               double **fPoints,
@@ -214,6 +232,11 @@ namespace SunLight {
 
             fOffset_x = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
             fOffset_y = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
+
+            if( nLineWidth > __HAIRLINE_WIDTH ) {
+                DrawStrokedPath( ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor ), false, nLineWidth, color );
+                return;
+            }
 
             for( int i=1; i < nPointsCount; i++ ) {
 
@@ -237,10 +260,21 @@ namespace SunLight {
                                          double fOffset_y,
                                          double **fPoints,
                                          int nPointsCount,
+                                         int nLineWidth,
                                          SunLight :: Base :: stColor color ) {
             ShapePrimitives :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
+
+            if( nLineWidth > __HAIRLINE_WIDTH ) {
+                SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
+
+                DrawStrokedPath( ScreenPointsOf( ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x,
+                                                 ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y,
+                                                 fPoints, nPointsCount, zp.fZoomFactor ),
+                                 true, nLineWidth, color );
+                return;
+            }
 
             DrawPolyline( fOffset_x,
                         fOffset_y,
@@ -432,6 +466,8 @@ namespace SunLight {
                                          ( head -> y + pLayer -> offsety ),
                                          head -> content.shape -> points,
                                          head -> content.shape -> points_len,
+                                         ShapePrimitives :: ScreenLineWidth( ShapeObjects :: LineWidthOf( head ),
+                                                                             GetViewport().GetZoomProperties().fZoomFactor ),
                                          color );
                             break;
 

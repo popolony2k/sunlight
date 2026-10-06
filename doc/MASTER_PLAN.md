@@ -138,8 +138,8 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
 
 | # | Item | Status |
 |---|------|--------|
-| C1 | Thick lines, with square caps | IN PROGRESS |
-| C2 | Thick polylines and polygons | TODO |
+| C1 | Thick lines, with square caps | DONE |
+| C2 | Thick polylines and polygons | DONE |
 | C3 | Thick rectangles | TODO |
 | C4 | Thick ellipses | TODO |
 | C5 | Points as squares | TODO |
@@ -188,9 +188,27 @@ is the engine's line, not `LineBresenham` (removed in R1).
 - `doc/BREAKAGES.md` item 16 is written: polylines at a zoom other than 1 are wider than before.
 
 **C2: thick polylines and polygons.** Joins have no gaps.
-- Test items: a sharp corner has no gap, checked against the reference; a polygon's
-  closing segment is drawn only with more than two points, as today; width 1 output is
-  byte-identical.
+- Decided while building it:
+  - The join is a round join: a disc of half the width at each vertex that has two segments. A closed polygon joins
+    every vertex, including the one where the closing edge meets the first point. An open polyline joins only its
+    interior vertices.
+  - A polygon takes the same `line_width` property as a polyline (from its object). Width 1 stays the hairline path, so
+    its output does not change.
+  - One path renderer draws both (`ShapePrimitives::DrawStrokedPath`). A single segment gives the same output as C1.
+  - Square caps are only at the two ends of an open path. At a join the round join is the corner: a cap there would
+    cut a flat step into its arc.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick joins" suite, 3 cases):
+  - A sharp corner, where the second segment doubles back over the first: the spans equal the reference of the two
+    strokes plus the join.
+  - A closed triangle: the spans equal the reference with a join at all three corners.
+  - A two-point polygon: one stroke, with no closing edge and no join.
+- Mutation checks: removing the joins fails the sharp-corner and triangle cases; closing a two-point polygon fails the
+  two-point case.
+- Full suite under AddressSanitizer: 370 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-3 polygon and a width-4 sharp corner.
+- Not decided: whether the owner wants miter joins instead of round joins. Miter joins would need a limit for very sharp
+  corners.
+- `doc/BREAKAGES.md` item 16 covers polygons too.
 
 **C3: thick rectangles.** Four thick edges.
 - Test items: matches the reference, including shared corners; width 1 output is

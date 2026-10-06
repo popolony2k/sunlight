@@ -22,7 +22,10 @@
 #define __SHAPEPRIMITIVES_H__
 
 #include "base/color.h"
+#include "base/color.h"
 #include "base/primitives.h"
+
+#include <vector>
 
 namespace SunLight  {
     namespace Renderer  {
@@ -66,6 +69,27 @@ namespace SunLight  {
              * @param color Line color;
              */
             void DrawStrokedLine( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color );
+
+            /**
+             * @brief A vertex of a path, in screen pixels.
+             */
+            struct ScreenPoint  {
+                int  nX;
+                int  nY;
+            };
+
+            /**
+             * @brief Draw a path of straight segments in the given width. A width of one is left to the
+             * caller (one DrawStrokedLine per segment, so each is the engine's line). A wider path is drawn
+             * as spans, like DrawStrokedLine, with a round join - a disc of half the width - at every vertex
+             * that has two segments, so a corner has no gap. A closed path joins its last vertex back to its
+             * first. A closed path needs more than two points; with two, a closed path is one segment.
+             * @param points The vertices, in order;
+             * @param bClosed Whether the last vertex joins back to the first;
+             * @param nWidth Width in screen pixels, at least 2;
+             * @param color Line color;
+             */
+            void DrawStrokedPath( const std :: vector<ScreenPoint> &points, bool bClosed, int nWidth, SunLight :: Base :: stColor color );
         }
     }
 }

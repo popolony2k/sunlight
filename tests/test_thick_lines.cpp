@@ -143,13 +143,13 @@ namespace  {
     // The reference: a pixel is in the stroke when its centre is inside the rectangle around the segment
     // from (x0, y0) to (x1, y1), with the same half-open edges. Computed from the raw endpoints, not from
     // unit vectors, so it shares no arithmetic with the renderer's span code.
-    bool ReferenceInside( double x0, double y0, double x1, double y1, int nWidth, double cx, double cy )  {
+    // eBack and eFront are the caps at the segment's two ends: a full cap at a path's end, none at a join.
+    bool ReferenceInside( double x0, double y0, double x1, double y1, int nWidth, double eBack, double eFront, double cx, double cy )  {
 
         double  dx = x1 - x0;
         double  dy = y1 - y0;
         double  L  = std :: sqrt( dx * dx + dy * dy );
         double  h  = nWidth / 2.0;
-        double  e  = ( double ) ( ( nWidth - 1 ) / 2 );
         double  ax = x0 + 0.5;
         double  ay = y0 + 0.5;
         double  u  = ( ( cx - ax ) * dx + ( cy - ay ) * dy ) / L;
@@ -157,7 +157,7 @@ namespace  {
 
         const double  eps = 1e-9;   // the same boundary tolerance the renderer uses: a centre this close to an edge is on it
 
-        return ( v >= -h - eps ) && ( v < h - eps ) && ( u >= -e - eps ) && ( u < L + e - eps );
+        return ( v >= -h - eps ) && ( v < h - eps ) && ( u >= -eBack - eps ) && ( u < L + eFront - eps );
     }
 }
 
@@ -275,7 +275,7 @@ TEST_SUITE( "Thick lines" )  {
 
                 for( int nX = -10; nX < 200; nX++ )
                     for( int nY = -10; nY < 200; nY++ )
-                        if( ReferenceInside( x0, y0, x1, y1, nWidth, nX + 0.5, nY + 0.5 ) )
+                        if( ReferenceInside( x0, y0, x1, y1, nWidth, ( nWidth - 1 ) / 2, ( nWidth - 1 ) / 2, nX + 0.5, nY + 0.5 ) )
                             expected.insert( std :: make_pair( nX, nY ) );
 
                 std :: set<std :: pair<int, int>>  covered = frame.Covered();
@@ -305,5 +305,117 @@ TEST_SUITE( "Thick lines" )  {
 
         REQUIRE( !spans.empty() );
         CHECK( spans[0].x < kViewportOrigin );
+    }
+}
+
+namespace  {
+
+    // The polygon object XML for a closed shape with the given points and line_width (an int).
+    std :: string PolygonObject( const std :: string &strPoints, int nLineWidth )  {
+
+        return "<object id=\"1\" x=\"" + std :: to_string( kObjectX ) + "\" y=\"" + std :: to_string( kObjectY ) + "\" width=\"0\" height=\"0\">"
+               "<properties><property name=\"line_width\" type=\"int\" value=\"" + std :: to_string( nLineWidth ) + "\"/></properties>"
+               "<polygon points=\"" + strPoints + "\"/></object>";
+    }
+
+    // The reference for a path: a pixel is in it when its centre is inside a segment's stroke, or inside the round
+    // join of a vertex that has two segments (every vertex of a closed path with more than two points; the
+    // interior vertices of an open one). The join is a disc of half the width, strictly inside, as in the renderer.
+    std :: set<std :: pair<int, int>>  ReferencePath( const std :: vector<std :: pair<double, double>> &points, bool bClosed, int nWidth )  {
+
+        const double  eps = 1e-9;
+        bool          bLoop = bClosed && ( points.size() > 2 );
+        size_t        nSegments = bLoop ? points.size() : points.size() - 1;
+        double        h = nWidth / 2.0;
+        std :: set<std :: pair<int, int>>  pixels;
+
+        for( int nY = 0; nY < 260; nY++ )
+            for( int nX = 0; nX < 260; nX++ )  {
+                double  cx = nX + 0.5;
+                double  cy = nY + 0.5;
+                bool    bInside = false;
+
+                for( size_t nIdx = 0; nIdx < nSegments && !bInside; nIdx++ )  {
+                    const std :: pair<double, double>  &a = points[nIdx];
+                    const std :: pair<double, double>  &b = points[( nIdx + 1 ) % points.size()];
+
+                    // A cap only at the two ends of an open path; none at a join or on a loop.
+                    double  eCap    = ( nWidth - 1 ) / 2;
+                    double  eBack   = ( !bLoop && nIdx == 0 ) ? eCap : 0;
+                    double  eFront  = ( !bLoop && nIdx + 1 == nSegments ) ? eCap : 0;
+
+                    bInside = ReferenceInside( a.first, a.second, b.first, b.second, nWidth, eBack, eFront, cx, cy );
+                }
+
+                size_t  nJointFirst = bLoop ? 0 : 1;
+                size_t  nJointEnd   = bLoop ? points.size() : points.size() - 1;
+
+                for( size_t nIdx = nJointFirst; nIdx < nJointEnd && !bInside; nIdx++ )  {
+                    double  r  = h - eps;
+                    // The join's centre is the vertex's pixel centre, as the axis of a segment is.
+                    double  dx = cx - ( points[nIdx].first + 0.5 );
+                    double  dy = cy - ( points[nIdx].second + 0.5 );
+
+                    bInside = ( dx * dx + dy * dy ) < ( r * r );
+                }
+
+                if( bInside )
+                    pixels.insert( std :: make_pair( nX, nY ) );
+            }
+
+        return pixels;
+    }
+
+    // The screen points of object-relative offsets, at zoom 1 with the viewport at (10, 10) and the object at (100, 100).
+    std :: vector<std :: pair<double, double>>  ScreenOf( const std :: vector<std :: pair<int, int>> &offsets )  {
+
+        std :: vector<std :: pair<double, double>>  points;
+
+        for( const std :: pair<int, int> &offset : offsets )
+            points.push_back( std :: make_pair( kViewportOrigin + kObjectX + offset.first, kViewportOrigin + kObjectY + offset.second ) );
+
+        return points;
+    }
+}
+
+TEST_SUITE( "Thick joins" )  {
+
+    TEST_CASE( "A sharp corner has no gap: the spans are the strokes plus the round join at the corner" )  {
+
+        // Out to (40, 0) and straight back to (0, 6): the second segment doubles back over the first, so the
+        // corner at (40, 0) is a sharp turn - the case where two butt ends leave a notch.
+        Frame  frame( PolylineObject( "0,0 40,0 0,6", 4 ) );
+
+        std :: set<std :: pair<int, int>>  expected = ReferencePath( ScreenOf( { { 0, 0 }, { 40, 0 }, { 0, 6 } } ), false, 4 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+    }
+
+    TEST_CASE( "A closed polygon joins every corner, including the one where the closing edge meets the first point" )  {
+
+        Frame  frame( PolygonObject( "0,0 50,0 25,40", 3 ) );
+
+        std :: set<std :: pair<int, int>>  expected = ReferencePath( ScreenOf( { { 0, 0 }, { 50, 0 }, { 25, 40 } } ), true, 3 );
+        std :: set<std :: pair<int, int>>  covered  = frame.Covered();
+        std :: vector<std :: pair<int, int>>  missing, extra;
+
+        std :: set_difference( expected.begin(), expected.end(), covered.begin(), covered.end(), std :: back_inserter( missing ) );
+        std :: set_difference( covered.begin(), covered.end(), expected.begin(), expected.end(), std :: back_inserter( extra ) );
+
+        INFO( "expected " << expected.size() << " covered " << covered.size() << " missing " << missing.size() << " extra " << extra.size() );
+        CHECK( !expected.empty() );
+        CHECK( missing.empty() );
+        CHECK( extra.empty() );
+    }
+
+    TEST_CASE( "A polygon of two points is one stroke: no closing edge and no join" )  {
+
+        Frame  frame( PolygonObject( "0,0 50,0", 3 ) );
+
+        std :: set<std :: pair<int, int>>  expected = ReferencePath( ScreenOf( { { 0, 0 }, { 50, 0 } } ), true, 3 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
     }
 }

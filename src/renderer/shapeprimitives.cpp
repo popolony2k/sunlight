@@ -24,6 +24,7 @@
 #include <cmath>
 #include <limits>
 #include <utility>
+#include <vector>
 
 namespace SunLight  {
     namespace Renderer  {
@@ -51,6 +52,7 @@ namespace SunLight  {
                 // this, a centre that is exactly on an edge in exact arithmetic lands a rounding error inside, and
                 // comes out either way.
                 const double  __BOUNDARY_EPSILON       = 1e-9;
+                const int     __MIN_JOIN_VERTICES      = 3;       // a closed path needs at least this many vertices
 
                 /**
                  * The stroke of one thick line, as geometry in screen pixels. The axis runs from the centre of the first
@@ -63,7 +65,8 @@ namespace SunLight  {
                     double  nx, ny;     // unit vector across the line
                     double  length;     // distance between the two end centres
                     double  h;          // half the width
-                    double  e;          // the cap: (width - 1) / 2 pixels
+                    double  eBack;      // the cap at the start: (width - 1) / 2 pixels, or none at a join
+                    double  eFront;     // the cap at the end, likewise
                 };
 
                 /**
@@ -77,7 +80,7 @@ namespace SunLight  {
                     double  along  = g.ux * ( cx - g.ax ) + g.uy * ( cy - g.ay );
 
                     return ( across >= -g.h - __BOUNDARY_EPSILON ) && ( across < g.h - __BOUNDARY_EPSILON ) &&
-                           ( along >= -g.e - __BOUNDARY_EPSILON ) && ( along < g.length + g.e - __BOUNDARY_EPSILON );
+                           ( along >= -g.eBack - __BOUNDARY_EPSILON ) && ( along < g.length + g.eFront - __BOUNDARY_EPSILON );
                 }
 
                 // Narrows [xLow, xHigh] to the t for which c * t lies in [lo, hi). An empty result is left as xLow > xHigh.
@@ -101,44 +104,112 @@ namespace SunLight  {
                     xHigh = std :: min( xHigh, b );
                 }
 
-                /**
-                 * Draw one thick line as spans: one filled row per scanline, each the run of pixels whose centres are
-                 * inside the stroke. For each row the chord is found by solving the two edge pairs, then the pixels
-                 * either side of it are tested one by one with InsideStroke - so the spans are exactly the pixels
-                 * InsideStroke accepts. The engine's clip cuts the spans at the viewport, so nothing is clipped here.
-                 */
-                void DrawSpans( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color )  {
+                // The stroke of one segment of a path, with the segment's endpoints as end centres.
+                bool MakeStroke( const ScreenPoint &a, const ScreenPoint &b, double h, double eBack, double eFront, StrokeGeometry &g )  {
 
-                    StrokeGeometry  g;
-                    double          dx = ( double ) ( nX1 - nX0 );
-                    double          dy = ( double ) ( nY1 - nY0 );
+                    double  dx = ( double ) ( b.nX - a.nX );
+                    double  dy = ( double ) ( b.nY - a.nY );
 
                     g.length = std :: sqrt( dx * dx + dy * dy );
 
                     if( g.length == __ORIGIN )
-                        return;
+                        return false;
 
-                    g.ax = nX0 + __HALF;
-                    g.ay = nY0 + __HALF;
+                    g.ax = a.nX + __HALF;
+                    g.ay = a.nY + __HALF;
                     g.ux = dx / g.length;
                     g.uy = dy / g.length;
                     g.nx = -g.uy;
                     g.ny = g.ux;
-                    g.h  = nWidth * __HALF;
-                    g.e  = ( double ) ( ( nWidth - __ONE_PIXEL ) / __CAP_DIVISOR );
+                    g.h  = h;
+                    g.eBack  = eBack;
+                    g.eFront = eFront;
 
-                    // The rows the stroke can touch: the y of its four corners.
-                    double  fMinY = __ORIGIN, fMaxY = __ORIGIN;
+                    return true;
+                }
+
+                // A vertex centre where two segments meet: the round join is a disc of half the width around it.
+                struct Joint  {
+                    double  vx, vy;
+                };
+
+                // A pixel centre is in the join when it is inside the disc (strictly, with the boundary tolerance).
+                bool InsideJoint( const Joint &j, double h, double cx, double cy )  {
+
+                    double  r  = h - __BOUNDARY_EPSILON;
+                    double  dx = cx - j.vx;
+                    double  dy = cy - j.vy;
+
+                    return ( dx * dx + dy * dy ) < ( r * r );
+                }
+
+                // A run of pixels on one row, from nFirst to nLast inclusive.
+                struct Run  {
+                    int  nFirst;
+                    int  nLast;
+                };
+
+                /**
+                 * Draw a path as spans: one filled row per scanline. On each row the pixels of every segment and
+                 * every join are found, the runs are merged where they touch or overlap, and each merged run is one
+                 * DrawFilledRectangle. The spans are exactly the pixels that some segment or join accepts. The
+                 * engine's clip cuts them at the viewport, so nothing is clipped here.
+                 */
+                void DrawPathSpans( const std :: vector<ScreenPoint> &points, bool bClosed, int nWidth, SunLight :: Base :: stColor color )  {
+
+                    size_t  nCount = points.size();
+                    bool    bLoop  = bClosed && ( nCount >= __MIN_JOIN_VERTICES );
+
+                    double  h = nWidth * __HALF;
+                    double  e = ( double ) ( ( nWidth - __ONE_PIXEL ) / __CAP_DIVISOR );
+
+                    std :: vector<StrokeGeometry>  segments;
+                    std :: vector<Joint>           joints;
+
+                    size_t  nSegmentCount = bLoop ? nCount : nCount - 1;
+
+                    // A segment is capped only at the two ends of an open path. At a join the round join is the
+                    // corner, so a cap there would cut a flat step into its arc.
+                    for( size_t nIdx = 0; nIdx < nSegmentCount; nIdx++ )  {
+                        StrokeGeometry  g;
+                        const ScreenPoint  &a = points[nIdx];
+                        const ScreenPoint  &b = points[ ( nIdx + 1 ) % nCount ];
+                        double  eBack  = ( !bLoop && ( nIdx == 0 ) ) ? e : 0.0;
+                        double  eFront = ( !bLoop && ( nIdx + 1 == nSegmentCount ) ) ? e : 0.0;
+
+                        if( MakeStroke( a, b, h, eBack, eFront, g ) )
+                            segments.push_back( g );
+                    }
+
+                    // Every vertex of a loop joins two segments; an open path joins only its interior vertices.
+                    size_t  nJointFirst = bLoop ? 0 : 1;
+                    size_t  nJointEnd   = bLoop ? nCount : nCount - 1;
+
+                    for( size_t nIdx = nJointFirst; nIdx < nJointEnd; nIdx++ )
+                        joints.push_back( Joint { points[nIdx].nX + __HALF, points[nIdx].nY + __HALF } );
+
+                    if( segments.empty() )
+                        return;
+
+                    // The rows the path can touch: the corners of every segment, and every joint's disc.
+                    double  fMinY = 0.0, fMaxY = 0.0;
                     bool    bFirst = true;
 
-                    for( double fAlong : { -g.e, g.length + g.e } )  {
-                        for( double fAcross : { -g.h, g.h } )  {
-                            double  fY = g.ay + g.uy * fAlong + g.ny * fAcross;
+                    auto  Include = [&]( double fY )  {
+                        if( bFirst || ( fY < fMinY ) )  fMinY = fY;
+                        if( bFirst || ( fY > fMaxY ) )  fMaxY = fY;
+                        bFirst = false;
+                    };
 
-                            if( bFirst || ( fY < fMinY ) )  fMinY = fY;
-                            if( bFirst || ( fY > fMaxY ) )  fMaxY = fY;
-                            bFirst = false;
-                        }
+                    for( const StrokeGeometry &g : segments )  {
+                        for( double fAlong : { -g.eBack, g.length + g.eFront } )
+                            for( double fAcross : { -g.h, g.h } )
+                                Include( g.ay + g.uy * fAlong + g.ny * fAcross );
+                    }
+
+                    for( const Joint &j : joints )  {
+                        Include( j.vy - h );
+                        Include( j.vy + h );
                     }
 
                     int  nFirstRow = ( int ) std :: floor( fMinY - __HALF ) - __ROW_MARGIN;
@@ -146,35 +217,80 @@ namespace SunLight  {
 
                     for( int nRow = nFirstRow; nRow <= nLastRow; nRow++ )  {
 
-                        double  cy    = nRow + __HALF;
-                        double  fLow  = -std :: numeric_limits<double> :: max();
-                        double  fHigh =  std :: numeric_limits<double> :: max();
+                        double  cy = nRow + __HALF;
+                        std :: vector<Run>  runs;
 
-                        // Relative to ax: the across condition, then the along condition, each as c * t in [lo, hi).
-                        double  kAcross = g.ny * ( cy - g.ay );
-                        double  kAlong  = g.uy * ( cy - g.ay );
+                        for( const StrokeGeometry &g : segments )  {
+                            double  fLow  = -std :: numeric_limits<double> :: max();
+                            double  fHigh =  std :: numeric_limits<double> :: max();
 
-                        NarrowRange( g.nx, -g.h - kAcross, g.h - kAcross, fLow, fHigh );
-                        NarrowRange( g.ux, -g.e - kAlong, g.length + g.e - kAlong, fLow, fHigh );
+                            // Relative to ax: the across condition, then the along condition, each as c * t in [lo, hi).
+                            double  kAcross = g.ny * ( cy - g.ay );
+                            double  kAlong  = g.uy * ( cy - g.ay );
 
-                        if( fLow > fHigh )
-                            continue;
+                            NarrowRange( g.nx, -g.h - kAcross, g.h - kAcross, fLow, fHigh );
+                            NarrowRange( g.ux, -g.eBack - kAlong, g.length + g.eFront - kAlong, fLow, fHigh );
 
-                        int  nFirst = ( int ) std :: floor( g.ax + fLow - __HALF ) - __COLUMN_MARGIN;
-                        int  nLast  = ( int ) std :: ceil( g.ax + fHigh - __HALF ) + __COLUMN_MARGIN;
-                        int  nLeft  = nLast + __ONE_PIXEL;
-                        int  nRight = nFirst - __ONE_PIXEL;
+                            if( fLow > fHigh )
+                                continue;
 
-                        for( int nX = nFirst; nX <= nLast; nX++ )  {
-                            if( InsideStroke( g, nX + __HALF, cy ) )  {
-                                if( nX < nLeft )   nLeft  = nX;
-                                if( nX > nRight )  nRight = nX;
+                            int  nFirst = ( int ) std :: floor( g.ax + fLow - __HALF ) - __COLUMN_MARGIN;
+                            int  nLast  = ( int ) std :: ceil( g.ax + fHigh - __HALF ) + __COLUMN_MARGIN;
+                            int  nLeft  = nLast + __ONE_PIXEL;
+                            int  nRight = nFirst - __ONE_PIXEL;
+
+                            for( int nX = nFirst; nX <= nLast; nX++ )  {
+                                if( InsideStroke( g, nX + __HALF, cy ) )  {
+                                    if( nX < nLeft )   nLeft  = nX;
+                                    if( nX > nRight )  nRight = nX;
+                                }
                             }
+
+                            if( nLeft <= nRight )
+                                runs.push_back( Run { nLeft, nRight } );
                         }
 
-                        if( nLeft <= nRight )
-                            SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( nLeft, nRow, nRight - nLeft + __ONE_PIXEL,
+                        for( const Joint &j : joints )  {
+                            double  dy = cy - j.vy;
+
+                            if( std :: fabs( dy ) >= h )
+                                continue;
+
+                            double  half   = std :: sqrt( h * h - dy * dy );
+                            int     nFirst = ( int ) std :: floor( j.vx - half - __HALF ) - __COLUMN_MARGIN;
+                            int     nLast  = ( int ) std :: ceil( j.vx + half - __HALF ) + __COLUMN_MARGIN;
+                            int     nLeft  = nLast + __ONE_PIXEL;
+                            int     nRight = nFirst - __ONE_PIXEL;
+
+                            for( int nX = nFirst; nX <= nLast; nX++ )  {
+                                if( InsideJoint( j, h, nX + __HALF, cy ) )  {
+                                    if( nX < nLeft )   nLeft  = nX;
+                                    if( nX > nRight )  nRight = nX;
+                                }
+                            }
+
+                            if( nLeft <= nRight )
+                                runs.push_back( Run { nLeft, nRight } );
+                        }
+
+                        std :: sort( runs.begin(), runs.end(), []( const Run &a, const Run &b ) { return a.nFirst < b.nFirst; } );
+
+                        size_t  nIdx = 0;
+
+                        while( nIdx < runs.size() )  {
+                            int     nFirst = runs[nIdx].nFirst;
+                            int     nLast  = runs[nIdx].nLast;
+                            size_t  nNext  = nIdx + 1;
+
+                            while( ( nNext < runs.size() ) && ( runs[nNext].nFirst <= nLast + __ONE_PIXEL ) )  {
+                                nLast = std :: max( nLast, runs[nNext].nLast );
+                                nNext++;
+                            }
+
+                            SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( nFirst, nRow, nLast - nFirst + __ONE_PIXEL,
                                                                                                     __SPAN_HEIGHT, color );
+                            nIdx = nNext;
+                        }
                     }
                 }
             }
@@ -196,10 +312,18 @@ namespace SunLight  {
                 return ( nWidth < __MIN_SCREEN_WIDTH ) ? __MIN_SCREEN_WIDTH : nWidth;
             }
 
+            void DrawStrokedPath( const std :: vector<ScreenPoint> &points, bool bClosed, int nWidth, SunLight :: Base :: stColor color )  {
+
+                if( points.size() < __MIN_JOIN_VERTICES - __ONE_PIXEL )
+                    return;
+
+                DrawPathSpans( points, bClosed, nWidth, color );
+            }
+
             void DrawStrokedLine( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color )  {
 
                 if( nWidth > __ENGINE_LINE_MAX_WIDTH )  {
-                    DrawSpans( nX0, nY0, nX1, nY1, nWidth, color );
+                    DrawPathSpans( { ScreenPoint { nX0, nY0 }, ScreenPoint { nX1, nY1 } }, false, nWidth, color );
                     return;
                 }
 

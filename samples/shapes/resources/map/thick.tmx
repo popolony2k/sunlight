@@ -17,5 +17,9 @@
   <object id="19" name="label-diag" x="700" y="290" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">diagonal, width 4</text></object>
   <object id="20" name="float-2.5" x="700" y="420" width="0" height="0"><properties><property name="line_width" type="float" value="2.5"/></properties><polyline points="0,0 200,0"/></object>
   <object id="21" name="label-float" x="700" y="440" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">float 2.5 rounds to 3</text></object>
+  <object id="200" name="polygon-3" x="600" y="640" width="0" height="0"><properties><property name="line_width" type="int" value="3"/></properties><polygon points="0,0 120,0 60,80"/></object>
+  <object id="201" name="label-polygon" x="600" y="610" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">polygon, width 3</text></object>
+  <object id="202" name="sharp-4" x="100" y="680" width="0" height="0"><properties><property name="line_width" type="int" value="4"/></properties><polyline points="0,0 120,0 0,20"/></object>
+  <object id="203" name="label-sharp" x="100" y="650" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">sharp corner, width 4 (no gap)</text></object>
  </objectgroup>
 </map>

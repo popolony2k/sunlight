@@ -33,6 +33,7 @@
 #include "drawsurface/idrawsurface.h"
 #include "font/ifont.h"
 #include "renderer/rendererconfig.h"
+#include "renderer/shapeprimitives.h"
 #include "input/iinputhandler.h"
 #include "base/color.h"
 #include "base/primitives.h"
@@ -213,7 +214,13 @@ namespace SunLight {
                               double fOffset_y,
                               double **fPoints,
                               int nPointsCount,
+                              int nLineWidth,
                               SunLight :: Base :: stColor color );
+            std :: vector<ShapePrimitives :: ScreenPoint> ScreenPointsOf( double fOriginX,
+                                                                          double fOriginY,
+                                                                          double **fPoints,
+                                                                          int nPointsCount,
+                                                                          double fZoom );
             void DrawRectangle( double offset_x,
                                 double offset_y,
                                 double width,
