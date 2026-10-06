@@ -128,6 +128,12 @@ namespace SunLight  {
             void NullEngine :: DrawFilledRectangle( int, int, int, int, SunLight :: Base :: stColor )  {
             }
 
+            void NullEngine :: DrawLine( float, float, float, float, float, SunLight :: Base :: stColor )  {
+            }
+
+            void NullEngine :: DrawEllipseOutline( float, float, float, float, SunLight :: Base :: stColor )  {
+            }
+
             void NullEngine :: DrawText( const char *, int, int, int, SunLight :: Base :: stColor )  {
             }
 

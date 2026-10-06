@@ -205,6 +205,8 @@ namespace SunLight {
                                   double fRadiusX,
                                   double fRadiusY,
                                   SunLight :: Base :: stColor color );
+            // One straight edge of a shape: LineBresenham in software builds, the engine's line in the study.
+            void DrawEdge( int nX0, int nY0, int nX1, int nY1, SunLight :: Base :: stColor color );
             void LineBresenham( int nX0,
                                 int nY0,
                                 int nX1,

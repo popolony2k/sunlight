@@ -79,6 +79,19 @@ namespace SunLight  {
                                           int nHeight,
                                           SunLight :: Base :: stColor color ) override;
 
+                void DrawLine( float fX0,
+                               float fY0,
+                               float fX1,
+                               float fY1,
+                               float fThickness,
+                               SunLight :: Base :: stColor color ) override;
+
+                void DrawEllipseOutline( float fCenterX,
+                                         float fCenterY,
+                                         float fRadiusX,
+                                         float fRadiusY,
+                                         SunLight :: Base :: stColor color ) override;
+
                 bool SetFont( const char *szFilePath ) override;
 
                 std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath ) override;

@@ -130,6 +130,43 @@ namespace SunLight  {
                                               SunLight :: Base :: stColor color ) = 0;
 
             /**
+             * @brief Must be implemented to draw a straight line between two points, in screen space, with a
+             * thickness in pixels. Like every draw method here it is not clipped by the engine itself: callers
+             * cut what must stay inside a view with @see BeginClip. The backend's own line routine is used, so
+             * the pixels it draws are the backend's, not the renderer's.
+             *
+             * @param fX0 X coordinate of the first end;
+             * @param fY0 Y coordinate of the first end;
+             * @param fX1 X coordinate of the second end;
+             * @param fY1 Y coordinate of the second end;
+             * @param fThickness Line thickness, in pixels;
+             * @param color Line color (including alpha);
+             */
+            virtual void DrawLine( float fX0,
+                                   float fY0,
+                                   float fX1,
+                                   float fY1,
+                                   float fThickness,
+                                   SunLight :: Base :: stColor color ) = 0;
+
+            /**
+             * @brief Must be implemented to draw the outline of an ellipse, one pixel thick, in screen space. The
+             * backend's own ellipse routine is used, so the pixels it draws are the backend's. Like every draw method
+             * here it is not clipped by the engine itself: callers cut it with @see BeginClip.
+             *
+             * @param fCenterX X coordinate of the ellipse's centre;
+             * @param fCenterY Y coordinate of the ellipse's centre;
+             * @param fRadiusX Horizontal radius, in pixels;
+             * @param fRadiusY Vertical radius, in pixels;
+             * @param color Outline color (including alpha);
+             */
+            virtual void DrawEllipseOutline( float fCenterX,
+                                             float fCenterY,
+                                             float fRadiusX,
+                                             float fRadiusY,
+                                             SunLight :: Base :: stColor color ) = 0;
+
+            /**
              * @brief Must be implemented to load (or replace) the font used
              * by @see DrawText, from a font file on disk. Implementations
              * are expected to support at least TrueType/OpenType and, where

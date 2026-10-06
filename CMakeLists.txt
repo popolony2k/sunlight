@@ -37,6 +37,7 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/text)
     add_subdirectory(samples/multiview_overlap)
     add_subdirectory(samples/objects)
+    add_subdirectory(samples/shapes)
 endif(BUILD_LIBRARY_SAMPLES)
 
 # Unit tests

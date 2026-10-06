@@ -45,6 +45,7 @@
  */
 #define __DEFAULT_FPS                   30
 #define __DEFAULT_VISIBLE_STATUS        true
+#define __EDGE_LINE_THICKNESS          1.0f    // study: a shape's edge is one pixel thick
 #define __OPAQUE_CHANNEL                0xFF    // a colour channel at full strength
 #define __DEFAULT_TEXT_PIXEL_SIZE       16      // Tiled's own default when a text object gives no pixelsize
 #define __MISSING_FONT_PLACEHOLDER      "??????"  // drawn in place of a text object whose font is not registered
@@ -385,6 +386,35 @@ namespace SunLight {
             return *( ( SunLight :: Base :: stColor * ) &res );
         }
 
+namespace  {
+
+    // The primitives' boundary rule: a pixel is drawn only strictly inside the viewport, its top and left
+    // edge excluded. Software builds test each pixel (SetPixel). The study states the same rule as an engine
+    // clip one pixel in, nested in the view's own clip, so it only narrows it.
+    const int  __PRIMITIVE_EDGE_INSET  = 1;
+
+    class PrimitiveClip  {
+
+        public:
+
+        explicit PrimitiveClip( const SunLight :: Base :: stDimension2D &vp )  {
+#if !SUNLIGHT_SOFTWARE_CLIP
+            SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
+                ( float ) ( vp.pos.x + __PRIMITIVE_EDGE_INSET ), ( float ) ( vp.pos.y + __PRIMITIVE_EDGE_INSET ),
+                ( float ) ( vp.size.nWidth - __PRIMITIVE_EDGE_INSET ), ( float ) ( vp.size.nHeight - __PRIMITIVE_EDGE_INSET ) } );
+#else
+            ( void ) vp;
+#endif
+        }
+
+        ~PrimitiveClip( void )  {
+#if !SUNLIGHT_SOFTWARE_CLIP
+            SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
+#endif
+        }
+    };
+}
+
         /**
          * Draw  pixel according the specified position.
          * @param nCoordX The X coordinate to plot pixel;
@@ -393,6 +423,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color )  {
 
+#if SUNLIGHT_SOFTWARE_CLIP
             SunLight :: Base :: stDimension2D& vp = GetViewport().GetDimension2D();
 
             // The visible rectangle is [pos, pos + size): a pixel is drawn
@@ -402,6 +433,10 @@ namespace SunLight {
                 ( nCoordY > vp.pos.y ) && ( nCoordY < ( vp.pos.y + vp.size.nHeight ) ) ) {
                 SunLight :: Engines :: EngineFactory :: GetEngine().SetPixel( nCoordX, nCoordY, color );
             }
+#else
+            // Study: the primitive's clip (PrimitiveClip, set by the object that draws it) is the test.
+            SunLight :: Engines :: EngineFactory :: GetEngine().SetPixel( nCoordX, nCoordY, color );
+#endif
         }
 
         /**
@@ -501,6 +536,21 @@ namespace SunLight {
         }
 
         /**
+         * @brief Draw one straight edge of a shape. In software builds this is LineBresenham, as always.
+         * In the study the engine's own line is used (IEngine::DrawLine), and the shape's PrimitiveClip
+         * keeps it inside the viewport, so the renderer has no line code of its own to run.
+         */
+        void TileMapRenderer :: DrawEdge( int nX0, int nY0, int nX1, int nY1, SunLight :: Base :: stColor color )  {
+#if SUNLIGHT_SOFTWARE_CLIP
+            LineBresenham( nX0, nY0, nX1, nY1, color );
+#else
+            SunLight :: Engines :: EngineFactory :: GetEngine().DrawLine( ( float ) nX0, ( float ) nY0,
+                                                                          ( float ) nX1, ( float ) nY1,
+                                                                          __EDGE_LINE_THICKNESS, color );
+#endif
+        }
+
+        /**
          * Bresenham line generation algorithm based on implementation found at
          * https://gist.github.com/bert/1085538.
          * @param nX0 Initial X line coordinate;
@@ -555,6 +605,7 @@ namespace SunLight {
                                               double **fPoints,
                                               int nPointsCount,
                                               SunLight :: Base :: stColor color ) {
+            PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
@@ -563,7 +614,8 @@ namespace SunLight {
             fOffset_y = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
 
             for( int i=1; i < nPointsCount; i++ ) {
-                LineBresenham( ( int ) ( fOffset_x + ( fPoints[i-1][0] * zp.fZoomFactor ) ),
+
+                DrawEdge( ( int ) ( fOffset_x + ( fPoints[i-1][0] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_y + ( fPoints[i-1][1] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_x + ( fPoints[i][0] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_y + ( fPoints[i][1] * zp.fZoomFactor ) ),
@@ -583,6 +635,7 @@ namespace SunLight {
                                          double **fPoints,
                                          int nPointsCount,
                                          SunLight :: Base :: stColor color ) {
+            PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
 
@@ -593,6 +646,7 @@ namespace SunLight {
                         color );
 
             if( nPointsCount > 2 ) {
+
                 SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
 
                 fOffset_x = ( ( fOffset_x + m_CameraPos.x ) *
@@ -600,7 +654,7 @@ namespace SunLight {
                 fOffset_y = ( ( fOffset_y + m_CameraPos.y ) *
                             zp.fZoomFactor ) + vp.pos.y;
 
-                LineBresenham( ( int ) ( fOffset_x + ( fPoints[0][0] * zp.fZoomFactor ) ),
+                DrawEdge( ( int ) ( fOffset_x + ( fPoints[0][0] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_y + ( fPoints[0][1] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_x + ( fPoints[nPointsCount-1][0] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_y + ( fPoints[nPointsCount-1][1] * zp.fZoomFactor ) ),
@@ -621,6 +675,7 @@ namespace SunLight {
                                                double fWidth,
                                                double fHeight,
                                                SunLight :: Base :: stColor color )  {
+            PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp          = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
@@ -634,27 +689,27 @@ namespace SunLight {
                                                                    zp.fZoomFactor ) + vp.pos.y;
 
             // Top line
-            LineBresenham( ( int ) fViewStartX,
+            DrawEdge( ( int ) fViewStartX,
                            ( int ) fViewStartY,
                            ( int ) fViewEndX,
                            ( int ) fViewStartY,
                            color );
             // Bottom line
-            LineBresenham( ( int ) fViewStartX,
+            DrawEdge( ( int ) fViewStartX,
                            ( int ) fViewEndY,
                            ( int ) fViewEndX,
                            ( int ) fViewEndY,
                            color );
 
             // Left line
-            LineBresenham( ( int ) fViewStartX,
+            DrawEdge( ( int ) fViewStartX,
                            ( int ) fViewStartY,
                            ( int ) fViewStartX,
                            ( int ) fViewEndY,
                            color );
 
             // Right line
-            LineBresenham( ( int ) fViewEndX,
+            DrawEdge( ( int ) fViewEndX,
                            ( int ) fViewStartY,
                            ( int ) fViewEndX,
                            ( int ) fViewEndY,
@@ -674,6 +729,8 @@ namespace SunLight {
                                              double fWidth,
                                              double fHeight,
                                              SunLight :: Base :: stColor color )  {
+            PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+
 
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
@@ -685,11 +742,19 @@ namespace SunLight {
             fOffset_y = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
                           zp.fZoomFactor ) + vp.pos.y;
 
+#if SUNLIGHT_SOFTWARE_CLIP
             MidPointEllipse( fOffset_x,
                              fOffset_y,
                              ( fWidth * zp.fZoomFactor ),
                              ( fHeight * zp.fZoomFactor ),
                              color );
+#else
+            // Study: the engine's own ellipse outline; the shape's PrimitiveClip keeps it inside the viewport.
+            SunLight :: Engines :: EngineFactory :: GetEngine().DrawEllipseOutline( ( float ) fOffset_x, ( float ) fOffset_y,
+                                                                                    ( float ) ( fWidth * zp.fZoomFactor ),
+                                                                                    ( float ) ( fHeight * zp.fZoomFactor ),
+                                                                                    color );
+#endif
         }
 
         /**
@@ -711,6 +776,7 @@ namespace SunLight {
                                           int32_t nDestX,
                                           int32_t nDestY,
                                           float fOpacity ) {
+
 
             SunLight :: Base :: stDimension2D  clip;
             SunLight :: Base :: Viewport&         vp        = GetViewport();

@@ -386,6 +386,33 @@ namespace SunLight  {
              * @param nHeight Rectangle height;
              * @param color Fill color (including alpha);
              */
+            /**
+             * @brief A thick line through raylib's own routine (see @see IEngine::DrawLine).
+             */
+            void RaylibEngine :: DrawLine( float fX0,
+                                           float fY0,
+                                           float fX1,
+                                           float fY1,
+                                           float fThickness,
+                                           SunLight :: Base :: stColor color )  {
+
+                ::DrawLineEx( Vector2{ fX0, fY0 }, Vector2{ fX1, fY1 }, fThickness,
+                              Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+            }
+
+            /**
+             * @brief An ellipse outline through raylib's own routine (see @see IEngine::DrawEllipseOutline).
+             */
+            void RaylibEngine :: DrawEllipseOutline( float fCenterX,
+                                                     float fCenterY,
+                                                     float fRadiusX,
+                                                     float fRadiusY,
+                                                     SunLight :: Base :: stColor color )  {
+
+                ::DrawEllipseLines( ( int ) fCenterX, ( int ) fCenterY, fRadiusX, fRadiusY,
+                                    Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+            }
+
             void RaylibEngine :: DrawFilledRectangle( int nPosX,
                                                       int nPosY,
                                                       int nWidth,

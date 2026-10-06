@@ -80,6 +80,8 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nDrawTextureCalls          = 0;
     int                                 nDrawTextureTiledCalls     = 0;
     int                                 nDrawFilledRectangleCalls  = 0;
+    int                                 nDrawLineCalls            = 0;
+    int                                 nDrawEllipseOutlineCalls  = 0;
     int                                 nGetApplicationDirectoryCalls = 0;
     int                                 nClearBackgroundCalls      = 0;
     int                                 nDrawFPSCalls              = 0;
@@ -96,7 +98,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     // Every draw-ish call in order, for tests that care about WHICH pass drew what and in what order
     // (the multi-view frame): kind + the rectangle it was given (x, y, w, h; zeros where it has none).
     struct Event  {
-        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED };   // CLIP_BEGIN: x, y, w, h = the rectangle
+        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED, LINE, ELLIPSE };   // LINE: x, y = first end, w, h = second end, scale = thickness. ELLIPSE: x, y = centre, w, h = radii   // CLIP_BEGIN: x, y, w, h = the rectangle
 
         Kind   kind;
         float  x, y, w, h;
@@ -178,6 +180,16 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         lastDrawTextureTiledSource = source;
         lastDrawTextureTiledDest   = dest;
         fLastDrawTextureTiledScale = scale;
+    }
+
+    void DrawEllipseOutline( float fCenterX, float fCenterY, float fRadiusX, float fRadiusY, SunLight :: Base :: stColor color )  {
+        nDrawEllipseOutlineCalls++;
+        events.push_back( Event { Event :: ELLIPSE, fCenterX, fCenterY, fRadiusX, fRadiusY, 0.0f, 0.0f, nullptr, color } );
+    }
+
+    void DrawLine( float fX0, float fY0, float fX1, float fY1, float fThickness, SunLight :: Base :: stColor color )  {
+        nDrawLineCalls++;
+        events.push_back( Event { Event :: LINE, fX0, fY0, fX1, fY1, fThickness, 0.0f, nullptr, color } );
     }
 
     void DrawFilledRectangle( int nPosX, int nPosY, int nWidth, int nHeight, SunLight :: Base :: stColor color )  {
