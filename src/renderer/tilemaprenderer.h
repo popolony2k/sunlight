@@ -33,6 +33,7 @@
 #include "drawsurface/idrawsurface.h"
 #include "font/ifont.h"
 #include "renderer/rendererconfig.h"
+#include "renderer/shape/shapeprimitives.h"
 #include "input/iinputhandler.h"
 #include "base/color.h"
 #include "base/primitives.h"
@@ -199,38 +200,39 @@ namespace SunLight {
             SunLight :: Base :: stColor IntToColor( uint32_t color );
 
             // Graphics primitives miscellaneous
-            void SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color );
-            void MidPointEllipse( double fCoordX,
-                                  double fCoordY,
-                                  double fRadiusX,
-                                  double fRadiusY,
-                                  SunLight :: Base :: stColor color );
-            void LineBresenham( int nX0,
-                                int nY0,
-                                int nX1,
-                                int nY1,
-                                SunLight :: Base :: stColor color );
+            // One straight edge of a shape: the engine's own line (IEngine::DrawLine).
+            void DrawEdge( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color );
 
             // Engine primitives
             void DrawPolyline( double fOffset_x,
                                double fOffset_y,
                                double **fPoints,
                                int nPointsCount,
+                               int nLineWidth,
                                SunLight :: Base :: stColor color );
             void DrawPolygon( double fOffset_x,
                               double fOffset_y,
                               double **fPoints,
                               int nPointsCount,
+                              int nLineWidth,
                               SunLight :: Base :: stColor color );
+            std :: vector<Shape :: ScreenPoint> ScreenPointsOf( double fOriginX,
+                                                                          double fOriginY,
+                                                                          double **fPoints,
+                                                                          int nPointsCount,
+                                                                          double fZoom );
             void DrawRectangle( double offset_x,
                                 double offset_y,
                                 double width,
                                 double height,
+                                int nLineWidth,
                                 SunLight :: Base :: stColor color );
+            void DrawPoint( double offset_x, double offset_y, double size, SunLight :: Base :: stColor color );
             void DrawEllipse( double offset_x,
                               double offset_y,
                               double width,
                               double height,
+                              int nLineWidth,
                               SunLight :: Base :: stColor color );
             void DrawTile( SunLight :: Base :: TextureHandle pImage,
                            int32_t nSourceX,

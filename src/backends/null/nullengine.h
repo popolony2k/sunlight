@@ -58,8 +58,6 @@ namespace SunLight  {
                                                                 int& nHeight ) override;
                 void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) override;
 
-                void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color ) override;
-
                 void DrawTexture( SunLight :: Base :: TextureHandle hTexture,
                                    int nPosX,
                                    int nPosY,
@@ -78,6 +76,19 @@ namespace SunLight  {
                                           int nWidth,
                                           int nHeight,
                                           SunLight :: Base :: stColor color ) override;
+
+                void DrawLine( float fX0,
+                               float fY0,
+                               float fX1,
+                               float fY1,
+                               float fThickness,
+                               SunLight :: Base :: stColor color ) override;
+
+                void DrawEllipseOutline( float fCenterX,
+                                         float fCenterY,
+                                         float fRadiusX,
+                                         float fRadiusY,
+                                         SunLight :: Base :: stColor color ) override;
 
                 bool SetFont( const char *szFilePath ) override;
 

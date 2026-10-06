@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="60" height="40" tilewidth="32" tileheight="32" nextlayerid="4" nextobjectid="100">
+ <!-- Thick lines (C1): each polyline has its line_width property. = and - zoom the map, so check the widths at each zoom. -->
+ <objectgroup id="1" name="frame" color="#ff00ff00">
+  <object id="1" name="viewport" x="0" y="0" width="1000" height="800"/>
+ </objectgroup>
+ <objectgroup id="2" name="lines" color="#ffff8040">
+  <object id="10" name="line-1" x="100" y="120" width="0" height="0"><polyline points="0,0 150,70 300,0 450,70"/></object>
+  <object id="11" name="label-1" x="580" y="100" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">width 1 (no property, the engine's line)</text></object>
+  <object id="12" name="line-2" x="100" y="260" width="0" height="0"><properties><property name="line_width" type="int" value="2"/></properties><polyline points="0,0 150,70 300,0 450,70"/></object>
+  <object id="13" name="label-2" x="580" y="240" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">width 2</text></object>
+  <object id="14" name="line-3" x="100" y="400" width="0" height="0"><properties><property name="line_width" type="int" value="3"/></properties><polyline points="0,0 150,70 300,0 450,70"/></object>
+  <object id="15" name="label-3" x="580" y="380" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">width 3</text></object>
+  <object id="16" name="line-5" x="100" y="540" width="0" height="0"><properties><property name="line_width" type="int" value="5"/></properties><polyline points="0,0 150,70 300,0 450,70"/></object>
+  <object id="17" name="label-5" x="580" y="520" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">width 5</text></object>
+  <object id="18" name="diagonal-4" x="700" y="120" width="0" height="0"><properties><property name="line_width" type="int" value="4"/></properties><polyline points="0,0 200,150"/></object>
+  <object id="19" name="label-diag" x="700" y="290" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">diagonal, width 4</text></object>
+  <object id="20" name="float-2.5" x="700" y="420" width="0" height="0"><properties><property name="line_width" type="float" value="2.5"/></properties><polyline points="0,0 200,0"/></object>
+  <object id="21" name="label-float" x="700" y="440" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">float 2.5 rounds to 3</text></object>
+  <object id="200" name="polygon-3" x="600" y="640" width="0" height="0"><properties><property name="line_width" type="int" value="3"/></properties><polygon points="0,0 120,0 60,80"/></object>
+  <object id="201" name="label-polygon" x="600" y="610" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">polygon, width 3</text></object>
+  <object id="202" name="sharp-4" x="100" y="680" width="0" height="0"><properties><property name="line_width" type="int" value="4"/></properties><polyline points="0,0 120,0 0,20"/></object>
+  <object id="203" name="label-sharp" x="100" y="650" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">sharp corner, width 4 (no gap)</text></object>
+  <object id="204" name="rectangle-5" x="820" y="520" width="140" height="100"><properties><property name="line_width" type="int" value="5"/></properties></object>
+  <object id="205" name="label-rectangle" x="820" y="490" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">rect, width 5</text></object>
+  <object id="206" name="ellipse-4" x="250" y="700" width="160" height="80"><properties><property name="line_width" type="int" value="4"/></properties><ellipse/></object>
+  <object id="207" name="label-ellipse" x="430" y="730" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">ellipse, width 4</text></object>
+  <object id="208" name="point-4" x="700" y="770"><properties><property name="point_size" type="float" value="4"/></properties><point/></object>
+  <object id="209" name="point-10" x="760" y="770"><properties><property name="point_size" type="float" value="10"/></properties><point/></object>
+  <object id="210" name="point-2.5" x="840" y="770"><properties><property name="point_size" type="float" value="2.5"/></properties><point/></object>
+  <object id="211" name="label-points" x="700" y="740" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">points: 4, 10, 2.5</text></object>
+ </objectgroup>
+</map>

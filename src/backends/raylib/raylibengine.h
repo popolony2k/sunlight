@@ -48,8 +48,6 @@ namespace SunLight  {
                                                                 int& nHeight ) override;
                 void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) override;
 
-                void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color ) override;
-
                 void DrawTexture( SunLight :: Base :: TextureHandle hTexture,
                                    int nPosX,
                                    int nPosY,
@@ -68,6 +66,19 @@ namespace SunLight  {
                                           int nWidth,
                                           int nHeight,
                                           SunLight :: Base :: stColor color ) override;
+
+                void DrawLine( float fX0,
+                               float fY0,
+                               float fX1,
+                               float fY1,
+                               float fThickness,
+                               SunLight :: Base :: stColor color ) override;
+
+                void DrawEllipseOutline( float fCenterX,
+                                         float fCenterY,
+                                         float fRadiusX,
+                                         float fRadiusY,
+                                         SunLight :: Base :: stColor color ) override;
 
                 bool SetFont( const char *szFilePath ) override;
 
@@ -122,6 +133,11 @@ namespace SunLight  {
                 // the window's close handler marks the live ones invalid, so a
                 // font destroyed afterwards does not release them twice.
                 std :: vector<std :: weak_ptr<__stRaylibFont>>  m_LiveFonts;
+
+                // Clips in effect, innermost last. The scissor always matches the last one (see ApplyClip).
+                std :: vector<SunLight :: Base :: stRectangle>  m_ClipStack;
+
+                void ApplyClip( SunLight :: Base :: stRectangle rect );
 
                 // Font currently used by DrawText, loaded via SetFont - only
                 // valid (and only ever Unload'd) when m_bCustomFontLoaded is

@@ -379,20 +379,21 @@ namespace SunLight {
                                                                  ( int ) std :: abs( ( clip.size.nHeight / fZoomFactor ) -
                                                                  dm.size.nHeight ) : 0 );
 
+                    // Study: the whole canvas is drawn at its zoomed size; the view pass's clip cuts it.
                     SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled(
                                                           m_hTexture,
-                                                          SunLight :: Base :: stRectangle { ( float ) m_nCurrentTile + nClipX,
-                                                                      ( float ) nClipY,
+                                                          SunLight :: Base :: stRectangle { ( float ) m_nCurrentTile,
+                                                                      0.0f,
                                                                       ( float ) ( m_nTileSize > 0 ?
                                                                                   m_nTileSize :
                                                                                   m_nTextureWidth ),
                                                                       ( float ) m_nTextureHeight },
-                                                          SunLight :: Base :: stRectangle { ( float ) clip.pos.x,
-                                                                      ( float ) clip.pos.y,
-                                                                      ( float ) clip.size.nWidth,
-                                                                      ( float ) clip.size.nHeight },
+                                                          SunLight :: Base :: stRectangle { dm.pos.x * fZoomFactor + vpDm.pos.x,
+                                                                      dm.pos.y * fZoomFactor + vpDm.pos.y,
+                                                                      dm.size.nWidth * fZoomFactor,
+                                                                      dm.size.nHeight * fZoomFactor },
                                                           SunLight :: Base :: stVector2D { 0.0, 0.0 },
-                                                          0.0, // TODO: Rotation
+                                                          0.0,
                                                           fZoomFactor,
                                                           color );
                 }

@@ -22,6 +22,10 @@
 #include "window/windowfactory.h"
 #include "backends/null/nullbackend.h"
 #include "renderer/view.h"
+#include "renderer/shape/shapeprimitives.h"
+#include "renderer/map/externalresources.h"
+#include "renderer/shape/shapeobjects.h"
+#include "renderer/map/maporientation.h"
 #include "base/primitives.h"
 #include "input/inputhandlerfactory.h"
 #include "filesystem/filesystemfactory.h"
@@ -31,6 +35,7 @@
 #include "general/clock.h"
 #include <cmath>
 #include <algorithm>
+#include <limits>
 #include <cctype>
 #include <cstring>
 #include <map>
@@ -42,6 +47,7 @@
  * Engine defaults (the per-renderer ones - window size, resizeable,
  * exit key, scroll steps, ... - live in RendererConfig).
  */
+#define __HAIRLINE_WIDTH              1       // rectangle and polygon edges stay one pixel until C2 and C3
 #define __DEFAULT_FPS                   30
 #define __DEFAULT_VISIBLE_STATUS        true
 #define __OPAQUE_CHANNEL                0xFF    // a colour channel at full strength
@@ -88,213 +94,6 @@ namespace SunLight {
          * libtmx's own lookup, so a project that keeps them loose beside the
          * working directory keeps working exactly as before.
          */
-        namespace  {
-
-            // Set only while an external file is being preloaded: the directory it lives in.
-            std :: string  s_strExternalImageBase;
-
-            struct ExternalReference  {
-                bool           bTemplate;      // an object template (.tx) rather than a tileset (.tsx)
-                std :: string  strKey;         // the attribute text, as written
-            };
-
-            /**
-             * Directory part of a virtual path, trailing '/' included ("" if it has none).
-             */
-            std :: string DirectoryOfVirtualPath( const std :: string &strPath )  {
-
-                std :: string  str = strPath;
-
-                std :: replace( str.begin(), str.end(), '\\', '/' );
-
-                size_t  nSlash = str.find_last_of( '/' );
-
-                return ( nSlash == std :: string :: npos ) ? std :: string() : str.substr( 0, nSlash + 1 );
-            }
-
-            /**
-             * strDir + strRelative as one virtual path: backslashes become '/', and "." and ".."
-             * segments are collapsed LEXICALLY (the FileSystem rejects them). A ".." that would
-             * climb above the root gives "" - not a legal virtual path.
-             */
-            std :: string JoinVirtualPath( const std :: string &strDir, const std :: string &strRelative )  {
-
-                std :: string  joined = strDir + strRelative;
-
-                std :: replace( joined.begin(), joined.end(), '\\', '/' );
-
-                bool                          bAbsolute = ( !joined.empty() && joined[0] == '/' );
-                std :: vector<std :: string>  parts;
-                size_t                        nStart = 0;
-
-                while( nStart <= joined.size() )  {
-                    size_t         nEnd  = joined.find( '/', nStart );
-                    std :: string  part;
-
-                    if( nEnd == std :: string :: npos )
-                        nEnd = joined.size();
-
-                    part   = joined.substr( nStart, nEnd - nStart );
-                    nStart = nEnd + 1;
-
-                    if( part.empty() || part == "." )
-                        continue;
-
-                    if( part == ".." )  {
-                        if( parts.empty() )
-                            return std :: string();
-
-                        parts.pop_back();
-                        continue;
-                    }
-
-                    parts.push_back( part );
-                }
-
-                std :: string  result = ( bAbsolute ? "/" : "" );
-
-                for( size_t nCount = 0; nCount < parts.size(); nCount++ )
-                    result += ( nCount ? "/" : "" ) + parts[nCount];
-
-                return result;
-            }
-
-            /**
-             * The value of attribute szName inside one tag's text (everything between '<' and
-             * '>'), for either quote style, or false if it has no such attribute.
-             */
-            bool FindTagAttribute( const std :: string &strTag, const char *szName, std :: string &strValue )  {
-
-                size_t  nNameLength = strlen( szName );
-                size_t  nPos        = 0;
-
-                while( ( nPos = strTag.find( szName, nPos ) ) != std :: string :: npos )  {
-                    // A whole attribute name: preceded by white space, followed by '='.
-                    bool    bBoundary = ( nPos > 0 ) && isspace( ( unsigned char ) strTag[nPos - 1] );
-                    size_t  nCursor   = nPos + nNameLength;
-
-                    while( nCursor < strTag.size() && isspace( ( unsigned char ) strTag[nCursor] ) )
-                        nCursor++;
-
-                    if( bBoundary && nCursor < strTag.size() && strTag[nCursor] == '=' )  {
-                        nCursor++;
-
-                        while( nCursor < strTag.size() && isspace( ( unsigned char ) strTag[nCursor] ) )
-                            nCursor++;
-
-                        if( nCursor < strTag.size() && ( strTag[nCursor] == '"' || strTag[nCursor] == '\'' ) )  {
-                            size_t  nClose = strTag.find( strTag[nCursor], nCursor + 1 );
-
-                            if( nClose != std :: string :: npos )  {
-                                strValue = strTag.substr( nCursor + 1, nClose - nCursor - 1 );
-
-                                return true;
-                            }
-                        }
-                    }
-
-                    nPos += nNameLength;
-                }
-
-                return false;
-            }
-
-            /**
-             * Whether a tag's text starts with the element name szElement (and nothing longer).
-             */
-            bool TagIsElement( const std :: string &strTag, const char *szElement )  {
-
-                size_t  nLength = strlen( szElement );
-
-                return ( strTag.compare( 0, nLength, szElement ) == 0 ) &&
-                       ( strTag.size() == nLength || isspace( ( unsigned char ) strTag[nLength] ) || strTag[nLength] == '/' );
-            }
-
-            /**
-             * Collect every external reference in an XML document: a <tileset source="...">, and an
-             * <object template="...">. (A plain scan for those two tags - the documents are Tiled's own
-             * output; anything it misses is left for libtmx's own lookup, anything extra is harmless.)
-             */
-            void ScanExternalReferences( const std :: string &strXml, std :: vector<ExternalReference> &references )  {
-
-                size_t  nPos = 0;
-
-                while( ( nPos = strXml.find( '<', nPos ) ) != std :: string :: npos )  {
-                    size_t  nEnd = strXml.find( '>', nPos );
-
-                    if( nEnd == std :: string :: npos )
-                        break;
-
-                    std :: string  strTag = strXml.substr( nPos + 1, nEnd - nPos - 1 );
-                    std :: string  strValue;
-
-                    if( TagIsElement( strTag, "tileset" ) )  {
-                        if( FindTagAttribute( strTag, "source", strValue ) && !strValue.empty() )
-                            references.push_back( ExternalReference { false, strValue } );
-                    }
-                    else if( TagIsElement( strTag, "object" ) )  {
-                        if( FindTagAttribute( strTag, "template", strValue ) && !strValue.empty() )
-                            references.push_back( ExternalReference { true, strValue } );
-                    }
-
-                    nPos = nEnd + 1;
-                }
-            }
-
-            /**
-             * Read one external tileset/template through the FileSystem and give it to libtmx's
-             * Resource Manager under its raw attribute text. The things IT references are loaded first
-             * (a template's tileset must be known before the template is parsed), each resolved against
-             * the directory of the file that names it. A file the FileSystem doesn't have is skipped.
-             */
-            void PreloadExternalResource( tmx_resource_manager *pRcMgr,
-                                          const ExternalReference &reference,
-                                          const std :: string &strReferencingDir,
-                                          std :: map<std :: string, std :: string> &loadedKeys,
-                                          std :: set<std :: string> &visited )  {
-
-                std :: string  strPath = JoinVirtualPath( strReferencingDir, reference.strKey );
-
-                if( strPath.empty() )
-                    return;
-
-                // Each file once (also stops a reference cycle); and libtmx caches by the RAW key, so a
-                // second file under an already-provided key would only replace what maps already point at.
-                if( !visited.insert( ( reference.bTemplate ? "T:" : "S:" ) + strPath ).second )
-                    return;
-
-                if( loadedKeys.count( reference.strKey ) )
-                    return;
-
-                std :: vector<unsigned char>  data;
-
-                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strPath, data ) )
-                    return;
-
-                std :: string                     strText( data.begin(), data.end() );
-                std :: string                     strDir = DirectoryOfVirtualPath( strPath );
-                std :: vector<ExternalReference>  nested;
-
-                ScanExternalReferences( strText, nested );
-
-                for( const ExternalReference &inner : nested )
-                    PreloadExternalResource( pRcMgr, inner, strDir, loadedKeys, visited );
-
-                // The images this file names are relative to ITS directory; libtmx hands them to the
-                // texture callback as written, so tell the callback where they live.
-                s_strExternalImageBase = strDir;
-
-                int  nLoaded = reference.bTemplate ?
-                               ::tmx_load_template_buffer( pRcMgr, ( const char * ) data.data(), ( int ) data.size(), reference.strKey.c_str() ) :
-                               ::tmx_load_tileset_buffer( pRcMgr, ( const char * ) data.data(), ( int ) data.size(), reference.strKey.c_str() );
-
-                s_strExternalImageBase.clear();
-
-                if( nLoaded )
-                    loadedKeys[reference.strKey] = strPath;
-            }
-        }
-
         /**
          * TxmLib texture loader callback implementation.
          * @param szFileName Texture file name;
@@ -306,8 +105,10 @@ namespace SunLight {
             // While an external tileset/template is being preloaded, this is the image path as written
             // in that file - relative to the file's own directory. (Maps' own images arrive already
             // resolved by libtmx against the map's path.)
-            if( !s_strExternalImageBase.empty() )  {
-                std :: string  strResolved = JoinVirtualPath( s_strExternalImageBase, szFileName );
+            std :: string  strImageBase = ExternalResources :: ImageBase();
+
+            if( !strImageBase.empty() )  {
+                std :: string  strResolved = ExternalResources :: JoinVirtualPath( strImageBase, szFileName );
 
                 if( !strResolved.empty() )
                     return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strResolved.c_str(), nWidth, nHeight );
@@ -385,161 +186,12 @@ namespace SunLight {
         }
 
         /**
-         * Draw  pixel according the specified position.
-         * @param nCoordX The X coordinate to plot pixel;
-         * @param nCoordY The Y coordinate to plot pixel;
-         * @param color Color of pixel;
+         * @brief Draw one straight edge of a shape, in screen pixels (see Shape::DrawStrokedLine). The
+         * shape's PrimitiveClip keeps it inside the viewport.
+         * @param nWidth Width in screen pixels;
          */
-        void TileMapRenderer :: SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color )  {
-
-            SunLight :: Base :: stDimension2D& vp = GetViewport().GetDimension2D();
-
-            // The visible rectangle is [pos, pos + size): a pixel is drawn
-            // when it lies inside it (the top/left edge itself excluded, as
-            // it always was).
-            if( ( nCoordX > vp.pos.x ) && ( nCoordX < ( vp.pos.x + vp.size.nWidth ) ) &&
-                ( nCoordY > vp.pos.y ) && ( nCoordY < ( vp.pos.y + vp.size.nHeight ) ) ) {
-                SunLight :: Engines :: EngineFactory :: GetEngine().SetPixel( nCoordX, nCoordY, color );
-            }
-        }
-
-        /**
-         * Midpoint ellipse drawing algorithm based on implementation found at
-         * https://www.geeksforgeeks.org/midpoint-ellipse-drawing-algorithm/
-         * @param fCoordX Ellipse X coordinate;
-         * @param fCoordY Ellipse Y coordinate;
-         * @param fRadiusX X radius;
-         * @param fRadiusX Y radius;
-         * @param color Ellipse color;
-         */
-        void TileMapRenderer :: MidPointEllipse( double fCoordX,
-                                                 double fCoordY,
-                                                 double fRadiusX,
-                                                 double fRadiusY,
-                                                 SunLight :: Base :: stColor color ) {
-
-            double          dx, dy;
-            double          d1, d2;
-            double          x = 0;
-            double          y = fRadiusY;
-
-            // Initial decision parameter of region 1
-            d1 = ( fRadiusY * fRadiusY ) -
-                 ( fRadiusX * fRadiusX * fRadiusY ) +
-                 ( 0.25 * fRadiusX * fRadiusX );
-            dx = ( 2 * fRadiusX * fRadiusY * x );
-            dy = ( 2 * fRadiusX * fRadiusX * y );
-
-            // For region 1
-            while( dx < dy )  {
-                int nXPos = ( int ) ( x + fCoordX );
-                int nYPos = ( int ) ( y + fCoordY );
-                int nXNeg = ( int ) ( -x + fCoordX );
-                int nYNeg = ( int ) ( -y + fCoordY );
-
-                // Print points based on 4-way symmetry
-                SetPixel( nXPos, nYPos, color );
-                SetPixel( nXNeg, nYPos, color );
-                SetPixel( nXPos, nYNeg, color );
-                SetPixel( nXNeg, nYNeg, color );
-
-                /* 
-                * Checking and updating value of decision parameter 
-                * based on algorithm.
-                */
-                if( d1 < 0 )  {
-                    x++;
-                    dx = ( dx + (2 * fRadiusY * fRadiusY ) );
-                    d1 = ( d1 + dx + ( fRadiusY * fRadiusY ) );
-                }
-                else  {
-                    x++;
-                    y--;
-                    dx = ( dx + ( 2 * fRadiusY * fRadiusY ) );
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d1 = ( d1 + dx - dy + ( fRadiusY * fRadiusY ) );
-                }
-            }
-
-            // Decision parameter of region 2
-            d2 = ( ( fRadiusY * fRadiusY ) * ( ( x + 0.5 ) * ( x + 0.5 ) ) ) +
-                 ( ( fRadiusX * fRadiusX ) * ( ( y - 1 ) * ( y - 1 ) ) ) -
-                 ( fRadiusX * fRadiusX * fRadiusY * fRadiusY );
-
-            // Plotting points of region 2
-            while( y >= 0 ) {
-
-                int nXPos = ( int ) ( x + fCoordX );
-                int nYPos = ( int ) ( y + fCoordY );
-                int nXNeg = ( int ) ( -x + fCoordX );
-                int nYNeg = ( int ) ( -y + fCoordY );
-
-                // Print points based on 4-way symmetry
-                SetPixel( nXPos, nYPos, color );
-                SetPixel( nXNeg, nYPos, color );
-                SetPixel( nXPos, nYNeg, color );
-                SetPixel( nXNeg, nYNeg, color );
-
-                /*
-                * Checking and updating parameter value based
-                * on algorithm.
-                */
-                if( d2 > 0 ) {
-                    y--;
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d2 = ( d2 + ( fRadiusX * fRadiusX ) - dy );
-                }
-                else  {
-                    y--;
-                    x++;
-                    dx = ( dx + ( 2 * fRadiusY * fRadiusY ) );
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d2 = ( d2 + dx - dy + ( fRadiusX * fRadiusX ) );
-                }
-            }
-        }
-
-        /**
-         * Bresenham line generation algorithm based on implementation found at
-         * https://gist.github.com/bert/1085538.
-         * @param nX0 Initial X line coordinate;
-         * @param nY0 Initial Y line coordinate;
-         * @param nX1 Final X line coordinate;
-         * @param nY1 Final Y line coordinate;
-         * @param color line color;
-         */
-        void TileMapRenderer :: LineBresenham( int nX0,
-                                               int nY0,
-                                               int nX1,
-                                               int nY1,
-                                               SunLight :: Base :: stColor color )  {
-
-            int             nE2; /* error value e_xy */
-            int             nDx  = std :: abs( nX1 - nX0 );
-            int             nSx  = ( nX0 < nX1 ? 1 : -1 );
-            int             nDy  = -std :: abs( nY1 - nY0 );
-            int             nSy  = ( nY0 < nY1 ? 1 : -1 );
-            int             nErr = nDx + nDy;
-
-            while( true )  {
-                // Print points based on 4-way symmetry
-                SetPixel( nX0, nY0, color );
-
-                if( ( nX0 == nX1 ) && ( nY0 == nY1 ) )
-                    break;
-
-                nE2 = ( 2 * nErr );
-
-                if( nE2 >= nDy ) {
-                    nErr+=nDy;
-                    nX0+=nSx;
-                } /* e_xy+e_x > 0 */
-
-                if( nE2 <= nDx ) {
-                    nErr+=nDx;
-                    nY0+=nSy;
-                } /* e_xy+e_y < 0 */
-            }
+        void TileMapRenderer :: DrawEdge( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color )  {
+            Shape :: DrawStrokedLine( nX0, nY0, nX1, nY1, nWidth, color );
         }
 
         /**
@@ -549,11 +201,31 @@ namespace SunLight {
          * @param points array of points for this polygon;
          * @param points_count Number of items of points array;
          */
+        /**
+         * The vertices of a shape in screen pixels: each point scaled by the zoom, from an origin already in
+         * screen pixels. Converted to whole pixels the same way the hairline edges are.
+         */
+        std :: vector<Shape :: ScreenPoint> TileMapRenderer :: ScreenPointsOf( double fOriginX,
+                                                                                         double fOriginY,
+                                                                                         double **fPoints,
+                                                                                         int nPointsCount,
+                                                                                         double fZoom ) {
+            std :: vector<Shape :: ScreenPoint>  points;
+
+            for( int i = 0; i < nPointsCount; i++ )
+                points.push_back( Shape :: ScreenPoint { ( int ) ( fOriginX + ( fPoints[i][0] * fZoom ) ),
+                                                                   ( int ) ( fOriginY + ( fPoints[i][1] * fZoom ) ) } );
+
+            return points;
+        }
+
         void TileMapRenderer :: DrawPolyline( double fOffset_x,
                                               double fOffset_y,
                                               double **fPoints,
                                               int nPointsCount,
+                                              int nLineWidth,
                                               SunLight :: Base :: stColor color ) {
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
@@ -561,11 +233,18 @@ namespace SunLight {
             fOffset_x = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
             fOffset_y = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
 
+            if( nLineWidth > __HAIRLINE_WIDTH ) {
+                DrawStrokedPath( ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor ), false, nLineWidth, color );
+                return;
+            }
+
             for( int i=1; i < nPointsCount; i++ ) {
-                LineBresenham( ( int ) ( fOffset_x + ( fPoints[i-1][0] * zp.fZoomFactor ) ),
+
+                DrawEdge( ( int ) ( fOffset_x + ( fPoints[i-1][0] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_y + ( fPoints[i-1][1] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_x + ( fPoints[i][0] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_y + ( fPoints[i][1] * zp.fZoomFactor ) ),
+                               nLineWidth,
                                color );
             }
         }
@@ -581,17 +260,31 @@ namespace SunLight {
                                          double fOffset_y,
                                          double **fPoints,
                                          int nPointsCount,
+                                         int nLineWidth,
                                          SunLight :: Base :: stColor color ) {
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
+
+            if( nLineWidth > __HAIRLINE_WIDTH ) {
+                SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
+
+                DrawStrokedPath( ScreenPointsOf( ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x,
+                                                 ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y,
+                                                 fPoints, nPointsCount, zp.fZoomFactor ),
+                                 true, nLineWidth, color );
+                return;
+            }
 
             DrawPolyline( fOffset_x,
                         fOffset_y,
                         fPoints,
                         nPointsCount,
+                        __HAIRLINE_WIDTH,
                         color );
 
             if( nPointsCount > 2 ) {
+
                 SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
 
                 fOffset_x = ( ( fOffset_x + m_CameraPos.x ) *
@@ -599,10 +292,11 @@ namespace SunLight {
                 fOffset_y = ( ( fOffset_y + m_CameraPos.y ) *
                             zp.fZoomFactor ) + vp.pos.y;
 
-                LineBresenham( ( int ) ( fOffset_x + ( fPoints[0][0] * zp.fZoomFactor ) ),
+                DrawEdge( ( int ) ( fOffset_x + ( fPoints[0][0] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_y + ( fPoints[0][1] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_x + ( fPoints[nPointsCount-1][0] * zp.fZoomFactor ) ),
                                ( int ) ( fOffset_y + ( fPoints[nPointsCount-1][1] * zp.fZoomFactor ) ),
+                               __HAIRLINE_WIDTH,
                                color );
             }
         }
@@ -619,7 +313,9 @@ namespace SunLight {
                                                double fOffset_y,
                                                double fWidth,
                                                double fHeight,
+                                               int nLineWidth,
                                                SunLight :: Base :: stColor color )  {
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp          = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
@@ -632,31 +328,47 @@ namespace SunLight {
             double                                 fViewEndY   = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
                                                                    zp.fZoomFactor ) + vp.pos.y;
 
+            // A wide edge is the closed path of the four corners, so each corner is a round join.
+            if( nLineWidth > __HAIRLINE_WIDTH ) {
+                std :: vector<Shape :: ScreenPoint>  corners {
+                    Shape :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewStartY },
+                    Shape :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewStartY },
+                    Shape :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewEndY },
+                    Shape :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewEndY } };
+
+                Shape :: DrawStrokedPath( corners, true, nLineWidth, color );
+                return;
+            }
+
             // Top line
-            LineBresenham( ( int ) fViewStartX,
+            DrawEdge( ( int ) fViewStartX,
                            ( int ) fViewStartY,
                            ( int ) fViewEndX,
                            ( int ) fViewStartY,
+                           __HAIRLINE_WIDTH,
                            color );
             // Bottom line
-            LineBresenham( ( int ) fViewStartX,
+            DrawEdge( ( int ) fViewStartX,
                            ( int ) fViewEndY,
                            ( int ) fViewEndX,
                            ( int ) fViewEndY,
+                           __HAIRLINE_WIDTH,
                            color );
 
             // Left line
-            LineBresenham( ( int ) fViewStartX,
+            DrawEdge( ( int ) fViewStartX,
                            ( int ) fViewStartY,
                            ( int ) fViewStartX,
                            ( int ) fViewEndY,
+                           __HAIRLINE_WIDTH,
                            color );
 
             // Right line
-            LineBresenham( ( int ) fViewEndX,
+            DrawEdge( ( int ) fViewEndX,
                            ( int ) fViewStartY,
                            ( int ) fViewEndX,
                            ( int ) fViewEndY,
+                           __HAIRLINE_WIDTH,
                            color );
         }
 
@@ -668,11 +380,33 @@ namespace SunLight {
          * @param fHeight The ellipse height;
          * @param color ellipse color;
          */
+        /**
+         * Draw a point object as a filled square. Its side is the point's size times the zoom, rounded half-up and
+         * at least one pixel (the same rule as a line's width), with the top-left corner at the point's position.
+         * @param fOffset_x X of the point, in map units;
+         * @param fOffset_y Y of the point;
+         * @param fSize Size of the point, in map units;
+         */
+        void TileMapRenderer :: DrawPoint( double fOffset_x, double fOffset_y, double fSize, SunLight :: Base :: stColor color )  {
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+
+            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
+            SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
+
+            double  fScreenX = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
+            double  fScreenY = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
+
+            Shape :: DrawFilledSquare( ( int ) fScreenX, ( int ) fScreenY, Shape :: ScreenLineWidth( fSize, zp.fZoomFactor ), color );
+        }
+
         void TileMapRenderer :: DrawEllipse( double fOffset_x,
                                              double fOffset_y,
                                              double fWidth,
                                              double fHeight,
+                                             int nLineWidth,
                                              SunLight :: Base :: stColor color )  {
+            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+
 
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
@@ -684,11 +418,19 @@ namespace SunLight {
             fOffset_y = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
                           zp.fZoomFactor ) + vp.pos.y;
 
-            MidPointEllipse( fOffset_x,
-                             fOffset_y,
-                             ( fWidth * zp.fZoomFactor ),
-                             ( fHeight * zp.fZoomFactor ),
-                             color );
+            // A wide outline is a ring of spans; a one-pixel outline is the engine's own ellipse. The shape's
+            // PrimitiveClip keeps either inside the viewport.
+            if( nLineWidth > __HAIRLINE_WIDTH ) {
+                Shape :: DrawStrokedEllipse( fOffset_x, fOffset_y,
+                                                       fWidth * zp.fZoomFactor, fHeight * zp.fZoomFactor,
+                                                       nLineWidth, color );
+                return;
+            }
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().DrawEllipseOutline( ( float ) fOffset_x, ( float ) fOffset_y,
+                                                                                    ( float ) ( fWidth * zp.fZoomFactor ),
+                                                                                    ( float ) ( fHeight * zp.fZoomFactor ),
+                                                                                    color );
         }
 
         /**
@@ -711,6 +453,7 @@ namespace SunLight {
                                           int32_t nDestY,
                                           float fOpacity ) {
 
+
             SunLight :: Base :: stDimension2D  clip;
             SunLight :: Base :: Viewport&         vp        = GetViewport();
             unsigned char                         op        = ( uint8_t ) ( 0xFF * fOpacity );
@@ -722,24 +465,16 @@ namespace SunLight {
 
                 float                                 fZoomFactor = vp.GetZoomProperties().fZoomFactor;
                 SunLight :: Base :: stDimension2D& vpDm        = vp.GetDimension2D();
-                int32_t                               nClipX      = ( int32_t ) ( clip.pos.x == vpDm.pos.x ? nSourceX +
-                                                                                  std :: abs( ( clip.size.nWidth /
-                                                                                                fZoomFactor ) -
-                                                                                  dm.size.nWidth ) : nSourceX );
-                int32_t                               nClipY      = ( int32_t ) ( clip.pos.y == vpDm.pos.y ? nSourceY +
-                                                                                  std :: abs( ( clip.size.nHeight /
-                                                                                                fZoomFactor ) -
-                                                                                  dm.size.nHeight ) : nSourceY );
-
+                // Study: the whole tile is drawn at its zoomed size; the view pass's clip cuts it.
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
-                                                      SunLight :: Base :: stRectangle  { ( float ) nClipX,
-                                                                   ( float ) nClipY,
+                                                      SunLight :: Base :: stRectangle  { ( float ) nSourceX,
+                                                                   ( float ) nSourceY,
                                                                    ( float ) nSourceW,
                                                                    ( float ) nSourceH },
-                                                      SunLight :: Base :: stRectangle  { ( float ) clip.pos.x,
-                                                                   ( float ) clip.pos.y,
-                                                                   ( float ) clip.size.nWidth,
-                                                                   ( float ) clip.size.nHeight },
+                                                      SunLight :: Base :: stRectangle  { dm.pos.x * fZoomFactor + vpDm.pos.x,
+                                                                   dm.pos.y * fZoomFactor + vpDm.pos.y,
+                                                                   nSourceW * fZoomFactor,
+                                                                   nSourceH * fZoomFactor },
                                                       SunLight :: Base :: stVector2D  { 0, 0 },
                                                       0.0f,
                                                       fZoomFactor,
@@ -764,6 +499,8 @@ namespace SunLight {
                                            ( head -> y + pLayer -> offsety ),
                                            head -> width,
                                            head -> height,
+                                           Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
+                                                                               GetViewport().GetZoomProperties().fZoomFactor ),
                                            color );
                             break;
 
@@ -772,6 +509,8 @@ namespace SunLight {
                                          ( head -> y + pLayer -> offsety ),
                                          head -> content.shape -> points,
                                          head -> content.shape -> points_len,
+                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
+                                                                             GetViewport().GetZoomProperties().fZoomFactor ),
                                          color );
                             break;
 
@@ -780,6 +519,8 @@ namespace SunLight {
                                           ( head -> y + pLayer -> offsety ),
                                           head -> content.shape -> points,
                                           head -> content.shape -> points_len,
+                                          Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
+                                                           GetViewport().GetZoomProperties().fZoomFactor ),
                                           color );
                             break;
 
@@ -788,6 +529,8 @@ namespace SunLight {
                                          ( head -> y + pLayer -> offsety ),
                                          head -> width,
                                          head -> height,
+                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
+                                                                             GetViewport().GetZoomProperties().fZoomFactor ),
                                          color );
                             break;
                         
@@ -806,8 +549,11 @@ namespace SunLight {
                             break;
 
                         case OT_POINT :
-                        // TODO: FINISH HIM !!!
-                        break;
+                            DrawPoint( ( head -> x + pLayer -> offsetx ),
+                                       ( head -> y + pLayer -> offsety ),
+                                       Shape :: PointSizeOf( head ),
+                                       color );
+                            break;
                     }
                 }
 
@@ -951,8 +697,8 @@ namespace SunLight {
             }
 
             // The lines are cut at the viewport's edge: IEngine::DrawText has no clip of its own.
-            engine.BeginClip( SunLight :: Base :: stRectangle { ( float ) vp.pos.x, ( float ) vp.pos.y,
-                                                                ( float ) vp.size.nWidth, ( float ) vp.size.nHeight } );
+            // Study: the view's own clip (its pass, or the single-view frame) already covers this
+            // rectangle, so the text does not open a clip of its own.
 
             for( size_t nIdx = 0; nIdx < lines.size(); nIdx++ )  {
                 double  fLeft = fBoxX;
@@ -975,7 +721,6 @@ namespace SunLight {
                     engine.DrawText( lines[nIdx].c_str(), nX, nY, nScreenSize, color );
             }
 
-            engine.EndClip();
         }
 
         /**
@@ -1357,6 +1102,14 @@ namespace SunLight {
             for( View *pView : m_PassViews )  {
                 ActivateView( pView );
 
+                // The whole pass is cut to its view's rectangle (the engine's clip stack keeps any
+                // clip a draw starts inside it), so nothing the pass draws lands outside its view.
+                SunLight :: Base :: stDimension2D  &passRect = pView -> m_pViewport -> GetDimension2D();
+
+                SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
+                    ( float ) passRect.pos.x, ( float ) passRect.pos.y,
+                    ( float ) passRect.size.nWidth, ( float ) passRect.size.nHeight } );
+
                 if( ( pView != pDefault ) && pView -> m_bClear )  {
                     SunLight :: Base :: stDimension2D  &rect = pView -> m_pViewport -> GetDimension2D();
 
@@ -1368,6 +1121,8 @@ namespace SunLight {
                 }
 
                 DrawAllLayers( m_pTmxMap -> ly_head );
+
+                SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
             }
 
             ActivateView( pDefault );
@@ -1408,8 +1163,17 @@ namespace SunLight {
                      * is this one call, as it always was (the default view's mask and
                      * visibility are the only new inputs, and default to "show all").
                      */
-                    if( m_pDefaultView -> m_bVisible )
+                    if( m_pDefaultView -> m_bVisible )  {
+                        // Study: nothing cuts the single view's draws in software any more, so the viewport
+                        // is the clip for the whole frame (the view passes set their own).
+                        SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.x,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.y,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nWidth,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nHeight } );
                         DrawAllLayers( m_pTmxMap -> ly_head );
+                        SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
+                    }
                 }
                 else  {
                     DrawViewPasses();
@@ -2982,24 +2746,6 @@ namespace SunLight {
          * @param szTmxMapFile Renderer map file;
          * @param alignment Map alignment according @link MapAlignment enumerator;
          */
-        namespace {
-
-            /**
-             * The name of a map orientation, for messages.
-             * @param orient The orientation libtmx parsed;
-             */
-            const char* OrientationName( tmx_map_orient orient )  {
-
-                switch( orient )  {
-                    case O_ORT : return "orthogonal";
-                    case O_ISO : return "isometric";
-                    case O_STA : return "staggered";
-                    case O_HEX : return "hexagonal";
-                    default    : return "unknown";
-                }
-            }
-        }
-
         bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
 
             if( m_bIsStarted )  {
@@ -3042,16 +2788,16 @@ namespace SunLight {
                  * FileSystem and handed over in a Resource Manager. A map
                  * that names none keeps the plain, manager-less path.
                  */
-                std :: vector<ExternalReference>  externalReferences;
+                std :: vector<ExternalResources :: ExternalReference>  externalReferences;
 
-                ScanExternalReferences( std :: string( data.begin(), data.end() ), externalReferences );
+                ExternalResources :: ScanExternalReferences( std :: string( data.begin(), data.end() ), externalReferences );
 
                 tmx_resource_manager  *pRcMgr = nullptr;
 
                 if( !externalReferences.empty() )  {
                     std :: map<std :: string, std :: string>  loadedKeys;
                     std :: set<std :: string>                 visited;
-                    std :: string                             strMapDir = DirectoryOfVirtualPath( szTmxMapFile );
+                    std :: string                             strMapDir = ExternalResources :: DirectoryOfVirtualPath( szTmxMapFile );
 
                     // libtmx's allocator hooks default to NULL and are only set up by its own tmx_load*/
                     // tmx_rcmgr_load* entry points - NOT by tmx_make_resource_manager(), which allocates
@@ -3065,8 +2811,8 @@ namespace SunLight {
 
                     pRcMgr = ::tmx_make_resource_manager();
 
-                    for( const ExternalReference &reference : externalReferences )
-                        PreloadExternalResource( pRcMgr, reference, strMapDir, loadedKeys, visited );
+                    for( const ExternalResources :: ExternalReference &reference : externalReferences )
+                        ExternalResources :: PreloadExternalResource( pRcMgr, reference, strMapDir, loadedKeys, visited );
                 }
 
                 m_pTmxMap = ::tmx_rcmgr_load_buffer_vpath( pRcMgr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
@@ -3089,7 +2835,7 @@ namespace SunLight {
                  */
                 if( m_pTmxMap -> orient != O_ORT )  {
                     fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal maps are supported.\n",
-                             szTmxMapFile, OrientationName( m_pTmxMap -> orient ) );
+                             szTmxMapFile, MapOrientation :: OrientationName( m_pTmxMap -> orient ) );
 
                     ::tmx_map_free( m_pTmxMap );
                     m_pTmxMap = nullptr;

@@ -107,12 +107,6 @@ namespace SunLight  {
                 delete reinterpret_cast<NullSurface*>( hTexture );
             }
 
-            /**
-             * @brief Drawing is a no-op.
-             */
-            void NullEngine :: SetPixel( int, int, SunLight :: Base :: stColor )  {
-            }
-
             void NullEngine :: DrawTexture( SunLight :: Base :: TextureHandle, int, int, SunLight :: Base :: stColor )  {
             }
 
@@ -126,6 +120,12 @@ namespace SunLight  {
             }
 
             void NullEngine :: DrawFilledRectangle( int, int, int, int, SunLight :: Base :: stColor )  {
+            }
+
+            void NullEngine :: DrawLine( float, float, float, float, float, SunLight :: Base :: stColor )  {
+            }
+
+            void NullEngine :: DrawEllipseOutline( float, float, float, float, SunLight :: Base :: stColor )  {
             }
 
             void NullEngine :: DrawText( const char *, int, int, int, SunLight :: Base :: stColor )  {

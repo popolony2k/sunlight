@@ -107,14 +107,26 @@ a warning once. Point objects are handled in Phase C5, not here.
 
 **B3: unknown types, closed with nothing to warn about.** libtmx gives every layer and object kind the renderer can receive: its layer kinds are the tile layer, object group, image layer and group, and it skips any other element while parsing. Its object kinds cover all seven Tiled shapes, and it turns an object with no shape into a point. So the `L_NONE` and `OT_NONE` cases cannot occur; they remain only so the switch covers every enumerator. Unknown element names are dropped by libtmx before the renderer sees them, so there is nothing for a warning in the renderer to catch.
 
-## Prerequisite: shared geometry
+## Prerequisites
 
-Done before Phase C, because the thick primitives work on these shapes. This is an API change, so it is
-not part of Phase A. Its peer impact is recorded in [doc/BREAKAGES.md](BREAKAGES.md).
+Done before Phase C, because the thick primitives work on these shapes and on the engine's clip. These are API
+changes, so they are not part of Phase A. Their peer impact is recorded in [doc/BREAKAGES.md](BREAKAGES.md).
 
 | # | Item | Status |
 |---|------|--------|
-| G1 | Move `stCoordinate2D`, `stSize2D` and `stDimension2D` from `SunLight::TileMap` to `SunLight::Base` (`base/primitives.h`), so sprites and canvases use them too | IN PROGRESS |
+| R1 | The engine clip is the only clip mode: `SUNLIGHT_SOFTWARE_CLIP`, the software cut and the per-pixel primitives are removed; `IEngine` gains `DrawLine` and `DrawEllipseOutline`, and loses `SetPixel` | DONE |
+| G1 | Move `stCoordinate2D`, `stSize2D` and `stDimension2D` from `SunLight::TileMap` to `SunLight::Base` (`base/primitives.h`), so sprites and canvases use them too | DONE |
+
+**R1: engine clip only.** Committed as `55ba435` on `refactor/engine-clip-only`, with the shapes benchmark mode and `samples/shapes/resources/map/stress.tmx`. Shapes are drawn by the backend, and tiles, text and shapes are cut by the engine's clip. Stress map on matched Release builds: about 1.39 ms per frame, against 2.26 ms with the software method.
+- Test items, all met:
+  - The full suite passes: 356 test cases (`tests/test_shape_engine_calls.cpp` adds five: the four edges of a rectangle at thickness 1, one ellipse outline with its centre and radii, a polyline with no closing edge, a polygon with its closing edge, and a two-point polygon with none).
+  - Three deliberate faults each fail the test written for them: the edge inset (`1` to `0`), the edge thickness (`1` to `2`), and the polygon closing rule (`> 2` to `> 1`). The renderer file was restored byte-for-byte after each.
+  - The full suite passes under AddressSanitizer, with no reports.
+  - Every sample builds.
+  - The clip's edge rule is checked by the clip test in `tests/test_viewport_semantics.cpp`.
+- Verified by eye, not by test: the nested clip stack in `RaylibEngine` (it needs a real window), and the samples' output (text, shapes, multiview).
+- Not repeatable: the pixel comparison of the shapes sample against the software method. It was done before the flag was removed, so the owner should take it as confirmed.
+- `doc/BREAKAGES.md` item 15 is written.
 
 **G1: shared geometry.** The three integer structs are plain geometry, not tile-map data, and sprites and
 canvases already use them. Moved to `SunLight::Base` with no aliases kept, so Scarab's references are
@@ -126,11 +138,11 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
 
 | # | Item | Status |
 |---|------|--------|
-| C1 | Thick lines, with square caps | TODO |
-| C2 | Thick polylines and polygons | TODO |
-| C3 | Thick rectangles | TODO |
-| C4 | Thick ellipses | TODO |
-| C5 | Points as squares | TODO |
+| C1 | Thick lines, with square caps | DONE |
+| C2 | Thick polylines and polygons | DONE |
+| C3 | Thick rectangles | DONE |
+| C4 | Thick ellipses | DONE |
+| C5 | Points as squares | DONE |
 
 **Decisions already taken:**
 - Stroke width scales with zoom: screen width is `thickness × zoomFactor`, rounded
@@ -142,41 +154,106 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
   nothing and output stays unchanged.
 - The viewport boundary rule is unchanged: a pixel is drawn only if it is strictly
   inside the viewport, so the top and left edge are excluded, as they are today.
-- The engine never clips. The renderer clips each span before calling
-  `IEngine::DrawFilledRectangle`, so no new engine method is needed. A native primitive
+- The engine clips. The renderer draws each span with `IEngine::DrawFilledRectangle` inside
+  the viewport's engine clip (`BeginClip`/`EndClip`), so no new engine method is needed. A native primitive
   is only considered later, if the measured span count is too high.
 
 **Implementation approach.** Each stroke is drawn as one filled span per scanline,
-clipped to the viewport before the engine is called. A per-pixel `SetPixel` loop is not
-used, because it costs one engine call per pixel, and a single engine call would bypass
-the viewport boundary.
+inside the viewport's engine clip. A per-pixel draw loop is not used, because it costs one
+engine call per pixel.
 
-**C1: thick lines.** Perpendicular span code and the square cap rule.
-- Test items: width 1 is byte-identical to today's `LineBresenham`, including lines on
-  the top and left viewport edges; widths 2 to 5 at several angles match a brute-force
-  reference rasterizer; a line crossing each viewport edge and a corner is cut at the
-  reference's pixels; caps extend by the stated amount and nothing at width 1; at zoom 2 a
-  width-3 line is 6 pixels wide, with the rounding checked at a fractional zoom; the number
-  of `DrawFilledRectangle` calls equals the number of spans and is far below the pixel
-  count.
+**C1: thick lines.** Spans through the engine clip, as decided. Width 1 stays on `IEngine::DrawLine`, so it
+is the engine's line, not `LineBresenham` (removed in R1).
+- Decided while building it:
+  - A stroke's width comes from the object's `line_width` property, as an int or a float. The group's property is not
+    read: libtmx 1.10 does not keep an object group's properties, so the group fallback in the plan cannot be built.
+  - Only polylines take the width in C1. Rectangles and polygons stay one pixel until C2 and C3.
+  - A pixel is in a stroke when its centre is inside the rectangle around the axis, half-open on every side. The axis
+    runs through the centres of the end pixels. A boundary tolerance of 1e-9 decides centres on an edge in exact arithmetic.
+  - Screen width is the map width times the zoom, rounded half-up, at least 1 (`Shape::ScreenLineWidth`, in `src/renderer/shape/shapeprimitives.h`). The thick-line span code lives there too.
+- Test items, in `tests/test_thick_lines.cpp` (9 cases):
+  - Width 2, width 3 with its one-pixel caps, and zoom 2 with width 3 (six rows): hand-derived spans.
+  - Zoom 1.5 with width 3: 4.5 rounds up to 5 rows.
+  - Width 1 and no property: the engine's line, no spans.
+  - A diagonal line: one span per row, each row once, far fewer spans than pixels.
+  - Widths 2 to 5 at four angles: the spans cover exactly the pixels a separate reference (computed from the raw
+    endpoints) accepts.
+  - A line left of the viewport still produces spans past its edge: the engine's clip does the cutting.
+- Mutation checks (each fails its test): cap length `(w - 1) / 2` to `w / 2`; the edge rule excludes `+h` inclusively;
+  the zoom rounding drops the half-up.
+- Full suite under AddressSanitizer: 365 test cases pass with no reports.
+- Not yet covered: the spans are not compared with the reference for a line crossing a viewport edge or corner. The
+  engine's clip is what cuts them there, and the clip itself is tested by the viewport tests.
+- Not yet measured: the cost of a long thick line that runs far off the viewport (its rows are computed in full).
+- `doc/BREAKAGES.md` item 16 is written: polylines at a zoom other than 1 are wider than before.
 
 **C2: thick polylines and polygons.** Joins have no gaps.
-- Test items: a sharp corner has no gap, checked against the reference; a polygon's
-  closing segment is drawn only with more than two points, as today; width 1 output is
-  byte-identical.
+- Decided while building it:
+  - The join is a round join: a disc of half the width at each vertex that has two segments. A closed polygon joins
+    every vertex, including the one where the closing edge meets the first point. An open polyline joins only its
+    interior vertices.
+  - A polygon takes the same `line_width` property as a polyline (from its object). Width 1 stays the hairline path, so
+    its output does not change.
+  - One path renderer draws both (`Shape::DrawStrokedPath`). A single segment gives the same output as C1.
+  - Square caps are only at the two ends of an open path. At a join the round join is the corner: a cap there would
+    cut a flat step into its arc.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick joins" suite, 3 cases):
+  - A sharp corner, where the second segment doubles back over the first: the spans equal the reference of the two
+    strokes plus the join.
+  - A closed triangle: the spans equal the reference with a join at all three corners.
+  - A two-point polygon: one stroke, with no closing edge and no join.
+- Mutation checks: removing the joins fails the sharp-corner and triangle cases; closing a two-point polygon fails the
+  two-point case.
+- Full suite under AddressSanitizer: 370 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-3 polygon and a width-4 sharp corner.
+- Not decided: whether the owner wants miter joins instead of round joins. Miter joins would need a limit for very sharp
+  corners.
+- `doc/BREAKAGES.md` item 16 covers polygons too.
 
 **C3: thick rectangles.** Four thick edges.
-- Test items: matches the reference, including shared corners; width 1 output is
-  byte-identical.
+- Decided while building it: a rectangle is a closed path of its four corners, drawn by the same path renderer as C2.
+  Each corner is a round join, and no edge has an open end. A rectangle takes the object's `line_width` property.
+  Width 1 stays the four hairline edges, so its output does not change.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick rectangles" suite, 2 cases):
+  - A thick rectangle matches the reference: four closed edges with a round join at each shared corner.
+  - A thick rectangle has no open ends: no engine line is drawn, and the spans match the closed reference.
+- Mutation check: removing the joins fails the rectangle cases, as well as the C2 corner and triangle cases.
+- Full suite under AddressSanitizer: 372 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-5 rectangle, bottom right.
 
 **C4: thick ellipses.** A ring between an outer and an inner radius.
-- Test items: matches a reference ring; width 1 output is byte-identical to the midpoint
-  output; an ellipse crossing the boundary is clipped at the reference's pixels.
+- Decided while building it: width 1 stays the engine's ellipse outline (`IEngine::DrawEllipseOutline`), as in C1, since
+  `MidPointEllipse` is gone. A wider outline is a ring: a pixel is in it when it is strictly inside the outer ellipse
+  (radius plus half the width) and not strictly inside the inner one (radius minus half the width). When the inner
+  radius is not positive, the ring is a filled ellipse. The ellipse takes the object's `line_width` property.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick ellipses" suite, 2 cases):
+  - A thick ellipse is the ring between its outer and inner radius: the spans equal the reference ring, and no engine
+    ellipse is drawn.
+  - A width that reaches the centre gives a filled ellipse, matching the reference.
+- Mutation check: ignoring the inner ellipse fails the ring case.
+- Full suite under AddressSanitizer: 374 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-4 ellipse at the bottom.
+- Not covered by a test: an ellipse crossing the viewport edge is cut by the engine's clip; the test only compares the
+  pixels inside the view's own rectangle, not the cut itself.
 
-**C5: points.** A point of size `s` at zoom `z` is a filled square of side
-`round(s × z)`, minimum 1. This also closes the point-object gap from B.
-- Test items: the side length follows the rule; a point on the viewport edge follows the
-  strict rule; a Tiled point object draws as a point.
+**C5: points.** A point of size `s` at zoom `z` is a filled square of side `round(s × z)`, minimum 1. This also
+closes the point-object gap from B.
+- Decided while building it:
+  - The size comes from the object's `point_size` property (int or float), default one map unit, read the same way as
+    `line_width`.
+  - The square is drawn with `IEngine::DrawFilledRectangle` inside the shape's clip, not with `SetPixel` (removed in R1).
+    Its top-left corner is at the point's position.
+  - The side uses the same rule as a line's width (`Shape::ScreenLineWidth`).
+- Test items, in `tests/test_thick_lines.cpp` (the "Points" suite, 4 cases):
+  - A point is a filled square of side `round(size × zoom)`, with its top-left at the point.
+  - The side rounds half-up: size 1.25 at zoom 2 is 3 pixels.
+  - A point is at least one pixel, and a point with no `point_size` is one map unit.
+  - A point on the viewport's top-left edge is cut by the strict clip, which starts one pixel in.
+- Finding: libtmx makes any object with a `height` attribute a rectangle, even a zero-sized one. A point is written
+  as a `<point/>` child with no width or height attribute, as Tiled writes it.
+- Mutation checks: floor instead of half-up, and no one-pixel minimum, each fail their tests.
+- Full suite under AddressSanitizer: 378 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has three points at the bottom right, sizes 4, 10 and 2.5.
 
 **Across all of Phase C**
 - Byte-identical harnesses at default width (the animation and camera traces).
@@ -323,6 +400,28 @@ Test items:
 - A higher z-order is drawn after a lower one on the same layer.
 - The sort is stable: equal values keep insertion order.
 - Sprites on different layers keep the layer order, whatever their z-values.
+
+## Structure: a smaller TileMapRenderer
+
+`src/renderer/tilemaprenderer.cpp` is about 3,300 lines, and it holds most of the renderer's work. The
+helpers that were not part of the renderer have already moved to their own modules: `shapeprimitives`
+(clip, stroke and screen width), `shapeobjects` (the `line_width` property), `externalresources` (external
+tilesets and templates) and `maporientation` (orientation names). S1 moves the rest.
+
+| # | Item | Status |
+|---|------|--------|
+| S1 | Split `TileMapRenderer` into one header and source per concern, so no single file holds more than one concern | TODO |
+
+- Concerns to move, in this order: text objects; tile objects and their animation; object drawing (`DrawObjects`
+  and its dispatch); view passes and multi-view rendering; map loading and its callbacks; the sprite registry; the
+  default input handlers. Each move is one commit.
+- Target: `tilemaprenderer.cpp` under 1,000 lines, and no new file over 600.
+- No behaviour change in any step: the full suite passes, every sample builds, the AddressSanitizer run is clean,
+  and the shapes stress benchmark stays within its usual spread.
+- Public API of `TileMapRenderer` does not change. If a step has to change it, the change goes in
+  `doc/BREAKAGES.md` first.
+- Every value in new code is named, as in the other modules.
+- Start after Phase C is closed, so the thick-line work is not moved underneath it.
 
 ## Docs, samples and tests
 

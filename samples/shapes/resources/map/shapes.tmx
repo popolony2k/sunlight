@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="60" height="40" tilewidth="32" tileheight="32" nextlayerid="4" nextobjectid="40">
+ <!-- The viewport is 1000 x 800 px and starts at the map's origin. The map is larger, so the arrow keys move the shapes past each edge. -->
+ <objectgroup id="1" name="frame" color="#ff00ff00">
+  <object id="1" name="viewport" x="0" y="0" width="1000" height="800"/>
+ </objectgroup>
+ <objectgroup id="2" name="shapes" color="#ffff8040">
+  <!-- 1: a rectangle (a plain object is a rectangle). -->
+  <object id="10" name="rectangle" x="100" y="120" width="300" height="160"/>
+  <!-- 2: an ellipse. -->
+  <object id="11" name="ellipse" x="500" y="120" width="260" height="160"><ellipse/></object>
+  <!-- 3: a polyline, placed by its first point. -->
+  <object id="12" name="polyline" x="100" y="400" width="0" height="0"><polyline points="0,0 120,60 240,0 360,60"/></object>
+  <!-- 4: a polygon, placed by its first point. -->
+  <object id="13" name="polygon" x="500" y="400" width="0" height="0"><polygon points="0,0 240,0 240,140 120,60 0,140"/></object>
+  <!-- 5: far away: a rectangle and an ellipse, visible only after scrolling right and down. -->
+  <object id="14" name="far-rectangle" x="1300" y="700" width="260" height="140"/>
+  <object id="15" name="far-ellipse" x="1000" y="1000" width="300" height="180"><ellipse/></object>
+ </objectgroup>
+ <objectgroup id="3" name="labels" color="#ffffffff">
+  <object id="20" name="title" x="100" y="72" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffff00">Shapes: the backend draws each one, clipped to the view</text>
+  </object>
+  <object id="21" name="label-rectangle" x="100" y="96" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">1. rectangle</text>
+  </object>
+  <object id="22" name="label-ellipse" x="500" y="96" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">2. ellipse</text>
+  </object>
+  <object id="23" name="label-polyline" x="100" y="370" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">3. polyline</text>
+  </object>
+  <object id="24" name="label-polygon" x="500" y="370" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">4. polygon</text>
+  </object>
+  <object id="25" name="label-far" x="1300" y="660" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">5. far rectangle: scroll right and down</text>
+  </object>
+ </objectgroup>
+</map>

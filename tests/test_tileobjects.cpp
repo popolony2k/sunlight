@@ -198,10 +198,11 @@ TEST_SUITE( "renderer/tile objects" )  {
         CHECK( scene.Tiles().empty() );
     }
 
-    TEST_CASE( "A tile object crossing the left viewport edge is cut at that edge" )  {
+    TEST_CASE( "A tile object crossing the left viewport edge is drawn whole, starting outside the viewport" )  {
 
         // With the camera at (cameraX, cameraY), the viewport's left edge is at x = cameraX in the map.
-        // The tile starts overhangX px left of that edge, so overhangX px are cut and the rest is drawn.
+        // The tile starts overhangX px left of that edge. Its draw is not trimmed: it starts overhangX
+        // px left of the viewport origin and the engine's clip cuts the overhang away.
         const int  nCameraX = 100;
         const int  nCameraY = 100;
         const int  nOverhangX = 10;
@@ -218,8 +219,8 @@ TEST_SUITE( "renderer/tile objects" )  {
         REQUIRE( tiles.size() == 1 );
 
         double  fZoom = scene.Zoom();
-        CHECK( tiles[0].x == ( float ) kViewportOriginX );
-        CHECK( tiles[0].w == ( float ) ( ( kTileSize - nOverhangX ) * fZoom ) );
+        CHECK( tiles[0].x == ( float ) ( kViewportOriginX - nOverhangX * fZoom ) );
+        CHECK( tiles[0].w == ( float ) ( kTileSize * fZoom ) );
     }
 
     TEST_CASE( "A tile object entirely outside the viewport is not drawn" )  {

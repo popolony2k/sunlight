@@ -358,25 +358,28 @@ TEST_SUITE( "renderer/text objects" )  {
         CHECK( scene.engine().nEndClipCalls == 1 );
     }
 
-    TEST_CASE( "Each text object gets its own clip, and a map with no text objects gets none" )  {
+    TEST_CASE( "Text objects draw under the frame's clip and get none of their own" )  {
 
         Scene  scene( TextObject( 1, 0, 0, 0, 0, "fontfamily=\"Sans\" pixelsize=\"10\"", "one" ) +
                       TextObject( 2, 0, 40, 0, 0, "fontfamily=\"Sans\" pixelsize=\"10\"", "two" ) );
 
         REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
 
+        // One single-view frame = one clip (the viewport). Two text objects add none: the clip is
+        // the engine's job for the whole frame, not one per text object.
         scene.RunFrames( 1 );
-        CHECK( scene.engine().nBeginClipCalls == 2 );
-        CHECK( scene.engine().nEndClipCalls == 2 );
+        CHECK( scene.engine().nBeginClipCalls == 1 );
+        CHECK( scene.engine().nEndClipCalls == 1 );
     }
 
-    TEST_CASE( "A map with only shapes is not clipped" )  {
+    TEST_CASE( "A map with only shapes gets the frame's clip plus one clip per shape" )  {
 
         Scene  scene( "<object id=\"1\" x=\"0\" y=\"0\" width=\"20\" height=\"20\"/>" );
 
+        // The frame's clip, then the shape's own clip from PrimitiveClip.
         scene.RunFrames( 1 );
 
-        CHECK( scene.engine().nBeginClipCalls == 0 );
-        CHECK( scene.engine().nEndClipCalls == 0 );
+        CHECK( scene.engine().nBeginClipCalls == 2 );
+        CHECK( scene.engine().nEndClipCalls == 2 );
     }
 }
