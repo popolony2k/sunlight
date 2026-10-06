@@ -200,13 +200,14 @@ namespace SunLight {
 
             // Graphics primitives miscellaneous
             // One straight edge of a shape: the engine's own line (IEngine::DrawLine).
-            void DrawEdge( int nX0, int nY0, int nX1, int nY1, SunLight :: Base :: stColor color );
+            void DrawEdge( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color );
 
             // Engine primitives
             void DrawPolyline( double fOffset_x,
                                double fOffset_y,
                                double **fPoints,
                                int nPointsCount,
+                               int nLineWidth,
                                SunLight :: Base :: stColor color );
             void DrawPolygon( double fOffset_x,
                               double fOffset_y,

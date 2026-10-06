@@ -26,6 +26,7 @@
 #include <string>
 #include "filesystem/filesystemfactory.h"
 #include "renderer/tilemaprenderer.h"
+#include "base/viewport.h"
 
 using namespace SunLight :: Renderer;
 typedef SunLight :: TileMap :: ITileMap  ITM;
@@ -42,11 +43,12 @@ namespace  {
     const int  __START_CAMERA_X  = 0;
     const int  __START_CAMERA_Y  = 0;
 
-    // Command line: shapes_test <sample directory> [map file] [frames] [fps]
+    // Command line: shapes_test <sample directory> [map file] [frames] [fps] [zoom]
     const int          __ARG_DIRECTORY = 1;
     const int          __ARG_MAP       = 2;
     const int          __ARG_FRAMES    = 3;
     const int          __ARG_FPS       = 4;
+    const int          __ARG_ZOOM      = 5;
     const char * const __DEFAULT_MAP   = "shapes.tmx";
     const char * const __MAP_FOLDER    = "resources/map/";
     const int          __DEFAULT_FPS   = 60;
@@ -60,7 +62,7 @@ namespace  {
 int main( int argc, char **argv ) {
 
     if( argc <= __ARG_DIRECTORY )  {
-        fprintf( stderr, "Invalid command line arguments: shapes_test <sample directory> [map file] [frames] [fps]\n" );
+        fprintf( stderr, "Invalid command line arguments: shapes_test <sample directory> [map file] [frames] [fps] [zoom]\n" );
         return EXIT_FAILURE;
     }
 
@@ -70,6 +72,7 @@ int main( int argc, char **argv ) {
     std :: string  mapFile = ( argc > __ARG_MAP ) ? argv[__ARG_MAP] : __DEFAULT_MAP;
     int            frames  = ( argc > __ARG_FRAMES ) ? atoi( argv[__ARG_FRAMES] ) : 0;
     int            fps     = ( argc > __ARG_FPS ) ? atoi( argv[__ARG_FPS] ) : __DEFAULT_FPS;
+    double         fZoom   = ( argc > __ARG_ZOOM ) ? atof( argv[__ARG_ZOOM] ) : 1.0;
 
     mapFile = __MAP_FOLDER + mapFile;
 
@@ -125,7 +128,20 @@ int main( int argc, char **argv ) {
 
     pRenderer -> SetCameraPosition( __START_CAMERA_X, __START_CAMERA_Y );
 
-    printf( "Each numbered shape is drawn by the backend. Arrows scroll the map, Esc quits.\n" );
+    // The zoom argument is a factor, a multiple of 1/16 (ZOOM_STEP): factor = (position + 1) x 1/16. Page Up and
+    // Page Down still change it from there.
+    if( fZoom != 1.0 )
+        pRenderer -> GetViewport().SetZoom( ( unsigned ) ( fZoom / SunLight :: Base :: ZOOM_STEP + 0.5 ) - 1u );
+
+    printf( "zoom %.4f\n", pRenderer -> GetViewport().GetZoomProperties().fZoomFactor );
+
+    // = zooms in and - zooms out, so the widths can be checked at several zoom levels.
+    pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_EQUAL,
+                                         [&pRenderer]( SunLight :: Input :: ControllerType, int ) { pRenderer -> ZoomIn(); } );
+    pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_MINUS,
+                                         [&pRenderer]( SunLight :: Input :: ControllerType, int ) { pRenderer -> ZoomOut(); } );
+
+    printf( "Each numbered shape is drawn by the backend. Arrows scroll the map, = and - zoom, Esc quits.\n" );
 
     if( frames > 0 )  {
         auto  start = std :: chrono :: steady_clock :: now();

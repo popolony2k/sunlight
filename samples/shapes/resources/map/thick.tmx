@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="60" height="40" tilewidth="32" tileheight="32" nextlayerid="4" nextobjectid="100">
+ <!-- Thick lines (C1): each polyline has its line_width property. = and - zoom the map, so check the widths at each zoom. -->
+ <objectgroup id="1" name="frame" color="#ff00ff00">
+  <object id="1" name="viewport" x="0" y="0" width="1000" height="800"/>
+ </objectgroup>
+ <objectgroup id="2" name="lines" color="#ffff8040">
+  <object id="10" name="line-1" x="100" y="120" width="0" height="0"><polyline points="0,0 150,70 300,0 450,70"/></object>
+  <object id="11" name="label-1" x="580" y="100" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">width 1 (no property, the engine's line)</text></object>
+  <object id="12" name="line-2" x="100" y="260" width="0" height="0"><properties><property name="line_width" type="int" value="2"/></properties><polyline points="0,0 150,70 300,0 450,70"/></object>
+  <object id="13" name="label-2" x="580" y="240" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">width 2</text></object>
+  <object id="14" name="line-3" x="100" y="400" width="0" height="0"><properties><property name="line_width" type="int" value="3"/></properties><polyline points="0,0 150,70 300,0 450,70"/></object>
+  <object id="15" name="label-3" x="580" y="380" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">width 3</text></object>
+  <object id="16" name="line-5" x="100" y="540" width="0" height="0"><properties><property name="line_width" type="int" value="5"/></properties><polyline points="0,0 150,70 300,0 450,70"/></object>
+  <object id="17" name="label-5" x="580" y="520" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">width 5</text></object>
+  <object id="18" name="diagonal-4" x="700" y="120" width="0" height="0"><properties><property name="line_width" type="int" value="4"/></properties><polyline points="0,0 200,150"/></object>
+  <object id="19" name="label-diag" x="700" y="290" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">diagonal, width 4</text></object>
+  <object id="20" name="float-2.5" x="700" y="420" width="0" height="0"><properties><property name="line_width" type="float" value="2.5"/></properties><polyline points="0,0 200,0"/></object>
+  <object id="21" name="label-float" x="700" y="440" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">float 2.5 rounds to 3</text></object>
+ </objectgroup>
+</map>

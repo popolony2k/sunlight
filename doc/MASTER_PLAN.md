@@ -138,7 +138,7 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
 
 | # | Item | Status |
 |---|------|--------|
-| C1 | Thick lines, with square caps | TODO |
+| C1 | Thick lines, with square caps | IN PROGRESS |
 | C2 | Thick polylines and polygons | TODO |
 | C3 | Thick rectangles | TODO |
 | C4 | Thick ellipses | TODO |
@@ -162,15 +162,30 @@ renamed when integration starts. `stRectangle` (floating-point) is not merged wi
 inside the viewport's engine clip. A per-pixel draw loop is not used, because it costs one
 engine call per pixel.
 
-**C1: thick lines.** Perpendicular span code and the square cap rule.
-- Test items: width 1 is byte-identical to `LineBresenham` as it was at commit `07f0c3c` (removed
-  by the engine-clip refactor), including lines on
-  the top and left viewport edges; widths 2 to 5 at several angles match a brute-force
-  reference rasterizer; a line crossing each viewport edge and a corner is cut at the
-  reference's pixels; caps extend by the stated amount and nothing at width 1; at zoom 2 a
-  width-3 line is 6 pixels wide, with the rounding checked at a fractional zoom; the number
-  of `DrawFilledRectangle` calls equals the number of spans and is far below the pixel
-  count.
+**C1: thick lines.** Spans through the engine clip, as decided. Width 1 stays on `IEngine::DrawLine`, so it
+is the engine's line, not `LineBresenham` (removed in R1).
+- Decided while building it:
+  - A stroke's width comes from the object's `line_width` property, as an int or a float. The group's property is not
+    read: libtmx 1.10 does not keep an object group's properties, so the group fallback in the plan cannot be built.
+  - Only polylines take the width in C1. Rectangles and polygons stay one pixel until C2 and C3.
+  - A pixel is in a stroke when its centre is inside the rectangle around the axis, half-open on every side. The axis
+    runs through the centres of the end pixels. A boundary tolerance of 1e-9 decides centres on an edge in exact arithmetic.
+  - Screen width is the map width times the zoom, rounded half-up, at least 1 (`ShapePrimitives::ScreenLineWidth`, in `src/renderer/shapeprimitives.h`). The thick-line span code lives there too.
+- Test items, in `tests/test_thick_lines.cpp` (9 cases):
+  - Width 2, width 3 with its one-pixel caps, and zoom 2 with width 3 (six rows): hand-derived spans.
+  - Zoom 1.5 with width 3: 4.5 rounds up to 5 rows.
+  - Width 1 and no property: the engine's line, no spans.
+  - A diagonal line: one span per row, each row once, far fewer spans than pixels.
+  - Widths 2 to 5 at four angles: the spans cover exactly the pixels a separate reference (computed from the raw
+    endpoints) accepts.
+  - A line left of the viewport still produces spans past its edge: the engine's clip does the cutting.
+- Mutation checks (each fails its test): cap length `(w - 1) / 2` to `w / 2`; the edge rule excludes `+h` inclusively;
+  the zoom rounding drops the half-up.
+- Full suite under AddressSanitizer: 365 test cases pass with no reports.
+- Not yet covered: the spans are not compared with the reference for a line crossing a viewport edge or corner. The
+  engine's clip is what cuts them there, and the clip itself is tested by the viewport tests.
+- Not yet measured: the cost of a long thick line that runs far off the viewport (its rows are computed in full).
+- `doc/BREAKAGES.md` item 16 is written: polylines at a zoom other than 1 are wider than before.
 
 **C2: thick polylines and polygons.** Joins have no gaps.
 - Test items: a sharp corner has no gap, checked against the reference; a polygon's
@@ -335,6 +350,28 @@ Test items:
 - A higher z-order is drawn after a lower one on the same layer.
 - The sort is stable: equal values keep insertion order.
 - Sprites on different layers keep the layer order, whatever their z-values.
+
+## Structure: a smaller TileMapRenderer
+
+`src/renderer/tilemaprenderer.cpp` is about 3,300 lines, and it holds most of the renderer's work. The
+helpers that were not part of the renderer have already moved to their own modules: `shapeprimitives`
+(clip, stroke and screen width), `shapeobjects` (the `line_width` property), `externalresources` (external
+tilesets and templates) and `maporientation` (orientation names). S1 moves the rest.
+
+| # | Item | Status |
+|---|------|--------|
+| S1 | Split `TileMapRenderer` into one header and source per concern, so no single file holds more than one concern | TODO |
+
+- Concerns to move, in this order: text objects; tile objects and their animation; object drawing (`DrawObjects`
+  and its dispatch); view passes and multi-view rendering; map loading and its callbacks; the sprite registry; the
+  default input handlers. Each move is one commit.
+- Target: `tilemaprenderer.cpp` under 1,000 lines, and no new file over 600.
+- No behaviour change in any step: the full suite passes, every sample builds, the AddressSanitizer run is clean,
+  and the shapes stress benchmark stays within its usual spread.
+- Public API of `TileMapRenderer` does not change. If a step has to change it, the change goes in
+  `doc/BREAKAGES.md` first.
+- Every value in new code is named, as in the other modules.
+- Start after Phase C is closed, so the thick-line work is not moved underneath it.
 
 ## Docs, samples and tests
 
