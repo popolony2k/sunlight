@@ -109,10 +109,11 @@ namespace SunLight  {
              * @param fCenterY Centre Y;
              * @param fRadiusX Radius X of the outline's centre line (screen pixels);
              * @param fRadiusY Radius Y;
+             * @param fRotation Clockwise turn of the ellipse about its centre, in degrees (0 is unturned);
              * @param nWidth Width in screen pixels, at least 2;
              * @param color Outline color;
              */
-            void DrawStrokedEllipse( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY, int nWidth, SunLight :: Base :: stColor color );
+            void DrawStrokedEllipse( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY, double fRotation, int nWidth, SunLight :: Base :: stColor color );
         }
     }
 }

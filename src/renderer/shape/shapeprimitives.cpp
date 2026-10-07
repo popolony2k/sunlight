@@ -19,6 +19,7 @@
  */
 
 #include "renderer/shape/shapeprimitives.h"
+#include "renderer/shape/shapeobjects.h"
 #include "engines/enginefactory.h"
 #include <algorithm>
 #include <cmath>
@@ -295,13 +296,19 @@ namespace SunLight  {
                     }
                 }
 
-                // A pixel centre is inside an ellipse when it is strictly inside, with the boundary tolerance.
-                bool InsideEllipse( double fX, double fY, double fCenterX, double fCenterY, double fRadiusX, double fRadiusY )  {
+                // A pixel centre is inside an ellipse when it is strictly inside, with the boundary tolerance. The ellipse
+                // is turned by (fCos, fSin) about its centre, so the pixel is turned back into its frame first.
+                bool InsideEllipse( double fX, double fY, double fCenterX, double fCenterY, double fRadiusX, double fRadiusY,
+                                    double fCos, double fSin )  {
 
-                    double  dx = ( fX - fCenterX ) / fRadiusX;
-                    double  dy = ( fY - fCenterY ) / fRadiusY;
+                    double  dx = fX - fCenterX;
+                    double  dy = fY - fCenterY;
+                    double  u  = ( dx * fCos ) + ( dy * fSin );
+                    double  v  = -( dx * fSin ) + ( dy * fCos );
+                    double  nu = u / fRadiusX;
+                    double  nv = v / fRadiusY;
 
-                    return ( dx * dx + dy * dy ) < ( __ONE_UNIT - __BOUNDARY_EPSILON );
+                    return ( nu * nu + nv * nv ) < ( __ONE_UNIT - __BOUNDARY_EPSILON );
                 }
 
                 // The ring: inside the outer ellipse and not inside the inner one (none when there is no inner ellipse).
@@ -309,15 +316,17 @@ namespace SunLight  {
                     double  fCenterX, fCenterY;
                     double  fOuterX, fOuterY;
                     double  fInnerX, fInnerY;
+                    double  fCos, fSin;             // the ellipse's own x axis, turned from the screen's
                     bool    bHasInner;
                 };
 
                 bool InRing( const Ring &ring, double fX, double fY )  {
 
-                    if( !InsideEllipse( fX, fY, ring.fCenterX, ring.fCenterY, ring.fOuterX, ring.fOuterY ) )
+                    if( !InsideEllipse( fX, fY, ring.fCenterX, ring.fCenterY, ring.fOuterX, ring.fOuterY, ring.fCos, ring.fSin ) )
                         return false;
 
-                    return !( ring.bHasInner && InsideEllipse( fX, fY, ring.fCenterX, ring.fCenterY, ring.fInnerX, ring.fInnerY ) );
+                    return !( ring.bHasInner && InsideEllipse( fX, fY, ring.fCenterX, ring.fCenterY, ring.fInnerX, ring.fInnerY,
+                                                               ring.fCos, ring.fSin ) );
                 }
             }
 
@@ -362,31 +371,33 @@ namespace SunLight  {
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( nX, nY, nSide, nSide, color );
             }
 
-            void DrawStrokedEllipse( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY, int nWidth, SunLight :: Base :: stColor color )  {
+            void DrawStrokedEllipse( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY, double fRotation, int nWidth,
+                                     SunLight :: Base :: stColor color )  {
 
-                double  h = nWidth * __HALF;
-                Ring    ring { fCenterX, fCenterY, fRadiusX + h, fRadiusY + h, fRadiusX - h, fRadiusY - h,
-                               ( fRadiusX - h > __ORIGIN ) && ( fRadiusY - h > __ORIGIN ) };
+                double        h    = nWidth * __HALF;
+                MapPoint      axis = Rotate( MapPoint { __ONE_UNIT, __ORIGIN }, fRotation );
+                Ring          ring { fCenterX, fCenterY, fRadiusX + h, fRadiusY + h, fRadiusX - h, fRadiusY - h, axis.fX, axis.fY,
+                                     ( fRadiusX - h > __ORIGIN ) && ( fRadiusY - h > __ORIGIN ) };
 
-                int  nFirstRow = ( int ) std :: floor( fCenterY - ring.fOuterY - __HALF ) - __ROW_MARGIN;
-                int  nLastRow  = ( int ) std :: ceil( fCenterY + ring.fOuterY - __HALF ) + __ROW_MARGIN;
+                // The box that holds the turned outer ellipse: its half width and half height on the screen.
+                double  fHalfWidth  = std :: sqrt( ( ring.fOuterX * axis.fX ) * ( ring.fOuterX * axis.fX ) +
+                                                   ( ring.fOuterY * axis.fY ) * ( ring.fOuterY * axis.fY ) );
+                double  fHalfHeight = std :: sqrt( ( ring.fOuterX * axis.fY ) * ( ring.fOuterX * axis.fY ) +
+                                                   ( ring.fOuterY * axis.fX ) * ( ring.fOuterY * axis.fX ) );
+
+                int  nFirstRow = ( int ) std :: floor( fCenterY - fHalfHeight - __HALF ) - __ROW_MARGIN;
+                int  nLastRow  = ( int ) std :: ceil( fCenterY + fHalfHeight - __HALF ) + __ROW_MARGIN;
+                int  nFirstCol = ( int ) std :: floor( fCenterX - fHalfWidth - __HALF ) - __COLUMN_MARGIN;
+                int  nLastCol  = ( int ) std :: ceil( fCenterX + fHalfWidth - __HALF ) + __COLUMN_MARGIN;
 
                 for( int nRow = nFirstRow; nRow <= nLastRow; nRow++ )  {
 
-                    double  cy = nRow + __HALF;
-                    double  dy = ( cy - fCenterY ) / ring.fOuterY;
-
-                    if( std :: fabs( dy ) >= __ONE_UNIT )
-                        continue;
-
-                    double  half   = ring.fOuterX * std :: sqrt( __ONE_UNIT - dy * dy );
-                    int     nFirst = ( int ) std :: floor( fCenterX - half - __HALF ) - __COLUMN_MARGIN;
-                    int     nLast  = ( int ) std :: ceil( fCenterX + half - __HALF ) + __COLUMN_MARGIN;
-                    bool    bInRun = false;
+                    double  cy        = nRow + __HALF;
+                    bool    bInRun    = false;
                     int     nRunStart = 0;
 
-                    for( int nX = nFirst; nX <= nLast + __ONE_PIXEL; nX++ )  {
-                        bool  bIn = ( nX <= nLast ) && InRing( ring, nX + __HALF, cy );
+                    for( int nX = nFirstCol; nX <= nLastCol + __ONE_PIXEL; nX++ )  {
+                        bool  bIn = ( nX <= nLastCol ) && InRing( ring, nX + __HALF, cy );
 
                         if( bIn && !bInRun )  {
                             nRunStart = nX;

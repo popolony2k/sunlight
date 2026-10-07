@@ -266,7 +266,7 @@ closes the point-object gap from B.
 | # | Item | Status |
 |---|------|--------|
 | D1a | Rotate rectangle, polyline and polygon outlines about their pivot | DONE |
-| D1b | Rotate ellipses (rotated ring: the inside test runs in the ellipse's own frame) | TODO |
+| D1b | Rotate ellipses (rotated ring: the inside test runs in the ellipse's own frame) | DONE |
 | D1c | Points: not applicable. Tiled 1.11 does not offer rotation for point objects | N/A |
 | D1d | Rotate tile and text objects (needs `IEngine` to draw with a rotation) | TODO |
 
@@ -275,8 +275,8 @@ which is the point Tiled keeps when a rotation is set. Rotation is clockwise on 
 each test:
 - Rectangle (120 × 80 at 100, 100): pivot is the top-left corner. After 90° it sits left of and below the
   point, covering x 20–100 and y 100–220. Confirmed.
-- Ellipse (160 × 80 at 100, 100): pivot is the top-left corner. After 90° its centre is at (60, 160), left
-  of and below the point. Confirmed.
+- Ellipse (160 × 80 at 100, 100): pivot is the top-left corner. After 90° its centre is at (60, 180), left
+  of and below the point. Corrected from (60, 160): the unrotated centre is (180, 140), not (160, 140).
 - Tile object (32 × 32 at 100, 100): pivot is the bottom-left corner. After 90° it sits right of and below
   the point, covering x 100–132 and y 100–132. Confirmed.
 - Point: Tiled does not rotate it. D1c is not applicable.
@@ -296,6 +296,18 @@ rotation gets 0, so its output is unchanged.
 - Sample: `samples/shapes/resources/map/rotation.tmx` (a rectangle, a polyline and a polygon, each with a pivot
   marker). Checked by eye: the shapes turn clockwise about their markers.
 - Full suite under AddressSanitizer: 382 test cases pass with no reports.
+
+**D1b: rotated ellipses (DONE).** The ring is tested in the ellipse's own frame: each pixel centre is turned
+back by the ellipse's rotation before the outer and inner tests. The centre is the box's centre, turned about the
+stored point. A one-pixel ring is used when the ellipse is turned; an unturned one-pixel outline stays the engine's.
+- Test items, in `tests/test_thick_lines.cpp` (the "Rotated ellipses" suite, 3 cases):
+  - A thick ellipse turned 45°: the spans equal the reference ring in its own frame.
+  - A one-pixel ellipse turned 90°: a one-pixel ring, not the engine's outline.
+  - An unturned one-pixel ellipse: still the engine's outline.
+- Mutation checks: ignoring the frame's turn fails the 45° and 90° cases. Turning the frame the other way fails the
+  45° case. (Flipping only the sign of the perpendicular coordinate changes nothing, because it is squared.)
+- Sample: `samples/shapes/resources/map/rotation.tmx` has a 45° ellipse, with a pivot marker. Checked by eye: it works.
+- Full suite under AddressSanitizer: 387 test cases pass with no reports.
 
 **Test map.** The Tiled files are in `Spool/test` for now. Once D1a is done, the same map goes to
 `samples/shapes/resources/map/` with a copy of the tileset image beside it.
