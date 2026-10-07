@@ -143,6 +143,17 @@ namespace SunLight  {
             void NullEngine :: EndRenderTarget( void )  {
             }
 
+            void NullEngine :: DrawTextureRotated( SunLight :: Base :: TextureHandle,
+                                                   SunLight :: Base :: stRectangle,
+                                                   SunLight :: Base :: stRectangle,
+                                                   SunLight :: Base :: stVector2D,
+                                                   float,
+                                                   SunLight :: Base :: stColor )  {
+            }
+
+            void NullEngine :: DrawTextRotated( const char *, int, int, int, float, SunLight :: Base :: stColor )  {
+            }
+
             void NullEngine :: DrawTextureScaled( SunLight :: Base :: TextureHandle,
                                                   SunLight :: Base :: stRectangle,
                                                   SunLight :: Base :: stRectangle,
@@ -182,6 +193,9 @@ namespace SunLight  {
                 }
 
                 void DrawText( const char *, int, int, int, SunLight :: Base :: stColor ) override  {
+                }
+
+                void DrawTextRotated( const char *, int, int, int, float, SunLight :: Base :: stColor ) override  {
                 }
             };
 

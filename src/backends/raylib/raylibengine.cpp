@@ -768,6 +768,34 @@ namespace SunLight  {
                 return &( reinterpret_cast<RenderTexture2D*>( hRenderTarget ) -> texture );
             }
 
+            void RaylibEngine :: DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                                                     SunLight :: Base :: stRectangle source,
+                                                     SunLight :: Base :: stRectangle dest,
+                                                     SunLight :: Base :: stVector2D origin,
+                                                     float rotation,
+                                                     SunLight :: Base :: stColor tint )  {
+
+                Texture2D  texture = *reinterpret_cast<Texture2D*>( hTexture );
+                Rectangle  sourceRect { source.x, source.y, source.width, source.height };
+                Rectangle  destRect   { dest.x, dest.y, dest.width, dest.height };
+
+                // raylib turns the destination about (dest.x, dest.y), with origin as the offset of its corner from there.
+                ::DrawTexturePro( texture, sourceRect, destRect, Vector2 { origin.x, origin.y }, rotation,
+                                  Color{ tint.nRed, tint.nGreen, tint.nBlue, tint.nAlpha } );
+            }
+
+            void RaylibEngine :: DrawTextRotated( const char *szText,
+                                                  int nPosX,
+                                                  int nPosY,
+                                                  int nFontSize,
+                                                  float rotation,
+                                                  SunLight :: Base :: stColor color )  {
+
+                ::DrawTextPro( GetActiveFont(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY }, Vector2 { 0.0f, 0.0f },
+                               rotation, ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
+                               Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+            }
+
             /**
              * @brief Draw a texture stretched from a source rectangle into
              * a destination rectangle, with no tiling. A negative source

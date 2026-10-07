@@ -38,6 +38,8 @@ merged.
 
 | 17 | **D1a** A rectangle, polyline or polygon with a rotation in Tiled is drawn turned about its stored point. Before, the rotation was ignored. | Any map with a rotated rectangle, polyline or polygon now shows it turned. Objects with no rotation are unchanged. | Nothing for scripts. Check rotated shapes in a game's maps at the pin bump. |
 
+| 18 | **D1d** `IEngine` gains `DrawTextureRotated` and `DrawTextRotated`, and `IFont` gains `DrawTextRotated` (all pure virtual). A tile or text object with a rotation in Tiled is drawn turned. | Any other implementer of `IEngine` or `IFont` (the raylib and null backends and the test mocks are updated) must implement the new methods. Maps with rotated tile or text objects now show them turned. | Nothing for scripts. A new backend implements the three methods. Check rotated tile and text objects in a game's maps at the pin bump. |
+
 ## Checked: no change for the peers
 
 - `IDrawSurface` and the Lua text API (`set_font`, `draw_text`, `measure_text`).

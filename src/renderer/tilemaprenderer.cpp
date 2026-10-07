@@ -579,6 +579,7 @@ namespace SunLight {
             double  fBoxY = ( ( pObject -> y + pLayer -> offsety + m_CameraPos.y ) * fZoom ) + vp.pos.y;
             double  fBoxW = pObject -> width * fZoom;
             double  fBoxH = pObject -> height * fZoom;
+            double  fRotation = Shape :: RotationOf( pObject );
 
             int  nFontSize   = ( pText -> pixelsize > 0 ) ? pText -> pixelsize : __DEFAULT_TEXT_PIXEL_SIZE;
             int  nScreenSize = std :: max( 1, ( int ) std :: lround( nFontSize * fZoom ) );
@@ -588,9 +589,9 @@ namespace SunLight {
             double  fVpRight  = vp.pos.x + vp.size.nWidth;
             double  fVpBottom = vp.pos.y + vp.size.nHeight;
 
-            if( ( fBoxX >= fVpRight ) || ( fBoxY >= fVpBottom ) ||
+            if( ( fRotation == 0.0 ) && ( ( fBoxX >= fVpRight ) || ( fBoxY >= fVpBottom ) ||
                 ( ( fBoxW > 0 ) && ( fBoxX + fBoxW <= vp.pos.x ) ) ||
-                ( ( fBoxH > 0 ) && ( fBoxY + fBoxH <= vp.pos.y ) ) )
+                ( ( fBoxH > 0 ) && ( fBoxY + fBoxH <= vp.pos.y ) ) ) )
                 return;
 
             SunLight :: Font :: IFont   *pFont   = FindRegisteredFont( szFamily, bBold, bItalic );
@@ -688,6 +689,20 @@ namespace SunLight {
                 int  nX = ( int ) std :: lround( fLeft );
                 int  nY = ( int ) std :: lround( fTop + ( nIdx * nScreenSize ) );
 
+                // A turned block: each line's top-left corner turns about the block's top-left corner, and the line turns with it.
+                if( fRotation != 0.0 )  {
+                    Shape :: MapPoint  turned = Shape :: Rotate( Shape :: MapPoint { fLeft - fBoxX, ( fTop + ( nIdx * nScreenSize ) ) - fBoxY }, fRotation );
+                    int                nTurnedX = ( int ) std :: lround( fBoxX + turned.fX );
+                    int                nTurnedY = ( int ) std :: lround( fBoxY + turned.fY );
+
+                    if( pFont )
+                        pFont -> DrawTextRotated( lines[nIdx].c_str(), nTurnedX, nTurnedY, nScreenSize, ( float ) fRotation, color );
+                    else
+                        engine.DrawTextRotated( lines[nIdx].c_str(), nTurnedX, nTurnedY, nScreenSize, ( float ) fRotation, color );
+
+                    continue;
+                }
+
                 if( pFont )
                     pFont -> DrawText( lines[nIdx].c_str(), nX, nY, nScreenSize, color );
                 else
@@ -771,6 +786,30 @@ namespace SunLight {
             float          fOpacity = ( float ) pLayer -> opacity;
             int            nTileW   = ( int ) pTs -> tile_width;
             int            nTileH   = ( int ) pTs -> tile_height;
+
+            // A turned tile object is the whole tile turned about its bottom-left corner, Tiled's pivot. The engine's clip
+            // cuts it at the viewport, as it does every turned shape.
+            double  fRotation = Shape :: RotationOf( pObject );
+
+            if( fRotation != 0.0 )  {
+                Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
+
+                SunLight :: Base :: stDimension2D&  vpDm = GetViewport().GetDimension2D();
+                double                              fZoom = GetViewport().GetZoomProperties().fZoomFactor;
+                double                              fAnchorX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vpDm.pos.x;
+                double                              fAnchorY = ( ( pObject -> y + pLayer -> offsety + m_CameraPos.y ) * fZoom ) + vpDm.pos.y;
+                double                              fBoxW    = pObject -> width * fZoom;
+                double                              fBoxH    = pObject -> height * fZoom;
+
+                // The anchor is the bottom-left corner: the destination's top-left sits one box height above it.
+                SunLight :: Base :: stRectangle  source { ( float ) pTile -> ul_x, ( float ) pTile -> ul_y, ( float ) nTileW, ( float ) nTileH };
+                SunLight :: Base :: stRectangle  dest   { ( float ) fAnchorX, ( float ) fAnchorY, ( float ) fBoxW, ( float ) fBoxH };
+                SunLight :: Base :: stVector2D   origin { 0.0f, ( float ) fBoxH };
+                SunLight :: Base :: stColor      tint   { __OPAQUE_CHANNEL, __OPAQUE_CHANNEL, __OPAQUE_CHANNEL, ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) };
+
+                SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureRotated( pImage, source, dest, origin, ( float ) fRotation, tint );
+                return;
+            }
 
             // A tile object at its tile's own size is drawn exactly as a map tile is.
             if( ( ( int ) pObject -> width == nTileW ) && ( ( int ) pObject -> height == nTileH ) )  {

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.0" orientation="orthogonal" renderorder="right-down" width="60" height="40" tilewidth="32" tileheight="32" nextlayerid="4" nextobjectid="100">
+ <tileset firstgid="1" name="sunny" tilewidth="32" tileheight="32" tilecount="4" columns="4">
+  <image source="sunny_idle_down.png" width="128" height="32"/>
+ </tileset>
  <!-- Rotation (D1a): each shape turns about its stored point, the small square marked "pivot". Clockwise on screen. -->
  <objectgroup id="1" name="frame" color="#ff00ff00">
   <object id="1" name="viewport" x="0" y="0" width="1000" height="800"/>
@@ -23,5 +26,10 @@
   <object id="40" name="ellipse-45" x="250" y="700" width="120" height="60" rotation="45"><properties><property name="line_width" type="int" value="3"/></properties><ellipse/></object>
   <object id="41" name="pivot-ellipse45" x="250" y="700" width="6" height="6"/>
   <object id="42" name="label-ellipse45" x="250" y="660" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">ellipse 45 w3</text></object>
+  <object id="50" name="tile-90" x="950" y="330" width="32" height="32" gid="1" rotation="90"/>
+  <object id="51" name="text-90" x="880" y="400" width="200" height="40" rotation="90"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">turned text</text></object>
+  <object id="52" name="tile-45" x="60" y="400" width="32" height="32" gid="1" rotation="45"/>
+  <object id="53" name="tile-45b" x="120" y="400" width="32" height="32" gid="2" rotation="45"/>
+  <object id="54" name="text-45" x="60" y="300" width="220" height="40" rotation="45"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">text 45</text></object>
  </objectgroup>
 </map>

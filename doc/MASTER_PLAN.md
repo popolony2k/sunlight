@@ -268,7 +268,7 @@ closes the point-object gap from B.
 | D1a | Rotate rectangle, polyline and polygon outlines about their pivot | DONE |
 | D1b | Rotate ellipses (rotated ring: the inside test runs in the ellipse's own frame) | DONE |
 | D1c | Points: not applicable. Tiled 1.11 does not offer rotation for point objects | N/A |
-| D1d | Rotate tile and text objects (needs `IEngine` to draw with a rotation) | TODO |
+| D1d | Rotate tile and text objects (needs `IEngine` to draw with a rotation) | DONE |
 
 **Verified pivots (Tiled 1.11.0, checked by hand on a test map).** Each object turns about its stored X and Y,
 which is the point Tiled keeps when a rotation is set. Rotation is clockwise on screen, with a 90° turn for
@@ -281,6 +281,21 @@ each test:
   the point, covering x 100–132 and y 100–132. Confirmed.
 - Point: Tiled does not rotate it. D1c is not applicable.
 - Polyline and polygon points are relative to the object's X and Y, so they turn about that point.
+
+**D1d: rotated tile and text objects (DONE).** A new `IEngine::DrawTextureRotated` draws one texture turned about
+an anchor, with an origin offset (raylib's `DrawTexturePro`). A new `IEngine::DrawTextRotated` and `IFont::DrawTextRotated`
+draw a line of text turned about its top-left corner (`DrawTextPro`). A turned tile is one texture turned about its
+bottom-left corner, Tiled's pivot. A turned text block turns each line's top-left corner about the block's top-left
+corner, and the line turns with it. A turned text block is never culled by its unturned box.
+- Test items, in `tests/test_rotated_tiles_text.cpp` (the "Rotated tiles and text" suite, 3 cases):
+  - A tile turned 90°: one turned texture, anchored at the object's point, origin (0, height).
+  - A two-line text block turned 90°: the first line at the pivot, the second line swung to the left.
+  - A text block turned into view, although its unturned box is outside the viewport, is drawn.
+- Mutation checks: the tile's origin at the top-left corner, culling by the unturned box, and the lines turned the
+  wrong way each fail their case.
+- Breaking: `IEngine` and `IFont` gain pure virtual methods (BREAKAGES item 18).
+- Sample: `samples/shapes/resources/map/rotation.tmx` has turned tiles and text at 90° and 45°. Checked by eye: it works.
+- Full suite under AddressSanitizer: 390 test cases pass with no reports.
 
 **D1a: rotated shape outlines (IN PROGRESS).** Each point of a rectangle, polyline or polygon turns about the
 object's stored point in map units, before the zoom is applied. The turn is clockwise on screen, and it is exact
