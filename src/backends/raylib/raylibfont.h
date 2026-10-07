@@ -71,6 +71,13 @@ namespace SunLight  {
                                int nFontSize,
                                SunLight :: Base :: stColor color ) override;
 
+                void DrawTextRotated( const char *szText,
+                                      int nPosX,
+                                      int nPosY,
+                                      int nFontSize,
+                                      float rotation,
+                                      SunLight :: Base :: stColor color ) override;
+
                 private:
 
                 std :: shared_ptr<__stRaylibFont>  m_pState;

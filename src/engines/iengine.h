@@ -366,6 +366,43 @@ namespace SunLight  {
                                             SunLight :: Base :: stRectangle source,
                                             SunLight :: Base :: stRectangle dest,
                                             SunLight :: Base :: stColor tint ) = 0;
+
+            /**
+             * @brief Must be implemented to draw one texture turned by a rotation, clockwise on screen, about the anchor
+             * point given by dest's x and y. origin is the offset of dest's top-left corner from that anchor before the
+             * turn, so an origin of (0, height) puts dest's bottom-left corner on the anchor (Tiled's pivot for tiles).
+             *
+             * @param hTexture The texture handle to draw;
+             * @param source The part of the texture to draw;
+             * @param dest Where the texture goes, with its anchor at (x, y);
+             * @param origin Offset of dest's top-left corner from the anchor;
+             * @param rotation Clockwise rotation in degrees;
+             * @param tint Color tint applied to texture;
+             */
+            virtual void DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                                             SunLight :: Base :: stRectangle source,
+                                             SunLight :: Base :: stRectangle dest,
+                                             SunLight :: Base :: stVector2D origin,
+                                             float rotation,
+                                             SunLight :: Base :: stColor tint ) = 0;
+
+            /**
+             * @brief Must be implemented to draw one line of text turned by a clockwise rotation about its top-left
+             * corner (nPosX, nPosY), using the active font (see @see SetFont).
+             *
+             * @param szText The text to draw;
+             * @param nPosX X of the text's top-left corner;
+             * @param nPosY Y of the text's top-left corner;
+             * @param nFontSize Font size, in pixels;
+             * @param rotation Clockwise rotation in degrees;
+             * @param color Text color;
+             */
+            virtual void DrawTextRotated( const char *szText,
+                                          int nPosX,
+                                          int nPosY,
+                                          int nFontSize,
+                                          float rotation,
+                                          SunLight :: Base :: stColor color ) = 0;
         };
     }
 }

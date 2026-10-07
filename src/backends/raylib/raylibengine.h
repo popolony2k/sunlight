@@ -111,6 +111,20 @@ namespace SunLight  {
                                         SunLight :: Base :: stRectangle dest,
                                         SunLight :: Base :: stColor tint ) override;
 
+                void DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                                         SunLight :: Base :: stRectangle source,
+                                         SunLight :: Base :: stRectangle dest,
+                                         SunLight :: Base :: stVector2D origin,
+                                         float rotation,
+                                         SunLight :: Base :: stColor tint ) override;
+
+                void DrawTextRotated( const char *szText,
+                                      int nPosX,
+                                      int nPosY,
+                                      int nFontSize,
+                                      float rotation,
+                                      SunLight :: Base :: stColor color ) override;
+
                 private:
 
                 // Releases this class's own GPU-context-tied state - the

@@ -62,6 +62,13 @@ class MockFont : public SunLight :: Font :: IFont  {
                    int nPosY,
                    int nFontSize,
                    SunLight :: Base :: stColor color ) override;
+
+    void DrawTextRotated( const char *szText,
+                          int nPosX,
+                          int nPosY,
+                          int nFontSize,
+                          float rotation,
+                          SunLight :: Base :: stColor color ) override;
 };
 
 class MockEngine : public SunLight :: Engines :: IEngine  {
@@ -92,11 +99,13 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nBeginRenderTargetCalls    = 0;
     int                                 nEndRenderTargetCalls      = 0;
     int                                 nDrawTextureScaledCalls    = 0;
+    int                                 nDrawTextureRotatedCalls   = 0;
+    int                                 nDrawTextRotatedCalls      = 0;
 
     // Every draw-ish call in order, for tests that care about WHICH pass drew what and in what order
     // (the multi-view frame): kind + the rectangle it was given (x, y, w, h; zeros where it has none).
     struct Event  {
-        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED, LINE, ELLIPSE };   // LINE: x, y = first end, w, h = second end, scale = thickness. ELLIPSE: x, y = centre, w, h = radii   // CLIP_BEGIN: x, y, w, h = the rectangle
+        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED, LINE, ELLIPSE, TILE_ROTATED, TEXT_ROTATED };   // TILE_ROTATED: x, y = anchor, w, h = dest size, scale = rotation, srcX, srcY = origin. TEXT_ROTATED: x, y = top-left corner, scale = rotation, nFontSize, text   // LINE: x, y = first end, w, h = second end, scale = thickness. ELLIPSE: x, y = centre, w, h = radii   // CLIP_BEGIN: x, y, w, h = the rectangle
 
         Kind   kind;
         float  x, y, w, h;
@@ -294,6 +303,31 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         events.push_back( Event { Event :: SCALED, dest.x, dest.y, dest.width, dest.height, 0.0f, source.x, hTexture,
                                   tint, std :: string(), nullptr, 0, source.y, source.width, source.height } );
     }
+
+    void DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                             SunLight :: Base :: stRectangle source,
+                             SunLight :: Base :: stRectangle dest,
+                             SunLight :: Base :: stVector2D origin,
+                             float rotation,
+                             SunLight :: Base :: stColor tint )  {
+        nDrawTextureRotatedCalls++;
+        hLastDrawnTexture = hTexture;
+        events.push_back( Event { Event :: TILE_ROTATED, dest.x, dest.y, dest.width, dest.height, rotation, origin.x, hTexture,
+                                  tint, std :: string(), nullptr, 0, origin.y, source.width, source.height } );
+    }
+
+    // Records a TEXT_ROTATED event. font is the MockFont drawing it, or nullptr for the active font.
+    void RecordTextRotated( const void *font, const char *szText, int nPosX, int nPosY, int nFontSize, float rotation,
+                            SunLight :: Base :: stColor color )  {
+        nDrawTextRotatedCalls++;
+        strLastDrawnText = szText;
+        events.push_back( Event { Event :: TEXT_ROTATED, ( float ) nPosX, ( float ) nPosY, 0, 0, rotation, 0.0f, nullptr, color,
+                                  szText, font, nFontSize } );
+    }
+
+    void DrawTextRotated( const char *szText, int nPosX, int nPosY, int nFontSize, float rotation, SunLight :: Base :: stColor color )  {
+        RecordTextRotated( nullptr, szText, nPosX, nPosY, nFontSize, rotation, color );
+    }
 };
 
 /**
@@ -327,6 +361,10 @@ inline int MockFont :: MeasureText( const char *szText, int nFontSize )  {
 
 inline void MockFont :: DrawText( const char *szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
     pOwner -> RecordText( this, szText, nPosX, nPosY, nFontSize, color );
+}
+
+inline void MockFont :: DrawTextRotated( const char *szText, int nPosX, int nPosY, int nFontSize, float rotation, SunLight :: Base :: stColor color )  {
+    pOwner -> RecordTextRotated( this, szText, nPosX, nPosY, nFontSize, rotation, color );
 }
 
 class MockEngineFixture  {

@@ -66,6 +66,21 @@ namespace SunLight  {
                 return ( int ) size.x;
             }
 
+            void RaylibFont :: DrawTextRotated( const char *szText,
+                                                int nPosX,
+                                                int nPosY,
+                                                int nFontSize,
+                                                float rotation,
+                                                SunLight :: Base :: stColor color )  {
+
+                if( !m_pState -> bValid )
+                    return;
+
+                ::DrawTextPro( m_pState -> font, szText, Vector2{ ( float ) nPosX, ( float ) nPosY }, Vector2 { 0.0f, 0.0f },
+                               rotation, ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
+                               Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+            }
+
             /**
              * @brief Draw a line in this font, or nothing once it is invalid
              * (see @see IFont::DrawText).

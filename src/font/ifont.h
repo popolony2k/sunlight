@@ -73,6 +73,24 @@ namespace SunLight {
                                    int nPosY,
                                    int nFontSize,
                                    SunLight :: Base :: stColor color ) = 0;
+
+            /**
+             * @brief Must be implemented to draw one line of text turned by a clockwise rotation about its top-left
+             * corner (nPosX, nPosY), in this font.
+             *
+             * @param szText The text to draw;
+             * @param nPosX X of the text's top-left corner;
+             * @param nPosY Y of the text's top-left corner;
+             * @param nFontSize Font size, in pixels;
+             * @param rotation Clockwise rotation in degrees;
+             * @param color Text color;
+             */
+            virtual void DrawTextRotated( const char *szText,
+                                          int nPosX,
+                                          int nPosY,
+                                          int nFontSize,
+                                          float rotation,
+                                          SunLight :: Base :: stColor color ) = 0;
         };
     }
 }
