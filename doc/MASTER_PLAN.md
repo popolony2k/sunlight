@@ -265,16 +265,31 @@ closes the point-object gap from B.
 
 | # | Item | Status |
 |---|------|--------|
-| D1 | Apply Tiled object rotation to shapes, text and tile objects | TODO |
+| D1a | Rotate rectangle, polyline and polygon outlines about their pivot | TODO |
+| D1b | Rotate ellipses (rotated ring: the inside test runs in the ellipse's own frame) | TODO |
+| D1c | Points: not applicable. Tiled 1.11 does not offer rotation for point objects | N/A |
+| D1d | Rotate tile and text objects (needs `IEngine` to draw with a rotation) | TODO |
 
-**D1: object rotation.** libtmx parses each object's `rotation`, but `DrawObjects`
-ignores it. Rotate each shape's points about its pivot before drawing, so rotated shapes
-also get the thick-primitive work from Phase C. The pivot must follow Tiled's convention,
-which differs between rectangle, tile and text objects, so it is verified against Tiled
-before implementation.
-- Test items: rotation 0 is byte-identical to today; a 90 degree rectangle matches a
-  reference; a rotated text object is drawn at the rotated position; a rotated tile object
-  uses Tiled's pivot; a rotated thick outline matches the reference from Phase C.
+**Verified pivots (Tiled 1.11.0, checked by hand on a test map).** Each object turns about its stored X and Y,
+which is the point Tiled keeps when a rotation is set. Rotation is clockwise on screen, with a 90° turn for
+each test:
+- Rectangle (120 × 80 at 100, 100): pivot is the top-left corner. After 90° it sits left of and below the
+  point, covering x 20–100 and y 100–220. Confirmed.
+- Ellipse (160 × 80 at 100, 100): pivot is the top-left corner. After 90° its centre is at (60, 160), left
+  of and below the point. Confirmed.
+- Tile object (32 × 32 at 100, 100): pivot is the bottom-left corner. After 90° it sits right of and below
+  the point, covering x 100–132 and y 100–132. Confirmed.
+- Point: Tiled does not rotate it. D1c is not applicable.
+- Polyline and polygon points are relative to the object's X and Y, so they turn about that point.
+
+**Test map.** The Tiled files are in `Spool/test` for now. Once D1a is done, the same map goes to
+`samples/shapes/resources/map/` with a copy of the tileset image beside it.
+
+- D1a test items: rotation 0 is byte-identical to today; a 90° rectangle matches the reference of its rotated
+  corners; a rotated polyline and polygon turn about the object's X and Y.
+- D1b test items: a 90° ellipse matches a reference ring in its own frame; a rotated thick outline matches the
+  C4 reference.
+- D1d test items: a rotated tile object uses the bottom-left pivot; a rotated text object uses the top-left pivot.
 
 ## Phase E: isometric, staggered and hexagonal maps
 
