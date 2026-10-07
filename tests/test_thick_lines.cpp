@@ -638,6 +638,31 @@ TEST_SUITE( "Rotated shapes" )  {
         CHECK( lines[0].w == 110.0f );  CHECK( lines[0].h == 160.0f );
     }
 
+    TEST_CASE( "A polyline turned 45 degrees ends at the rounded-down pixel of its turned end" )  {
+
+        // The segment (0, 0) to (50, 0) from (110, 110): its end turns to (50 cos 45, 50 sin 45) = (35.36, 35.36),
+        // so the end is at (145.36, 145.36) and whole pixels are taken by truncation, giving (145, 145).
+        Frame  frame( RotatedObject( "<polyline points=\"0,0 50,0\"/>", 45 ) );
+
+        std :: vector<MockEngine :: Event>  lines = frame.Of( MockEngine :: Event :: LINE );
+
+        REQUIRE( lines.size() == 1 );
+        CHECK( lines[0].x == 110.0f );  CHECK( lines[0].y == 110.0f );
+        CHECK( lines[0].w == 145.0f );  CHECK( lines[0].h == 145.0f );
+    }
+
+    TEST_CASE( "A thick polyline turned 45 degrees matches the reference of its turned ends" )  {
+
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" rotation=\"45\">"
+                      "<properties><property name=\"line_width\" type=\"int\" value=\"3\"/></properties>"
+                      "<polyline points=\"0,0 50,0\"/></object>" );
+
+        std :: set<std :: pair<int, int>>  expected = ReferencePath( ScreenOf( { { 0, 0 }, { 35, 35 } } ), false, 3 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+    }
+
     TEST_CASE( "A thick triangle turned 90 degrees matches the reference of its turned corners" )  {
 
         // Points (0, 0), (50, 0), (25, 40) turn to (0, 0), (0, 50), (-40, 25) about the stored point.

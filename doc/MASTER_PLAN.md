@@ -290,6 +290,7 @@ rotation gets 0, so its output is unchanged.
   - A rectangle turned 90°: four hairline edges at the expected corners, x 30–110 and y 110–230.
   - A polyline turned 90°: a point to the right of the stored point goes below it.
   - A thick triangle and a thick rectangle turned 90°: the spans equal the reference of the turned corners.
+- A polyline turned 45°: its end lands on the truncated pixel (145, 145), and a thick one matches the reference.
 - Rotation 0: the existing shape tests cover this (the output for an unrotated object is unchanged).
 - Mutation checks: ignoring the rotation, and flipping the direction, each fail the four rotated cases.
 - Sample: `samples/shapes/resources/map/rotation.tmx` (a rectangle, a polyline and a polygon, each with a pivot
