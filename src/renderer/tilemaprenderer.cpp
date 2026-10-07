@@ -209,12 +209,17 @@ namespace SunLight {
                                                                                          double fOriginY,
                                                                                          double **fPoints,
                                                                                          int nPointsCount,
-                                                                                         double fZoom ) {
+                                                                                         double fZoom,
+                                                                                         double fRotation ) {
             std :: vector<Shape :: ScreenPoint>  points;
 
-            for( int i = 0; i < nPointsCount; i++ )
-                points.push_back( Shape :: ScreenPoint { ( int ) ( fOriginX + ( fPoints[i][0] * fZoom ) ),
-                                                                   ( int ) ( fOriginY + ( fPoints[i][1] * fZoom ) ) } );
+            // Each point turns about the shape's stored point in map units, before the zoom is applied.
+            for( int i = 0; i < nPointsCount; i++ ) {
+                Shape :: MapPoint  turned = Shape :: Rotate( Shape :: MapPoint { fPoints[i][0], fPoints[i][1] }, fRotation );
+
+                points.push_back( Shape :: ScreenPoint { ( int ) ( fOriginX + ( turned.fX * fZoom ) ),
+                                                         ( int ) ( fOriginY + ( turned.fY * fZoom ) ) } );
+            }
 
             return points;
         }
@@ -223,6 +228,7 @@ namespace SunLight {
                                               double fOffset_y,
                                               double **fPoints,
                                               int nPointsCount,
+                                              double fRotation,
                                               int nLineWidth,
                                               SunLight :: Base :: stColor color ) {
             Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
@@ -233,19 +239,16 @@ namespace SunLight {
             fOffset_x = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
             fOffset_y = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
 
+            std :: vector<Shape :: ScreenPoint>  points = ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor, fRotation );
+
             if( nLineWidth > __HAIRLINE_WIDTH ) {
-                DrawStrokedPath( ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor ), false, nLineWidth, color );
+                DrawStrokedPath( points, false, nLineWidth, color );
                 return;
             }
 
             for( int i=1; i < nPointsCount; i++ ) {
 
-                DrawEdge( ( int ) ( fOffset_x + ( fPoints[i-1][0] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_y + ( fPoints[i-1][1] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_x + ( fPoints[i][0] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_y + ( fPoints[i][1] * zp.fZoomFactor ) ),
-                               nLineWidth,
-                               color );
+                DrawEdge( points[i-1].nX, points[i-1].nY, points[i].nX, points[i].nY, nLineWidth, color );
             }
         }
 
@@ -260,18 +263,18 @@ namespace SunLight {
                                          double fOffset_y,
                                          double **fPoints,
                                          int nPointsCount,
+                                         double fRotation,
                                          int nLineWidth,
                                          SunLight :: Base :: stColor color ) {
             Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
+            SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
 
             if( nLineWidth > __HAIRLINE_WIDTH ) {
-                SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
-
                 DrawStrokedPath( ScreenPointsOf( ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x,
                                                  ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y,
-                                                 fPoints, nPointsCount, zp.fZoomFactor ),
+                                                 fPoints, nPointsCount, zp.fZoomFactor, fRotation ),
                                  true, nLineWidth, color );
                 return;
             }
@@ -280,24 +283,20 @@ namespace SunLight {
                         fOffset_y,
                         fPoints,
                         nPointsCount,
+                        fRotation,
                         __HAIRLINE_WIDTH,
                         color );
 
             if( nPointsCount > 2 ) {
-
-                SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
 
                 fOffset_x = ( ( fOffset_x + m_CameraPos.x ) *
                             zp.fZoomFactor ) + vp.pos.x;
                 fOffset_y = ( ( fOffset_y + m_CameraPos.y ) *
                             zp.fZoomFactor ) + vp.pos.y;
 
-                DrawEdge( ( int ) ( fOffset_x + ( fPoints[0][0] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_y + ( fPoints[0][1] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_x + ( fPoints[nPointsCount-1][0] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_y + ( fPoints[nPointsCount-1][1] * zp.fZoomFactor ) ),
-                               __HAIRLINE_WIDTH,
-                               color );
+                std :: vector<Shape :: ScreenPoint>  points = ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor, fRotation );
+
+                DrawEdge( points[0].nX, points[0].nY, points[nPointsCount-1].nX, points[nPointsCount-1].nY, __HAIRLINE_WIDTH, color );
             }
         }
 
@@ -313,63 +312,36 @@ namespace SunLight {
                                                double fOffset_y,
                                                double fWidth,
                                                double fHeight,
+                                               double fRotation,
                                                int nLineWidth,
                                                SunLight :: Base :: stColor color )  {
             Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
             SunLight :: Base :: stDimension2D&  vp          = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
-            double                                 fViewStartX = ( ( fOffset_x + m_CameraPos.x ) *
-                                                                   zp.fZoomFactor ) + vp.pos.x;
-            double                                 fViewStartY = ( ( fOffset_y + m_CameraPos.y ) *
-                                                                   zp.fZoomFactor ) + vp.pos.y;
-            double                                 fViewEndX   = ( ( fOffset_x + fWidth + m_CameraPos.x ) *
-                                                                   zp.fZoomFactor ) + vp.pos.x;
-            double                                 fViewEndY   = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
-                                                                   zp.fZoomFactor ) + vp.pos.y;
+
+            // The corners, relative to the stored point (the top-left corner), turned about it in map units.
+            Shape :: MapPoint  local[] = { { 0.0, 0.0 }, { fWidth, 0.0 }, { fWidth, fHeight }, { 0.0, fHeight } };
+            std :: vector<Shape :: ScreenPoint>  corners;
+
+            for( const Shape :: MapPoint &point : local )  {
+                Shape :: MapPoint  turned = Shape :: Rotate( point, fRotation );
+
+                corners.push_back( Shape :: ScreenPoint { ( int ) ( ( ( fOffset_x + turned.fX + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x ),
+                                                          ( int ) ( ( ( fOffset_y + turned.fY + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y ) } );
+            }
 
             // A wide edge is the closed path of the four corners, so each corner is a round join.
             if( nLineWidth > __HAIRLINE_WIDTH ) {
-                std :: vector<Shape :: ScreenPoint>  corners {
-                    Shape :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewStartY },
-                    Shape :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewStartY },
-                    Shape :: ScreenPoint { ( int ) fViewEndX,   ( int ) fViewEndY },
-                    Shape :: ScreenPoint { ( int ) fViewStartX, ( int ) fViewEndY } };
-
                 Shape :: DrawStrokedPath( corners, true, nLineWidth, color );
                 return;
             }
 
-            // Top line
-            DrawEdge( ( int ) fViewStartX,
-                           ( int ) fViewStartY,
-                           ( int ) fViewEndX,
-                           ( int ) fViewStartY,
-                           __HAIRLINE_WIDTH,
-                           color );
-            // Bottom line
-            DrawEdge( ( int ) fViewStartX,
-                           ( int ) fViewEndY,
-                           ( int ) fViewEndX,
-                           ( int ) fViewEndY,
-                           __HAIRLINE_WIDTH,
-                           color );
-
-            // Left line
-            DrawEdge( ( int ) fViewStartX,
-                           ( int ) fViewStartY,
-                           ( int ) fViewStartX,
-                           ( int ) fViewEndY,
-                           __HAIRLINE_WIDTH,
-                           color );
-
-            // Right line
-            DrawEdge( ( int ) fViewEndX,
-                           ( int ) fViewStartY,
-                           ( int ) fViewEndX,
-                           ( int ) fViewEndY,
-                           __HAIRLINE_WIDTH,
-                           color );
+            // The four edges, as before: top, bottom, left and right, in the order of the corners.
+            DrawEdge( corners[0].nX, corners[0].nY, corners[1].nX, corners[1].nY, __HAIRLINE_WIDTH, color );
+            DrawEdge( corners[3].nX, corners[3].nY, corners[2].nX, corners[2].nY, __HAIRLINE_WIDTH, color );
+            DrawEdge( corners[0].nX, corners[0].nY, corners[3].nX, corners[3].nY, __HAIRLINE_WIDTH, color );
+            DrawEdge( corners[1].nX, corners[1].nY, corners[2].nX, corners[2].nY, __HAIRLINE_WIDTH, color );
         }
 
         /**
@@ -499,6 +471,7 @@ namespace SunLight {
                                            ( head -> y + pLayer -> offsety ),
                                            head -> width,
                                            head -> height,
+                                           Shape :: RotationOf( head ),
                                            Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
                                                                                GetViewport().GetZoomProperties().fZoomFactor ),
                                            color );
@@ -509,6 +482,7 @@ namespace SunLight {
                                          ( head -> y + pLayer -> offsety ),
                                          head -> content.shape -> points,
                                          head -> content.shape -> points_len,
+                                         Shape :: RotationOf( head ),
                                          Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
                                                                              GetViewport().GetZoomProperties().fZoomFactor ),
                                          color );
@@ -519,6 +493,7 @@ namespace SunLight {
                                           ( head -> y + pLayer -> offsety ),
                                           head -> content.shape -> points,
                                           head -> content.shape -> points_len,
+                                          Shape :: RotationOf( head ),
                                           Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
                                                            GetViewport().GetZoomProperties().fZoomFactor ),
                                           color );
