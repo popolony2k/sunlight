@@ -43,6 +43,31 @@ namespace SunLight  {
              * @return Size in map units;
              */
             double PointSizeOf( tmx_object *pObject );
+
+            /**
+             * @brief A point in map units, relative to an object's stored point.
+             */
+            struct MapPoint  {
+                double  fX;
+                double  fY;
+            };
+
+            /**
+             * @brief Rotates a point about its origin, by degrees clockwise on screen (y grows downwards, as Tiled
+             * writes rotation). Cosine and sine within a tiny tolerance of zero are taken as zero, so a quarter turn
+             * lands on whole pixels.
+             * @param point The point to turn;
+             * @param fDegrees Clockwise angle in degrees;
+             * @return The turned point;
+             */
+            MapPoint Rotate( MapPoint point, double fDegrees );
+
+            /**
+             * @brief Rotation of a shape object, in degrees clockwise (Tiled's rotation attribute). Zero when the object has none.
+             * @param pObject The object, as libtmx parsed it;
+             * @return Degrees;
+             */
+            double RotationOf( tmx_object *pObject );
         }
     }
 }

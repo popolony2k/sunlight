@@ -208,23 +208,27 @@ namespace SunLight {
                                double fOffset_y,
                                double **fPoints,
                                int nPointsCount,
+                               double fRotation,
                                int nLineWidth,
                                SunLight :: Base :: stColor color );
             void DrawPolygon( double fOffset_x,
                               double fOffset_y,
                               double **fPoints,
                               int nPointsCount,
+                              double fRotation,
                               int nLineWidth,
                               SunLight :: Base :: stColor color );
             std :: vector<Shape :: ScreenPoint> ScreenPointsOf( double fOriginX,
                                                                           double fOriginY,
                                                                           double **fPoints,
                                                                           int nPointsCount,
-                                                                          double fZoom );
+                                                                          double fZoom,
+                                                                          double fRotation );
             void DrawRectangle( double offset_x,
                                 double offset_y,
                                 double width,
                                 double height,
+                                double fRotation,
                                 int nLineWidth,
                                 SunLight :: Base :: stColor color );
             void DrawPoint( double offset_x, double offset_y, double size, SunLight :: Base :: stColor color );

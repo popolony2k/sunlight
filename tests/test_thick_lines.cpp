@@ -599,3 +599,66 @@ TEST_SUITE( "Points" )  {
         CHECK( frame.Of( MockEngine :: Event :: FILL ).size() == 1 );
     }
 }
+
+namespace  {
+
+    // A shape object XML at object (100, 100), turned by nRotation degrees (Tiled's rotation attribute).
+    std :: string RotatedObject( const std :: string &strShape, int nRotation )  {
+
+        return "<object id=\"1\" x=\"100\" y=\"100\" rotation=\"" + std :: to_string( nRotation ) + "\">" + strShape + "</object>";
+    }
+}
+
+TEST_SUITE( "Rotated shapes" )  {
+
+    TEST_CASE( "A rectangle turns about its stored point: a quarter turn of 120 x 80 covers x 30-110 and y 110-230" )  {
+
+        // The stored point (110, 110) on screen is the top-left corner. After 90 degrees clockwise the corners are
+        // (110, 110), (110, 230), (30, 230) and (30, 110), and the four edges join them in order top, bottom, left, right.
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" width=\"120\" height=\"80\" rotation=\"90\"/>" );
+
+        std :: vector<MockEngine :: Event>  lines = frame.Of( MockEngine :: Event :: LINE );
+
+        REQUIRE( lines.size() == 4 );
+        CHECK( lines[0].x == 110.0f );  CHECK( lines[0].y == 110.0f );  CHECK( lines[0].w == 110.0f );  CHECK( lines[0].h == 230.0f );
+        CHECK( lines[1].x == 30.0f );   CHECK( lines[1].y == 110.0f );  CHECK( lines[1].w == 30.0f );   CHECK( lines[1].h == 230.0f );
+        CHECK( lines[2].x == 110.0f );  CHECK( lines[2].y == 110.0f );  CHECK( lines[2].w == 30.0f );   CHECK( lines[2].h == 110.0f );
+        CHECK( lines[3].x == 110.0f );  CHECK( lines[3].y == 230.0f );  CHECK( lines[3].w == 30.0f );   CHECK( lines[3].h == 230.0f );
+    }
+
+    TEST_CASE( "A polyline turns clockwise on screen: its point to the right of the stored point goes below it" )  {
+
+        // The segment (0, 0) to (50, 0) from (110, 110): after 90 degrees it runs from (110, 110) to (110, 160).
+        Frame  frame( RotatedObject( "<polyline points=\"0,0 50,0\"/>", 90 ) );
+
+        std :: vector<MockEngine :: Event>  lines = frame.Of( MockEngine :: Event :: LINE );
+
+        REQUIRE( lines.size() == 1 );
+        CHECK( lines[0].x == 110.0f );  CHECK( lines[0].y == 110.0f );
+        CHECK( lines[0].w == 110.0f );  CHECK( lines[0].h == 160.0f );
+    }
+
+    TEST_CASE( "A thick triangle turned 90 degrees matches the reference of its turned corners" )  {
+
+        // Points (0, 0), (50, 0), (25, 40) turn to (0, 0), (0, 50), (-40, 25) about the stored point.
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" rotation=\"90\">"
+                      "<properties><property name=\"line_width\" type=\"int\" value=\"3\"/></properties>"
+                      "<polygon points=\"0,0 50,0 25,40\"/></object>" );
+
+        std :: set<std :: pair<int, int>>  expected = ReferencePath( ScreenOf( { { 0, 0 }, { 0, 50 }, { -40, 25 } } ), true, 3 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+    }
+
+    TEST_CASE( "A thick rectangle turned 90 degrees matches the reference of its turned corners" )  {
+
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" width=\"120\" height=\"80\" rotation=\"90\">"
+                      "<properties><property name=\"line_width\" type=\"int\" value=\"3\"/></properties></object>" );
+
+        std :: set<std :: pair<int, int>>  expected = ReferencePath( ScreenOf( { { 0, 0 }, { 0, 120 }, { -80, 120 }, { -80, 0 } } ), true, 3 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+    }
+}

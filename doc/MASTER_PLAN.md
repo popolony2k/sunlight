@@ -265,7 +265,7 @@ closes the point-object gap from B.
 
 | # | Item | Status |
 |---|------|--------|
-| D1a | Rotate rectangle, polyline and polygon outlines about their pivot | TODO |
+| D1a | Rotate rectangle, polyline and polygon outlines about their pivot | DONE |
 | D1b | Rotate ellipses (rotated ring: the inside test runs in the ellipse's own frame) | TODO |
 | D1c | Points: not applicable. Tiled 1.11 does not offer rotation for point objects | N/A |
 | D1d | Rotate tile and text objects (needs `IEngine` to draw with a rotation) | TODO |
@@ -281,6 +281,20 @@ each test:
   the point, covering x 100–132 and y 100–132. Confirmed.
 - Point: Tiled does not rotate it. D1c is not applicable.
 - Polyline and polygon points are relative to the object's X and Y, so they turn about that point.
+
+**D1a: rotated shape outlines (IN PROGRESS).** Each point of a rectangle, polyline or polygon turns about the
+object's stored point in map units, before the zoom is applied. The turn is clockwise on screen, and it is exact
+for quarter turns: cosine and sine within 1e-12 of zero count as zero (`Shape::Rotate`). An object with no
+rotation gets 0, so its output is unchanged.
+- Test items, in `tests/test_thick_lines.cpp` (the "Rotated shapes" suite, 4 cases):
+  - A rectangle turned 90°: four hairline edges at the expected corners, x 30–110 and y 110–230.
+  - A polyline turned 90°: a point to the right of the stored point goes below it.
+  - A thick triangle and a thick rectangle turned 90°: the spans equal the reference of the turned corners.
+- Rotation 0: the existing shape tests cover this (the output for an unrotated object is unchanged).
+- Mutation checks: ignoring the rotation, and flipping the direction, each fail the four rotated cases.
+- Sample: `samples/shapes/resources/map/rotation.tmx` (a rectangle, a polyline and a polygon, each with a pivot
+  marker). Checked by eye: the shapes turn clockwise about their markers.
+- Full suite under AddressSanitizer: 382 test cases pass with no reports.
 
 **Test map.** The Tiled files are in `Spool/test` for now. Once D1a is done, the same map goes to
 `samples/shapes/resources/map/` with a copy of the tileset image beside it.

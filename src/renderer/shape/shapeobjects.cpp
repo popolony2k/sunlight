@@ -20,6 +20,8 @@
 
 #include "renderer/shape/shapeobjects.h"
 
+#include <cmath>
+
 namespace SunLight  {
     namespace Renderer  {
         namespace Shape  {
@@ -30,6 +32,8 @@ namespace SunLight  {
                 const char * const  __POINT_SIZE_PROPERTY  = "point_size";
                 const double        __DEFAULT_LINE_WIDTH   = 1.0;
                 const double        __DEFAULT_POINT_SIZE   = 1.0;
+                const double        __DEGREES_TO_RADIANS   = 3.14159265358979323846 / 180.0;
+                const double        __ROTATION_EPSILON     = 1e-12;   // a cosine or sine this close to zero is zero
 
                 // A numeric property of the object (Tiled stores it as an int or a float), or the default when it has none.
                 double NumberPropertyOf( tmx_object *pObject, const char *szName, double fDefault )  {
@@ -55,6 +59,25 @@ namespace SunLight  {
             double LineWidthOf( tmx_object *pObject )  {
 
                 return NumberPropertyOf( pObject, __LINE_WIDTH_PROPERTY, __DEFAULT_LINE_WIDTH );
+            }
+
+            MapPoint Rotate( MapPoint point, double fDegrees )  {
+
+                double  fCos = std :: cos( fDegrees * __DEGREES_TO_RADIANS );
+                double  fSin = std :: sin( fDegrees * __DEGREES_TO_RADIANS );
+
+                if( std :: fabs( fCos ) < __ROTATION_EPSILON )
+                    fCos = 0.0;
+
+                if( std :: fabs( fSin ) < __ROTATION_EPSILON )
+                    fSin = 0.0;
+
+                return MapPoint { ( point.fX * fCos ) - ( point.fY * fSin ), ( point.fX * fSin ) + ( point.fY * fCos ) };
+            }
+
+            double RotationOf( tmx_object *pObject )  {
+
+                return pObject -> rotation;
             }
 
             double PointSizeOf( tmx_object *pObject )  {
