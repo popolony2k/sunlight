@@ -375,34 +375,31 @@ namespace SunLight {
                                              double fOffset_y,
                                              double fWidth,
                                              double fHeight,
+                                             double fRotation,
                                              int nLineWidth,
                                              SunLight :: Base :: stColor color )  {
             Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
 
-
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
 
-            fWidth-=( fWidth / 2.0 );
-            fHeight-=( fHeight / 2.0 );
-            fOffset_x = ( ( fOffset_x + fWidth + m_CameraPos.x ) *
-                          zp.fZoomFactor ) + vp.pos.x;
-            fOffset_y = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
-                          zp.fZoomFactor ) + vp.pos.y;
+            // The centre of the box, relative to its stored point (the top-left corner), turned about that point in map units.
+            Shape :: MapPoint  centre = Shape :: Rotate( Shape :: MapPoint { fWidth / 2.0, fHeight / 2.0 }, fRotation );
 
-            // A wide outline is a ring of spans; a one-pixel outline is the engine's own ellipse. The shape's
-            // PrimitiveClip keeps either inside the viewport.
-            if( nLineWidth > __HAIRLINE_WIDTH ) {
-                Shape :: DrawStrokedEllipse( fOffset_x, fOffset_y,
-                                                       fWidth * zp.fZoomFactor, fHeight * zp.fZoomFactor,
-                                                       nLineWidth, color );
+            double  fCenterX = ( ( fOffset_x + centre.fX + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
+            double  fCenterY = ( ( fOffset_y + centre.fY + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
+            double  fRadiusX = ( fWidth / 2.0 ) * zp.fZoomFactor;
+            double  fRadiusY = ( fHeight / 2.0 ) * zp.fZoomFactor;
+
+            // An unturned one-pixel outline is the engine's own ellipse. Anything wider, or turned, is a ring of spans;
+            // the shape's PrimitiveClip keeps either inside the viewport.
+            if( ( fRotation == 0.0 ) && ( nLineWidth <= __HAIRLINE_WIDTH ) )  {
+                SunLight :: Engines :: EngineFactory :: GetEngine().DrawEllipseOutline( ( float ) fCenterX, ( float ) fCenterY,
+                                                                                        ( float ) fRadiusX, ( float ) fRadiusY, color );
                 return;
             }
 
-            SunLight :: Engines :: EngineFactory :: GetEngine().DrawEllipseOutline( ( float ) fOffset_x, ( float ) fOffset_y,
-                                                                                    ( float ) ( fWidth * zp.fZoomFactor ),
-                                                                                    ( float ) ( fHeight * zp.fZoomFactor ),
-                                                                                    color );
+            Shape :: DrawStrokedEllipse( fCenterX, fCenterY, fRadiusX, fRadiusY, fRotation, nLineWidth, color );
         }
 
         /**
@@ -504,6 +501,7 @@ namespace SunLight {
                                          ( head -> y + pLayer -> offsety ),
                                          head -> width,
                                          head -> height,
+                                         Shape :: RotationOf( head ),
                                          Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
                                                                              GetViewport().GetZoomProperties().fZoomFactor ),
                                          color );

@@ -236,6 +236,7 @@ namespace SunLight {
                               double offset_y,
                               double width,
                               double height,
+                              double fRotation,
                               int nLineWidth,
                               SunLight :: Base :: stColor color );
             void DrawTile( SunLight :: Base :: TextureHandle pImage,

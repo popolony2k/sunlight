@@ -20,5 +20,8 @@
   <object id="33" name="polyline-45" x="600" y="500" rotation="45"><properties><property name="line_width" type="int" value="2"/></properties><polyline points="0,0 120,0 60,60"/></object>
   <object id="34" name="pivot-line45" x="600" y="500" width="6" height="6"/>
   <object id="35" name="label-line45" x="600" y="460" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">polyline 45 w2</text></object>
+  <object id="40" name="ellipse-45" x="250" y="700" width="120" height="60" rotation="45"><properties><property name="line_width" type="int" value="3"/></properties><ellipse/></object>
+  <object id="41" name="pivot-ellipse45" x="250" y="700" width="6" height="6"/>
+  <object id="42" name="label-ellipse45" x="250" y="660" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">ellipse 45 w3</text></object>
  </objectgroup>
 </map>

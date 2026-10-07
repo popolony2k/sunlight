@@ -687,3 +687,87 @@ TEST_SUITE( "Rotated shapes" )  {
         CHECK( frame.Covered() == expected );
     }
 }
+
+namespace  {
+
+    // The reference for a turned ring: the pixel centre is turned back into the ellipse's own frame, then tested as in
+    // ReferenceRing. The turn is written out with std::cos and std::sin, not with the renderer's helper.
+    std :: set<std :: pair<int, int>>  ReferenceTurnedRing( double fCenterX, double fCenterY, double fRadiusX, double fRadiusY,
+                                                            double fDegrees, int nWidth )  {
+
+        const double  eps   = 1e-9;
+        const double  pi    = 3.14159265358979323846;
+        double        c     = std :: cos( fDegrees * pi / 180.0 );
+        double        s     = std :: sin( fDegrees * pi / 180.0 );
+        double        h     = nWidth / 2.0;
+        double        ox    = fRadiusX + h, oy = fRadiusY + h;
+        double        ix    = fRadiusX - h, iy = fRadiusY - h;
+        bool          bHasInner = ( ix > 0.0 ) && ( iy > 0.0 );
+
+        auto  Inside = [&]( double px, double py, double rx, double ry )  {
+            double  dx = px - fCenterX;
+            double  dy = py - fCenterY;
+            double  u  = ( dx * c ) + ( dy * s );
+            double  v  = -( dx * s ) + ( dy * c );
+
+            return ( ( u / rx ) * ( u / rx ) + ( v / ry ) * ( v / ry ) ) < ( 1.0 - eps );
+        };
+
+        std :: set<std :: pair<int, int>>  pixels;
+
+        for( int nY = ( int ) std :: floor( fCenterY - oy - ox ) - 2; nY <= ( int ) std :: ceil( fCenterY + oy + ox ) + 2; nY++ )
+            for( int nX = ( int ) std :: floor( fCenterX - ox - oy ) - 2; nX <= ( int ) std :: ceil( fCenterX + ox + oy ) + 2; nX++ )  {
+                double  px = nX + 0.5;
+                double  py = nY + 0.5;
+
+                if( Inside( px, py, ox, oy ) && !( bHasInner && Inside( px, py, ix, iy ) ) )
+                    pixels.insert( std :: make_pair( nX, nY ) );
+            }
+
+        return pixels;
+    }
+}
+
+TEST_SUITE( "Rotated ellipses" )  {
+
+    TEST_CASE( "A thick ellipse turned 45 degrees matches the reference ring in its own frame" )  {
+
+        // Box 200 x 120 at object (100, 100): its centre (100, 60) from the stored point turns to (40 cos 45 + ... ) -
+        // in screen pixels the centre is (110 + 28.28, 110 + 113.14). Radii 100 and 60, width 4.
+        const double  pi = 3.14159265358979323846;
+        double        c  = std :: cos( 45.0 * pi / 180.0 );
+        double        s  = std :: sin( 45.0 * pi / 180.0 );
+        double        cx = 110.0 + ( 100.0 * c - 60.0 * s );
+        double        cy = 110.0 + ( 100.0 * s + 60.0 * c );
+
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" width=\"200\" height=\"120\" rotation=\"45\">"
+                      "<properties><property name=\"line_width\" type=\"int\" value=\"4\"/></properties><ellipse/></object>" );
+
+        std :: set<std :: pair<int, int>>  expected = ReferenceTurnedRing( cx, cy, 100.0, 60.0, 45.0, 4 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+        CHECK( frame.Of( MockEngine :: Event :: ELLIPSE ).empty() );
+    }
+
+    TEST_CASE( "A one-pixel ellipse turned 90 degrees is a one-pixel ring, not the engine's unturned outline" )  {
+
+        // Box 160 x 80 at (100, 100): its centre (80, 40) from the stored point turns to (-40, 80), so it is at
+        // (60, 180) in map units - (70, 190) on screen, with the viewport at (10, 10). Radii 80 and 40, one-pixel ring.
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" width=\"160\" height=\"80\" rotation=\"90\"><ellipse/></object>" );
+
+        std :: set<std :: pair<int, int>>  expected = ReferenceTurnedRing( 70.0, 190.0, 80.0, 40.0, 90.0, 1 );
+
+        CHECK( !expected.empty() );
+        CHECK( frame.Covered() == expected );
+        CHECK( frame.Of( MockEngine :: Event :: ELLIPSE ).empty() );
+    }
+
+    TEST_CASE( "An unturned one-pixel ellipse is still the engine's outline" )  {
+
+        Frame  frame( "<object id=\"1\" x=\"100\" y=\"100\" width=\"160\" height=\"80\"><ellipse/></object>" );
+
+        CHECK( frame.Of( MockEngine :: Event :: ELLIPSE ).size() == 1 );
+        CHECK( frame.Of( MockEngine :: Event :: FILL ).empty() );
+    }
+}
