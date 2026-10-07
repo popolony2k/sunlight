@@ -282,6 +282,14 @@ each test:
 - Point: Tiled does not rotate it. D1c is not applicable.
 - Polyline and polygon points are relative to the object's X and Y, so they turn about that point.
 
+**Tiled checks (Tiled 1.11.0, done by hand on a test map).** Each object turns about its stored X and Y, clockwise on screen.
+- Rectangle: pivot top-left, 90° lands left of and below the point (x 20–100, y 100–220). Confirmed.
+- Ellipse: pivot top-left, 90° centre at (60, 180). Confirmed with a marker at (60, 180): the marker's corner sits on the centre.
+- Tile object: pivot bottom-left, 90° lands right of and below the point (x 100–132, y 100–132). Confirmed.
+- Point: Tiled does not rotate points. D1c is not applicable.
+- 45°: rotation works in Tiled for every object type, including tile and text. Confirmed.
+- Not yet in the repo: a Tiled-written map as a test fixture. Planned with T2.
+
 **D1a: rotated shape outlines (IN PROGRESS).** Each point of a rectangle, polyline or polygon turns about the
 object's stored point in map units, before the zoom is applied. The turn is clockwise on screen, and it is exact
 for quarter turns: cosine and sine within 1e-12 of zero count as zero (`Shape::Rotate`). An object with no
