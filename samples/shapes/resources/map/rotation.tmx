@@ -14,5 +14,11 @@
   <object id="16" name="polygon-90" x="700" y="300" rotation="90"><polygon points="0,0 100,0 50,80"/></object>
   <object id="17" name="pivot-poly" x="700" y="300" width="6" height="6"/>
   <object id="18" name="label-poly" x="700" y="200" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">polygon 90 w1</text></object>
+  <object id="30" name="rect-45" x="300" y="500" width="120" height="80" rotation="45"><properties><property name="line_width" type="int" value="3"/></properties></object>
+  <object id="31" name="pivot-rect45" x="300" y="500" width="6" height="6"/>
+  <object id="32" name="label-rect45" x="200" y="460" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">rect 45 w3</text></object>
+  <object id="33" name="polyline-45" x="600" y="500" rotation="45"><properties><property name="line_width" type="int" value="2"/></properties><polyline points="0,0 120,0 60,60"/></object>
+  <object id="34" name="pivot-line45" x="600" y="500" width="6" height="6"/>
+  <object id="35" name="label-line45" x="600" y="460" width="0" height="0"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">polyline 45 w2</text></object>
  </objectgroup>
 </map>
