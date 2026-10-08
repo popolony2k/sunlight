@@ -34,6 +34,7 @@
 #include "font/ifont.h"
 #include "renderer/rendererconfig.h"
 #include "renderer/shape/shapeprimitives.h"
+#include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
 #include "base/color.h"
 #include "base/primitives.h"
@@ -115,6 +116,11 @@ namespace SunLight {
             ViewControlMode                            m_ViewControlMode;
             uint16_t                                   m_nMapWidth;
             uint16_t                                   m_nMapHeight;
+            std :: unique_ptr<Projection :: IMapProjection>  m_pProjection;
+            // Whether every tileset the map uses declares the same tile size as the map itself - only then is
+            // DrawLayer's culled loop exact (its visible-range math assumes one consistent grid step). A map
+            // that mixes tileset sizes falls back to visiting every cell, same as before E0.
+            bool                                       m_bUniformTileGrid;
             int                                        m_nScrollStepWidth;
             int                                        m_nScrollStepHeight;
             float                                      m_fWindowWidth;
