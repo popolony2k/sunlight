@@ -66,8 +66,12 @@ namespace SunLight  {
 
                 /**
                  * @brief A tile layer cell's own top-left corner, in map pixel space (no camera, zoom or viewport
-                 * origin - those are applied afterwards, identically for every orientation, by DrawTile).
+                 * origin - those are applied afterwards, identically for every orientation, by DrawTile). Takes
+                 * the map itself (not just its tile_width/tile_height) because an isometric cell's position on
+                 * the diamond lattice also depends on the map's own height in cells (see IsometricProjection) -
+                 * a fact only found by measuring a real Tiled export, not assumed in advance.
                  * @param pos The cell's row and column;
+                 * @param pMap The map, as libtmx parsed it;
                  * @param nTileWidth Width of the tile actually drawn there (its own tileset's, not the map's);
                  * @param nTileHeight Height, likewise;
                  * @param nLayerOffsetX The layer's own x offset;
@@ -75,6 +79,7 @@ namespace SunLight  {
                  * @return The cell's top-left corner, in map pixels;
                  */
                 virtual SunLight :: Base :: stCoordinate2D TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition &pos,
+                                                                              tmx_map *pMap,
                                                                               int nTileWidth,
                                                                               int nTileHeight,
                                                                               int nLayerOffsetX,

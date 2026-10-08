@@ -344,9 +344,9 @@ map orientation supplies its own tile geometry.
 | # | Item | Status |
 |---|------|--------|
 | E0 | Projection seam: `IMapProjection` + `OrthogonalProjection`, with visible-tile culling. No behavior change | DONE |
-| E1a | Verify Tiled's isometric conventions by hand (tile anchor, object coordinate space, map pixel bounds, scroll step) | TODO |
-| E1b | `IsometricProjection`: tile to screen (diamond math), screen to tile matrix, map pixel size, default scroll step | TODO |
-| E1c | Tests (reference diamond math, round-trip, alignment and scroll clamps) and an isometric sample map | TODO |
+| E1a | Verify Tiled's isometric conventions by hand (tile anchor, object coordinate space, map pixel bounds, scroll step) | DONE |
+| E1b | `IsometricProjection`: tile to screen (diamond math), screen to tile matrix, map pixel size, default scroll step | DONE |
+| E1c | An isometric sample map and a real-window check by the owner | TODO |
 | E2 | Staggered rendering, as its own `IMapProjection` implementation once E0 is DONE | TODO |
 | E3 | Hexagonal rendering, likewise | TODO |
 
@@ -385,15 +385,63 @@ as opaque values, never the map's orientation itself.
   Each was confirmed by reverting the fix, seeing the test fail, then restoring it.
 - Full suite (394 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
 
-**E1a: verify Tiled's isometric conventions.** The same practice as the object-rotation pivots: checked by
-hand in Tiled before any isometric formula is written, not assumed. Open question going in: does Tiled keep
-object (shape/tile/text) x/y in plain pixel space regardless of orientation, or does it project them too? The
-answer decides whether `IMapProjection` needs an object-position method, or only ever touches tile-layer tiles.
+**E1a: verify Tiled's isometric conventions (DONE).** The same practice as the object-rotation pivots: checked
+by hand in Tiled before any isometric formula was written, not assumed - and it caught the same kind of trap
+again. A probe map was built with distinct solid-color tiles (not real art - faint/translucent tile images
+turned out to be unmeasurable at the pixel level), exported to a PNG with Tiled 1.11's "Export As Image", and
+measured pixel-by-pixel:
 
-**E1b/E1c: isometric projection, tests and sample.** Built from what E1a confirms. Test items: tile-to-pixel
-and pixel-to-tile round-trip for every tile of a small map; drawn positions match a reference derived
-independently of the renderer's own formula; the viewport clip matches the orthogonal rule; the existing
-orthogonal harnesses are unchanged; a real-window check by the owner.
+- **Map pixel bounds**, confirmed exact at two map sizes (160x80 for a 3x2 map, 224x112 for a 3x4 map, both
+  64x32 tiles): `(mapWidthCells + mapHeightCells) * tileWidth/2` by `... * tileHeight/2`.
+- **A tile layer cell's own top-left corner** (its `tileWidth x tileHeight` bounding box), confirmed exact
+  across all 18 cells of both maps:
+  `screenX = (col - row + mapHeightCells - 1) * (tileWidth/2)`, `screenY = (col + row) * (tileHeight/2)`.
+  The lattice step always uses the MAP's own declared tile size, never a resolved tile's own image size - a
+  probe tileset with 32x32 tile images on a 64x32 declared grid still landed exactly on the 64x32 lattice.
+  A formula half-remembered from Tiled's own source (`mapHeightCells * tileWidth/2`, no `-1`) looked plausible
+  and matched the FIRST map size tested (2 cells tall) - only testing a second, differently-tall map (4 cells)
+  caught it as wrong, the same lesson as the comment-reasoning mistakes this file already warns about.
+- **Tile *object* coordinates** (a stamped tile on the map, not a tile layer cell) follow a related but
+  distinct, separately-measured formula, confirmed exact at three typed values (not click-placed - Tiled's
+  Insert Tile tool does not snap to the isometric grid by default, which produced unusable noise at first):
+  `objScreenX = storedX - storedY + (mapHeightCells - 1) * (tileWidth/2) + tileHeight/2`,
+  `objScreenY = (storedX + storedY) / 2`, at the object's own bottom-left corner (Tiled's usual tile-object
+  anchor, already used by `DrawTileObject`). This answers E1a's open question - object coordinates ARE
+  projected, not plain pixel space - but `IMapProjection` does not yet have a method for it; no projection
+  consumer needs isometric object placement yet, so it is a tracked follow-up, not part of E1b.
+- Default scroll step is a design choice, not a Tiled convention to verify: `IsometricProjection` uses one
+  full tile step, the same convention `OrthogonalProjection` already uses.
+
+**E1b: `IsometricProjection` (DONE).** Implements all six `IMapProjection` methods with the formulas E1a
+confirmed. `TileDrawPosition` gained a `tmx_map *pMap` parameter it did not have in E0 - a gap E1a's own
+findings exposed: the isometric lattice step needs the map's own tile_width/tile_height, which was not
+available to that method before (`OrthogonalProjection` never needed it, since orthogonal steps by the
+resolved tile's own size, already passed in). `ViewToTileMatrix`/`VisibleTileRange` invert the confirmed
+formula algebraically (solving the two linear equations for col/row), at the same AABB precision
+`TileMapToTileMatrix` already uses for orthogonal - not a true diamond hit-test, which no consumer needs today.
+`m_bUniformTileGrid`'s mixed-tileset fallback (E0) still applies uniformly regardless of orientation; isometric
+does not actually share orthogonal's risk (its lattice step never depends on a resolved tile's own size), so
+the fallback is occasionally more conservative than isometric strictly needs, but never incorrect.
+
+- Test items, in `tests/test_isometricprojection.cpp`: `MapPixelSize` and `TileDrawPosition` against the exact
+  pixel values E1a measured, for both map sizes (not values this engine's own formula could have produced by
+  construction - independently observed facts); a layer offset still shifts the result; a resolved tile's own
+  size does not move the lattice position (unlike orthogonal); `ViewToTileMatrix` round-trips every cell of a
+  3x4 map (probed one pixel inside each cell's own top-left corner, not its bounding box's center - adjacent
+  cells' boxes overlap by half their width/height on this lattice, so a center-probe can land exactly on a
+  neighbor's own corner and round-trip to the wrong cell, a trap the first version of this test fell into); out
+  -of-bounds coordinates are refused; `DefaultScrollStep` matches orthogonal's convention; `VisibleTileRange`
+  covers the whole map for a whole-map rectangle, is bounded (not the full grid) for a small one, and clamps to
+  the grid for an oversized one. A renderer-integration test loads a real isometric map and checks `DrawLayer`
+  produces the exact measured positions end to end.
+- Mutation check: removing the lattice's height-dependent shift term fails 5 of the 12 isometric test cases
+  (including the renderer-integration one), confirmed by reverting the fix, seeing the tests fail, then
+  restoring it.
+- `tests/test_maporientation.cpp` updated: isometric now loads (a new, dedicated test case) instead of being
+  refused; staggered and hexagonal are still refused, and the "refused map doesn't block the next one" case
+  now uses hexagonal as its refused example instead of isometric.
+- Full suite (407 cases) passes; samples build cleanly; AddressSanitizer run pending as part of this PR's
+  verification.
 
 ## Phase F: input configuration
 
