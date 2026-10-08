@@ -1,8 +1,9 @@
 /*
- * Map orientation (A2 of the master plan): only orthogonal maps are drawn correctly
- * today, so LoadMap refuses isometric, staggered and hexagonal maps instead of
- * loading them and drawing them in the wrong places. A refused map leaves the
- * renderer with no map, and the next orthogonal map loads normally.
+ * Map orientation (A2 of the master plan, revised by E1b): orthogonal and isometric
+ * maps are drawn correctly, behind IMapProjection (E0/E1b), so LoadMap accepts them;
+ * staggered and hexagonal maps are still refused instead of being loaded and drawn in
+ * the wrong places. A refused map leaves the renderer with no map, and the next
+ * supported map loads normally.
  */
 
 #include <doctest/doctest.h>
@@ -55,17 +56,30 @@ TEST_SUITE( "renderer/map orientation" )  {
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "Isometric, staggered and hexagonal maps are refused, and no map is left loaded" )  {
+    TEST_CASE( "An isometric map loads (E1b)" )  {
 
         MemoryFileSystemFixture  fs;
 
-        fs.fs.files["maps/iso.tmx"]  = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "isometric" );
+        fs.fs.files["maps/iso.tmx"] = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "isometric" );
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = StartedRenderer();
+
+        CHECK( pRenderer -> LoadMap( "maps/iso.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        CHECK( HasMap( *pRenderer ) == true );
+
+        pRenderer -> Stop();
+    }
+
+    TEST_CASE( "Staggered and hexagonal maps are refused, and no map is left loaded" )  {
+
+        MemoryFileSystemFixture  fs;
+
         fs.fs.files["maps/sta.tmx"]  = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "staggered" );
         fs.fs.files["maps/hex.tmx"]  = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "hexagonal" );
 
         std :: unique_ptr<TileMapRenderer>  pRenderer = StartedRenderer();
 
-        for( const char *szFile : { "maps/iso.tmx", "maps/sta.tmx", "maps/hex.tmx" } )  {
+        for( const char *szFile : { "maps/sta.tmx", "maps/hex.tmx" } )  {
             INFO( "map: " << szFile );
 
             CHECK( pRenderer -> LoadMap( szFile, ITM :: MAP_ALIGNMENT_TOP_LEFT ) == false );
@@ -79,12 +93,12 @@ TEST_SUITE( "renderer/map orientation" )  {
 
         MemoryFileSystemFixture  fs;
 
-        fs.fs.files["maps/iso.tmx"]  = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "isometric" );
+        fs.fs.files["maps/hex.tmx"]  = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "hexagonal" );
         fs.fs.files["maps/ortho.tmx"] = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "orthogonal" );
 
         std :: unique_ptr<TileMapRenderer>  pRenderer = StartedRenderer();
 
-        REQUIRE( pRenderer -> LoadMap( "maps/iso.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == false );
+        REQUIRE( pRenderer -> LoadMap( "maps/hex.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == false );
         CHECK( pRenderer -> LoadMap( "maps/ortho.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
         CHECK( HasMap( *pRenderer ) == true );
 

@@ -18,8 +18,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef __ORTHOGONALPROJECTION_H__
-#define __ORTHOGONALPROJECTION_H__
+#ifndef __ISOMETRICPROJECTION_H__
+#define __ISOMETRICPROJECTION_H__
 
 #include "renderer/projection/imapprojection.h"
 
@@ -28,11 +28,26 @@ namespace SunLight  {
         namespace Projection  {
 
             /**
-             * @brief The grid every orthogonal map already drew with, moved here unchanged (E0 of the master
-             * plan): a cell's screen position is col * tileWidth, row * tileHeight. Every formula here is the
-             * same arithmetic TileMapRenderer used to do inline, so an orthogonal map's output does not change.
+             * @brief Tiled's isometric diamond lattice (E1a of the master plan): a cell's own top-left corner
+             * (the corner of its tileWidth x tileHeight bounding box, not the diamond's own vertices) is at
+             *   screenX = (col - row + mapHeightCells - 1) * (tileWidth / 2)
+             *   screenY = (col + row) * (tileHeight / 2)
+             * found by measuring real Tiled exports (pixel-exact across two map sizes, 18 cells, zero
+             * mismatches), not assumed from documentation - a formula half-remembered from Tiled's own source
+             * (offsetting by mapHeightCells * tileWidth/2, no "-1") looked plausible but was wrong, caught only
+             * by testing a second map height. The position always uses the MAP's own declared tile_width/
+             * tile_height for the lattice step, never the resolved tile's own (possibly different) image size -
+             * also confirmed empirically: tile images smaller than the map's declared cell size still land on
+             * the same lattice, only their drawn footprint differs.
+             *
+             * Tile *objects* use a related but distinct formula (also measured, not derived from the above):
+             *   objScreenX = storedX - storedY + (mapHeightCells - 1) * (tileWidth / 2) + tileHeight / 2
+             *   objScreenY = (storedX + storedY) / 2
+             * at the object's own bottom-left corner, Tiled's usual tile-object anchor (see DrawTileObject).
+             * This projection does not implement object placement yet - no IMapProjection method covers it
+             * (TileViewRect is collision-only); it is tracked as a follow-up once isometric objects are needed.
              */
-            class OrthogonalProjection : public IMapProjection  {
+            class IsometricProjection : public IMapProjection  {
 
                 public:
 
@@ -67,4 +82,4 @@ namespace SunLight  {
         }
     }
 }
-#endif  /* __ORTHOGONALPROJECTION_H__ */
+#endif  /* __ISOMETRICPROJECTION_H__ */

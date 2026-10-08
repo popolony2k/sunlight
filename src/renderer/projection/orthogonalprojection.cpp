@@ -38,6 +38,7 @@ namespace SunLight  {
             }
 
             SunLight :: Base :: stCoordinate2D OrthogonalProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition &pos,
+                                                                                          tmx_map * /* pMap */,
                                                                                           int nTileWidth,
                                                                                           int nTileHeight,
                                                                                           int nLayerOffsetX,
