@@ -346,7 +346,7 @@ map orientation supplies its own tile geometry.
 | E0 | Projection seam: `IMapProjection` + `OrthogonalProjection`, with visible-tile culling. No behavior change | DONE |
 | E1a | Verify Tiled's isometric conventions by hand (tile anchor, object coordinate space, map pixel bounds, scroll step) | DONE |
 | E1b | `IsometricProjection`: tile to screen (diamond math), screen to tile matrix, map pixel size, default scroll step | DONE |
-| E1c | An isometric sample map and a real-window check by the owner | TODO |
+| E1c | An isometric sample map and a real-window check by the owner | DONE |
 | E2 | Staggered rendering, as its own `IMapProjection` implementation once E0 is DONE | TODO |
 | E3 | Hexagonal rendering, likewise | TODO |
 
@@ -440,8 +440,17 @@ the fallback is occasionally more conservative than isometric strictly needs, bu
 - `tests/test_maporientation.cpp` updated: isometric now loads (a new, dedicated test case) instead of being
   refused; staggered and hexagonal are still refused, and the "refused map doesn't block the next one" case
   now uses hexagonal as its refused example instead of isometric.
-- Full suite (407 cases) passes; samples build cleanly; AddressSanitizer run pending as part of this PR's
-  verification.
+- Full suite (407 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
+
+**E1c: isometric sample map and real-window check (DONE).** `samples/isometric/` (new sample, mirroring
+`samples/tilemaprenderer/`'s structure and the same pan/zoom keys): an 8x6 checkerboard of two green diamond
+shades, with a red marker tile at (row 0, col 0) and the opposite corner (row 5, col 7) - the diamond's own top
+and bottom vertices per the confirmed formula, not its left/right ones, since those sit `tileWidth/2` off
+center on each side. Diamond tile art generated for this sample specifically (an actual 64x32 diamond polygon
+with transparent corners, not a solid square) - E1a's probe tiles were plain squares, fine for pixel
+measurement but not for a visual check of real diamond tiling. Checked by eye by the owner: every tile reads
+as one continuous, seamless diamond mosaic across the whole 8x6 grid, no gaps, no overlapping or misaligned
+seams, and the two marker tiles land exactly where the formula predicts.
 
 ## Phase F: input configuration
 
