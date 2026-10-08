@@ -343,37 +343,47 @@ map orientation supplies its own tile geometry.
 
 | # | Item | Status |
 |---|------|--------|
-| E0 | Projection seam: `IMapProjection` + `OrthogonalProjection`, with visible-tile culling. No behavior change | TODO |
+| E0 | Projection seam: `IMapProjection` + `OrthogonalProjection`, with visible-tile culling. No behavior change | DONE |
 | E1a | Verify Tiled's isometric conventions by hand (tile anchor, object coordinate space, map pixel bounds, scroll step) | TODO |
 | E1b | `IsometricProjection`: tile to screen (diamond math), screen to tile matrix, map pixel size, default scroll step | TODO |
 | E1c | Tests (reference diamond math, round-trip, alignment and scroll clamps) and an isometric sample map | TODO |
 | E2 | Staggered rendering, as its own `IMapProjection` implementation once E0 is DONE | TODO |
 | E3 | Hexagonal rendering, likewise | TODO |
 
-**E0: the projection seam.** What is orthogonal-specific today, found by reading the renderer rather than
-assumed: the map's pixel size (`m_nMapWidth`/`m_nMapHeight`, 23 call sites that only ever treat it as an
-opaque number); a tile's screen position (`GetTile`, `DrawLayer`'s `(col * tile_width, row * tile_height)`);
-the inverse, screen/world to tile matrix (`TileMapToTileMatrix`); and the default scroll step. `DrawLayer`'s
-loop structure, the alignment switch, the scroll clamps and everything outside these four buckets stay in
-`TileMapRenderer` unchanged - they already only consume the buckets' output as opaque values, never the map's
-orientation itself.
+**E0: the projection seam (DONE).** What is orthogonal-specific today, found by reading the renderer rather
+than assumed: the map's pixel size (`m_nMapWidth`/`m_nMapHeight`, 23 call sites that only ever treat it as an
+opaque number); a tile layer cell's screen position (`DrawLayer`'s `(col * tile_width, row * tile_height)`,
+using the resolved tile's own tileset size, not the map's); a tile matrix cell's view-space rectangle
+(`GetTile`, consumed only by `CollisionManager`); the inverse, view-space to tile matrix
+(`TileMapToTileMatrix`); and the default scroll step (`CreateView`, `LoadMap`, and - found during review -
+`MoveCameraUp`/`MoveCameraLeft`'s scroll-boundary clamp, which read the map's tile size directly as a rounding
+term). `DrawLayer`'s loop structure, the alignment switch, the rest of the scroll clamps and everything
+outside these five buckets stay in `TileMapRenderer` unchanged - they already only consume the buckets' output
+as opaque values, never the map's orientation itself.
 
 - `IMapProjection` lives in its own module, `renderer/projection/` (the `shape/`/`map/` pattern), with
   `OrthogonalProjection` as the only implementation for now. `TileMapRenderer` picks one in `LoadMap` from
   `m_pTmxMap -> orient`, the same shape as `EngineFactory`/`WindowFactory` pick a backend. An orientation with
   no implementation keeps today's clear error.
-- **Visible-tile culling** is part of E0, not deferred: `DrawLayer` currently draws the whole grid every frame
-  and relies on the clip. A fifth projection method, `VisibleTileRange`, bounds the loop to the tiles that can
-  be seen. A tileset can have tile images larger than one grid cell (a tall sprite overhanging into neighboring
-  rows), so the range is padded by the tileset's own tallest/widest tile image, not by one cell - a culled loop
-  must not clip an overhanging tile whose cell is just outside the range.
-- Test items: byte-identical `TILE` event lists (same positions) for maps smaller than, equal to, and larger
-  than the viewport, at several camera positions and zoom levels - proof that culling changed nothing visible.
-  A map much larger than the viewport produces a bounded number of `DrawTile` calls, not `width x height`. An
-  oversized tile image just outside the naive range is still drawn. A mutation check: shrinking the padding by
-  one tile fails a test (an edge tile goes missing).
-- Full suite under AddressSanitizer. Every sample builds and is checked by eye, since this touches every
-  orthogonal map drawn.
+- **Visible-tile culling** is part of E0, not deferred: `DrawLayer` currently drew the whole grid every frame
+  and relied on the clip. A sixth projection method, `VisibleTileRange`, bounds the loop to the tiles that can
+  be seen, padded by a fixed one tile either side (`__CULL_PADDING_TILES`) - `DrawLayer` always draws a cell at
+  its resolved tile's own tileset size, never a per-tile image-size override, so the padding needs no larger
+  margin than that.
+- **Safety net for mixed tile sizes.** If a layer's tiles come from a tileset whose own declared size differs
+  from the map's declared size, a culled range computed from a single step size can genuinely miss visible
+  cells far from the origin - a scale mismatch that grows with distance, not a fixed-offset case any padding
+  could fix. `LoadMap` checks this once (`m_bUniformTileGrid`, comparing every tileset's own size against the
+  map's); `DrawLayer` falls back to the exact pre-E0 full-grid loop whenever they disagree, trading the
+  performance win for guaranteed correctness on that (rare, exotic) map.
+- Test items, in `tests/test_tileculling.cpp` (the "Tile culling" suite, 4 cases): a map much larger than the
+  viewport produces a bounded tile count, not `width x height`; a map whose tilesets disagree on tile size
+  falls back to visiting every cell; the same layout with matching tile sizes is still exact once every cell is
+  visible; and a mismatched tileset smaller than the map's declared size is not wrongly excluded near the far
+  edge - the case that specifically needs the uniform-grid fallback, not just the padding.
+- Mutation checks: removing the padding fails the first case; disabling the uniform-grid check fails the last.
+  Each was confirmed by reverting the fix, seeing the test fail, then restoring it.
+- Full suite (394 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
 
 **E1a: verify Tiled's isometric conventions.** The same practice as the object-rotation pivots: checked by
 hand in Tiled before any isometric formula is written, not assumed. Open question going in: does Tiled keep
