@@ -335,20 +335,55 @@ stored point. A one-pixel ring is used when the ellipse is turned; an unturned o
 
 ## Phase E: isometric, staggered and hexagonal maps
 
+`TileMapRenderer` has no seam today between drawing a tile map and drawing an *orthogonal* one: the
+grid math is woven into the class itself. Isometric, staggered and hexagonal maps need that math behind
+an interface, so the renderer keeps everything that is not projection-specific (the view/camera/clip
+machinery, sprites, collision dispatch, shape/text/tile drawing, animation, the frame loop), and each
+map orientation supplies its own tile geometry.
+
 | # | Item | Status |
 |---|------|--------|
-| E1 | Isometric rendering (tile to pixel, pixel to tile) | TODO |
-| E2 | Staggered rendering | TODO |
-| E3 | Hexagonal rendering | TODO |
+| E0 | Projection seam: `IMapProjection` + `OrthogonalProjection`, with visible-tile culling. No behavior change | TODO |
+| E1a | Verify Tiled's isometric conventions by hand (tile anchor, object coordinate space, map pixel bounds, scroll step) | TODO |
+| E1b | `IsometricProjection`: tile to screen (diamond math), screen to tile matrix, map pixel size, default scroll step | TODO |
+| E1c | Tests (reference diamond math, round-trip, alignment and scroll clamps) and an isometric sample map | TODO |
+| E2 | Staggered rendering, as its own `IMapProjection` implementation once E0 is DONE | TODO |
+| E3 | Hexagonal rendering, likewise | TODO |
 
-This is the largest feature. It needs its own design before implementation: coordinate
-conversion in both directions, `TileMapToTileMatrix` for each orientation, culling of
-off-screen tiles, and the draw order of tiles and sprites. Each orientation needs a
-small test map, and a real-window check by the owner.
+**E0: the projection seam.** What is orthogonal-specific today, found by reading the renderer rather than
+assumed: the map's pixel size (`m_nMapWidth`/`m_nMapHeight`, 23 call sites that only ever treat it as an
+opaque number); a tile's screen position (`GetTile`, `DrawLayer`'s `(col * tile_width, row * tile_height)`);
+the inverse, screen/world to tile matrix (`TileMapToTileMatrix`); and the default scroll step. `DrawLayer`'s
+loop structure, the alignment switch, the scroll clamps and everything outside these four buckets stay in
+`TileMapRenderer` unchanged - they already only consume the buckets' output as opaque values, never the map's
+orientation itself.
 
-- Test items per orientation: tile-to-pixel and pixel-to-tile round-trip for every tile
-  of a small map; drawn positions match a reference; the viewport clip matches the
-  orthogonal rule; the existing orthogonal harnesses are unchanged.
+- `IMapProjection` lives in its own module, `renderer/projection/` (the `shape/`/`map/` pattern), with
+  `OrthogonalProjection` as the only implementation for now. `TileMapRenderer` picks one in `LoadMap` from
+  `m_pTmxMap -> orient`, the same shape as `EngineFactory`/`WindowFactory` pick a backend. An orientation with
+  no implementation keeps today's clear error.
+- **Visible-tile culling** is part of E0, not deferred: `DrawLayer` currently draws the whole grid every frame
+  and relies on the clip. A fifth projection method, `VisibleTileRange`, bounds the loop to the tiles that can
+  be seen. A tileset can have tile images larger than one grid cell (a tall sprite overhanging into neighboring
+  rows), so the range is padded by the tileset's own tallest/widest tile image, not by one cell - a culled loop
+  must not clip an overhanging tile whose cell is just outside the range.
+- Test items: byte-identical `TILE` event lists (same positions) for maps smaller than, equal to, and larger
+  than the viewport, at several camera positions and zoom levels - proof that culling changed nothing visible.
+  A map much larger than the viewport produces a bounded number of `DrawTile` calls, not `width x height`. An
+  oversized tile image just outside the naive range is still drawn. A mutation check: shrinking the padding by
+  one tile fails a test (an edge tile goes missing).
+- Full suite under AddressSanitizer. Every sample builds and is checked by eye, since this touches every
+  orthogonal map drawn.
+
+**E1a: verify Tiled's isometric conventions.** The same practice as the object-rotation pivots: checked by
+hand in Tiled before any isometric formula is written, not assumed. Open question going in: does Tiled keep
+object (shape/tile/text) x/y in plain pixel space regardless of orientation, or does it project them too? The
+answer decides whether `IMapProjection` needs an object-position method, or only ever touches tile-layer tiles.
+
+**E1b/E1c: isometric projection, tests and sample.** Built from what E1a confirms. Test items: tile-to-pixel
+and pixel-to-tile round-trip for every tile of a small map; drawn positions match a reference derived
+independently of the renderer's own formula; the viewport clip matches the orthogonal rule; the existing
+orthogonal harnesses are unchanged; a real-window check by the owner.
 
 ## Phase F: input configuration
 
