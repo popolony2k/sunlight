@@ -2389,13 +2389,18 @@ namespace SunLight {
         }
 
         /**
-         * Move view camera down.
+         * Move view camera down. The boundary is "<= 0", not "< 0": camera.y reaching exactly
+         * 0 - the origin MoveCameraUp scrolls away from - is itself a legal position (the map's
+         * own natural, unscrolled alignment), not one past a limit. A strict "< 0" refuses the
+         * single step that would land exactly there, permanently - e.g. one MoveCameraUp() call
+         * (camera.y -= step) leaves camera.y == -step, and camera.y + step == 0 fails "< 0", so
+         * MoveCameraDown() can never undo that single step back to the origin again.
          */
         void TileMapRenderer :: MoveCameraDown( void )  {
 
             int    nMapBoundary = ( int ) ( m_CameraPos.y + m_nScrollStepHeight );
 
-            if( nMapBoundary < 0 )
+            if( nMapBoundary <= 0 )
                 m_CameraPos.y+=m_nScrollStepHeight;
         }
 
@@ -2425,13 +2430,15 @@ namespace SunLight {
         }
 
         /**
-         * Move view camera right.
+         * Move view camera right. Same "<= 0" boundary as MoveCameraDown, and for the same
+         * reason: camera.x == 0 is the map's own unscrolled origin, a legal position to land on
+         * exactly, not a limit a strict "< 0" should refuse the last step into.
          */
         void TileMapRenderer :: MoveCameraRight( void )  {
 
             int nMapBoundary = ( int ) ( m_CameraPos.x + m_nScrollStepWidth );
 
-            if( nMapBoundary < 0 )
+            if( nMapBoundary <= 0 )
                 m_CameraPos.x+=m_nScrollStepWidth;
         }
 

@@ -439,4 +439,79 @@ TEST_SUITE( "collision/CollisionManager" )  {
         CHECK( tileMap.nGetTileCalls == 1 );
         CHECK( listener.tileHits.empty() );
     }
+
+    TEST_CASE( "Update's collider-to-tile path fires OnCollision when the collider overlaps the tile's own "
+               "authored collision shape (Tiled's Tile Collision Editor, OT_SQUARE - the only shape Collider::Hit "
+               "supports today)" )  {
+
+        MockTileMap             tileMap;
+        TestCollisionListener   listener;
+        Collider                collider;
+        tmx_object               collisionShape {};
+        tmx_tile                 fakeTile {};
+
+        collisionShape.obj_type = OT_SQUARE;
+        collisionShape.x      = 0;
+        collisionShape.y      = 0;
+        collisionShape.width  = 32;
+        collisionShape.height = 32;
+        collisionShape.next   = nullptr;
+
+        fakeTile.collision = &collisionShape;
+
+        tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
+        tileMap.bGetTileResult = true;
+        tileMap.getTileResult.pTile = &fakeTile;
+        tileMap.getTileResult.dimension = SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } };
+
+        CollisionManager  manager( &tileMap );
+
+        // Fully overlapping the tile's collision shape (both at (0,0)-(32,32)).
+        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } } );
+        manager.AddCollider( 0, &collider );
+        manager.AddColliderToTileRule( 0, 7 );
+        manager.AddCollisionListener( &listener );
+
+        manager.Update();
+
+        REQUIRE( listener.tileHits.size() == 1 );
+        CHECK( listener.tileHits[0] == &collider );
+    }
+
+    TEST_CASE( "Update's collider-to-tile path fires nothing when the collider is clear of the tile's own "
+               "authored collision shape" )  {
+
+        MockTileMap             tileMap;
+        TestCollisionListener   listener;
+        Collider                collider;
+        tmx_object               collisionShape {};
+        tmx_tile                 fakeTile {};
+
+        collisionShape.obj_type = OT_SQUARE;
+        collisionShape.x      = 0;
+        collisionShape.y      = 0;
+        collisionShape.width  = 32;
+        collisionShape.height = 32;
+        collisionShape.next   = nullptr;
+
+        fakeTile.collision = &collisionShape;
+
+        tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
+        tileMap.bGetTileResult = true;
+        tileMap.getTileResult.pTile = &fakeTile;
+        tileMap.getTileResult.dimension = SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } };
+
+        CollisionManager  manager( &tileMap );
+
+        // Far from the tile's collision shape - TileMapToTileMatrix/GetTile are mocked to always return the
+        // same canned tile regardless of position, so only the final AABB test below can tell them apart.
+        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 1000, 1000 }, { 32, 32 } } );
+        manager.AddCollider( 0, &collider );
+        manager.AddColliderToTileRule( 0, 7 );
+        manager.AddCollisionListener( &listener );
+
+        manager.Update();
+
+        CHECK( listener.tileHits.empty() );
+    }
 }
