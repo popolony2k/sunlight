@@ -1,7 +1,7 @@
 /*
- * Map orientation (A2 of the master plan, revised by E1b): orthogonal and isometric
- * maps are drawn correctly, behind IMapProjection (E0/E1b), so LoadMap accepts them;
- * staggered and hexagonal maps are still refused instead of being loaded and drawn in
+ * Map orientation (A2 of the master plan, revised by E1b and E2b): orthogonal, isometric
+ * and staggered maps are drawn correctly, behind IMapProjection (E0/E1b/E2b), so LoadMap
+ * accepts them; hexagonal maps are still refused instead of being loaded and drawn in
  * the wrong places. A refused map leaves the renderer with no map, and the next
  * supported map loads normally.
  */
@@ -70,21 +70,30 @@ TEST_SUITE( "renderer/map orientation" )  {
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "Staggered and hexagonal maps are refused, and no map is left loaded" )  {
+    TEST_CASE( "A staggered map loads (E2b)" )  {
 
         MemoryFileSystemFixture  fs;
 
-        fs.fs.files["maps/sta.tmx"]  = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "staggered" );
+        fs.fs.files["maps/sta.tmx"] = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "staggered" );
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = StartedRenderer();
+
+        CHECK( pRenderer -> LoadMap( "maps/sta.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        CHECK( HasMap( *pRenderer ) == true );
+
+        pRenderer -> Stop();
+    }
+
+    TEST_CASE( "A hexagonal map is refused, and no map is left loaded" )  {
+
+        MemoryFileSystemFixture  fs;
+
         fs.fs.files["maps/hex.tmx"]  = MakeSquareTmx( 4, 16, false, 0, 0, 0, 0, "hexagonal" );
 
         std :: unique_ptr<TileMapRenderer>  pRenderer = StartedRenderer();
 
-        for( const char *szFile : { "maps/sta.tmx", "maps/hex.tmx" } )  {
-            INFO( "map: " << szFile );
-
-            CHECK( pRenderer -> LoadMap( szFile, ITM :: MAP_ALIGNMENT_TOP_LEFT ) == false );
-            CHECK( HasMap( *pRenderer ) == false );
-        }
+        CHECK( pRenderer -> LoadMap( "maps/hex.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == false );
+        CHECK( HasMap( *pRenderer ) == false );
 
         pRenderer -> Stop();
     }

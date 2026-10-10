@@ -25,6 +25,7 @@
 #include "renderer/shape/shapeprimitives.h"
 #include "renderer/projection/orthogonalprojection.h"
 #include "renderer/projection/isometricprojection.h"
+#include "renderer/projection/staggeredprojection.h"
 #include "renderer/map/externalresources.h"
 #include "renderer/shape/shapeobjects.h"
 #include "renderer/map/maporientation.h"
@@ -2871,27 +2872,35 @@ namespace SunLight {
 
                 /*
                  * The tile grid math is behind IMapProjection (E0 of the master plan), one implementation per
-                 * orientation libtmx can report. Orthogonal and isometric (E1b) exist so far; any other
-                 * orientation is refused exactly as before, with the same message. Freed the same way UnloadMap
-                 * frees a map: the map first, then the manager it points into.
+                 * orientation libtmx can report. Orthogonal, isometric (E1b) and staggered (E2b) exist so far;
+                 * any other orientation is refused exactly as before, with the same message. Freed the same
+                 * way UnloadMap frees a map: the map first, then the manager it points into.
                  */
-                if( m_pTmxMap -> orient == O_ORT )  {
-                    m_pProjection = std :: make_unique<Projection :: OrthogonalProjection>();
-                }
-                else if( m_pTmxMap -> orient == O_ISO )  {
-                    m_pProjection = std :: make_unique<Projection :: IsometricProjection>();
-                }
-                else  {
-                    fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal maps are supported.\n",
-                             szTmxMapFile, MapOrientation :: OrientationName( m_pTmxMap -> orient ) );
+                switch( m_pTmxMap -> orient )  {
 
-                    ::tmx_map_free( m_pTmxMap );
-                    m_pTmxMap = nullptr;
+                    case O_ORT:
+                        m_pProjection = std :: make_unique<Projection :: OrthogonalProjection>();
+                        break;
 
-                    if( pRcMgr )
-                        ::tmx_free_resource_manager( pRcMgr );
+                    case O_ISO:
+                        m_pProjection = std :: make_unique<Projection :: IsometricProjection>();
+                        break;
 
-                    return false;
+                    case O_STA:
+                        m_pProjection = std :: make_unique<Projection :: StaggeredProjection>();
+                        break;
+
+                    default:
+                        fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal, isometric and staggered maps are supported.\n",
+                                 szTmxMapFile, MapOrientation :: OrientationName( m_pTmxMap -> orient ) );
+
+                        ::tmx_map_free( m_pTmxMap );
+                        m_pTmxMap = nullptr;
+
+                        if( pRcMgr )
+                            ::tmx_free_resource_manager( pRcMgr );
+
+                        return false;
                 }
 
                 // The map points into the manager's tilesets/templates: keep it alive as long as the map.
