@@ -347,8 +347,10 @@ map orientation supplies its own tile geometry.
 | E1a | Verify Tiled's isometric conventions by hand (tile anchor, object coordinate space, map pixel bounds, scroll step) | DONE |
 | E1b | `IsometricProjection`: tile to screen (diamond math), screen to tile matrix, map pixel size, default scroll step | DONE |
 | E1c | An isometric sample map and a real-window check by the owner | DONE |
-| E2 | Staggered rendering, as its own `IMapProjection` implementation once E0 is DONE | TODO |
-| E3 | Hexagonal rendering, likewise | TODO |
+| E2a | Verify Tiled's staggered conventions by hand, all 4 `stagger_axis`/`stagger_index` combinations | DONE |
+| E2b | `StaggeredProjection`: tile to screen, screen to tile matrix, map pixel size, default scroll step | DONE |
+| E2c | A staggered sample map and a real-window check by the owner | DONE |
+| E3 | Hexagonal rendering, as its own `IMapProjection` implementation once E0 is DONE | TODO |
 
 **E0: the projection seam (DONE).** What is orthogonal-specific today, found by reading the renderer rather
 than assumed: the map's pixel size (`m_nMapWidth`/`m_nMapHeight`, 23 call sites that only ever treat it as an
@@ -451,6 +453,107 @@ with transparent corners, not a solid square) - E1a's probe tiles were plain squ
 measurement but not for a visual check of real diamond tiling. Checked by eye by the owner: every tile reads
 as one continuous, seamless diamond mosaic across the whole 8x6 grid, no gaps, no overlapping or misaligned
 seams, and the two marker tiles land exactly where the formula predicts.
+
+**E2a: verify Tiled's staggered conventions (DONE).** Same practice as E1a: measured against a real Tiled
+export (`tmxrasterizer`, Tiled 1.11.0's own CLI rasterizer - pixel-identical to its GUI "Export As Image",
+scriptable, so every combination below was rendered and measured mechanically rather than read off a single
+screenshot by eye) rather than assumed. A staggered map has two independent settings libtmx exposes on
+`tmx_map` that orthogonal and isometric never touch - `stagger_axis` (`SA_X`/`SA_Y`: whether columns or rows
+are the staggered ones) and `stagger_index` (`SI_EVEN`/`SI_ODD`: which parity of them is shifted) - so all 4
+combinations were verified, not just Tiled's own default, since E1a already showed a formula can match one
+case by coincidence and still be wrong. A probe tileset of 6 solid, non-square 64x48 colour tiles (avoiding
+any 2:1 or square coincidence that could hide a mixed-up width/height term) was placed at 5 known matrix
+positions (the 4 corners and one interior cell) on 3 map sizes per combination - a baseline, one that varies
+only row count, one that varies only column count, so a row-dependent and a column-dependent term cannot be
+confused with each other, the same isolation E1a's two differently-tall isometric probes used. 12 maps in
+total, each rendered and measured pixel-exactly by script.
+
+- **A tile layer cell's own top-left corner**, confirmed exact across every combination and all 3 sizes:
+  - `stagger_axis = SA_Y` (rows are staggered): `screenY = row * (tileHeight / 2)`; `screenX = col * tileWidth`,
+    plus `tileWidth / 2` when the row's own parity matches the stagger index (an even row for `SI_EVEN`, an
+    odd row for `SI_ODD`).
+  - `stagger_axis = SA_X` (columns are staggered): `screenX = col * (tileWidth / 2)`; `screenY = row * tileHeight`,
+    plus `tileHeight / 2` when the column's own parity matches the stagger index - the exact mirror of the Y
+    case, confirmed independently rather than assumed from the symmetry.
+- **Map pixel bounds**, confirmed exact at all 3 sizes per axis (index-independent - both `stagger_index`
+  values produced the same overall image size for a given axis and map size):
+  - `stagger_axis = SA_Y`: `(mapWidthCells * tileWidth + tileWidth / 2)` by `((mapHeightCells + 1) * tileHeight / 2)`.
+  - `stagger_axis = SA_X`: `((mapWidthCells + 1) * tileWidth / 2)` by `(mapHeightCells * tileHeight + tileHeight / 2)`.
+- **Cell bounding boxes overlap their neighbours along the staggered axis**, found while measuring, not assumed:
+  a row's (or column's) pitch is only half a tile step, not a full one, so consecutive rows/columns on the
+  staggered axis genuinely overlap by half their own rectangle - confirmed directly in the rendered probes,
+  where a later-drawn cell's rectangle visibly painted over the bottom (or right) half of an earlier one in
+  the overlap region, leaving its top-left corner (the value the formulas above report, and the only part
+  `TileDrawPosition` needs) unaffected. This is the same shape of ambiguity E1b found for isometric's diamond
+  lattice: a point-based inverse lookup (`ViewToTileMatrix`) cannot be exact from the bounding box alone near
+  the overlap, and needs the same AABB-precision approach already used there, not a true per-shape hit test.
+- **Tile *object* coordinates** (a stamped object, not a layer cell) were not measured - same deferral E1a
+  made for isometric object placement: no projection consumer needs staggered object placement yet, so this
+  is a tracked follow-up, not part of E2b.
+- Default scroll step is a design choice, not a Tiled convention to verify: `StaggeredProjection` is expected
+  to use the same one-full-tile-step convention `OrthogonalProjection` and `IsometricProjection` already use.
+
+**E2b: `StaggeredProjection` (DONE).** Implements all six `IMapProjection` methods with the formulas E2a
+confirmed. Unlike isometric, `TileDrawPosition` does not depend on the map's own width or height at all - a
+cell's own top-left corner depends only on its row/column and the tile size, confirmed directly from the
+probe data (the same corner landed at the exact same pixel across all 3 map sizes). `LoadMap`'s orientation
+switch gains an `O_STA` case, and its refusal message (stale since E1b - it still said "only orthogonal maps
+are supported" after isometric was already accepted) is corrected to name all three supported orientations.
+
+- `ViewToTileMatrix` started from the same two-candidate, nearest-corner-wins approach `IsometricProjection`
+  uses for its own overlapping lattice, reasoning the staggered lattice's cells overlap their neighbour the
+  same way. Mutation-testing that reasoning - forcing the method to always keep its first, un-disambiguated
+  candidate rather than ever considering the second - left every round-trip test still passing: a single
+  direct floor against the cell's own line shift is already exact for the only precision this method
+  promises (a point near a cell's own anchor corner). The second candidate and its distance comparison were
+  dead, untested complexity once this was found, so they were removed rather than kept.
+- `VisibleTileRange` is derived per axis (not guessed) from each axis's own two possible shifts (0 or half a
+  tile): the unshifted axis reduces to the exact floor/ceil orthogonal already uses, and the shifted axis
+  takes the loosest bound either shift value can produce, so no row/column parity in range is missed. An
+  early version's margin test only checked a rectangle starting exactly at the map's own edge, where the
+  margin's effect is clamped away regardless of whether it is there - a gap found by mutation-testing that
+  test itself (removing the margin left it passing); the fix added a second, interior-rectangle test per axis
+  that the margin's removal does actually fail.
+- Test items, in `tests/test_staggeredprojection.cpp` (20 cases): `MapPixelSize` against the exact measured
+  values for both axes across all 3 map sizes, and a dedicated case confirming it does not depend on
+  `stagger_index`; `TileDrawPosition` against the exact measured values for all 4 axis/index combinations,
+  plus the no-map-size-dependency finding, a layer-offset case and a resolved-tile-size-independence case;
+  `ViewToTileMatrix` round-trips every cell of two differently-staggered 4x3 grids and refuses an
+  out-of-bounds coordinate; `DefaultScrollStep`; `VisibleTileRange` covers the whole map for both axes, is
+  bounded for a small rectangle, clamps for an oversized one, and (the two added cases above) does not drop a
+  cell whose own span starts one pitch before an interior rectangle, on either axis. A renderer-integration
+  test loads a real staggered map (libtmx's own default axis/index, confirmed in E2a to be `SA_Y`/`SI_ODD`)
+  and checks `DrawLayer` produces the formula-derived positions end to end.
+- `tests/test_maporientation.cpp` updated: staggered now loads (a new, dedicated test case, replacing its
+  half of the old combined "staggered and hexagonal are refused" case) instead of being refused; hexagonal
+  alone is refused now.
+- Mutation checks, each confirmed by reverting the fix, seeing the specific tests fail, then restoring it:
+  flipping the shift-parity condition fails 7 of 18 `TileDrawPosition`/size-independence cases; removing the
+  `MapPixelSize` row-count term fails its own 3 assertions; using a full tile step instead of a half-tile
+  pitch in `ViewToTileMatrix` fails the round-trip suite; removing `VisibleTileRange`'s margin fails the two
+  interior-rectangle cases added for exactly that purpose.
+- Full suite (434 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
+
+**E2c: staggered sample map and real-window check (DONE).** `samples/staggered/` (new sample, mirroring
+`samples/tilemaprenderer/`'s structure and pan/zoom keys, `-`/`=` to zoom like `samples/isometric/`): an 8x6
+grid, `SA_Y`/`SI_ODD` (Tiled's own default), two checkerboard shades, a red marker at (row 0, col 0) and a
+gold one at the opposite corner (row 5, col 7). First checked with plain solid-color 64x48 rectangles - the
+same choice E1a made for its own probe tiles, the clearest way to see the raw grid math with no art to second
+-guess - and confirmed by eye as a clean, continuous brick/staggered weave with no gaps or misaligned seams,
+matching `tmxrasterizer`'s own independent render pixel-for-pixel. The owner then asked for diamond tile art
+(transparent corners inscribed in each 64x48 rectangle) so the sample would visually read as a mosaic the
+same way E1c's isometric sample does - confirmed working: the diamonds interlock into a seamless lattice with
+no gaps or misaligned seams, the practical payoff of Tiled's own stated reason for the staggered orientation
+("allows a map based on isometric tiles to still have an overall rectangular shape" - a staggered map's half
+-tile row pitch is exactly a diamond's own half-height, which is what makes the two techniques produce an
+identical mosaic from different storage shapes).
+- Two issues found and fixed during the owner's check, both sample-only (no `StaggeredProjection` or
+  `TileMapRenderer` change): the sample's `Run()` omitted the base `tilemaprenderer` sample's
+  `SetScrollStepSize(1, 1)` call, so held-key panning moved a full tile (64px) per frame instead of 1px -
+  fixed by adding the same call. Vertical panning appeared not to work at the default zoom; confirmed correct,
+  not a bug - the map's own pixel height ((rows + 1) * tileHeight / 2 = 168) is shorter than the viewport at
+  that zoom, so there is nothing to scroll to, the same "viewport taller than map" case `test_camera.cpp`
+  already covers for the orthogonal renderer.
 
 ## Phase F: input configuration
 
