@@ -692,7 +692,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 |---|------|--------|
 | F0a | Extract input dispatch/registration into `IControllerManager` + `ControllerManager`, owned by `TileMapRenderer` (mirroring `ICollisionManager`). No behavior change | DONE |
 | F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | DONE |
-| F0c | Record the Scarab/Caravellius breakage in `doc/BREAKAGES.md` | TODO |
+| F0c | Record the Scarab/Caravellius breakage in `doc/BREAKAGES.md` | DONE |
 | F1 | Device list and hot-plug events | TODO |
 | F2 | Player slots: claim, release, reassign after unplug | TODO |
 | F3 | Action map: named actions, rebinding, load and save | TODO |
