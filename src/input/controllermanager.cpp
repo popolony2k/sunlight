@@ -42,6 +42,7 @@ namespace SunLight  {
             m_pInputHandler         = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
             m_pNullInputEventHandler = nullptr;
             m_DispatchMode           = SunLight :: Input :: INPUT_DISPATCH_MODE_ACTIVE;
+            m_pConnectionHandler     = nullptr;
         }
 
         /**
@@ -104,6 +105,27 @@ namespace SunLight  {
         }
 
         /**
+         * @brief List every gamepad slot currently reported available, with its name.
+         * @return One entry per connected gamepad, in device id order;
+         */
+        std :: vector<SunLight :: Input :: stGamepadInfo> ControllerManager :: GetConnectedGamepads( void ) const  {
+
+            std :: vector<SunLight :: Input :: stGamepadInfo>  connectedList;
+
+            for( int nGamePadId = 0; nGamePadId < MAX_GAMEPAD_COUNT; nGamePadId++ )  {
+                if( m_pInputHandler -> IsGamepadAvailable( nGamePadId ) )
+                    connectedList.push_back( { nGamePadId, m_pInputHandler -> GetGamepadName( nGamePadId ) } );
+            }
+
+            return connectedList;
+        }
+
+        void ControllerManager :: SetGamepadConnectionHandler( SunLight :: Input :: GAMEPAD_CONNECTION_HANDLER handler )  {
+
+            m_pConnectionHandler = handler;
+        }
+
+        /**
          * @brief Dispatch to every registered key handler whose event matches evt.
          * @param evt The key event to dispatch;
          */
@@ -116,14 +138,37 @@ namespace SunLight  {
         }
 
         /**
+         * @brief Polls every gamepad slot (0..MAX_GAMEPAD_COUNT-1, independent of AddGamePad)
+         * and fires m_pConnectionHandler once for each one whose availability changed since the
+         * last call - a slot that was never added still gets reported, since a newly plugged-in
+         * pad must be discoverable before anything registers it for dispatch.
+         */
+        void ControllerManager :: DetectGamepadConnectionChanges( void )  {
+
+            for( int nGamePadId = 0; nGamePadId < MAX_GAMEPAD_COUNT; nGamePadId++ )  {
+                bool    bNowAvailable = m_pInputHandler -> IsGamepadAvailable( nGamePadId );
+
+                if( bNowAvailable != m_GamepadConnected[ nGamePadId ] )  {
+                    m_GamepadConnected[ nGamePadId ] = bNowAvailable;
+
+                    if( m_pConnectionHandler != nullptr )
+                        m_pConnectionHandler( nGamePadId, bNowAvailable );
+                }
+            }
+        }
+
+        /**
          * @brief Poll every added gamepad and dispatch matching gamepad handlers (analog sticks
          * translated to their DPad-equivalent direction, beyond the deadzone), then dispatch
          * matching keyboard handlers per the current InputDispatchMode, then the no-input
-         * fallback if nothing else fired this frame. Must be called once per frame.
+         * fallback if nothing else fired this frame; also detects and reports gamepad
+         * connect/disconnect transitions. Must be called once per frame.
          */
         void ControllerManager :: Update( void )  {
 
             bool    bEventHandled = false;
+
+            DetectGamepadConnectionChanges();
 
             for( int nGamePadId : m_GamePadList )  {
                 SunLight :: Input :: GamepadButton button[]    = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,

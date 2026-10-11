@@ -22,6 +22,7 @@
 #define __ICONTROLLERMANAGER_H__
 
 #include "input/iinputhandler.h"
+#include <vector>
 
 
 namespace SunLight {
@@ -37,6 +38,25 @@ namespace SunLight {
             INPUT_DISPATCH_MODE_ACTIVE,     // continuous IsKeyDown/IsGamepadButtonDown polling: fires every frame a key/button is held
             INPUT_DISPATCH_MODE_REACTIVE    // fires once per key-press edge (GetKeyPressed), gamepad dispatch unaffected
         };
+
+        /**
+         * @brief One connected gamepad, as reported by GetConnectedGamepads() (F1 of the master
+         * plan): its device id and the backend's own name string for it (never nullptr - see
+         * IInputHandler::GetGamepadName).
+         */
+        struct stGamepadInfo  {
+            int          nGamePadId;
+            const char  *szName;
+        };
+
+        /**
+         * @brief Hot-plug event handler callback definition (F1 of the master plan).
+         *
+         * Parameters accepted:
+         * int The gamepad id whose connection state changed;
+         * bool true if the gamepad just became available, false if it was just lost;
+         */
+        typedef std :: function<void( int, bool )> GAMEPAD_CONNECTION_HANDLER;
 
         /**
          * @brief Controller manager base interface (F0a of the master plan): registers key and
@@ -99,9 +119,27 @@ namespace SunLight {
             virtual SunLight :: Input :: InputDispatchMode GetInputDispatchMode( void ) const = 0;
 
             /**
+             * @brief List every gamepad currently reported available, with its name - a fresh
+             * poll each call, independent of AddGamePad (a pad can be discovered before anything
+             * registers it for button/axis dispatch).
+             * @return One entry per connected gamepad, in device id order;
+             */
+            virtual std :: vector<SunLight :: Input :: stGamepadInfo> GetConnectedGamepads( void ) const = 0;
+
+            /**
+             * @brief Register the handler Update() calls when a gamepad's availability changes -
+             * once per transition, never for a pad whose state hasn't changed since the last
+             * Update(). Replaces any handler set before.
+             * @param handler The callback to invoke, or nullptr to stop receiving the event;
+             */
+            virtual void SetGamepadConnectionHandler( SunLight :: Input :: GAMEPAD_CONNECTION_HANDLER handler ) = 0;
+
+            /**
              * @brief Poll every added gamepad and dispatch matching gamepad handlers, then
              * dispatch matching keyboard handlers per the current InputDispatchMode, then the
-             * no-input fallback if nothing else fired. Must be called once per frame.
+             * no-input fallback if nothing else fired; also detects and reports gamepad
+             * connect/disconnect transitions (see SetGamepadConnectionHandler). Must be called
+             * once per frame.
              */
             virtual void Update( void ) = 0;
         };

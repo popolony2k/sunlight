@@ -693,7 +693,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 | F0a | Extract input dispatch/registration into `IControllerManager` + `ControllerManager`, owned by `TileMapRenderer` (mirroring `ICollisionManager`). No behavior change | DONE |
 | F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | DONE |
 | F0c | Record the Scarab/Caravellius breakage in `doc/BREAKAGES.md` | DONE |
-| F1 | Device list and hot-plug events | TODO |
+| F1 | Device list and hot-plug events | DONE |
 | F2 | Player slots: claim, release, reassign after unplug | TODO |
 | F3 | Action map: named actions, rebinding, load and save | TODO |
 | F4 | Tunable dead zones and thresholds per pad and axis | TODO |
@@ -880,10 +880,36 @@ default bindings.
   - Test items: none beyond what F0a/F0b already proved - this item is pure documentation.
 
 **F1: device list and hot-plug.** Expose the connected pads and their names, and raise
-connect and disconnect events. This needs new `IInputHandler` methods, so the mock is
-updated in the same change.
-- Test items: a scripted connect and disconnect through the mock is reported once each;
-  the null backend reports no devices.
+connect and disconnect events.
+- `IInputHandler` already had everything a device list needs (`IsGamepadAvailable`,
+  `GetGamepadName` per id) - checked against its actual header before assuming a new
+  pure virtual was required, contrary to this item's own original wording above. No
+  `IInputHandler` change was needed, so the raylib and null backends are untouched.
+- `IControllerManager` gains two members instead: `GetConnectedGamepads()` (a fresh poll
+  over every slot `0..MAX_GAMEPAD_COUNT-1`, independent of `AddGamePad` - a pad must be
+  discoverable before anything registers it for button/axis dispatch) returning a
+  `stGamepadInfo{ nGamePadId, szName }` per connected id; and
+  `SetGamepadConnectionHandler(handler)`, a `void(int, bool)` callback `Update()` fires
+  once per availability transition. `ControllerManager` tracks each slot's last-seen
+  state in a `std::array<bool, MAX_GAMEPAD_COUNT>`, diffed against a fresh poll at the
+  top of every `Update()` (`DetectGamepadConnectionChanges()`), before the existing
+  dispatch logic runs.
+- `mock_input.h` *is* updated in this change, per the item's own anticipation - just not
+  because of a new `IInputHandler` method: its single always-true `bGamepadAvailableResult`
+  bool (never read by any existing test, checked before removing it) is replaced by a
+  `std::set<int> availableGamepads`, empty by default, so a test scripts a connect by
+  inserting an id and a disconnect by erasing it between `Update()` calls.
+- Test items, in `tests/test_controllermanager.cpp` (4 new cases): `GetConnectedGamepads`
+  is empty by default and lists every scripted id with its name, in id order; a scripted
+  connect and a scripted disconnect each fire the handler exactly once, not again on a
+  following `Update()` with no change. `tests/test_nullbackend.cpp` gains one assertion
+  that a null-backend renderer's `GetControllerManager().GetConnectedGamepads()` is empty.
+- Mutation check: replacing the diff's `if( bNowAvailable != m_GamepadConnected[...] )`
+  with `if( true )` (always fire, never dedupe) failed both new "exactly once" assertions
+  (`events.size() == 20`/`10` instead of `1`, the handler firing on every slot every
+  frame), confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (478 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F2: player slots.** A pad is claimed by a slot, released on request, and reassigned
 after an unplug. Slots are a sunlight concept, so the game decides how many there are.

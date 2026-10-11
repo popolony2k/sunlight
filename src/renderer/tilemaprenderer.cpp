@@ -847,7 +847,7 @@ namespace SunLight {
             // A resized tile object is stretched into its box, as Tiled draws it. The box is
             // worked out in screen space (the same mapping as DrawRectangle), then cut to the viewport.
             SunLight :: Base :: Viewport&          vp     = GetViewport();
-            SunLight :: Base :: stDimension2D&  vpDm   = vp.GetDimension2D();
+            SunLight :: Base :: stDimension2D&     vpDm   = vp.GetDimension2D();
             float                                  fZoom  = vp.GetZoomProperties().fZoomFactor;
 
             float  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vpDm.pos.x;
