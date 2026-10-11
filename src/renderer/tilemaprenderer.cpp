@@ -31,7 +31,7 @@
 #include "renderer/shape/shapeobjects.h"
 #include "renderer/map/maporientation.h"
 #include "base/primitives.h"
-#include "input/inputhandlerfactory.h"
+#include "input/controllermanager.h"
 #include "filesystem/filesystemfactory.h"
 #include "tilemaprenderer.h"
 #include <memory.h>
@@ -82,6 +82,24 @@ namespace SunLight {
          * to refuse installing the null backend underneath one of them.
          */
         static int  s_nLiveDefaultBackendRenderers = 0;
+
+        /*
+         * ViewControlMode (this renderer's own, construction-time config field) and
+         * InputDispatchMode (IControllerManager's, F0a of the master plan) are the same two
+         * strategies under two names - explicit, not a static_cast relying on the two enums'
+         * ordinal values happening to agree.
+         */
+        static SunLight :: Input :: InputDispatchMode ToInputDispatchMode( SunLight :: Renderer :: ViewControlMode mode )  {
+
+            switch( mode )  {
+                case SunLight :: Renderer :: VIEW_CONTROL_MODE_REACTIVE:
+                    return SunLight :: Input :: INPUT_DISPATCH_MODE_REACTIVE;
+
+                case SunLight :: Renderer :: VIEW_CONTROL_MODE_ACTIVE:
+                default:
+                    return SunLight :: Input :: INPUT_DISPATCH_MODE_ACTIVE;
+            }
+        }
 
 
         /*
@@ -829,7 +847,7 @@ namespace SunLight {
             // A resized tile object is stretched into its box, as Tiled draws it. The box is
             // worked out in screen space (the same mapping as DrawRectangle), then cut to the viewport.
             SunLight :: Base :: Viewport&          vp     = GetViewport();
-            SunLight :: Base :: stDimension2D&  vpDm   = vp.GetDimension2D();
+            SunLight :: Base :: stDimension2D&     vpDm   = vp.GetDimension2D();
             float                                  fZoom  = vp.GetZoomProperties().fZoomFactor;
 
             float  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vpDm.pos.x;
@@ -1231,272 +1249,9 @@ namespace SunLight {
         }
 
         /**
-         * Initialize default input event handlers.
+         * Fire OnUpdate on every registered ITileMapListener.
          */
-        void TileMapRenderer :: InitalizeDefaultUserInputHandlers( void )  {
-
-            // Default Keyboard handlers 
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_UP, std :: bind( &TileMapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_DOWN, std :: bind( &TileMapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_LEFT, std :: bind( &TileMapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_RIGHT, std :: bind( &TileMapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &TileMapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &TileMapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &TileMapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_END, std :: bind( &TileMapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-
-            // Default GamePad handlers
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_UP, std :: bind( &TileMapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_DOWN, std :: bind( &TileMapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_LEFT, std :: bind( &TileMapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT, std :: bind( &TileMapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_UP, std :: bind( &TileMapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN, std :: bind( &TileMapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT, std :: bind( &TileMapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT, std :: bind( &TileMapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-        }
-
-        /**
-         * @brief Handle default key Up event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyUp( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraUp();
-        }
-
-        /**
-         * @brief Handle default key Down event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyDown( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraDown();
-        }
-
-        /**
-         * @brief Handle default key Left event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyLeft( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraLeft();
-        }
-
-        /**
-         * @brief Handle default key Right event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyRight( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraRight();
-        }
-
-        /**
-         * @brief Handle default key Page Up event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyPageUp( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ZoomIn();
-        }
-
-        /**
-         * @brief Handle default key Page Down event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyPageDown( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ZoomOut();
-        }
-
-        /**
-         * @brief Handle default key Home event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyHome( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ResetZoom();
-        }
-
-        /**
-         * @brief Handle default key End event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyEnd( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ResetCamera();
-        }
-
-        /**
-         * @brief Handle user keyboard events.
-         * @param evt The event to be handled;
-         */
-        void TileMapRenderer :: HandleKeyEvent( SunLight :: Input :: KeyboardKey evt )  {
-
-            for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
-                if( ( *itItem ) -> nEvent == evt )
-                    ( *itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_KEYBOARD, KEYBOARD_ID );
-            }
-        }
-       
-        /**
-         * Check user input selected previously by user (mouse,
-         * joystick, keyboard, etc...)
-         */
-        void TileMapRenderer :: HandleUserInput( void )  {
-            /*
-             *  Controller Axis dead zones
-             */
-            const float ctfLeftStickDeadzoneX  = 0.1f;
-            const float ctfLeftStickDeadzoneY  = 0.1f;
-            const float ctfRightStickDeadzoneX = 0.1f;
-            const float ctfRightStickDeadzoneY = 0.1f;
-            const float ctLeftTriggerDeadzone  = -0.9f;
-            const float ctRightTriggerDeadzone = -0.9f;
-
-            bool    bEventHandled = false;
-
-            for( int nGamePadId : m_GamePadList )  {
-                SunLight :: Input :: GamepadButton button[]    = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
-                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
-                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
-                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN };
-                float    fPosX = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
-                                                                            SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
-                float    fPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
-                                                                            SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_Y );
-                float    fRightPosX = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
-                                                                                 SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_RIGHT_X );
-                float    fRightPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
-                                                                                 SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_RIGHT_Y );
-
-                // Calculate deadzones
-                if( ( fPosX > -ctfLeftStickDeadzoneX ) && ( fPosX < ctfLeftStickDeadzoneX ) )
-                    fPosX = 0.0f;
-                if( ( fPosY > -ctfRightStickDeadzoneY ) && ( fPosY < ctfRightStickDeadzoneY ) )
-                    fPosY = 0.0f;
-                if( ( fRightPosX > -ctfRightStickDeadzoneX ) && ( fRightPosX < ctfRightStickDeadzoneX ) )
-                    fRightPosX = 0.0f;
-                if( ( fRightPosY > -ctfRightStickDeadzoneY ) && ( fRightPosY < ctfRightStickDeadzoneY ) )
-                    fRightPosY = 0.0f;
-
-                // TODO: Code sample for future use when add support to trigger handling
-                // if (leftTrigger < leftTriggerDeadzone) leftTrigger = -1.0f;
-                // if (rightTrigger < rightTriggerDeadzone) rightTrigger = -1.0f;
-
-                // Handle Analog GamePad control stick (left)
-                if( fPosX > 0.0 )  {
-                    button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT;
-                    bEventHandled = true;
-                }
-                else  {
-                    if( fPosX < 0.0 )  {
-                        button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_LEFT;
-                        bEventHandled = true;
-                    }
-                }
-
-                if( fPosY > 0.0 )  {
-                    button[1] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_DOWN;
-                    bEventHandled = true;
-                }
-                else  {
-                    if( fPosY < 0.0 )  {
-                        button[1] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_UP;
-                        bEventHandled = true;
-                    }
-                }
-
-                // Handle Analog GamePad control stick (right)
-                if( fRightPosX > 0.0 )  {
-                    button[2] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT;
-                    bEventHandled = true;
-                }
-                else  {
-                    if( fRightPosX < 0.0 )  {
-                        button[2] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT;
-                        bEventHandled = true;
-                    }
-                }
-
-                if( fRightPosY > 0.0 )  {
-                    button[3] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN;
-                    bEventHandled = true;
-                }
-                else  {
-                    if( fRightPosY < 0.0 )  {
-                        button[3] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_UP;
-                        bEventHandled = true;
-                    }
-                }
-
-                // Handle DPad and analog stick controls (left + right)
-                for( InputEventHandlerList :: iterator itItem = m_GPadInputEventHandlerList.begin(); itItem != m_GPadInputEventHandlerList.end(); itItem++ )  {
-                    SunLight :: Input :: GamepadButton   evt = ( SunLight :: Input :: GamepadButton ) ( * itItem ) -> nEvent;
-
-                    /*
-                     * DPad and Analog MUST be processed in the same handler list iteration.
-                     * The order of events can affect main renderer processing behavior
-                     * (depending on final developer game logic);
-                     */
-                    if( m_pInputHandler -> IsGamepadButtonDown( nGamePadId, evt ) )  {
-                        ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
-                        bEventHandled = true;
-                    }
-                    else  {
-                        if( ( evt == button[0] ) || ( evt == button[1] ) || ( evt == button[2] ) || ( evt == button[3] ) )  {
-                            ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
-                            bEventHandled = true;
-                        }
-                    }
-                }
-            }
-
-            // Handle keyboard if there's no response from game pad
-            if( !bEventHandled )  {
-                switch( m_ViewControlMode )  {
-                    case VIEW_CONTROL_MODE_REACTIVE :
-                        HandleKeyEvent( m_pInputHandler -> GetKeyPressed() );
-                        bEventHandled = true;
-                    break;
-
-                    case VIEW_CONTROL_MODE_ACTIVE :  {
-                        for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
-                            if( m_pInputHandler -> IsKeyDown( ( SunLight :: Input :: KeyboardKey ) ( * itItem ) -> nEvent ) )  {
-                                ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_KEYBOARD, KEYBOARD_ID );
-                                bEventHandled = true;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if( !bEventHandled && ( m_pNullInputEventHandler != nullptr ) )  {
-                m_pNullInputEventHandler( SunLight :: Input  :: CONTROLLER_NULL, -1 );
-            }
-        }
-
-        /**
-         * Handle user updates from user listeners;
-         */
-        void TileMapRenderer :: HandleUserUpdate( void )  {
+        void TileMapRenderer :: HandleTileMapUpdate( void )  {
 
             for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
                 pListener -> OnUpdate( *this );
@@ -1587,20 +1342,19 @@ namespace SunLight {
          * Constructor. Initialize all class data.
          * Kept for source compatibility: builds the equivalent
          * RendererConfig and delegates to the RendererConfig constructor,
-         * so both paths produce identical renderers.
+         * so both paths produce identical renderers. No default key/camera
+         * handler is installed any more (F0b of the master plan) - a game
+         * that wants those bindings calls
+         * SunLight::Input::DefaultControllerBindings::Install() itself.
          * @param fWidth Screen renderer width;
          * @param fHeight Screen renderer height;
          * @param szTitle Screen renderer title;
          * @param nTargetFps Renderer desired FPS;
-         * @param bUseDefaultKeyHandler Inform if the default keyboard and
-         * camera handler will be used (at the end this parameter will be remove
-         * when user interaction be a little bit more clear.
          */
         TileMapRenderer :: TileMapRenderer( float fWidth,
                                             float fHeight,
                                             const char *szTitle,
-                                            int nTargetFps,
-                                            bool bUseDefaultKeyHandler) :
+                                            int nTargetFps ) :
                                             TileMapRenderer( [&]( void ) {
                                                 SunLight :: Renderer :: RendererConfig  config;
 
@@ -1608,7 +1362,6 @@ namespace SunLight {
                                                 config.fHeight               = fHeight;
                                                 config.strTitle              = szTitle;
                                                 config.nTargetFps            = nTargetFps;
-                                                config.bUseDefaultKeyHandler = bUseDefaultKeyHandler;
 
                                                 return config;
                                             }() )  {
@@ -1669,16 +1422,12 @@ namespace SunLight {
             m_nFramesRun                  = 0;
             m_nScrollStepWidth            = config.nScrollStepWidth;
             m_nScrollStepHeight           = config.nScrollStepHeight;
-            m_ViewControlMode             = config.viewControlMode;
             m_WindowBackgroundColor       = BLACK_COLOR;
             m_bWindowBackgroundSet        = false;
-            m_pInputHandler              = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
-            m_pNullInputEventHandler      = nullptr;
+            m_pControllerManager          = std :: make_unique<SunLight :: Input :: ControllerManager>();
+            m_pControllerManager -> SetInputDispatchMode( ToInputDispatchMode( config.viewControlMode ) );
             m_TileMapListenerList.clear();
-            m_KeyInputEventHandlerList.clear();
-            m_GPadInputEventHandlerList.clear();
             m_SpriteMap.clear();
-            m_GamePadList.clear();
 
             memset( &m_CameraPos, 0, sizeof( m_CameraPos ) );
             ResetZoom();
@@ -1705,10 +1454,6 @@ namespace SunLight {
                 GetViewport().SetDimension2D( fullArea );
             }
 
-            if( config.bUseDefaultKeyHandler )  {
-                InitalizeDefaultUserInputHandlers();
-            }
-         
             /*
             * Set the raylib callback texture handlers (this call is protected
             * to be called just only one time in whole program execution).
@@ -1796,8 +1541,6 @@ namespace SunLight {
             if( !m_pNullBackend )
                 s_nLiveDefaultBackendRenderers--;
             m_TileMapListenerList.clear();
-            m_KeyInputEventHandlerList.clear();
-            m_GPadInputEventHandlerList.clear();
         }
 
         /**
@@ -2240,7 +1983,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode )  {
 
-            m_ViewControlMode = mode;
+            m_pControllerManager -> SetInputDispatchMode( ToInputDispatchMode( mode ) );
         }
 
         /**
@@ -2273,60 +2016,57 @@ namespace SunLight {
 
         /**
          * @brief Set the Game Pad Id that will be handled by this renderer;
-         * 
-         * @param nIndex The GamePad device index to set GamePadId;  
+         *
+         * @param nIndex The GamePad device index to set GamePadId;
          * @param nGamePadId The gme pad id to set;
          */
         void TileMapRenderer :: AddGamePad( int nGamePadId )  {
 
-            m_GamePadList.push_back( nGamePadId );
+            m_pControllerManager -> AddGamePad( nGamePadId );
         }
 
         /**
          * @brief Set the User Key Event Handler callback routine.
-         * 
+         *
          * @param evt The event code to call related routine;
          * @param handler The callback routine that will be called for key event;
          */
-        void TileMapRenderer :: SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt, 
+        void TileMapRenderer :: SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt,
                                                         SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
-            if( evt != SunLight :: Input :: KeyboardKey :: KEY_NULL )  {
-                std :: unique_ptr<__stInputEventData>  pEvtData = std :: make_unique<__stInputEventData>();
-
-                pEvtData -> nEvent   = evt;
-                pEvtData -> pHandler = handler;
-                m_KeyInputEventHandlerList.push_back( std :: move( pEvtData ) );
-            }
-            else  {
-                m_pNullInputEventHandler = handler;
-            }
+            m_pControllerManager -> SetUserKeyEventHandler( evt, handler );
         }
 
         /**
           * @brief Set the User Game Pad button event Handler callback routine.
-          * 
+          *
           * @param evt The event code to call related routine;
           * @param handler The callback routine that will be called for key event;
           */
-        void TileMapRenderer :: SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, 
+        void TileMapRenderer :: SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt,
                                                             SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
-            std :: unique_ptr<__stInputEventData>  pEvtData = std :: make_unique<__stInputEventData>();
-
-            pEvtData -> nEvent   = evt;
-            pEvtData -> pHandler = handler;
-            m_GPadInputEventHandlerList.push_back( std :: move( pEvtData ) );
+            m_pControllerManager -> SetUserGamePadEventHandler( evt, handler );
         }
 
         /**
          * @brief Get the Input Handler object
-         * 
+         *
          * @return S\The reference to IInputHandler object;
          */
         SunLight :: Input :: IInputHandler& TileMapRenderer :: GetInputHandler( void )  {
 
-            return *m_pInputHandler;
+            return m_pControllerManager -> GetInputHandler();
+        }
+
+        /**
+         * @brief Get the controller manager these input methods delegate to (F0a of the master
+         * plan), for direct access - the same shape as GetCollisionManager().
+         * @return A reference to the IControllerManager object;
+         */
+        SunLight :: Input :: IControllerManager& TileMapRenderer :: GetControllerManager( void )  {
+
+            return *m_pControllerManager;
         }
 
         /**
@@ -3341,7 +3081,7 @@ namespace SunLight {
          * (RendererConfig::nMaxFrames, counted since Start()) is spent, or a
          * caller/listener called @see RequestExit - checked once per iteration, not
          * immediately, so a RequestExit() call from inside this frame's
-         * own HandleUserUpdate/etc. still lets the frame finish drawing
+         * own HandleTileMapUpdate/etc. still lets the frame finish drawing
          * before the loop actually exits. Either way, this function only
          * returns - it never closes the window itself; that's still
          * @see Stop's job alone, unconditionally, regardless of which
@@ -3357,8 +3097,8 @@ namespace SunLight {
                     SunLight :: Engines :: EngineFactory :: GetEngine().BeginRenderTarget( m_pRenderTexture );
                     if( GetVisible() )  {
                         RenderMap();
-                        HandleUserInput();
-                        HandleUserUpdate();
+                        m_pControllerManager -> Update();
+                        HandleTileMapUpdate();
                         HandleUserCollisions();
 
                         /*

@@ -690,14 +690,17 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 
 | # | Item | Status |
 |---|------|--------|
-| F1 | Device list and hot-plug events | TODO |
-| F2 | Player slots: claim, release, reassign after unplug | TODO |
-| F3 | Action map: named actions, rebinding, load and save | TODO |
-| F4 | Tunable dead zones and thresholds per pad and axis | TODO |
-| F5 | Duplicate pad registration is ignored | TODO |
-| F6 | Default handlers are opt-in, and a game can take over input | TODO |
-| F7a | Rumble interface, factory, null and mock implementations (no real device) | TODO |
-| F7b | Real rumble backend, once a platform that vibrates is chosen | TODO |
+| F0a | Extract input dispatch/registration into `IControllerManager` + `ControllerManager`, owned by `TileMapRenderer` (mirroring `ICollisionManager`). No behavior change | DONE |
+| F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | DONE |
+| F0c | Record the Scarab/Caravellius breakage in `doc/BREAKAGES.md` | DONE |
+| F1 | Device list and hot-plug events | DONE |
+| F2 | Player slots: claim, release, reassign after unplug | DONE |
+| F3 | Action map: named actions, rebinding, load and save | DONE |
+| F4 | Tunable dead zones and thresholds per pad and axis | DONE |
+| F5 | Duplicate pad registration is ignored | DONE |
+| F6 | Default handlers are opt-in, and a game can take over input | N/A, subsumed by F0b - once default bindings are a separate, un-auto-installed preset, there is nothing left for this item to do |
+| F7a | Rumble interface, factory, null and mock implementations (no real device) | DONE |
+| F7b | Real rumble backend, once a platform that vibrates is chosen | DONE |
 
 Today the renderer only polls gamepads a caller has added with `AddGamePad`. It does
 not detect devices, react to connect or disconnect, or let a game remap actions.
@@ -707,31 +710,329 @@ functions that Scarab provides.
 
 **Coordination rule for this phase:** any change to a sunlight input signature also
 lists the Scarab wrappers and Caravellius call sites it affects, and those are updated in
-the same coordination.
+the same coordination. Phase F stages through its own branch, `feat/complete_f_plan`,
+created from `feat/master_plan` - every sub-item merges there first, and only once the
+whole phase is finished does `feat/complete_f_plan` itself merge into `feat/master_plan`
+(the same staging pattern Phase E used with `feat/complete_e_plan`).
+
+**F0: the controller-manager seam.** `TileMapRenderer` today owns three logically distinct
+layers under one roof, confirmed by reading the renderer rather than assumed: raw input
+polling (`IInputHandler`/`InputHandlerFactory`, already a clean, swappable backend - nothing
+to change here); the event dispatch/registration machinery (the key/gamepad handler lists,
+the gamepad list, the analog-stick-to-DPad-button translation with its deadzone constants,
+`AddGamePad`/`SetUserKeyEventHandler`/`SetUserGamePadEventHandler`/`GetInputHandler`, and the
+per-frame dispatch itself, `HandleUserInput`/`HandleKeyEvent`); and the default camera/zoom
+key bindings (`InitalizeDefaultUserInputHandlers` plus the `InputKeyUp/Down/Left/Right/
+PageUp/PageDown/Home/End` callbacks, which just call `MoveCameraUp/Down/Left/Right`,
+`ZoomIn`/`ZoomOut`, `ResetZoom`, `ResetCamera` - methods `ITileMap` already declares as pure
+virtuals, confirmed by reading `tilemap/itilemap.h`, so a preset wired against `ITileMap&`
+needs no new interface surface for this part). Every reference to the second layer's own
+members (`m_pInputHandler`, `m_GamePadList`, the two handler lists,
+`m_pNullInputEventHandler`) was checked across the whole file: they are touched only by this
+small cluster of methods, never by sprite/view/collision code - a clean extraction, not a
+tangle.
+
+- `F0a` moves the second layer into `SunLight::Input::IControllerManager` (+ concrete
+  `ControllerManager`), in its own module (`input/controllermanager.*`, the same shape as
+  every other `I*`/concrete/factory split in this codebase):
+
+  ```cpp
+  enum InputDispatchMode {
+      INPUT_DISPATCH_MODE_ACTIVE,    // continuous IsKeyDown/IsGamepadButtonDown polling, fires every frame held
+      INPUT_DISPATCH_MODE_REACTIVE   // fires once per key-press edge (GetKeyPressed)
+  };
+
+  class IControllerManager {
+      public:
+      virtual ~IControllerManager( void ) = default;
+      virtual void AddGamePad( int nGamePadId ) = 0;
+      virtual void SetUserKeyEventHandler( KeyboardKey evt, INPUT_EVENT_HANDLER handler ) = 0;
+      virtual void SetUserGamePadEventHandler( GamepadButton evt, INPUT_EVENT_HANDLER handler ) = 0;
+      virtual IInputHandler& GetInputHandler( void ) = 0;
+      virtual void SetInputDispatchMode( InputDispatchMode mode ) = 0;
+      virtual InputDispatchMode GetInputDispatchMode( void ) const = 0;   // new: no equivalent getter exists today
+      virtual void Update( void ) = 0;   // per-frame dispatch, renamed from HandleUserInput
+  };
+  ```
+
+  `InputDispatchMode` moves from `SunLight::Renderer` (where it was named `ViewControlMode` -
+  a camera-flavored name for what has only ever been an input dispatch strategy, not a camera
+  concern) into `SunLight::Input`, alongside the class that actually owns dispatching.
+  `ControllerManager` is directly constructible, no factory - the same shape
+  `CollisionManager` already uses (no backend variation to swap; the only real swap point,
+  `IInputHandler`, already has its own factory and test-override hook,
+  `InputHandlerFactory::SetCreator`, confirmed sufficient for a `MockInputHandler` without
+  needing a second factory layer here). `TileMapRenderer` owns one internally
+  (`std::unique_ptr<IControllerManager>`), exposes it via `GetControllerManager()` (mirroring
+  `GetCollisionManager()` exactly), and its own frame loop calls
+  `m_pControllerManager -> Update()` where it previously called `HandleUserInput()` directly -
+  same shape as it already calls `m_CollisionManager.Update()`.
+  - Test items: a new `tests/test_controllermanager.cpp`, using a new `tests/mock_input.h`
+    (`MockInputHandler`, swapped in via `InputHandlerFactory::SetCreator`, the same pattern
+    `mock_engine.h`/`mock_window.h` already use) - every public method's behavior matches
+    today's `TileMapRenderer` dispatch exactly: `ACTIVE` mode fires continuously while a key/
+    button is held, `REACTIVE` mode fires once per press; gamepad analog sticks translate to
+    DPad-equivalent dispatch at the documented deadzones (now named constants, not the inline
+    literals `HandleUserInput` has today); a duplicate `AddGamePad` call is confirmed to
+    double-fire, matching today's actual behavior exactly (checked against the source: no
+    dedup exists) - a pinning test for the bug F5 later fixes, not a claim it is already fixed
+    here, since F0a is a pure extraction with no behavior change; the
+    gamepad-overrides-keyboard-when-handled precedence holds.
+  - This item directly unblocks T3 ("direct tests for `Run()`'s input... dispatch"), stuck
+    TODO until now because the dispatch logic had no seam to mock.
+
+**F0a (DONE).** `IControllerManager`/`ControllerManager` (`src/input/icontrollermanager.h`,
+`src/input/controllermanager.{h,cpp}`) implemented and wired in exactly as planned above.
+Every one of `TileMapRenderer`'s old public input methods (`AddGamePad`,
+`SetUserKeyEventHandler`, `SetUserGamePadEventHandler`, `GetInputHandler`,
+`SetViewControlMode`) kept its exact signature, now a one-line delegation to the internally
+owned `m_pControllerManager`; `m_ViewControlMode` as a stored member was removed entirely
+(now redundant - the manager stores its own dispatch mode), with a small, explicit
+`ToInputDispatchMode` conversion (not a `static_cast` relying on the two enums' ordinal
+values happening to agree) bridging the renderer's own `ViewControlMode` to the new
+`InputDispatchMode` at the two call sites (construction, `SetViewControlMode`). No sample or
+existing test needed a single change - confirmed by building all of them unmodified.
+- Test items, in `tests/test_controllermanager.cpp` (10 cases) using a new
+  `tests/mock_input.h` (`MockInputHandler`, swapped in via
+  `InputHandlerFactory::SetCreator`, the same pattern `mock_sound.h`'s `MockSoundFixture`
+  already uses for a factory that returns a fresh instance per call): `ACTIVE` mode fires
+  every frame a key is held and stops firing once released; `REACTIVE` mode dispatches to
+  whichever handler matches `GetKeyPressed()`'s current value; `KEY_NULL`'s fallback handler
+  fires only when nothing else handled that frame; a gamepad analog stick beyond/within the
+  deadzone does/doesn't dispatch; a duplicate `AddGamePad` call is confirmed to double-fire,
+  pinning today's real behavior (checked against the source: no dedup exists) rather than
+  assuming F5's eventual fix is already in place; gamepad activity suppresses keyboard
+  dispatch that frame even with no gamepad handler registered for the specific
+  stick/button involved (confirmed against the source: `bEventHandled` is set directly from
+  axis movement detection, before the handler-matching loop runs); `GetInputHandler` returns
+  the same instance the manager was constructed with; `SetInputDispatchMode`/
+  `GetInputDispatchMode` round-trip.
+- Mutation check: widening the left-stick X deadzone from 0.1 to 0.9 fails 2 of the 10 cases
+  (the deadzone case itself, and the gamepad-suppresses-keyboard case, which also depends on
+  axis movement being detected) - confirmed by reverting the fix, seeing the tests fail, then
+  restoring it.
+- Full suite (471 cases) passes under AddressSanitizer with no reports. Every sample and the
+  full existing suite builds and passes unmodified - the strongest form of "no behavior
+  change" this item could demonstrate.
+
+- `F0b` moves the third layer into `SunLight::Input::DefaultControllerBindings`, a stateless
+  preset (a static method, no instance - nothing here varies by backend or needs mocking):
+
+  ```cpp
+  class DefaultControllerBindings {
+      public:
+      // Wires WASD/arrow keys to camera moves, PageUp/PageDown to zoom, Home/End to
+      // reset-zoom/reset-camera, on both keyboard and every gamepad already added to
+      // controllerManager - exactly today's InitalizeDefaultUserInputHandlers behavior,
+      // just external and opt-in now.
+      static void Install( SunLight :: TileMap :: ITileMap &map, IControllerManager &controllerManager );
+  };
+  ```
+
+  `TileMapRenderer` no longer auto-installs anything; `RendererConfig::bUseDefaultKeyHandler`
+  is removed, and the classic `TileMapRenderer(width, height, title, targetFps)` constructor
+  drops its fifth parameter. A game that wants the old defaults calls
+  `DefaultControllerBindings::Install( *pRenderer, pRenderer -> GetControllerManager() )`
+  once, explicitly, itself.
+  - Test items: `Install` wires exactly the documented keys/buttons - driven through a mock
+    `IControllerManager`/`IInputHandler` (or the real `ControllerManager` against the null
+    backend, same style `test_camera.cpp` already uses), each key/button fires the matching
+    `ITileMap` camera/zoom call exactly once.
+
+**F0b (DONE).** `DefaultControllerBindings` (`src/input/defaultcontrollerbindings.{h,cpp}`)
+implemented exactly as planned, wiring the same 16 bindings (8 keyboard, 8 gamepad)
+`InitalizeDefaultUserInputHandlers` used to install. Removing the auto-install meant checking,
+not assuming, how many call sites would break: all 8 samples' own `world.cpp` files pass
+`bUseDefaultKeyHandler=false` already (confirmed by grep before removing anything), so none of
+them relied on the removed mechanism - but two more direct constructor calls outside any
+`world.cpp` (`samples/multiview/multiview_test.cpp`,
+`samples/multiview_overlap/multiview_overlap_test.cpp`) and 41 more inside the test suite
+(`tests/test_rendererconfig.cpp` x6, `tests/test_nullbackend.cpp` x1,
+`tests/test_tilemaprenderer.cpp` x18, `tests/test_tilemaprenderer_lifecycle.cpp` x16 - the exact
+counts confirmed from the diff itself, not estimated) still passed the now-removed fifth
+constructor argument positionally, found only once the build actually failed on each in turn -
+a reminder that grepping for a named parameter (`bUseDefaultKeyHandler`) misses every call site
+using positional arguments instead. None of these were testing the removed parameter's own
+effect; all 43 just needed the trailing argument dropped. Separately,
+`samples/tilemaprenderer/world.cpp` was checked and confirmed to use a deliberately *inverted*
+camera mapping (`KEY_UP` to `MoveCameraDown`, `KEY_PAGE_UP` to `ZoomOut` - the documented
+sprite-relative convention), not the literal default mapping, so it does not call
+`DefaultControllerBindings::Install` - no sample does, since none actually wants the literal
+default bindings.
+- Test items, in `tests/test_defaultcontrollerbindings.cpp` (3 cases), using the existing
+  `MockTileMap` (extended with call counters on its 8 camera/zoom methods, additive - no
+  existing test depends on their old no-op bodies) and `mock_input.h`: arrow keys dispatch the
+  matching `MoveCamera*` call; PageUp/PageDown/Home/End dispatch `ZoomIn`/`ZoomOut`/
+  `ResetZoom`/`ResetCamera`; a gamepad's DPad and right-face buttons dispatch the same calls.
+- Mutation check: swapping `KEY_UP`'s binding from `MoveCameraUp` to `MoveCameraDown` fails the
+  arrow-key test (both assertions on that pair), confirmed by reverting the fix, seeing it
+  fail, then restoring it.
+- Full suite (474 cases) passes under AddressSanitizer with no reports. Every sample builds
+  cleanly.
+
+- `F0c`'s scope narrowed once F0a kept every old `TileMapRenderer` input method as a permanent
+  delegating wrapper (not removed, never needed removing) and F0b found no sample wanted
+  `DefaultControllerBindings::Install` anyway: nothing further needs updating in this repo. The
+  remaining, genuinely mechanical step is recording the Scarab/Caravellius breakage (the
+  classic constructor's dropped fifth parameter, `RendererConfig::bUseDefaultKeyHandler`'s
+  removal, and `ViewControlMode`'s rename/relocation to `SunLight::Input::InputDispatchMode`)
+  in `doc/BREAKAGES.md`, per this project's standing peer-impact convention.
+  - Test items: none beyond what F0a/F0b already proved - this item is pure documentation.
 
 **F1: device list and hot-plug.** Expose the connected pads and their names, and raise
-connect and disconnect events. This needs new `IInputHandler` methods, so the mock is
-updated in the same change.
-- Test items: a scripted connect and disconnect through the mock is reported once each;
-  the null backend reports no devices.
+connect and disconnect events.
+- `IInputHandler` already had everything a device list needs (`IsGamepadAvailable`,
+  `GetGamepadName` per id) - checked against its actual header before assuming a new
+  pure virtual was required, contrary to this item's own original wording above. No
+  `IInputHandler` change was needed, so the raylib and null backends are untouched.
+- `IControllerManager` gains two members instead: `GetConnectedGamepads()` (a fresh poll
+  over every slot `0..MAX_GAMEPAD_COUNT-1`, independent of `AddGamePad` - a pad must be
+  discoverable before anything registers it for button/axis dispatch) returning a
+  `stGamepadInfo{ nGamePadId, szName }` per connected id; and
+  `SetGamepadConnectionHandler(handler)`, a `void(int, bool)` callback `Update()` fires
+  once per availability transition. `ControllerManager` tracks each slot's last-seen
+  state in a `std::array<bool, MAX_GAMEPAD_COUNT>`, diffed against a fresh poll at the
+  top of every `Update()` (`DetectGamepadConnectionChanges()`), before the existing
+  dispatch logic runs.
+- `mock_input.h` *is* updated in this change, per the item's own anticipation - just not
+  because of a new `IInputHandler` method: its single always-true `bGamepadAvailableResult`
+  bool (never read by any existing test, checked before removing it) is replaced by a
+  `std::set<int> availableGamepads`, empty by default, so a test scripts a connect by
+  inserting an id and a disconnect by erasing it between `Update()` calls.
+- Test items, in `tests/test_controllermanager.cpp` (4 new cases): `GetConnectedGamepads`
+  is empty by default and lists every scripted id with its name, in id order; a scripted
+  connect and a scripted disconnect each fire the handler exactly once, not again on a
+  following `Update()` with no change. `tests/test_nullbackend.cpp` gains one assertion
+  that a null-backend renderer's `GetControllerManager().GetConnectedGamepads()` is empty.
+- Mutation check: replacing the diff's `if( bNowAvailable != m_GamepadConnected[...] )`
+  with `if( true )` (always fire, never dedupe) failed both new "exactly once" assertions
+  (`events.size() == 20`/`10` instead of `1`, the handler firing on every slot every
+  frame), confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (478 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F2: player slots.** A pad is claimed by a slot, released on request, and reassigned
 after an unplug. Slots are a sunlight concept, so the game decides how many there are.
-- Test items: unplug and replug keeps the slot; releasing a slot frees the pad; claiming
-  an already claimed pad is refused.
+- `IPlayerSlotManager`/`PlayerSlotManager` (`src/input/iplayerslotmanager.h`,
+  `src/input/playerslotmanager.{h,cpp}`) is a new class, directly constructible like
+  `ControllerManager` - no factory, no backend variation. `ClaimSlot(slot, pad)` succeeds
+  for a free pad or a pad the same slot already holds (idempotent), replaces whatever pad
+  a slot held before (freeing it), and refuses a pad a *different* slot already holds.
+  `ReleaseSlot(slot)` frees whatever it holds, a no-op if it holds nothing. Both lookups
+  (`GetGamepadForSlot`/`GetSlotForGamepad`) return the new `NO_SLOT_ASSOCIATION` sentinel
+  when nothing matches.
+- Deliberately independent of `IControllerManager`/`IInputHandler`: a slot's claim is a
+  plain `slot -> gamepad id` map, never consulted against or cleared by the gamepad's own
+  live availability. "Reassigned after an unplug" (the item's own wording) resolves to
+  "the claim is never touched by connectivity at all" - unplugging and replugging the same
+  device need not do anything, since the slot was never told to let go; a reassignment to
+  a *different* pad after a permanent unplug is the caller's own decision (e.g. from
+  `IControllerManager`'s F1 hot-plug event), not something this class does on its own.
+- Test items, in `tests/test_playerslotmanager.cpp` (8 cases): an unclaimed slot/pad
+  report `NO_SLOT_ASSOCIATION` both ways; a claim round-trips both lookups; claiming an
+  already-claimed pad is refused and leaves state unchanged; releasing a slot frees its
+  pad for another slot; releasing an unclaimed slot is a no-op; re-claiming the same
+  slot+pad is an idempotent success; claiming a different pad for an already-claimed slot
+  replaces it and frees the old one; and the exact "unplug and replug keeps the slot"
+  scenario, using `ControllerManager` + `mock_input.h` to toggle a gamepad's live
+  availability across `Update()` calls and confirming the slot's claim never moves.
+- Mutation check: forcing `ClaimSlot`'s refusal branch to `if( false )` (always allow)
+  failed the refusal test's two assertions (`ClaimSlot` returning `true` instead of
+  `false`, and the second slot reading the pad instead of `NO_SLOT_ASSOCIATION`),
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (486 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F3: action map.** Named actions bound to keys, buttons or axes, with rebinding at run
 time and load and save. Sunlight provides the mechanism. Each game names its own actions
 and keeps its bindings in its own files. The file format is decided before implementation.
-- Test items: a rebind round trip; a saved file reloads to the same bindings; a
-  conflicting binding is reported.
+- `IActionMap`/`ActionMap` (`src/input/iactionmap.h`, `src/input/actionmap.{h,cpp}`) is a
+  new class, directly constructible like `ControllerManager`/`PlayerSlotManager` - no
+  factory. An action name maps to at most one `stActionBinding` (`{ type, nCode,
+  nDirection }`): `BindKey`/`BindGamepadButton`/`BindGamepadAxis` each replace whatever
+  binding the action held before (a rebind, free of charge - no separate "rebind" method
+  needed), and refuse (return false) a physical input already bound to a *different*
+  action, mirroring `PlayerSlotManager::ClaimSlot`'s own refuse/replace shape. An axis
+  binding's conflict check includes its direction, so opposite directions on the same
+  axis (`MoveLeft`/`MoveRight`) are two separate, non-conflicting bindings.
+  `IsActionActive(action, input, gamePadId, axisThreshold)` evaluates the binding against
+  a live `IInputHandler` - a key via `IsKeyDown`, a button via `IsGamepadButtonDown`, an
+  axis via `GetGamepadAxisMovement` compared against the caller-supplied threshold in the
+  binding's own direction. No default threshold is baked in - deadzone/threshold tuning is
+  this item's own job (F4), not F3's.
+- File format, decided before writing any code: a plain text file, one binding per line,
+  `Action=Tag:code` (`Action=Tag:code:direction` for an axis), `Tag` one of `KEY`/
+  `BUTTON`/`AXIS`, `#`-prefixed and blank lines ignored. Chosen over JSON/INI since the
+  project has no JSON dependency and the grammar is this simple; `Save`/`Load` use plain
+  `std::ofstream`/`std::ifstream` against a real OS path (not `IFileSystem` - there is no
+  write abstraction in this project yet, and a save target only makes sense as a real,
+  writable path anyway). `Load` parses into a temporary map first and only replaces the
+  live bindings if every line parsed - a malformed file fails atomically, never leaving a
+  half-loaded map.
+- Test items, in `tests/test_actionmap.cpp` (15 cases): an unbound action has no binding
+  and is never active; each of the three binding kinds both binds and drives
+  `IsActionActive` correctly (including the axis binding's threshold and direction);
+  opposite axis directions don't conflict; **a rebind round trip** (rebinding frees the
+  old input for a different action to take); a no-op self-rebind still succeeds; **a
+  conflicting binding is reported** for each of the three binding kinds; `Unbind`; **a
+  saved file reloads to the same bindings** for all three kinds; `Load` fully replaces
+  stale prior bindings; `Load` fails (state untouched) for a missing file and for a
+  malformed line.
+- Mutation check (two independent invariants): forcing every refusal branch to
+  `if( false )` failed all three conflict tests (`BindKey`/`BindGamepadButton`/
+  `BindGamepadAxis` each returning `true` instead of `false`); separately, replacing the
+  axis's direction-sign comparison with a direction-blind "past either threshold" check
+  failed the axis direction test (the wrong-direction case reading active). Both
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (501 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F4: dead zones and thresholds.** Configurable per pad and per axis, with today's values
 as the defaults.
-- Test items: a value exactly at the boundary behaves as specified; defaults match today.
+- `IControllerManager` gains `SetAxisDeadzone(pad, axis, deadzone)`/`GetAxisDeadzone(pad,
+  axis)`, backed by a `std::map<std::pair<int,int>, float>` keyed by exactly the (pad,
+  axis) pair being configured; an unconfigured pair reads the new `DEFAULT_AXIS_DEADZONE`
+  (0.1f - today's own value, unchanged).
+- Found and fixed a real pre-existing bug while wiring this in: `Update()`'s deadzone
+  check for the *left* stick's Y axis (`fPosY`) read the *right* stick's Y deadzone
+  constant (`__RIGHT_STICK_DEADZONE_Y`), not the left one - invisible before this item
+  only because all four of the old hardcoded constants happened to equal 0.1f. Now that
+  each (pad, axis) pair can genuinely differ, the swap would have been an observable bug;
+  fixed by routing all four axes through `GetAxisDeadzone` with their own correct axis.
+  The four old per-stick constants are removed - one named default replaces them, since
+  their only distinction was this bug.
+- Test items, in `tests/test_controllermanager.cpp` (4 new cases): `GetAxisDeadzone`'s
+  defaults match today's value for any (pad, axis) pair; `SetAxisDeadzone` configures
+  exactly the one pair asked, leaving every other pair (including the same axis on a
+  different pad) at the default; **a value exactly at the deadzone's own boundary behaves
+  as specified** (strictly inside reads as zero, exactly at the boundary is a real,
+  dispatchable value); and a regression test pinning the bug fix itself (a left-Y
+  deadzone of 0.5 and a right-Y deadzone of 0.0 - a left-stick Y position of 0.3 must not
+  dispatch, which it would if the swap were still present).
+- Mutation check (two independent points): reverting `fPosY`'s lookup back to
+  `fRightDeadzoneY` failed the regression test exactly as the real historical bug would
+  have; separately, changing the boundary comparison from strict `<` to `<=` failed the
+  boundary test (the boundary value reading as zero instead of real). Both confirmed by
+  reverting the fix, seeing the test fail, then restoring it.
+- Full suite (505 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F5: duplicate pads.** A pad added twice is dispatched once.
-- Test items: adding the same id twice produces one dispatch per event.
+- `AddGamePad` now checks `m_GamePadList` first (`std::find`) and is a no-op for an id
+  already present - the fix F0a's own pinning test anticipated but deliberately did not
+  make yet (that item was a pure extraction, no behavior change).
+- F0a's "double-fires" pinning test is updated in place to assert the fixed behavior
+  (one dispatch, not two) - its role was always to track this exact bug, not to prevent
+  it from ever being fixed; a second case confirms two genuinely *different* ids still
+  each dispatch their own event once.
+- Test items, in `tests/test_controllermanager.cpp` (1 new case, 1 updated in place):
+  adding the same id twice produces one dispatch per event; two different ids still
+  produce one dispatch each (not collapsed together).
+- Mutation check: reverting `AddGamePad` to its old unconditional `push_back` reproduced
+  the historical double-fire exactly (`nFireCount == 2` where the test expects `1`),
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (506 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F6: opt-in default handlers.** The camera handlers become opt-in, and the docs explain
 how a game takes over input.
@@ -741,14 +1042,221 @@ how a game takes over input.
 `SetVibration(pad, left, right, duration)` and `Stop(pad)`, strengths from 0 to 1. It
 gets a factory, a null implementation that reports unsupported, and a recording mock.
 Nothing is wired to a real device.
-- Test items: a game that checks `IsSupported` can skip an effect; calls reach the mock
-  with the exact arguments; the null implementation never errors.
+- `IGamepadHaptics` (`src/input/igamepadhaptics.h`) is deliberately separate from
+  `IInputHandler` - haptics is an output, not an input. `NullGamepadHaptics`
+  (`src/input/nullgamepadhaptics.{h,cpp}`) reports every pad unsupported and makes
+  `SetVibration`/`Stop` harmless no-ops; it does *not* live under `backends/null/` like
+  `NullInputHandler` does, since it isn't a headless substitute for a real backend
+  installed only while a null renderer is live - it is every build's only and permanent
+  implementation until F7b picks a real one, so it sits beside the interface in
+  `src/input/` instead.
+- `GamepadHapticsFactory` (`src/input/gamepadhapticsfactory.{h,cpp}`) follows
+  `SoundFactory`'s shape exactly: a fresh `IGamepadHaptics` per call (not a shared
+  singleton - a game could plausibly want more than one in flight), and a `SetCreator`
+  override hook for tests. Unlike `EngineFactory`/`WindowFactory`/`InputHandlerFactory`,
+  there is no build-time `#if DEFAULT_ENGINE` switch yet - `NullGamepadHaptics` is the
+  unconditional default, since no second backend exists to switch between until F7b.
+- `tests/mock_gamepadhaptics.h` adds `MockGamepadHaptics` (records every `SetVibration`/
+  `Stop` call's exact arguments in a vector, `bSupportedResult` scriptable) and
+  `MockGamepadHapticsFixture`, the same `SetCreator`-based RAII swap shape as
+  `mock_input.h`/`mock_sound.h`.
+- Test items, in `tests/test_gamepadhaptics.cpp` (7 cases): `NullGamepadHaptics`'s
+  `IsSupported` is always false and its `SetVibration`/`Stop` never error, for any
+  argument including out-of-range strengths; a game that checks `IsSupported` can skip
+  an effect entirely (checked against both the null implementation directly and through
+  the mock with support turned off); the factory defaults to `NullGamepadHaptics` and
+  `SetCreator` swaps in a mock and restores the default on `nullptr`; calls through the
+  factory-created mock reach it with the exact arguments (gamepad id, both motor
+  strengths, duration for `SetVibration`; the id for `Stop`).
+- Mutation check: making `CreateGamepadHaptics` ignore `s_pCreator` entirely broke both
+  the swap test (a null pointer instead of the mock) and the exact-arguments test (a
+  segfault, calling into a `NullGamepadHaptics` through a pointer the test expected to be
+  the mock), confirmed by reverting the fix, seeing both fail, then restoring it.
+- Full suite (513 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F7b: rumble backend.** A real implementation, once a platform that vibrates is chosen.
 raylib's desktop build does not vibrate, so this may need another library or a custom
 backend. Real behaviour can only be proven here, so this item stays open until then.
-- Test items: on the chosen platform, each motor responds and stops on `Stop`; a
-  disconnected pad reports unsupported.
+- Confirmed directly in raylib's own vendored source before assuming anything: this
+  project's desktop backend is `rcore_desktop_glfw.c`
+  (`LibraryConfigurations.cmake`/`GlfwImport.cmake`, "Using raylib's GLFW"), and raylib's
+  own `SetGamepadVibration()` is implemented there only as a stub that logs a warning and
+  does nothing - GLFW's own public header has no vibration API at all (checked directly,
+  zero matches for rumble/vibrate/haptic). raylib's *other* platform backend
+  (`rcore_desktop_sdl.c`) has a real implementation, calling `SDL_GameControllerRumble` -
+  confirming SDL2's API shape to build against, without switching raylib's own backend
+  (which would change windowing/input for the whole engine, not just haptics - out of
+  scope for this item, discussed and explicitly rejected).
+- The real risk this item had to solve: every `nGamePadId` elsewhere in sunlight is
+  raylib/GLFW's own device index. SDL2 enumerates gamepads completely separately, with no
+  guaranteed shared index space - a naive implementation could vibrate the wrong
+  controller. Neither an SDL-compatible GUID nor a device name identifies a *specific
+  physical unit*, only its make and model (GLFW's own documentation says this explicitly
+  of its joystick GUIDs) - two identical controllers are indistinguishable by either, so
+  no approach can be fully certain with duplicate-model pads connected.
+- `MatchGamepadsByName` (`src/input/gamepadidentitymatcher.{h,cpp}`) is the pure-logic
+  answer: greedily matches two independently-ordered name lists, each candidate consumed
+  at most once, so identical-model duplicates pair up by their own relative connection
+  order - the best available heuristic, clearly documented as a heuristic, not a
+  guarantee. This is the *only* part of F7b provable without real hardware, and it is
+  fully covered: `tests/test_gamepadidentitymatcher.cpp` checks empty inputs, a clean
+  match, an unmatched name, order-independence on either side, 2-way and 3-way duplicate
+  ties, and that an empty string is a valid, matchable name like any other.
+- **Real-hardware finding, found live against a real Xbox One S controller once the
+  owner tested `samples/isometric_haptics/` (below) on their own machine**: exact-name
+  matching alone *always* failed, even with only one controller connected - no "it
+  should work" case at all. raylib/GLFW reports it as `"Xbox Wireless Controller"`; SDL2
+  reports the identical physical unit as `"Xbox One S Controller"` - two independently
+  maintained mapping databases disagreeing about a single, correctly-detected device,
+  not a duplicate-unit ambiguity. A GUID-based fix was explored next and found
+  *structurally* broken, not just unreliable: `glfwGetJoystickGUID()` called from outside
+  raylib's own compiled translation unit queries a second, independently-linked copy of
+  GLFW's internal joystick state (GLFW is statically embedded inside raylib's own shared
+  library; linking it again directly into `sunlight` creates a separate instance that
+  never receives `glfwPollEvents()` and so never detects anything) - confirmed live: it
+  returned `NULL` for a device raylib's own calls, through the *same* `IInputHandler`,
+  correctly reported as available. Reusing raylib's own already-running GLFW instance
+  would need a new, raylib-level public API this project doesn't own; not pursued.
+- The actual fix: `MatchGamepadsByName` now treats exactly one name on each side as the
+  same device *unconditionally*, regardless of whether the strings agree - the only
+  cross-library signal strong enough to trust, since raylib exposes nothing more precise
+  than a name at all (checked against its public header: no GUID, no vendor/product id).
+  Name-matching remains the fallback once there is more than one candidate on either
+  side (the duplicate-unit case this item already knew it couldn't resolve with
+  certainty). Two new test cases cover the fix directly: the exact Xbox One S regression,
+  and confirming the shortcut does *not* apply once either side has more than one name.
+- **A second, more serious finding from the same live session**: a "unit test" reached
+  out and touched real hardware. `tests/test_gamepadhaptics.cpp`'s
+  `SDLGamepadHaptics` suite had two cases that reported exactly one *mock* raylib-side
+  pad, intending "nothing real will ever match this." Before the fix above, that was
+  true unconditionally; after it, it is no longer true whenever the machine running the
+  suite happens to have exactly one real controller connected - which it did, live,
+  mid-session. One of those cases called the real `SetVibration(0, 1.0, 1.0, 1.0)`
+  directly, and it fired a real, full-strength rumble at a real, physically present Xbox
+  controller, which kept vibrating after the (sub-second) test process had already
+  exited, requiring the controller to be power-cycled to clear - `Stop()` immediately
+  following `SetVibration()` in the test should have silenced it in software, but
+  whatever stuck Bluetooth-level state resulted did not respond to it. Fixed by giving
+  both cases two mock pads instead of one (bypassing the new shortcut on purpose, so
+  they stay unmatched regardless of whatever real hardware is ever connected to the
+  machine running them) and adding an explicit warning at the top of the file: a
+  `SDLGamepadHaptics` test case is not automatically hardware-safe just because it is a
+  unit test, and every case intending "unmatched" must use at least two mock pads, never
+  one, to stay correct regardless of what's plugged into the machine that runs it.
+- `SDLGamepadHaptics` (`src/backends/sdl/sdlgamepadhaptics.{h,cpp}`) is the real
+  `IGamepadHaptics`. It takes the `IInputHandler&` whose gamepad list it correlates
+  against (the caller keeps it alive for at least as long as the haptics instance - the
+  same non-owning-reference convention as `BaseCanvas::m_pParent`). Every call
+  re-derives the raylib-name-list vs SDL-name-list match fresh (no cached mapping to go
+  stale across a hot-plug), opens the matched `SDL_GameController` only for that one
+  call, and closes it immediately after - verified against SDL's own source rather than
+  assumed: `SDL_GameControllerRumble` is a thin wrapper over `SDL_JoystickRumble`, and
+  `Stop()`'s `SDL_GameControllerRumble(pController, 0, 0, 0)` is exactly the call SDL's
+  own `SDL_JoystickClose` uses internally to silence a controller's motors - not a guess.
+  Initializes/releases SDL's game-controller subsystem with `SDL_InitSubSystem`/
+  `SDL_QuitSubSystem` (verified against `SDL_SubsystemRefCount` in SDL's own source: a
+  real per-subsystem reference count, not the all-or-nothing `SDL_Init`/`SDL_Quit`),
+  so more than one `IGamepadHaptics` instance can coexist safely.
+- `GamepadHapticsFactory` gains the build-time `#if DEFAULT_HAPTICS_ENGINE` switch
+  `EngineFactory`/`WindowFactory`/`InputHandlerFactory` already use (value `1` = SDL2,
+  the only value today) - `SDLGamepadHaptics` is now every build's real default,
+  replacing F7a's `NullGamepadHaptics` default (`NullGamepadHaptics` itself is
+  unchanged and still reachable through `SetCreator` for tests). This needed
+  `CreateGamepadHaptics()`'s own signature to grow an `IInputHandler&` parameter -
+  an F7a amendment, harmless since F7a was never merged past `feat/complete_f_plan`.
+- SDL2 is fetched via `FetchContent` (`release-2.32.10`, pinned) and built static, so -
+  like PhysFS - it links straight into `libsunlight` with no separate runtime artifact
+  to distribute and no changes needed to any `*_copy_binaries` target or
+  `release.yml` (confirmed empty grep for any hardcoded per-dependency artifact name
+  there). `SDL_VIDEO`/`SDL_AUDIO`/`SDL_RENDER` are turned off, since haptics only needs
+  the joystick/game-controller/haptic subsystems - confirmed buildable and sufficient
+  without them in a real, from-scratch `FetchContent` build (verified in a standalone
+  scratch probe before touching the real project, then again in the real one), which
+  also avoids depending on Linux's X11/Wayland dev packages for this specific
+  dependency (CI's existing Linux job already installs a superset of those for raylib
+  regardless, so nothing there needed changing either).
+- Confirmed live, not assumed, in this exact sandbox (no real gamepad attached, the
+  closest proxy available to a headless CI runner): `SDL_InitSubSystem(
+  SDL_INIT_GAMECONTROLLER)` succeeds with zero joysticks, `SDL_GameControllerOpen` on a
+  nonexistent device returns `nullptr` with a clean error string (not a crash), and
+  `SDL_QuitSubSystem` tears down cleanly - proven both as a standalone probe and inside
+  the real `sunlight_tests` binary.
+- Test items (this item's own, honestly scoped): the chosen platform's actual rumble
+  response ("each motor responds and stops on `Stop`") can only be proven on real
+  hardware, which this environment does not have - CI running this on three real OSes
+  is the actual first integration proof, not a claim made here. "A disconnected pad
+  reports unsupported" *is* provable headless and is covered:
+  `tests/test_gamepadhaptics.cpp` gains a `backends/sdl/SDLGamepadHaptics` suite (5
+  cases) proving construction/destruction, `IsSupported` false for an unavailable
+  raylib-side pad and for an available one with no real SDL match, `SetVibration`/
+  `Stop` are harmless no-ops when unmatched, and two instances coexist and tear down
+  independently. The `GamepadHapticsFactory` suite is updated in place for the new
+  default (`SDLGamepadHaptics`, not `NullGamepadHaptics`) and the new
+  `CreateGamepadHaptics(IInputHandler&)` signature.
+- Mutation check: removing `MatchGamepadsByName`'s "already consumed" guard (letting a
+  single candidate match more than one target) failed all three duplicate-handling
+  tests exactly as expected (a later duplicate target wrongly re-claiming an
+  already-matched candidate instead of reporting unmatched), confirmed by reverting the
+  fix, seeing it fail, then restoring it.
+- Full suite (528 cases) passes under AddressSanitizer with no reports - notably
+  including the subsystem-refcount and multi-instance lifetime tests, exactly where a
+  real bug would most likely hide. Every sample builds cleanly.
+- `samples/isometric_haptics/` is a new sample, an exact copy of `samples/isometric/`
+  (left untouched) plus gamepad rumble feedback: a step blocked by a "stone" obstacle
+  now rumbles a connected gamepad (a no-op with none attached, since every call is
+  `IsSupported`-gated), strength scaled by how many consecutive steps Sunny had already
+  taken in that same direction before the wall stopped her - tracked explicitly
+  (`m_nRunUpSteps`/`m_nLastDeltaRow`/`m_nLastDeltaCol`) since this sample's grid movement
+  has no analog speed of its own to derive it from; a fresh turn into a wall rumbles at
+  the minimum strength regardless of any run built up in a different direction. A
+  connected gamepad's D-pad/left stick drives Sunny too (`AddGamePad`/
+  `SetUserGamePadEventHandler` in `Run()`, binding the same `MovePlayer*` handlers the
+  keyboard uses), added once the owner asked for it while live-testing with their
+  controller.
+- This sample *is* the real-hardware integration proof the item above says is otherwise
+  unobtainable here - the owner tested it live with a real Xbox One S controller, which
+  is exactly how every real-hardware finding in this item was actually found. Two more
+  surfaced from that same live testing, beyond the name-mismatch and hardware-touching
+  unit test already covered above:
+  - **A held key re-triggered the bump every single frame it stayed down** - a blocked
+    `TryMoveStep` call doesn't set `m_bAnimating` (nothing to animate, the step never
+    happened), so nothing paced it the way a successful step is paced; a frame-by-frame
+    key-down dispatch meant a continuous stream of fresh `SetVibration` calls, each
+    re-arming its own duration before the previous one could finish - felt as one
+    unbroken rumble instead of a short pulse. Fixed in the sample (not in sunlight
+    itself - this is this sample's own dispatch pattern, not a library-level bug) by
+    tracking the direction of the *previous* blocked attempt
+    (`m_bWasBlockedLastAttempt`/`m_nLastBlockedDeltaRow`/`m_nLastBlockedDeltaCol`,
+    `world.h`) and only bumping on the first blocked frame of a given hold; cleared the
+    moment a step actually succeeds.
+  - **Even a single, correctly-isolated `SetVibration` call never stopped on its own** -
+    traced to SDL2's own source: its duration-based rumble auto-stop
+    (`rumble_expiration`, `SDL_joystick.c`) is only ever checked inside
+    `SDL_JoystickUpdate()`, and nothing else in this engine calls that function (every
+    other input query in sunlight goes through raylib/GLFW, never SDL's own event
+    pump) - the duration parameter was silently inert. This *is* a library-level gap,
+    fixed in `IGamepadHaptics` itself: a new `Update()` method (implemented as a no-op
+    by `NullGamepadHaptics`, and in `SDLGamepadHaptics` as sunlight's own replacement
+    for the missing tick, timed against `SunLight::General::Clock` rather than SDL's
+    own clock) must be called once per frame by whoever owns the instance - the sample
+    does this from its own `OnUpdate`, ahead of its early `m_bAnimating` return, since
+    it must run every frame regardless of whether Sunny is mid-animation.
+    `tests/mock_gamepadhaptics.h`'s `MockGamepadHaptics` gains the matching override
+    (a new pure virtual, per this project's own mock-update rule).
+  - Both were only found because real hardware was actually tested live - confirmed by
+    the owner afterward: the sample now rumbles once per wall hit, scaled correctly by
+    run-up distance, stops on its own, and the D-pad drives Sunny directly. This item's
+    own test items ("each motor responds and stops on `Stop`") are satisfied by this
+    live confirmation, not by anything provable in this sandbox alone.
+  - Test items, in `tests/test_gamepadhaptics.cpp` (2 new cases): `Update()` never
+    errors crossing a tracked deadline (`MockClockFixture`, deterministic, zero real
+    gamepads) with a single pad timed-vibrating, and with two pads on different
+    deadlines (exercising the collect-then-stop two-phase loop under AddressSanitizer,
+    where erasing from the deadline map while iterating it directly would actually show
+    up).
+- Full suite (530 cases) passes under AddressSanitizer with no reports. Every sample,
+  including the new one, builds cleanly.
 
 ## Later
 

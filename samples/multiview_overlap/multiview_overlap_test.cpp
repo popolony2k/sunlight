@@ -89,7 +89,7 @@ int main( int argc, char **argv )  {
         return EXIT_FAILURE;
     }
 
-    SunLight :: Renderer :: TileMapRenderer  renderer( __DISPLAY_W, __DISPLAY_H, "Multiview overlap test", __FRAMES_PER_SECOND, false );
+    SunLight :: Renderer :: TileMapRenderer  renderer( __DISPLAY_W, __DISPLAY_H, "Multiview overlap test", __FRAMES_PER_SECOND );
 
     renderer.SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
     renderer.SetDrawFPS( true );

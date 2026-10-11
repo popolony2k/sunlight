@@ -73,7 +73,7 @@ namespace SunLight {
          * value - replaces having to pass a growing list of constructor
          * arguments and then call a handful of setters before Start().
          * Defaults match what the classic
-         * TileMapRenderer( width, height, title, targetFps, useDefaultKeyHandler )
+         * TileMapRenderer( width, height, title, targetFps )
          * constructor produced, so a config only names what it changes.
          *
          * Only state that must be fixed before the window is created (or
@@ -105,9 +105,6 @@ namespace SunLight {
             // since Start(); 0 = unlimited. A safety net / smoke-test
             // budget for any backend.
             unsigned                                  nMaxFrames            = 0;
-
-            // Register the renderer's built-in camera/zoom key handlers.
-            bool                                      bUseDefaultKeyHandler = true;
 
             // Key that makes the window ask to close; KEY_NULL disables it.
             // Applied at every Start(), so it sticks across restarts.

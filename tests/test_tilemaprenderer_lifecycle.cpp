@@ -69,7 +69,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "my title", -1, false );
+        TileMapRenderer    renderer( 800, 600, "my title", -1 );
 
         CHECK( renderer.Start() == true );
 
@@ -97,7 +97,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", 144, false );
+        TileMapRenderer    renderer( 800, 600, "test", 144 );
 
         renderer.SetWindowResizeable( true );
 
@@ -115,7 +115,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         windowFixture.window.bCreateResult = false;
 
@@ -137,7 +137,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         renderer.RequestExit();
         CHECK( renderer.GetExitRequested() == true );
@@ -151,7 +151,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
     TEST_CASE( "SetExitKey forwards to the window, including before Start" )  {
 
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         renderer.SetExitKey( SunLight :: Input :: KEY_NULL );
 
@@ -163,7 +163,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         CHECK( renderer.Run() == false );
 
@@ -176,7 +176,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         windowFixture.window.nFramesUntilShouldClose = 3;
 
@@ -208,7 +208,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
         CountingListener   listener;
 
         renderer.AddTileMapListener( &listener );
@@ -226,7 +226,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
         CountingListener   listener;
 
         // The window never asks to close on its own here - only the
@@ -258,7 +258,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         windowFixture.window.nScreenWidthResult      = 1600;
         windowFixture.window.nScreenHeightResult     = 900;
@@ -286,7 +286,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         windowFixture.window.nScreenWidthResult      = 1600;
         windowFixture.window.nScreenHeightResult     = 900;
@@ -310,7 +310,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         windowFixture.window.nFramesUntilShouldClose = 2;
 
@@ -334,7 +334,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         windowFixture.window.nFramesUntilShouldClose = 2;
 
@@ -361,7 +361,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
         CountingListener   listener;
         int                nHandlerCalls              = 0;
         int                nCloseCallsSeenByHandler   = -1;
@@ -392,7 +392,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         REQUIRE( renderer.Start() == true );
         renderer.Stop();
@@ -405,7 +405,7 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
 
         MockEngineFixture  engineFixture;
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         REQUIRE( renderer.Start() == true );
         renderer.Stop();

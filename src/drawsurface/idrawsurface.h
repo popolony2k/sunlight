@@ -164,7 +164,7 @@ namespace SunLight {
              * configured exit key or clicking the window's close button.
              * Takes effect at the start of the next Run() loop iteration,
              * not immediately; safe to call from anywhere Run()'s
-             * per-frame listener callbacks reach (HandleUserUpdate, etc.).
+             * per-frame listener callbacks reach (HandleTileMapUpdate, etc.).
              * Purely local state, same as @link SetDrawFPS/@link
              * SetScreenFade - there's no IEngine primitive to route this
              * through, since raylib itself never exposes a way to set
