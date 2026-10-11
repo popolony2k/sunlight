@@ -691,8 +691,8 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 | # | Item | Status |
 |---|------|--------|
 | F0a | Extract input dispatch/registration into `IControllerManager` + `ControllerManager`, owned by `TileMapRenderer` (mirroring `ICollisionManager`). No behavior change | DONE |
-| F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | TODO |
-| F0c | Execute the compatibility break: update every sample, `RendererConfig`, and record the Scarab/Caravellius breakage | TODO |
+| F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | DONE |
+| F0c | Record the Scarab/Caravellius breakage in `doc/BREAKAGES.md` | TODO |
 | F1 | Device list and hot-plug events | TODO |
 | F2 | Player slots: claim, release, reassign after unplug | TODO |
 | F3 | Action map: named actions, rebinding, load and save | TODO |
@@ -839,19 +839,45 @@ existing test needed a single change - confirmed by building all of them unmodif
     backend, same style `test_camera.cpp` already uses), each key/button fires the matching
     `ITileMap` camera/zoom call exactly once.
 
-- `F0c` is the mechanical fallout of the clean break already agreed (Caravellius/Scarab are
-  going through this same refactor regardless, so a compatibility shim buys nothing but dead
-  code to maintain): every sample using the classic constructor or calling
-  `AddGamePad`/`SetUserKeyEventHandler`/`SetUserGamePadEventHandler`/`GetInputHandler`/
-  `SetViewControlMode` directly on the renderer (8 of them - `tilemaprenderer`, `sprite`,
-  `collision`, `gamepad`, `scriptprocessor`, `isometric`, `staggered`, `hexagonal`, confirmed
-  by grep) is updated to the new `GetControllerManager()`-based API, plus
-  `DefaultControllerBindings::Install` wherever a sample still wants the defaults. A
-  `doc/BREAKAGES.md` entry records the full signature change for Scarab/Caravellius.
-  - Test items: full suite + every sample builds and is manually re-verified to still behave
-    identically (no automated trace harness exists for input, the same caveat R1 and E0 noted
-    for anything checked only by eye); AddressSanitizer run, since this touches
-    `TileMapRenderer`'s own member lifetimes (the new `unique_ptr<IControllerManager>`).
+**F0b (DONE).** `DefaultControllerBindings` (`src/input/defaultcontrollerbindings.{h,cpp}`)
+implemented exactly as planned, wiring the same 16 bindings (8 keyboard, 8 gamepad)
+`InitalizeDefaultUserInputHandlers` used to install. Removing the auto-install meant checking,
+not assuming, how many call sites would break: all 8 samples' own `world.cpp` files pass
+`bUseDefaultKeyHandler=false` already (confirmed by grep before removing anything), so none of
+them relied on the removed mechanism - but two more direct constructor calls outside any
+`world.cpp` (`samples/multiview/multiview_test.cpp`,
+`samples/multiview_overlap/multiview_overlap_test.cpp`) and 41 more inside the test suite
+(`tests/test_rendererconfig.cpp` x6, `tests/test_nullbackend.cpp` x1,
+`tests/test_tilemaprenderer.cpp` x18, `tests/test_tilemaprenderer_lifecycle.cpp` x16 - the exact
+counts confirmed from the diff itself, not estimated) still passed the now-removed fifth
+constructor argument positionally, found only once the build actually failed on each in turn -
+a reminder that grepping for a named parameter (`bUseDefaultKeyHandler`) misses every call site
+using positional arguments instead. None of these were testing the removed parameter's own
+effect; all 43 just needed the trailing argument dropped. Separately,
+`samples/tilemaprenderer/world.cpp` was checked and confirmed to use a deliberately *inverted*
+camera mapping (`KEY_UP` to `MoveCameraDown`, `KEY_PAGE_UP` to `ZoomOut` - the documented
+sprite-relative convention), not the literal default mapping, so it does not call
+`DefaultControllerBindings::Install` - no sample does, since none actually wants the literal
+default bindings.
+- Test items, in `tests/test_defaultcontrollerbindings.cpp` (3 cases), using the existing
+  `MockTileMap` (extended with call counters on its 8 camera/zoom methods, additive - no
+  existing test depends on their old no-op bodies) and `mock_input.h`: arrow keys dispatch the
+  matching `MoveCamera*` call; PageUp/PageDown/Home/End dispatch `ZoomIn`/`ZoomOut`/
+  `ResetZoom`/`ResetCamera`; a gamepad's DPad and right-face buttons dispatch the same calls.
+- Mutation check: swapping `KEY_UP`'s binding from `MoveCameraUp` to `MoveCameraDown` fails the
+  arrow-key test (both assertions on that pair), confirmed by reverting the fix, seeing it
+  fail, then restoring it.
+- Full suite (474 cases) passes under AddressSanitizer with no reports. Every sample builds
+  cleanly.
+
+- `F0c`'s scope narrowed once F0a kept every old `TileMapRenderer` input method as a permanent
+  delegating wrapper (not removed, never needed removing) and F0b found no sample wanted
+  `DefaultControllerBindings::Install` anyway: nothing further needs updating in this repo. The
+  remaining, genuinely mechanical step is recording the Scarab/Caravellius breakage (the
+  classic constructor's dropped fifth parameter, `RendererConfig::bUseDefaultKeyHandler`'s
+  removal, and `ViewControlMode`'s rename/relocation to `SunLight::Input::InputDispatchMode`)
+  in `doc/BREAKAGES.md`, per this project's standing peer-impact convention.
+  - Test items: none beyond what F0a/F0b already proved - this item is pure documentation.
 
 **F1: device list and hot-plug.** Expose the connected pads and their names, and raise
 connect and disconnect events. This needs new `IInputHandler` methods, so the mock is

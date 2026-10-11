@@ -1249,120 +1249,6 @@ namespace SunLight {
         }
 
         /**
-         * Initialize default input event handlers.
-         */
-        void TileMapRenderer :: InitalizeDefaultUserInputHandlers( void )  {
-
-            // Default Keyboard handlers 
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_UP, std :: bind( &TileMapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_DOWN, std :: bind( &TileMapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_LEFT, std :: bind( &TileMapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_RIGHT, std :: bind( &TileMapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &TileMapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &TileMapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &TileMapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_END, std :: bind( &TileMapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-
-            // Default GamePad handlers
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_UP, std :: bind( &TileMapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_DOWN, std :: bind( &TileMapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_LEFT, std :: bind( &TileMapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT, std :: bind( &TileMapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_UP, std :: bind( &TileMapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN, std :: bind( &TileMapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT, std :: bind( &TileMapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT, std :: bind( &TileMapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-        }
-
-        /**
-         * @brief Handle default key Up event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyUp( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraUp();
-        }
-
-        /**
-         * @brief Handle default key Down event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyDown( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraDown();
-        }
-
-        /**
-         * @brief Handle default key Left event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyLeft( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraLeft();
-        }
-
-        /**
-         * @brief Handle default key Right event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyRight( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraRight();
-        }
-
-        /**
-         * @brief Handle default key Page Up event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyPageUp( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ZoomIn();
-        }
-
-        /**
-         * @brief Handle default key Page Down event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyPageDown( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ZoomOut();
-        }
-
-        /**
-         * @brief Handle default key Home event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyHome( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ResetZoom();
-        }
-
-        /**
-         * @brief Handle default key End event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyEnd( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ResetCamera();
-        }
-
-        /**
          * Fire OnUpdate on every registered ITileMapListener.
          */
         void TileMapRenderer :: HandleTileMapUpdate( void )  {
@@ -1456,20 +1342,19 @@ namespace SunLight {
          * Constructor. Initialize all class data.
          * Kept for source compatibility: builds the equivalent
          * RendererConfig and delegates to the RendererConfig constructor,
-         * so both paths produce identical renderers.
+         * so both paths produce identical renderers. No default key/camera
+         * handler is installed any more (F0b of the master plan) - a game
+         * that wants those bindings calls
+         * SunLight::Input::DefaultControllerBindings::Install() itself.
          * @param fWidth Screen renderer width;
          * @param fHeight Screen renderer height;
          * @param szTitle Screen renderer title;
          * @param nTargetFps Renderer desired FPS;
-         * @param bUseDefaultKeyHandler Inform if the default keyboard and
-         * camera handler will be used (at the end this parameter will be remove
-         * when user interaction be a little bit more clear.
          */
         TileMapRenderer :: TileMapRenderer( float fWidth,
                                             float fHeight,
                                             const char *szTitle,
-                                            int nTargetFps,
-                                            bool bUseDefaultKeyHandler) :
+                                            int nTargetFps ) :
                                             TileMapRenderer( [&]( void ) {
                                                 SunLight :: Renderer :: RendererConfig  config;
 
@@ -1477,7 +1362,6 @@ namespace SunLight {
                                                 config.fHeight               = fHeight;
                                                 config.strTitle              = szTitle;
                                                 config.nTargetFps            = nTargetFps;
-                                                config.bUseDefaultKeyHandler = bUseDefaultKeyHandler;
 
                                                 return config;
                                             }() )  {
@@ -1570,10 +1454,6 @@ namespace SunLight {
                 GetViewport().SetDimension2D( fullArea );
             }
 
-            if( config.bUseDefaultKeyHandler )  {
-                InitalizeDefaultUserInputHandlers();
-            }
-         
             /*
             * Set the raylib callback texture handlers (this call is protected
             * to be called just only one time in whole program execution).

@@ -43,7 +43,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
     TEST_CASE( "Construction does not crash and does not start the renderer" )  {
 
-        TileMapRenderer  renderer( 800, 600, "test", -1, true );
+        TileMapRenderer  renderer( 800, 600, "test", -1 );
         stMapInfo        mapInfo;
 
         CHECK( renderer.GetMapInfo( mapInfo ) == false );
@@ -51,14 +51,14 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
     TEST_CASE( "GetInputHandler returns the same handler instance on every call" )  {
 
-        TileMapRenderer  renderer( 800, 600, "test", -1, false );
+        TileMapRenderer  renderer( 800, 600, "test", -1 );
 
         CHECK( &renderer.GetInputHandler() == &renderer.GetInputHandler() );
     }
 
     TEST_CASE( "GetCollisionManager returns a stable, usable reference before any map is loaded" )  {
 
-        TileMapRenderer  renderer( 800, 600, "test", -1, false );
+        TileMapRenderer  renderer( 800, 600, "test", -1 );
 
         CHECK( &renderer.GetCollisionManager() == &renderer.GetCollisionManager() );
 
@@ -69,14 +69,14 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
     TEST_CASE( "LoadMap fails without crashing when the renderer hasn't been started" )  {
 
-        TileMapRenderer  renderer( 800, 600, "test", -1, false );
+        TileMapRenderer  renderer( 800, 600, "test", -1 );
 
         CHECK( renderer.LoadMap( "does-not-matter.tmx" ) == false );
     }
 
     TEST_CASE( "UnloadMap/GetMapInfo report failure when no map has been loaded" )  {
 
-        TileMapRenderer  renderer( 800, 600, "test", -1, false );
+        TileMapRenderer  renderer( 800, 600, "test", -1 );
         stMapInfo        mapInfo;
 
         CHECK( renderer.UnloadMap() == false );
@@ -85,7 +85,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
     TEST_CASE( "GetLayer/SetLayer (by id and by name) report failure when no map has been loaded" )  {
 
-        TileMapRenderer  renderer( 800, 600, "test", -1, false );
+        TileMapRenderer  renderer( 800, 600, "test", -1 );
         stLayer          layer {};
 
         CHECK( renderer.GetLayer( 1, layer ) == false );
@@ -96,7 +96,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
     TEST_CASE( "TileMapToTileMatrix reports failure when no map has been loaded" )  {
 
-        TileMapRenderer   renderer( 800, 600, "test", -1, false );
+        TileMapRenderer   renderer( 800, 600, "test", -1 );
         SunLight :: Base :: stCoordinate2D    coord { 0, 0 };
         stMatrixPosition  pos   { 0, 0 };
 
@@ -105,7 +105,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
 
     TEST_CASE( "AddSprite/RemoveSprite report failure when the renderer hasn't been started" )  {
 
-        TileMapRenderer                    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer                    renderer( 800, 600, "test", -1 );
         SunLight :: Sprite :: Sprite       sprite;
 
         CHECK( renderer.AddSprite( 1, sprite ) == false );
@@ -115,7 +115,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
     TEST_CASE( "GetDrawFPS/GetWindowResizeable/GetStretchToFill/GetTargetFPS/GetExitRequested/GetExitKey round-trip what their setters last set" )  {
 
         MockWindowFixture  windowFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         CHECK( renderer.GetExitRequested() == false );
 
@@ -166,7 +166,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         // gate that keeps TileMapRenderer from calling it too early, using
         // MockWindowFixture rather than a real window/display.
         MockWindowFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         renderer.SetWindowResizeable( true );
 
@@ -180,7 +180,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         // is only meaningful once the window exists (raylib's own
         // ::SetTargetFPS acts on the live game loop's own frame pacing).
         MockWindowFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         renderer.SetTargetFPS( 144 );
 
@@ -194,7 +194,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         // is only meaningful once the window exists (raylib's own
         // SetWindowTitle acts on the live window handle).
         MockWindowFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         renderer.SetWindowTitle( "new title" );
 
@@ -204,7 +204,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
     TEST_CASE( "DrawFilledRectangle forwards straight through to IEngine" )  {
 
         MockEngineFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         renderer.DrawFilledRectangle( 10, 20, 30, 40, 255, 0, 0, 128 );
 
@@ -222,7 +222,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
     TEST_CASE( "SetFullscreen forwards straight through to IWindow, defaulting to the real strategy" )  {
 
         MockWindowFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         renderer.SetFullscreen( true );
 
@@ -240,7 +240,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
     TEST_CASE( "GetElapsedTime forwards straight through to IWindow, unchanged" )  {
 
         MockWindowFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         CHECK( renderer.GetElapsedTime() == doctest :: Approx( 0.0 ) );
 
@@ -257,7 +257,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
     TEST_CASE( "DrawText forwards straight through to IEngine" )  {
 
         MockEngineFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         renderer.DrawText( "score: 0", 5, 5, 16, 255, 255, 255, 255 );
 
@@ -268,7 +268,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
     TEST_CASE( "MeasureText forwards straight through to IEngine and returns its result" )  {
 
         MockEngineFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         fixture.engine.nMeasureTextResult = 42;
 
@@ -279,7 +279,7 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
     TEST_CASE( "SetFont forwards straight through to IEngine and returns its result" )  {
 
         MockEngineFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         fixture.engine.bSetFontResult = false;
 

@@ -660,7 +660,7 @@ TEST_SUITE( "backends/null/NullBackend + renderer" )  {
 
         // The classic constructor counts too.
         {
-            TileMapRenderer  classic( 320, 240, "t", -1, false );
+            TileMapRenderer  classic( 320, 240, "t", -1 );
 
             CHECK( TileMapRenderer :: Create( NullConfig(), &strError ) == nullptr );
         }

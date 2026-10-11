@@ -113,8 +113,7 @@ World :: World( std :: string strBasePath )  {
     m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
                                                                                __DISPLAY_H,
                                                                                __GAME_NAME,
-                                                                               __FRAMES_PER_SECOND,
-                                                                               false );
+                                                                               __FRAMES_PER_SECOND );
 }
 
 /**
