@@ -21,10 +21,10 @@
 /*
  * F0a of the master plan: ControllerManager, extracted out of TileMapRenderer's own
  * HandleUserInput/HandleKeyEvent. These tests pin today's actual dispatch behavior
- * (confirmed against the pre-extraction source, not assumed), including the quirks later
- * phase items are meant to fix (F5's duplicate-pad dedup) - this item is a pure extraction
- * with no behavior change, so its own tests must match what the code already does, not what
- * it should eventually do.
+ * (confirmed against the pre-extraction source, not assumed) - this item is a pure
+ * extraction with no behavior change, so its own tests must match what the code already
+ * does, not what it should eventually do. The duplicate-pad double-fire this originally
+ * pinned as a known quirk was fixed by F5; see "Adding the same gamepad id twice..." below.
  */
 
 #include <doctest/doctest.h>
@@ -142,7 +142,7 @@ TEST_SUITE( "input/ControllerManager" )  {
         CHECK( nFireCount == 0 );
     }
 
-    TEST_CASE( "A duplicate AddGamePad call double-fires - today's actual behavior, not yet deduplicated (F5)" )  {
+    TEST_CASE( "Adding the same gamepad id twice dispatches each event once, not twice (F5)" )  {
 
         MockInputHandlerFixture  fixture;
         ControllerManager        manager;
@@ -150,6 +150,22 @@ TEST_SUITE( "input/ControllerManager" )  {
 
         manager.AddGamePad( 1 );
         manager.AddGamePad( 1 );
+        manager.SetUserGamePadEventHandler( GAMEPAD_BUTTON_LEFT_FACE_UP, [&]( ControllerType, int ) { nFireCount++; } );
+
+        fixture.pLastCreated -> downButtons.insert( GAMEPAD_BUTTON_LEFT_FACE_UP );
+        manager.Update();
+
+        CHECK( nFireCount == 1 );
+    }
+
+    TEST_CASE( "Adding two different gamepad ids still dispatches once per id" )  {
+
+        MockInputHandlerFixture  fixture;
+        ControllerManager        manager;
+        int                      nFireCount = 0;
+
+        manager.AddGamePad( 1 );
+        manager.AddGamePad( 2 );
         manager.SetUserGamePadEventHandler( GAMEPAD_BUTTON_LEFT_FACE_UP, [&]( ControllerType, int ) { nFireCount++; } );
 
         fixture.pLastCreated -> downButtons.insert( GAMEPAD_BUTTON_LEFT_FACE_UP );
