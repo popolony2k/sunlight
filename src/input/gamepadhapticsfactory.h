@@ -22,6 +22,7 @@
 #define __GAMEPADHAPTICSFACTORY_H__
 
 #include "input/igamepadhaptics.h"
+#include "input/iinputhandler.h"
 #include <functional>
 #include <memory>
 
@@ -30,12 +31,15 @@ namespace SunLight {
     namespace Input  {
 
         /**
-         * @brief Gamepad haptics access point (F7a of the master plan). Unlike
-         * EngineFactory/WindowFactory/InputHandlerFactory (each with a build-time backend
-         * switch on DEFAULT_ENGINE), there is no real backend to switch to yet - every build's
-         * default is NullGamepadHaptics, until F7b picks a vibrating platform and gives this
-         * factory its own #if. Each call returns a brand new IGamepadHaptics, the same
-         * fresh-instance shape SoundFactory::CreateSound() uses, not a shared singleton.
+         * @brief Gamepad haptics access point. F7a shipped this with every build defaulting
+         * to NullGamepadHaptics, since no real backend existed; F7b of the master plan gives
+         * it the same build-time switch shape EngineFactory/WindowFactory/InputHandlerFactory
+         * already use (DEFAULT_HAPTICS_ENGINE, 1 = SDL2's SDLGamepadHaptics, the only value
+         * today). Each call returns a brand new IGamepadHaptics, the same fresh-instance shape
+         * SoundFactory::CreateSound() uses, not a shared singleton. The real backend needs an
+         * IInputHandler to correlate its own device list against (see SDLGamepadHaptics) -
+         * ignored by NullGamepadHaptics and by a SetCreator override, both of which exist only
+         * for callers that don't need it.
          */
         class GamepadHapticsFactory  {
 
@@ -43,7 +47,15 @@ namespace SunLight {
 
             typedef std :: function<std :: unique_ptr<IGamepadHaptics>( void )>  CreatorFunction;
 
-            static std :: unique_ptr<IGamepadHaptics> CreateGamepadHaptics( void );
+            /**
+             * @brief Create a new IGamepadHaptics instance - the backend selected at build
+             * time (DEFAULT_HAPTICS_ENGINE), unless overridden by SetCreator() (tests only).
+             * @param inputHandler The input handler whose gamepad list the real backend
+             * correlates against (see SDLGamepadHaptics) - the caller must keep it alive for
+             * at least as long as the returned IGamepadHaptics; unused when a SetCreator
+             * override is active;
+             */
+            static std :: unique_ptr<IGamepadHaptics> CreateGamepadHaptics( SunLight :: Input :: IInputHandler& inputHandler );
 
             /**
              * @brief Override the backend used by CreateGamepadHaptics() - for tests only, to

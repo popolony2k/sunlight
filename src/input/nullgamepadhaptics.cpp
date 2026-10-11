@@ -42,5 +42,11 @@ namespace SunLight  {
          */
         void NullGamepadHaptics :: Stop( int nGamePadId )  {
         }
+
+        /**
+         * @brief Harmless no-op - nothing is ever vibrating to time out.
+         */
+        void NullGamepadHaptics :: Update( void )  {
+        }
     }
 }

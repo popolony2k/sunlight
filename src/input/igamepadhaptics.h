@@ -30,6 +30,14 @@ namespace SunLight {
          * separate from IInputHandler - haptics is an output, not an input, and today has only
          * the one implementation below (NullGamepadHaptics, via GamepadHapticsFactory): nothing
          * is wired to a real device yet (F7b, left open until a vibrating platform is chosen).
+         *
+         * Update() must be called once per frame by whoever owns the instance. Confirmed live
+         * against a real controller (F7b): SDL2's own duration-based auto-stop only runs inside
+         * SDL_JoystickUpdate(), which nothing else in this engine ever calls (every other input
+         * query goes through raylib/GLFW, never SDL's own event pump) - without a periodic tick
+         * of some kind, a timed SetVibration() call never actually stops on its own. Update()
+         * is sunlight's own replacement for that missing tick, timed against
+         * SunLight::General::Clock rather than SDL's internal one.
          */
         class IGamepadHaptics  {
 
@@ -62,6 +70,13 @@ namespace SunLight {
              * @param nGamePadId The gamepad device id to stop;
              */
             virtual void Stop( int nGamePadId ) = 0;
+
+            /**
+             * @brief Drives time-based bookkeeping (a SetVibration call's own duration auto-
+             * stopping - see this interface's own doc comment for why that needs a tick at
+             * all). Must be called once per frame; a no-op with nothing currently vibrating.
+             */
+            virtual void Update( void ) = 0;
         };
     }
 }

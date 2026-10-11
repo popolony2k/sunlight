@@ -700,7 +700,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 | F5 | Duplicate pad registration is ignored | DONE |
 | F6 | Default handlers are opt-in, and a game can take over input | N/A, subsumed by F0b - once default bindings are a separate, un-auto-installed preset, there is nothing left for this item to do |
 | F7a | Rumble interface, factory, null and mock implementations (no real device) | DONE |
-| F7b | Real rumble backend, once a platform that vibrates is chosen | TODO |
+| F7b | Real rumble backend, once a platform that vibrates is chosen | DONE |
 
 Today the renderer only polls gamepads a caller has added with `AddGamePad`. It does
 not detect devices, react to connect or disconnect, or let a game remap actions.
@@ -1078,8 +1078,185 @@ Nothing is wired to a real device.
 **F7b: rumble backend.** A real implementation, once a platform that vibrates is chosen.
 raylib's desktop build does not vibrate, so this may need another library or a custom
 backend. Real behaviour can only be proven here, so this item stays open until then.
-- Test items: on the chosen platform, each motor responds and stops on `Stop`; a
-  disconnected pad reports unsupported.
+- Confirmed directly in raylib's own vendored source before assuming anything: this
+  project's desktop backend is `rcore_desktop_glfw.c`
+  (`LibraryConfigurations.cmake`/`GlfwImport.cmake`, "Using raylib's GLFW"), and raylib's
+  own `SetGamepadVibration()` is implemented there only as a stub that logs a warning and
+  does nothing - GLFW's own public header has no vibration API at all (checked directly,
+  zero matches for rumble/vibrate/haptic). raylib's *other* platform backend
+  (`rcore_desktop_sdl.c`) has a real implementation, calling `SDL_GameControllerRumble` -
+  confirming SDL2's API shape to build against, without switching raylib's own backend
+  (which would change windowing/input for the whole engine, not just haptics - out of
+  scope for this item, discussed and explicitly rejected).
+- The real risk this item had to solve: every `nGamePadId` elsewhere in sunlight is
+  raylib/GLFW's own device index. SDL2 enumerates gamepads completely separately, with no
+  guaranteed shared index space - a naive implementation could vibrate the wrong
+  controller. Neither an SDL-compatible GUID nor a device name identifies a *specific
+  physical unit*, only its make and model (GLFW's own documentation says this explicitly
+  of its joystick GUIDs) - two identical controllers are indistinguishable by either, so
+  no approach can be fully certain with duplicate-model pads connected.
+- `MatchGamepadsByName` (`src/input/gamepadidentitymatcher.{h,cpp}`) is the pure-logic
+  answer: greedily matches two independently-ordered name lists, each candidate consumed
+  at most once, so identical-model duplicates pair up by their own relative connection
+  order - the best available heuristic, clearly documented as a heuristic, not a
+  guarantee. This is the *only* part of F7b provable without real hardware, and it is
+  fully covered: `tests/test_gamepadidentitymatcher.cpp` checks empty inputs, a clean
+  match, an unmatched name, order-independence on either side, 2-way and 3-way duplicate
+  ties, and that an empty string is a valid, matchable name like any other.
+- **Real-hardware finding, found live against a real Xbox One S controller once the
+  owner tested `samples/isometric_haptics/` (below) on their own machine**: exact-name
+  matching alone *always* failed, even with only one controller connected - no "it
+  should work" case at all. raylib/GLFW reports it as `"Xbox Wireless Controller"`; SDL2
+  reports the identical physical unit as `"Xbox One S Controller"` - two independently
+  maintained mapping databases disagreeing about a single, correctly-detected device,
+  not a duplicate-unit ambiguity. A GUID-based fix was explored next and found
+  *structurally* broken, not just unreliable: `glfwGetJoystickGUID()` called from outside
+  raylib's own compiled translation unit queries a second, independently-linked copy of
+  GLFW's internal joystick state (GLFW is statically embedded inside raylib's own shared
+  library; linking it again directly into `sunlight` creates a separate instance that
+  never receives `glfwPollEvents()` and so never detects anything) - confirmed live: it
+  returned `NULL` for a device raylib's own calls, through the *same* `IInputHandler`,
+  correctly reported as available. Reusing raylib's own already-running GLFW instance
+  would need a new, raylib-level public API this project doesn't own; not pursued.
+- The actual fix: `MatchGamepadsByName` now treats exactly one name on each side as the
+  same device *unconditionally*, regardless of whether the strings agree - the only
+  cross-library signal strong enough to trust, since raylib exposes nothing more precise
+  than a name at all (checked against its public header: no GUID, no vendor/product id).
+  Name-matching remains the fallback once there is more than one candidate on either
+  side (the duplicate-unit case this item already knew it couldn't resolve with
+  certainty). Two new test cases cover the fix directly: the exact Xbox One S regression,
+  and confirming the shortcut does *not* apply once either side has more than one name.
+- **A second, more serious finding from the same live session**: a "unit test" reached
+  out and touched real hardware. `tests/test_gamepadhaptics.cpp`'s
+  `SDLGamepadHaptics` suite had two cases that reported exactly one *mock* raylib-side
+  pad, intending "nothing real will ever match this." Before the fix above, that was
+  true unconditionally; after it, it is no longer true whenever the machine running the
+  suite happens to have exactly one real controller connected - which it did, live,
+  mid-session. One of those cases called the real `SetVibration(0, 1.0, 1.0, 1.0)`
+  directly, and it fired a real, full-strength rumble at a real, physically present Xbox
+  controller, which kept vibrating after the (sub-second) test process had already
+  exited, requiring the controller to be power-cycled to clear - `Stop()` immediately
+  following `SetVibration()` in the test should have silenced it in software, but
+  whatever stuck Bluetooth-level state resulted did not respond to it. Fixed by giving
+  both cases two mock pads instead of one (bypassing the new shortcut on purpose, so
+  they stay unmatched regardless of whatever real hardware is ever connected to the
+  machine running them) and adding an explicit warning at the top of the file: a
+  `SDLGamepadHaptics` test case is not automatically hardware-safe just because it is a
+  unit test, and every case intending "unmatched" must use at least two mock pads, never
+  one, to stay correct regardless of what's plugged into the machine that runs it.
+- `SDLGamepadHaptics` (`src/backends/sdl/sdlgamepadhaptics.{h,cpp}`) is the real
+  `IGamepadHaptics`. It takes the `IInputHandler&` whose gamepad list it correlates
+  against (the caller keeps it alive for at least as long as the haptics instance - the
+  same non-owning-reference convention as `BaseCanvas::m_pParent`). Every call
+  re-derives the raylib-name-list vs SDL-name-list match fresh (no cached mapping to go
+  stale across a hot-plug), opens the matched `SDL_GameController` only for that one
+  call, and closes it immediately after - verified against SDL's own source rather than
+  assumed: `SDL_GameControllerRumble` is a thin wrapper over `SDL_JoystickRumble`, and
+  `Stop()`'s `SDL_GameControllerRumble(pController, 0, 0, 0)` is exactly the call SDL's
+  own `SDL_JoystickClose` uses internally to silence a controller's motors - not a guess.
+  Initializes/releases SDL's game-controller subsystem with `SDL_InitSubSystem`/
+  `SDL_QuitSubSystem` (verified against `SDL_SubsystemRefCount` in SDL's own source: a
+  real per-subsystem reference count, not the all-or-nothing `SDL_Init`/`SDL_Quit`),
+  so more than one `IGamepadHaptics` instance can coexist safely.
+- `GamepadHapticsFactory` gains the build-time `#if DEFAULT_HAPTICS_ENGINE` switch
+  `EngineFactory`/`WindowFactory`/`InputHandlerFactory` already use (value `1` = SDL2,
+  the only value today) - `SDLGamepadHaptics` is now every build's real default,
+  replacing F7a's `NullGamepadHaptics` default (`NullGamepadHaptics` itself is
+  unchanged and still reachable through `SetCreator` for tests). This needed
+  `CreateGamepadHaptics()`'s own signature to grow an `IInputHandler&` parameter -
+  an F7a amendment, harmless since F7a was never merged past `feat/complete_f_plan`.
+- SDL2 is fetched via `FetchContent` (`release-2.32.10`, pinned) and built static, so -
+  like PhysFS - it links straight into `libsunlight` with no separate runtime artifact
+  to distribute and no changes needed to any `*_copy_binaries` target or
+  `release.yml` (confirmed empty grep for any hardcoded per-dependency artifact name
+  there). `SDL_VIDEO`/`SDL_AUDIO`/`SDL_RENDER` are turned off, since haptics only needs
+  the joystick/game-controller/haptic subsystems - confirmed buildable and sufficient
+  without them in a real, from-scratch `FetchContent` build (verified in a standalone
+  scratch probe before touching the real project, then again in the real one), which
+  also avoids depending on Linux's X11/Wayland dev packages for this specific
+  dependency (CI's existing Linux job already installs a superset of those for raylib
+  regardless, so nothing there needed changing either).
+- Confirmed live, not assumed, in this exact sandbox (no real gamepad attached, the
+  closest proxy available to a headless CI runner): `SDL_InitSubSystem(
+  SDL_INIT_GAMECONTROLLER)` succeeds with zero joysticks, `SDL_GameControllerOpen` on a
+  nonexistent device returns `nullptr` with a clean error string (not a crash), and
+  `SDL_QuitSubSystem` tears down cleanly - proven both as a standalone probe and inside
+  the real `sunlight_tests` binary.
+- Test items (this item's own, honestly scoped): the chosen platform's actual rumble
+  response ("each motor responds and stops on `Stop`") can only be proven on real
+  hardware, which this environment does not have - CI running this on three real OSes
+  is the actual first integration proof, not a claim made here. "A disconnected pad
+  reports unsupported" *is* provable headless and is covered:
+  `tests/test_gamepadhaptics.cpp` gains a `backends/sdl/SDLGamepadHaptics` suite (5
+  cases) proving construction/destruction, `IsSupported` false for an unavailable
+  raylib-side pad and for an available one with no real SDL match, `SetVibration`/
+  `Stop` are harmless no-ops when unmatched, and two instances coexist and tear down
+  independently. The `GamepadHapticsFactory` suite is updated in place for the new
+  default (`SDLGamepadHaptics`, not `NullGamepadHaptics`) and the new
+  `CreateGamepadHaptics(IInputHandler&)` signature.
+- Mutation check: removing `MatchGamepadsByName`'s "already consumed" guard (letting a
+  single candidate match more than one target) failed all three duplicate-handling
+  tests exactly as expected (a later duplicate target wrongly re-claiming an
+  already-matched candidate instead of reporting unmatched), confirmed by reverting the
+  fix, seeing it fail, then restoring it.
+- Full suite (528 cases) passes under AddressSanitizer with no reports - notably
+  including the subsystem-refcount and multi-instance lifetime tests, exactly where a
+  real bug would most likely hide. Every sample builds cleanly.
+- `samples/isometric_haptics/` is a new sample, an exact copy of `samples/isometric/`
+  (left untouched) plus gamepad rumble feedback: a step blocked by a "stone" obstacle
+  now rumbles a connected gamepad (a no-op with none attached, since every call is
+  `IsSupported`-gated), strength scaled by how many consecutive steps Sunny had already
+  taken in that same direction before the wall stopped her - tracked explicitly
+  (`m_nRunUpSteps`/`m_nLastDeltaRow`/`m_nLastDeltaCol`) since this sample's grid movement
+  has no analog speed of its own to derive it from; a fresh turn into a wall rumbles at
+  the minimum strength regardless of any run built up in a different direction. A
+  connected gamepad's D-pad/left stick drives Sunny too (`AddGamePad`/
+  `SetUserGamePadEventHandler` in `Run()`, binding the same `MovePlayer*` handlers the
+  keyboard uses), added once the owner asked for it while live-testing with their
+  controller.
+- This sample *is* the real-hardware integration proof the item above says is otherwise
+  unobtainable here - the owner tested it live with a real Xbox One S controller, which
+  is exactly how every real-hardware finding in this item was actually found. Two more
+  surfaced from that same live testing, beyond the name-mismatch and hardware-touching
+  unit test already covered above:
+  - **A held key re-triggered the bump every single frame it stayed down** - a blocked
+    `TryMoveStep` call doesn't set `m_bAnimating` (nothing to animate, the step never
+    happened), so nothing paced it the way a successful step is paced; a frame-by-frame
+    key-down dispatch meant a continuous stream of fresh `SetVibration` calls, each
+    re-arming its own duration before the previous one could finish - felt as one
+    unbroken rumble instead of a short pulse. Fixed in the sample (not in sunlight
+    itself - this is this sample's own dispatch pattern, not a library-level bug) by
+    tracking the direction of the *previous* blocked attempt
+    (`m_bWasBlockedLastAttempt`/`m_nLastBlockedDeltaRow`/`m_nLastBlockedDeltaCol`,
+    `world.h`) and only bumping on the first blocked frame of a given hold; cleared the
+    moment a step actually succeeds.
+  - **Even a single, correctly-isolated `SetVibration` call never stopped on its own** -
+    traced to SDL2's own source: its duration-based rumble auto-stop
+    (`rumble_expiration`, `SDL_joystick.c`) is only ever checked inside
+    `SDL_JoystickUpdate()`, and nothing else in this engine calls that function (every
+    other input query in sunlight goes through raylib/GLFW, never SDL's own event
+    pump) - the duration parameter was silently inert. This *is* a library-level gap,
+    fixed in `IGamepadHaptics` itself: a new `Update()` method (implemented as a no-op
+    by `NullGamepadHaptics`, and in `SDLGamepadHaptics` as sunlight's own replacement
+    for the missing tick, timed against `SunLight::General::Clock` rather than SDL's
+    own clock) must be called once per frame by whoever owns the instance - the sample
+    does this from its own `OnUpdate`, ahead of its early `m_bAnimating` return, since
+    it must run every frame regardless of whether Sunny is mid-animation.
+    `tests/mock_gamepadhaptics.h`'s `MockGamepadHaptics` gains the matching override
+    (a new pure virtual, per this project's own mock-update rule).
+  - Both were only found because real hardware was actually tested live - confirmed by
+    the owner afterward: the sample now rumbles once per wall hit, scaled correctly by
+    run-up distance, stops on its own, and the D-pad drives Sunny directly. This item's
+    own test items ("each motor responds and stops on `Stop`") are satisfied by this
+    live confirmation, not by anything provable in this sandbox alone.
+  - Test items, in `tests/test_gamepadhaptics.cpp` (2 new cases): `Update()` never
+    errors crossing a tracked deadline (`MockClockFixture`, deterministic, zero real
+    gamepads) with a single pad timed-vibrating, and with two pads on different
+    deadlines (exercising the collect-then-stop two-phase loop under AddressSanitizer,
+    where erasing from the deadline map while iterating it directly would actually show
+    up).
+- Full suite (530 cases) passes under AddressSanitizer with no reports. Every sample,
+  including the new one, builds cleanly.
 
 ## Later
 

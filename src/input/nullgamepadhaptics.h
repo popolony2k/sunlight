@@ -42,6 +42,7 @@ namespace SunLight {
             bool IsSupported( int nGamePadId ) const override;
             void SetVibration( int nGamePadId, float fLeftMotor, float fRightMotor, float fDuration ) override;
             void Stop( int nGamePadId ) override;
+            void Update( void ) override;
         };
     }
 }

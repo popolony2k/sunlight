@@ -19,7 +19,18 @@
  */
 
 #include "input/gamepadhapticsfactory.h"
-#include "input/nullgamepadhaptics.h"
+
+#ifndef DEFAULT_HAPTICS_ENGINE
+    #error "Unexpected value of DEFAULT_HAPTICS_ENGINE"
+#endif
+
+#if DEFAULT_HAPTICS_ENGINE == 1    /* USES SDL2 */
+    #include "backends/sdl/sdlgamepadhaptics.h"
+
+    #define __DEFAULT_HAPTICS_ENGINE  SunLight :: Input :: SDL :: SDLGamepadHaptics
+#else
+    #error "Unknown value of DEFAULT_HAPTICS_ENGINE"
+#endif
 
 namespace SunLight  {
     namespace Input  {
@@ -27,15 +38,15 @@ namespace SunLight  {
         static GamepadHapticsFactory :: CreatorFunction  s_pCreator = nullptr;
 
         /**
-         * @brief Create a new IGamepadHaptics instance - NullGamepadHaptics, unless overridden
-         * by SetCreator() (tests only).
+         * @brief Create a new IGamepadHaptics instance - the backend selected at build time,
+         * unless overridden by SetCreator() (tests only).
          */
-        std :: unique_ptr<IGamepadHaptics> GamepadHapticsFactory :: CreateGamepadHaptics( void )  {
+        std :: unique_ptr<IGamepadHaptics> GamepadHapticsFactory :: CreateGamepadHaptics( SunLight :: Input :: IInputHandler& inputHandler )  {
 
             if( s_pCreator )
                 return s_pCreator();
 
-            return std :: make_unique<SunLight :: Input :: NullGamepadHaptics>();
+            return std :: make_unique<__DEFAULT_HAPTICS_ENGINE>( inputHandler );
         }
 
         /**
