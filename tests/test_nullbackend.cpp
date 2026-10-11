@@ -616,6 +616,9 @@ TEST_SUITE( "backends/null/NullBackend + renderer" )  {
             // The renderer's own input handler is the null one.
             CHECK( pRenderer -> GetInputHandler().IsKeyDown( SunLight :: Input :: KEY_ESCAPE ) == false );
             CHECK( pRenderer -> GetInputHandler().GetGamepadName( 0 ) != nullptr );
+
+            // F1 of the master plan: the null backend reports no devices at all.
+            CHECK( pRenderer -> GetControllerManager().GetConnectedGamepads().empty() );
         }
 
         CHECK( SunLight :: Backends :: Null :: NullBackend :: IsActive() == false );

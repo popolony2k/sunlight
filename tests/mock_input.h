@@ -41,7 +41,12 @@ class MockInputHandler : public SunLight :: Input :: IInputHandler  {
     std :: set<SunLight :: Input :: KeyboardKey>     downKeys;
     std :: set<SunLight :: Input :: GamepadButton>   downButtons;
     std :: array<float, 6>            axisValues { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-    bool                               bGamepadAvailableResult = true;
+
+    // Gamepad ids currently reported as connected (F1 of the master plan) - empty by default,
+    // unlike the single always-true bool this replaces: a hot-plug test scripts a connect by
+    // inserting an id and a disconnect by erasing it, between Update() calls. No existing test
+    // read the old default (confirmed before removing it).
+    std :: set<int>                    availableGamepads;
 
     SunLight :: Input :: KeyboardKey GetKeyPressed( void ) override  {
         return keyPressedResult;
@@ -64,7 +69,7 @@ class MockInputHandler : public SunLight :: Input :: IInputHandler  {
     }
 
     bool IsGamepadAvailable( int nGamePadId ) override  {
-        return bGamepadAvailableResult;
+        return availableGamepads.count( nGamePadId ) > 0;
     }
 
     bool IsGamepadButtonDown( int nGamePadId, SunLight :: Input :: GamepadButton button ) override  {

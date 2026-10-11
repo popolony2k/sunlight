@@ -22,6 +22,7 @@
 #define __CONTROLLERMANAGER_H__
 
 #include "input/icontrollermanager.h"
+#include <array>
 #include <deque>
 #include <memory>
 
@@ -57,10 +58,17 @@ namespace SunLight {
             InputEventHandlerList                                  m_GPadInputEventHandlerList;
             SunLight :: Input :: INPUT_EVENT_HANDLER               m_pNullInputEventHandler;
             SunLight :: Input :: InputDispatchMode                 m_DispatchMode;
+            std :: array<bool, MAX_GAMEPAD_COUNT>                  m_GamepadConnected {};
+            SunLight :: Input :: GAMEPAD_CONNECTION_HANDLER        m_pConnectionHandler;
 
             // Dispatches to every registered key handler whose event matches evt - the
             // REACTIVE dispatch strategy's own per-key-press lookup.
             void HandleKeyEvent( SunLight :: Input :: KeyboardKey evt );
+
+            // Polls every gamepad slot (0..MAX_GAMEPAD_COUNT-1, independent of AddGamePad) and
+            // fires m_pConnectionHandler once for each one whose availability changed since the
+            // last call - F1 of the master plan's hot-plug detection.
+            void DetectGamepadConnectionChanges( void );
 
             public:
 
@@ -75,6 +83,8 @@ namespace SunLight {
             SunLight :: Input :: IInputHandler& GetInputHandler( void ) override;
             void SetInputDispatchMode( SunLight :: Input :: InputDispatchMode mode ) override;
             SunLight :: Input :: InputDispatchMode GetInputDispatchMode( void ) const override;
+            std :: vector<SunLight :: Input :: stGamepadInfo> GetConnectedGamepads( void ) const override;
+            void SetGamepadConnectionHandler( SunLight :: Input :: GAMEPAD_CONNECTION_HANDLER handler ) override;
             void Update( void ) override;
         };
     }

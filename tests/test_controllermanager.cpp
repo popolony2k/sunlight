@@ -30,6 +30,9 @@
 #include <doctest/doctest.h>
 #include "input/controllermanager.h"
 #include "mock_input.h"
+#include <string>
+#include <utility>
+#include <vector>
 
 using namespace SunLight :: Input;
 
@@ -188,5 +191,79 @@ TEST_SUITE( "input/ControllerManager" )  {
 
         manager.SetInputDispatchMode( INPUT_DISPATCH_MODE_REACTIVE );
         CHECK( manager.GetInputDispatchMode() == INPUT_DISPATCH_MODE_REACTIVE );
+    }
+
+    // F1 of the master plan: device list and hot-plug events.
+
+    TEST_CASE( "GetConnectedGamepads lists nothing by default" )  {
+
+        MockInputHandlerFixture  fixture;
+        ControllerManager        manager;
+
+        CHECK( manager.GetConnectedGamepads().empty() );
+    }
+
+    TEST_CASE( "GetConnectedGamepads lists every available id with its name, in id order" )  {
+
+        MockInputHandlerFixture  fixture;
+        ControllerManager        manager;
+
+        fixture.pLastCreated -> availableGamepads = { 5, 2 };
+
+        std :: vector<stGamepadInfo>  connected = manager.GetConnectedGamepads();
+
+        REQUIRE( connected.size() == 2 );
+        CHECK( connected[ 0 ].nGamePadId == 2 );
+        CHECK( connected[ 1 ].nGamePadId == 5 );
+        CHECK( std :: string( connected[ 0 ].szName ) == "Mock Gamepad" );
+    }
+
+    TEST_CASE( "A scripted connect is reported exactly once through the hot-plug handler" )  {
+
+        MockInputHandlerFixture               fixture;
+        ControllerManager                     manager;
+        std :: vector<std :: pair<int, bool>>  events;
+
+        manager.SetGamepadConnectionHandler( [&]( int nGamePadId, bool bConnected ) {
+            events.push_back( { nGamePadId, bConnected } );
+        } );
+
+        manager.Update();
+        CHECK( events.empty() );
+
+        fixture.pLastCreated -> availableGamepads.insert( 3 );
+        manager.Update();
+
+        REQUIRE( events.size() == 1 );
+        CHECK( events[ 0 ].first == 3 );
+        CHECK( events[ 0 ].second == true );
+
+        // Still connected on the next frame: not reported again.
+        manager.Update();
+        CHECK( events.size() == 1 );
+    }
+
+    TEST_CASE( "A scripted disconnect is reported exactly once through the hot-plug handler" )  {
+
+        MockInputHandlerFixture               fixture;
+        ControllerManager                     manager;
+        std :: vector<std :: pair<int, bool>>  events;
+
+        fixture.pLastCreated -> availableGamepads.insert( 3 );
+        manager.Update();   // establish id 3 as already-connected baseline
+
+        manager.SetGamepadConnectionHandler( [&]( int nGamePadId, bool bConnected ) {
+            events.push_back( { nGamePadId, bConnected } );
+        } );
+
+        fixture.pLastCreated -> availableGamepads.erase( 3 );
+        manager.Update();
+
+        REQUIRE( events.size() == 1 );
+        CHECK( events[ 0 ].first == 3 );
+        CHECK( events[ 0 ].second == false );
+
+        manager.Update();
+        CHECK( events.size() == 1 );
     }
 }
