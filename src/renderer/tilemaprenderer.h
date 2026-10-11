@@ -36,6 +36,7 @@
 #include "renderer/shape/shapeprimitives.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
+#include "input/icontrollermanager.h"
 #include "base/color.h"
 #include "base/primitives.h"
 
@@ -77,20 +78,10 @@ namespace SunLight {
                 tmx_tile     *pNextTile;
             };
 
-            /**
-             * @brief Input event data struct info
-             */
-            struct __stInputEventData  {
-                int                                       nEvent;
-                SunLight :: Input :: INPUT_EVENT_HANDLER  pHandler;
-            };
-
             typedef std :: deque<std :: unique_ptr<__stTileAnimInfo>> __AnimInfoList;
             typedef std :: deque<SunLight :: TileMap :: ITileMapListener*> TileMapListenerList;
-            typedef std :: deque<std :: unique_ptr<__stInputEventData>> InputEventHandlerList;
             typedef std :: deque<SunLight :: Sprite :: Sprite*> SpriteList;
             typedef std :: map<int, SpriteList*>                SpriteMap;
-            typedef std :: deque<int> GamePadList;
 
             // Non-null only for a RENDERER_BACKEND_NULL renderer: holds the
             // (shared, process-wide) null backend installed for as long as
@@ -99,8 +90,11 @@ namespace SunLight {
             // into the engine/window/input while being torn down.
             std :: shared_ptr<SunLight :: Backends :: Null :: NullBackend>  m_pNullBackend;
 
-            std :: unique_ptr<SunLight :: Input :: IInputHandler>  m_pInputHandler;
-            GamePadList                                m_GamePadList;
+            // Input dispatch/registration (F0a of the master plan): owns its own IInputHandler,
+            // the registered key/gamepad handler lists and the gamepad list, dispatched once per
+            // frame via Update() (see Run()). TileMapRenderer's own public input methods
+            // (AddGamePad, SetUserKeyEventHandler, ...) delegate to this directly.
+            std :: unique_ptr<SunLight :: Input :: IControllerManager>  m_pControllerManager;
             SpriteMap                                  m_SpriteMap;
 
             // Every sprite this renderer is the PARENT of (set by AddSprite, kept by RemoveSprite as it
@@ -108,12 +102,8 @@ namespace SunLight {
             // the ones that must tell it when they are destroyed (ChildRemoved). A superset of m_SpriteMap.
             std :: set<SunLight :: Sprite :: Sprite*>  m_ParentedSprites;
             TileMapListenerList                        m_TileMapListenerList;
-            InputEventHandlerList                      m_KeyInputEventHandlerList;
-            InputEventHandlerList                      m_GPadInputEventHandlerList;
-            SunLight :: Input :: INPUT_EVENT_HANDLER   m_pNullInputEventHandler;
             SunLight :: Collision :: CollisionManager  m_CollisionManager;
             stVector                                   m_CameraPos;
-            ViewControlMode                            m_ViewControlMode;
             uint16_t                                   m_nMapWidth;
             uint16_t                                   m_nMapHeight;
             std :: unique_ptr<Projection :: IMapProjection>  m_pProjection;
@@ -289,9 +279,7 @@ namespace SunLight {
             void InputKeyEnd( SunLight :: Input :: ControllerType type, int nId );
 
             // User interaction handlers
-            inline void HandleKeyEvent( SunLight :: Input :: KeyboardKey key );
-            inline void HandleUserInput( void );
-            inline void HandleUserUpdate( void );
+            inline void HandleTileMapUpdate( void );
             inline void HandleUserCollisions( void );
             inline void HandleSpriteUpdate( int nLayerId );
             SunLight :: Base :: stColor BackgroundColorOf( View &view );
@@ -373,7 +361,11 @@ namespace SunLight {
             void SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, SunLight :: Input :: INPUT_EVENT_HANDLER handler );
 
             SunLight :: Input :: IInputHandler& GetInputHandler( void );
-       
+
+            // The controller manager these input methods delegate to (F0a of the master plan),
+            // for direct access - the same shape as GetCollisionManager().
+            SunLight :: Input :: IControllerManager& GetControllerManager( void );
+
             // Zoom wrappers
             void ResetZoom( void );
             void ZoomIn( void );

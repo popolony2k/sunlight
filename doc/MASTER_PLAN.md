@@ -690,7 +690,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 
 | # | Item | Status |
 |---|------|--------|
-| F0a | Extract input dispatch/registration into `IControllerManager` + `ControllerManager`, owned by `TileMapRenderer` (mirroring `ICollisionManager`). No behavior change | TODO |
+| F0a | Extract input dispatch/registration into `IControllerManager` + `ControllerManager`, owned by `TileMapRenderer` (mirroring `ICollisionManager`). No behavior change | DONE |
 | F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | TODO |
 | F0c | Execute the compatibility break: update every sample, `RendererConfig`, and record the Scarab/Caravellius breakage | TODO |
 | F1 | Device list and hot-plug events | TODO |
@@ -780,6 +780,40 @@ tangle.
     gamepad-overrides-keyboard-when-handled precedence holds.
   - This item directly unblocks T3 ("direct tests for `Run()`'s input... dispatch"), stuck
     TODO until now because the dispatch logic had no seam to mock.
+
+**F0a (DONE).** `IControllerManager`/`ControllerManager` (`src/input/icontrollermanager.h`,
+`src/input/controllermanager.{h,cpp}`) implemented and wired in exactly as planned above.
+Every one of `TileMapRenderer`'s old public input methods (`AddGamePad`,
+`SetUserKeyEventHandler`, `SetUserGamePadEventHandler`, `GetInputHandler`,
+`SetViewControlMode`) kept its exact signature, now a one-line delegation to the internally
+owned `m_pControllerManager`; `m_ViewControlMode` as a stored member was removed entirely
+(now redundant - the manager stores its own dispatch mode), with a small, explicit
+`ToInputDispatchMode` conversion (not a `static_cast` relying on the two enums' ordinal
+values happening to agree) bridging the renderer's own `ViewControlMode` to the new
+`InputDispatchMode` at the two call sites (construction, `SetViewControlMode`). No sample or
+existing test needed a single change - confirmed by building all of them unmodified.
+- Test items, in `tests/test_controllermanager.cpp` (10 cases) using a new
+  `tests/mock_input.h` (`MockInputHandler`, swapped in via
+  `InputHandlerFactory::SetCreator`, the same pattern `mock_sound.h`'s `MockSoundFixture`
+  already uses for a factory that returns a fresh instance per call): `ACTIVE` mode fires
+  every frame a key is held and stops firing once released; `REACTIVE` mode dispatches to
+  whichever handler matches `GetKeyPressed()`'s current value; `KEY_NULL`'s fallback handler
+  fires only when nothing else handled that frame; a gamepad analog stick beyond/within the
+  deadzone does/doesn't dispatch; a duplicate `AddGamePad` call is confirmed to double-fire,
+  pinning today's real behavior (checked against the source: no dedup exists) rather than
+  assuming F5's eventual fix is already in place; gamepad activity suppresses keyboard
+  dispatch that frame even with no gamepad handler registered for the specific
+  stick/button involved (confirmed against the source: `bEventHandled` is set directly from
+  axis movement detection, before the handler-matching loop runs); `GetInputHandler` returns
+  the same instance the manager was constructed with; `SetInputDispatchMode`/
+  `GetInputDispatchMode` round-trip.
+- Mutation check: widening the left-stick X deadzone from 0.1 to 0.9 fails 2 of the 10 cases
+  (the deadzone case itself, and the gamepad-suppresses-keyboard case, which also depends on
+  axis movement being detected) - confirmed by reverting the fix, seeing the tests fail, then
+  restoring it.
+- Full suite (471 cases) passes under AddressSanitizer with no reports. Every sample and the
+  full existing suite builds and passes unmodified - the strongest form of "no behavior
+  change" this item could demonstrate.
 
 - `F0b` moves the third layer into `SunLight::Input::DefaultControllerBindings`, a stateless
   preset (a static method, no instance - nothing here varies by backend or needs mocking):
