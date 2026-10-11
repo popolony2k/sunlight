@@ -45,6 +45,7 @@ class MockGamepadHaptics : public SunLight :: Input :: IGamepadHaptics  {
     bool                               bSupportedResult = true;
     std :: vector<stVibrationCall>     vibrationCalls;
     std :: vector<int>                 stopCalls;
+    int                                 nUpdateCalls = 0;
 
     bool IsSupported( int nGamePadId ) const override  {
         return bSupportedResult;
@@ -56,6 +57,10 @@ class MockGamepadHaptics : public SunLight :: Input :: IGamepadHaptics  {
 
     void Stop( int nGamePadId ) override  {
         stopCalls.push_back( nGamePadId );
+    }
+
+    void Update( void ) override  {
+        nUpdateCalls++;
     }
 };
 
