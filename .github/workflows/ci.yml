@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, feat/master_plan ]
+    branches: [ main, feat/master_plan, feat/complete_e_plan ]
   pull_request:
-    branches: [ main, feat/master_plan ]
+    branches: [ main, feat/master_plan, feat/complete_e_plan ]
 
 jobs:
   build:

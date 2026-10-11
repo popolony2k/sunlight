@@ -23,6 +23,10 @@
 #include "backends/null/nullbackend.h"
 #include "renderer/view.h"
 #include "renderer/shape/shapeprimitives.h"
+#include "renderer/projection/orthogonalprojection.h"
+#include "renderer/projection/isometricprojection.h"
+#include "renderer/projection/staggeredprojection.h"
+#include "renderer/projection/hexagonalprojection.h"
 #include "renderer/map/externalresources.h"
 #include "renderer/shape/shapeobjects.h"
 #include "renderer/map/maporientation.h"
@@ -60,6 +64,7 @@
  * Engine limits.
  */
 #define __MAX_OPACITY_LEVEL            0xFF
+#define __CULL_PADDING_TILES           1       // extra tiles either side of the visible range, for the near-edge zero-size-but-still-drawn case
 
 
 
@@ -947,12 +952,36 @@ namespace SunLight {
          */
         void TileMapRenderer :: DrawLayer( tmx_layer *pLayer ) {
 
-            float      fOpacity = ( float ) pLayer -> opacity;
+            float                       fOpacity = ( float ) pLayer -> opacity;
+            Projection :: stTileRange   range;
 
-            for( unsigned long i = 0; i < m_pTmxMap -> height; i++ ) {
-                for( unsigned long j = 0; j < m_pTmxMap -> width; j++ ) {
+            if( m_bUniformTileGrid )  {
+                // The visible range, in the projection's own map-pixel space: the viewport's own rectangle, local
+                // to the camera and this layer's own offset (DrawTile adds the camera itself; the layer offset is
+                // part of the same map-pixel space TileDrawPosition answers in), padded by a whole tile either
+                // side for the near-edge case (GetClippedRect still "passes" a tile trimmed to zero width there).
+                SunLight :: Base :: stDimension2D&  vpDm  = GetViewport().GetDimension2D();
+                float                                fZoom = GetViewport().GetZoomProperties().fZoomFactor;
+                int                                  nPadX = __CULL_PADDING_TILES * ( int ) m_pTmxMap -> tile_width;
+                int                                  nPadY = __CULL_PADDING_TILES * ( int ) m_pTmxMap -> tile_height;
+
+                SunLight :: Base :: stRectangle  visibleRect {
+                    -m_CameraPos.x - pLayer -> offsetx - nPadX,
+                    -m_CameraPos.y - pLayer -> offsety - nPadY,
+                    ( vpDm.size.nWidth / fZoom ) + ( 2 * nPadX ),
+                    ( vpDm.size.nHeight / fZoom ) + ( 2 * nPadY ) };
+
+                range = m_pProjection -> VisibleTileRange( m_pTmxMap, visibleRect );
+            }
+            else  {
+                // A map that mixes tileset sizes: visit every cell, exactly as every map did before E0.
+                range = Projection :: stTileRange { 0, ( int ) m_pTmxMap -> height, 0, ( int ) m_pTmxMap -> width };
+            }
+
+            for( int i = range.nRowStart; i < range.nRowEnd; i++ ) {
+                for( int j = range.nColStart; j < range.nColEnd; j++ ) {
                     SunLight :: TileMap :: stTile            tile;
-                    SunLight :: TileMap :: stMatrixPosition  pos   = { ( int ) i, ( int ) j };
+                    SunLight :: TileMap :: stMatrixPosition  pos   = { i, j };
                     SunLight :: TileMap :: stLayer           layer = { false, 0, {0, 0}, pLayer };
 
                     if( GetTile( pos, layer, tile ) )  {
@@ -974,13 +1003,18 @@ namespace SunLight {
                             pImage = pTs -> image -> resource_image;
                         }
 
+                        SunLight :: Base :: stCoordinate2D  dest = m_pProjection -> TileDrawPosition( pos, m_pTmxMap, pTs -> tile_width,
+                                                                                                       pTs -> tile_height,
+                                                                                                       pLayer -> offsetx,
+                                                                                                       pLayer -> offsety );
+
                         DrawTile( pImage,
                                 pTile -> ul_x,
                                 pTile -> ul_y,
                                 pTs -> tile_width,
                                 pTs -> tile_height,
-                                ( ( j * pTs -> tile_width ) + pLayer -> offsetx ),
-                                ( ( i * pTs -> tile_height ) + pLayer -> offsety ),
+                                dest.x,
+                                dest.y,
                                 fOpacity );
                     }
                 }
@@ -1606,6 +1640,8 @@ namespace SunLight {
             GetDimension2D().size.nHeight = ( int ) config.fHeight;
             m_nMapWidth                   = 0;
             m_nMapHeight                  = 0;
+            m_pProjection.reset();
+            m_bUniformTileGrid            = false;
             m_fWindowWidth                = config.fWidth;
             m_fWindowHeight               = config.fHeight;
             m_nTargetFps                  = config.nTargetFps;
@@ -2112,8 +2148,10 @@ namespace SunLight {
             pView -> m_pViewport -> SetDimension2D( rect );
 
             if( m_pTmxMap )  {
-                pView -> m_State.nScrollStepWidth  = m_pTmxMap -> tile_width;
-                pView -> m_State.nScrollStepHeight = m_pTmxMap -> tile_height;
+                SunLight :: Base :: stSize2D  step = m_pProjection -> DefaultScrollStep( m_pTmxMap );
+
+                pView -> m_State.nScrollStepWidth  = step.nWidth;
+                pView -> m_State.nScrollStepHeight = step.nHeight;
             }
 
             m_ExtraViews.push_back( pView );
@@ -2333,11 +2371,12 @@ namespace SunLight {
             if( !m_pTmxMap )
                 return;
 
-            SunLight :: Base :: Viewport&  vp = GetViewport();
-            int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.y - 
-                                                                        m_nScrollStepHeight + 
+            SunLight :: Base :: Viewport&  vp   = GetViewport();
+            SunLight :: Base :: stSize2D   step = m_pProjection -> DefaultScrollStep( m_pTmxMap );
+            int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.y -
+                                                                        m_nScrollStepHeight +
                                                                         m_nMapHeight +
-                                                                        m_pTmxMap -> tile_height ) * 
+                                                                        step.nHeight ) *
                                                                         vp.GetZoomProperties().fZoomFactor );
 
             // The vertical boundary is compared against the viewport's
@@ -2352,13 +2391,18 @@ namespace SunLight {
         }
 
         /**
-         * Move view camera down.
+         * Move view camera down. The boundary is "<= 0", not "< 0": camera.y reaching exactly
+         * 0 - the origin MoveCameraUp scrolls away from - is itself a legal position (the map's
+         * own natural, unscrolled alignment), not one past a limit. A strict "< 0" refuses the
+         * single step that would land exactly there, permanently - e.g. one MoveCameraUp() call
+         * (camera.y -= step) leaves camera.y == -step, and camera.y + step == 0 fails "< 0", so
+         * MoveCameraDown() can never undo that single step back to the origin again.
          */
         void TileMapRenderer :: MoveCameraDown( void )  {
 
             int    nMapBoundary = ( int ) ( m_CameraPos.y + m_nScrollStepHeight );
 
-            if( nMapBoundary < 0 )
+            if( nMapBoundary <= 0 )
                 m_CameraPos.y+=m_nScrollStepHeight;
         }
 
@@ -2371,9 +2415,10 @@ namespace SunLight {
             if( !m_pTmxMap )
                 return;
 
-            SunLight :: Base :: Viewport&  vp = GetViewport();
-            int                  nErrorFix    = ( m_pTmxMap -> tile_width / std :: round( vp.GetZoomProperties().fZoomFactor ) );
-            int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.x - 
+            SunLight :: Base :: Viewport&  vp   = GetViewport();
+            SunLight :: Base :: stSize2D   step = m_pProjection -> DefaultScrollStep( m_pTmxMap );
+            int                  nErrorFix    = ( step.nWidth / std :: round( vp.GetZoomProperties().fZoomFactor ) );
+            int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.x -
                                                                         m_nScrollStepWidth + 
                                                                         m_nMapWidth
                                                                         + nErrorFix ) * 
@@ -2387,13 +2432,15 @@ namespace SunLight {
         }
 
         /**
-         * Move view camera right.
+         * Move view camera right. Same "<= 0" boundary as MoveCameraDown, and for the same
+         * reason: camera.x == 0 is the map's own unscrolled origin, a legal position to land on
+         * exactly, not a limit a strict "< 0" should refuse the last step into.
          */
         void TileMapRenderer :: MoveCameraRight( void )  {
 
             int nMapBoundary = ( int ) ( m_CameraPos.x + m_nScrollStepWidth );
 
-            if( nMapBoundary < 0 )
+            if( nMapBoundary <= 0 )
                 m_CameraPos.x+=m_nScrollStepWidth;
         }
 
@@ -2704,14 +2751,7 @@ namespace SunLight {
                 return false;
             }
 
-            SunLight :: Base :: stDimension2D&  vp = GetDimension2D();
-
-            tile.dimension.pos.x        = ( ( pos.nTileCol * m_pTmxMap -> tile_width ) +
-                                            vp.pos.x ) + ( int ) m_CameraPos.x;
-            tile.dimension.pos.y        = ( ( pos.nTileRow * m_pTmxMap -> tile_height ) +
-                                            vp.pos.y ) + ( int ) m_CameraPos.y;
-            tile.dimension.size.nWidth  = ( m_pTmxMap -> tile_width );
-            tile.dimension.size.nHeight = ( m_pTmxMap -> tile_height );
+            tile.dimension = m_pProjection -> TileViewRect( pos, m_pTmxMap, GetDimension2D(), m_CameraPos );
 
             return true;
         }
@@ -2726,18 +2766,11 @@ namespace SunLight {
                                                      SunLight :: TileMap :: stMatrixPosition& pos )  {
 
             if( m_pTmxMap )  {
-                SunLight :: Base :: stDimension2D&  vp      = GetViewport().GetDimension2D();
-                SunLight :: Base :: stZoomProperties&  zp      = GetViewport().GetZoomProperties();
-                int                                    nCoordX = ( int ) ( coord.x / zp.fZoomFactor );
-                int                                    nCoordY = ( int ) ( coord.y / zp.fZoomFactor );
+                SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
+                SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
 
-
-                if( ( ( nCoordX >= 0 ) && ( nCoordX < m_nMapWidth ) ) &&
-                    ( ( nCoordY >= 0 ) && ( nCoordY < m_nMapHeight ) ) ) {
-                    pos.nTileCol = ( int ) ( ( ( coord.x + vp.pos.x ) -
-                                             m_CameraPos.x ) / m_pTmxMap -> tile_width );
-                    pos.nTileRow = ( int ) ( ( ( coord.y + vp.pos.y ) -
-                                             m_CameraPos.y ) / m_pTmxMap -> tile_height );
+                if( m_pProjection -> ViewToTileMatrix( coord, m_pTmxMap, vp, m_CameraPos, zp.fZoomFactor,
+                                                       m_nMapWidth, m_nMapHeight, pos ) )  {
 
                     // Both edges: GetTile indexes gids[] with these, and a
                     // row/column past the far edge would read past the array. Only
@@ -2839,30 +2872,71 @@ namespace SunLight {
                 }
 
                 /*
-                 * Only orthogonal maps are drawn correctly: the tile-to-pixel maths
-                 * assumes a square grid. An isometric, staggered or hexagonal map would
-                 * load and draw in the wrong places with no error, so refuse it here.
-                 * Freed the same way UnloadMap frees a map: the map first, then the
-                 * manager it points into.
+                 * The tile grid math is behind IMapProjection (E0 of the master plan), one implementation per
+                 * orientation libtmx can report. Orthogonal, isometric (E1b) and staggered (E2b) exist so far;
+                 * any other orientation is refused exactly as before, with the same message. Freed the same
+                 * way UnloadMap frees a map: the map first, then the manager it points into.
                  */
-                if( m_pTmxMap -> orient != O_ORT )  {
-                    fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal maps are supported.\n",
-                             szTmxMapFile, MapOrientation :: OrientationName( m_pTmxMap -> orient ) );
+                switch( m_pTmxMap -> orient )  {
 
-                    ::tmx_map_free( m_pTmxMap );
-                    m_pTmxMap = nullptr;
+                    case O_ORT:
+                        m_pProjection = std :: make_unique<Projection :: OrthogonalProjection>();
+                        break;
 
-                    if( pRcMgr )
-                        ::tmx_free_resource_manager( pRcMgr );
+                    case O_ISO:
+                        m_pProjection = std :: make_unique<Projection :: IsometricProjection>();
+                        break;
 
-                    return false;
+                    case O_STA:
+                        m_pProjection = std :: make_unique<Projection :: StaggeredProjection>();
+                        break;
+
+                    case O_HEX:
+                        m_pProjection = std :: make_unique<Projection :: HexagonalProjection>();
+                        break;
+
+                    default:
+                        // Every orientation string libtmx recognizes (orthogonal/isometric/staggered/hexagonal)
+                        // now has a projection, and O_NONE is unreachable here - checked against libtmx's own
+                        // source (tmx_xml.c): a missing "orientation" attribute and an unrecognized one are
+                        // BOTH rejected at parse time (two separate tmx_err calls), so m_pTmxMap is already
+                        // nullptr and LoadMap already returned false above, for any map that would otherwise
+                        // reach this switch with orient == O_NONE. The same finding B3 made for L_NONE/OT_NONE -
+                        // kept only so the switch covers every enumerator.
+                        fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal, isometric, staggered and hexagonal maps are supported.\n",
+                                 szTmxMapFile, MapOrientation :: OrientationName( m_pTmxMap -> orient ) );
+
+                        ::tmx_map_free( m_pTmxMap );
+                        m_pTmxMap = nullptr;
+
+                        if( pRcMgr )
+                            ::tmx_free_resource_manager( pRcMgr );
+
+                        return false;
                 }
 
                 // The map points into the manager's tilesets/templates: keep it alive as long as the map.
                 m_pTmxRcMgr = pRcMgr;
 
-                m_nMapWidth  = ( m_pTmxMap -> width * m_pTmxMap -> tile_width );
-                m_nMapHeight = ( m_pTmxMap -> height * m_pTmxMap -> tile_height );
+                SunLight :: Base :: stSize2D  mapPixelSize = m_pProjection -> MapPixelSize( m_pTmxMap );
+
+                m_nMapWidth  = ( uint16_t ) mapPixelSize.nWidth;
+                m_nMapHeight = ( uint16_t ) mapPixelSize.nHeight;
+
+                // DrawLayer draws each cell at its own resolved tile's tileset size (pTs->tile_width/height),
+                // not the map's declared one; VisibleTileRange's pixel-to-cell math assumes they are the same.
+                // That is true for every tileset here, or culling would silently skip tiles far from the origin
+                // (a scale mismatch, not an edge case a padding amount could fix) - checked once, so DrawLayer
+                // only culls when it is exact, and falls back to visiting every cell otherwise.
+                m_bUniformTileGrid = true;
+
+                for( tmx_tileset_list *pNode = m_pTmxMap -> ts_head; pNode != nullptr; pNode = pNode -> next )  {
+                    if( ( pNode -> tileset -> tile_width != m_pTmxMap -> tile_width ) ||
+                        ( pNode -> tileset -> tile_height != m_pTmxMap -> tile_height ) )  {
+                        m_bUniformTileGrid = false;
+                        break;
+                    }
+                }
 
                 SunLight :: Base :: stDimension2D vp          = GetViewport().GetDimension2D();
                 float                                fZoomFactor = GetViewport().GetZoomProperties().fZoomFactor;
@@ -2929,19 +3003,21 @@ namespace SunLight {
                 /*
                 * Set scrolling properties.
                 */
-                SetScrollStepSize( ( m_nScrollStepWidth < 0 ? m_pTmxMap -> tile_width :
+                SunLight :: Base :: stSize2D  defaultStep = m_pProjection -> DefaultScrollStep( m_pTmxMap );
+
+                SetScrollStepSize( ( m_nScrollStepWidth < 0 ? defaultStep.nWidth :
                                                             m_nScrollStepWidth ),
-                                   ( m_nScrollStepHeight < 0 ? m_pTmxMap -> tile_height :
+                                   ( m_nScrollStepHeight < 0 ? defaultStep.nHeight :
                                                             m_nScrollStepHeight ) );
 
                 // The same for every other view (their state is parked in the View while the
                 // default one is active): "-1" means the tile size of the map they now show.
                 for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
                     if( pView -> m_State.nScrollStepWidth < 0 )
-                        pView -> m_State.nScrollStepWidth = m_pTmxMap -> tile_width;
+                        pView -> m_State.nScrollStepWidth = defaultStep.nWidth;
 
                     if( pView -> m_State.nScrollStepHeight < 0 )
-                        pView -> m_State.nScrollStepHeight = m_pTmxMap -> tile_height;
+                        pView -> m_State.nScrollStepHeight = defaultStep.nHeight;
                 }
 
                 return true;
@@ -2973,6 +3049,8 @@ namespace SunLight {
                 m_pTmxMap    = NULL;
                 m_nMapWidth  = 0;
                 m_nMapHeight = 0;
+                m_pProjection.reset();
+                m_bUniformTileGrid    = false;
 
                 return true;
             }

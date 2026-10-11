@@ -139,6 +139,35 @@ TEST_SUITE( "renderer/tile lookup bounds" )  {
         pRenderer -> Stop();
     }
 
+    TEST_CASE( "A sprite's tile lookup is zoom-independent, for the same stored coordinate" )  {
+
+        // A screen-space sprite's own stored position is pre-zoom (TextureCanvas::GetScreenRect applies
+        // *zoom only at draw time, same as a tile's own nDestX) - so the SAME stored coordinate must keep
+        // resolving to the SAME tile no matter the current zoom level, or collision would misfire the moment
+        // a game zoomed the camera in or out from its default.
+        MemoryFileSystemFixture  fs;
+
+        fs.fs.files["maps/bounds.tmx"] = MakeSquareTmx( 4, 16 );
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = LoadedRenderer();
+        MatrixPos                           pos;
+
+        pRenderer -> SetCameraPosition( 0, 0 );
+
+        REQUIRE( pRenderer -> GetViewport().GetZoomProperties().fZoomFactor == 1.0f );
+        REQUIRE( Lookup( *pRenderer, 48, 48, pos ) == true );
+        CHECK( pos.nTileRow == 3 );
+        CHECK( pos.nTileCol == 3 );
+
+        pRenderer -> GetViewport().SetZoom( 30 );
+        REQUIRE( pRenderer -> GetViewport().GetZoomProperties().fZoomFactor != 1.0f );
+        REQUIRE( Lookup( *pRenderer, 48, 48, pos ) == true );
+        CHECK( pos.nTileRow == 3 );
+        CHECK( pos.nTileCol == 3 );
+
+        pRenderer -> Stop();
+    }
+
     TEST_CASE( "GetTile reads no gid for a row or column off the map, and says so" )  {
 
         MemoryFileSystemFixture  fs;

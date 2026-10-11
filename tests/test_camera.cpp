@@ -146,4 +146,54 @@ TEST_SUITE( "renderer/TileMapRenderer camera" )  {
             pWide -> Stop();
         }
     }
+
+    TEST_CASE( "MoveCameraDown undoes a single MoveCameraUp step back to the origin exactly" )  {
+
+        // Found via the isometric sample: MoveCameraDown's own boundary used to be a strict
+        // "camera.y + step < 0", which refuses the one step that would land exactly on 0 - so a
+        // single prior MoveCameraUp() (camera.y -= step, leaving camera.y == -step) could never
+        // be undone, permanently. "<= 0" is correct: camera.y == 0 is the map's own legal,
+        // unscrolled origin, not a limit to refuse landing on.
+        MemoryFileSystemFixture  fixture;
+        fixture.fs.files["maps/square.tmx"] = MakeSquareMap();
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( 1000, 100 );
+        int                                 nX0 = 0, nY0 = 0, nX1 = 0, nY1 = 0, nX2 = 0, nY2 = 0;
+
+        pRenderer -> GetCameraPosition( nX0, nY0 );
+        pRenderer -> MoveCameraUp();
+        pRenderer -> GetCameraPosition( nX1, nY1 );
+        REQUIRE( nY1 == nY0 + 16 );
+
+        pRenderer -> MoveCameraDown();
+        pRenderer -> GetCameraPosition( nX2, nY2 );
+
+        CHECK( nY2 == nY0 );
+        CHECK( nX2 == nX0 );
+
+        pRenderer -> Stop();
+    }
+
+    TEST_CASE( "MoveCameraRight undoes a single MoveCameraLeft step back to the origin exactly" )  {
+
+        // Same off-by-one as MoveCameraDown, on the horizontal pair.
+        MemoryFileSystemFixture  fixture;
+        fixture.fs.files["maps/square.tmx"] = MakeSquareMap();
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( 100, 1000 );
+        int                                 nX0 = 0, nY0 = 0, nX1 = 0, nY1 = 0, nX2 = 0, nY2 = 0;
+
+        pRenderer -> GetCameraPosition( nX0, nY0 );
+        pRenderer -> MoveCameraLeft();
+        pRenderer -> GetCameraPosition( nX1, nY1 );
+        REQUIRE( nX1 == nX0 + 16 );
+
+        pRenderer -> MoveCameraRight();
+        pRenderer -> GetCameraPosition( nX2, nY2 );
+
+        CHECK( nX2 == nX0 );
+        CHECK( nY2 == nY0 );
+
+        pRenderer -> Stop();
+    }
 }

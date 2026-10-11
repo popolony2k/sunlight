@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.0" orientation="staggered" renderorder="right-down" staggeraxis="y" staggerindex="odd" width="8" height="6" tilewidth="64" tileheight="48" infinite="0" nextlayerid="4" nextobjectid="1">
+ <tileset firstgid="1" source="tileset_staggered.tsx"/>
+ <tileset firstgid="5" source="tileset_obstacle.tsx"/>
+ <layer id="1" name="ground" width="8" height="6">
+  <data encoding="csv">
+1,2,1,2,1,2,1,2,
+2,1,2,1,2,1,2,1,
+1,2,1,2,1,2,1,2,
+2,1,2,1,2,1,2,1,
+1,2,1,2,1,2,1,2,
+2,1,2,1,2,1,2,1
+</data>
+ </layer>
+ <layer id="2" name="obstacles" width="8" height="6">
+  <data encoding="csv">
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,5,5,0,0,0,
+0,0,0,0,5,5,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <layer id="3" name="sprites" width="8" height="6">
+  <data encoding="csv">
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0
+</data>
+ </layer>
+</map>
