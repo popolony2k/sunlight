@@ -26,6 +26,7 @@
 #include "renderer/projection/orthogonalprojection.h"
 #include "renderer/projection/isometricprojection.h"
 #include "renderer/projection/staggeredprojection.h"
+#include "renderer/projection/hexagonalprojection.h"
 #include "renderer/map/externalresources.h"
 #include "renderer/shape/shapeobjects.h"
 #include "renderer/map/maporientation.h"
@@ -2890,8 +2891,19 @@ namespace SunLight {
                         m_pProjection = std :: make_unique<Projection :: StaggeredProjection>();
                         break;
 
+                    case O_HEX:
+                        m_pProjection = std :: make_unique<Projection :: HexagonalProjection>();
+                        break;
+
                     default:
-                        fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal, isometric and staggered maps are supported.\n",
+                        // Every orientation string libtmx recognizes (orthogonal/isometric/staggered/hexagonal)
+                        // now has a projection, and O_NONE is unreachable here - checked against libtmx's own
+                        // source (tmx_xml.c): a missing "orientation" attribute and an unrecognized one are
+                        // BOTH rejected at parse time (two separate tmx_err calls), so m_pTmxMap is already
+                        // nullptr and LoadMap already returned false above, for any map that would otherwise
+                        // reach this switch with orient == O_NONE. The same finding B3 made for L_NONE/OT_NONE -
+                        // kept only so the switch covers every enumerator.
+                        fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal, isometric, staggered and hexagonal maps are supported.\n",
                                  szTmxMapFile, MapOrientation :: OrientationName( m_pTmxMap -> orient ) );
 
                         ::tmx_map_free( m_pTmxMap );

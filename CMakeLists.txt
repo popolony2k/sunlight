@@ -40,6 +40,7 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/shapes)
     add_subdirectory(samples/isometric)
     add_subdirectory(samples/staggered)
+    add_subdirectory(samples/hexagonal)
 endif(BUILD_LIBRARY_SAMPLES)
 
 # Unit tests
