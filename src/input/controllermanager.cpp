@@ -24,19 +24,6 @@
 namespace SunLight  {
     namespace Input  {
 
-        namespace  {
-
-            // Analog stick deadzones: a stick position within this distance of center reads as
-            // exactly zero, so a worn/uncalibrated stick does not dispatch a phantom direction.
-            // Trigger deadzones are not consulted yet (axis-only triggers have no face-button
-            // equivalent to translate to today), kept here only as the same named values
-            // HandleUserInput's own inline literals used.
-            const float  __LEFT_STICK_DEADZONE_X  = 0.1f;
-            const float  __LEFT_STICK_DEADZONE_Y  = 0.1f;
-            const float  __RIGHT_STICK_DEADZONE_X = 0.1f;
-            const float  __RIGHT_STICK_DEADZONE_Y = 0.1f;
-        }
-
         ControllerManager :: ControllerManager( void )  {
 
             m_pInputHandler         = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
@@ -125,6 +112,18 @@ namespace SunLight  {
             m_pConnectionHandler = handler;
         }
 
+        void ControllerManager :: SetAxisDeadzone( int nGamePadId, SunLight :: Input :: GamepadAxis axis, float fDeadzone )  {
+
+            m_AxisDeadzones[ { nGamePadId, ( int ) axis } ] = fDeadzone;
+        }
+
+        float ControllerManager :: GetAxisDeadzone( int nGamePadId, SunLight :: Input :: GamepadAxis axis ) const  {
+
+            std :: map<std :: pair<int, int>, float> :: const_iterator  itItem = m_AxisDeadzones.find( { nGamePadId, ( int ) axis } );
+
+            return ( itItem != m_AxisDeadzones.end() ) ? itItem -> second : DEFAULT_AXIS_DEADZONE;
+        }
+
         /**
          * @brief Dispatch to every registered key handler whose event matches evt.
          * @param evt The key event to dispatch;
@@ -184,14 +183,21 @@ namespace SunLight  {
                 float    fRightPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
                                                                                  SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_RIGHT_Y );
 
-                // Calculate deadzones
-                if( ( fPosX > -__LEFT_STICK_DEADZONE_X ) && ( fPosX < __LEFT_STICK_DEADZONE_X ) )
+                // Calculate deadzones - per (pad, axis), F4 of the master plan; a value
+                // strictly inside the deadzone reads as zero, exactly at its boundary reads as
+                // a real value (pinned by test_controllermanager.cpp).
+                float    fLeftDeadzoneX  = GetAxisDeadzone( nGamePadId, SunLight :: Input :: GAMEPAD_AXIS_LEFT_X );
+                float    fLeftDeadzoneY  = GetAxisDeadzone( nGamePadId, SunLight :: Input :: GAMEPAD_AXIS_LEFT_Y );
+                float    fRightDeadzoneX = GetAxisDeadzone( nGamePadId, SunLight :: Input :: GAMEPAD_AXIS_RIGHT_X );
+                float    fRightDeadzoneY = GetAxisDeadzone( nGamePadId, SunLight :: Input :: GAMEPAD_AXIS_RIGHT_Y );
+
+                if( ( fPosX > -fLeftDeadzoneX ) && ( fPosX < fLeftDeadzoneX ) )
                     fPosX = 0.0f;
-                if( ( fPosY > -__RIGHT_STICK_DEADZONE_Y ) && ( fPosY < __RIGHT_STICK_DEADZONE_Y ) )
+                if( ( fPosY > -fLeftDeadzoneY ) && ( fPosY < fLeftDeadzoneY ) )
                     fPosY = 0.0f;
-                if( ( fRightPosX > -__RIGHT_STICK_DEADZONE_X ) && ( fRightPosX < __RIGHT_STICK_DEADZONE_X ) )
+                if( ( fRightPosX > -fRightDeadzoneX ) && ( fRightPosX < fRightDeadzoneX ) )
                     fRightPosX = 0.0f;
-                if( ( fRightPosY > -__RIGHT_STICK_DEADZONE_Y ) && ( fRightPosY < __RIGHT_STICK_DEADZONE_Y ) )
+                if( ( fRightPosY > -fRightDeadzoneY ) && ( fRightPosY < fRightDeadzoneY ) )
                     fRightPosY = 0.0f;
 
                 // Handle Analog GamePad control stick (left)

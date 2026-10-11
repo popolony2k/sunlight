@@ -24,6 +24,15 @@
 #include "input/iinputhandler.h"
 #include <vector>
 
+/**
+ * @brief Default analog stick axis deadzone (F4 of the master plan): a stick position within
+ * this distance of center reads as exactly zero when translating sticks to DPad-equivalent
+ * handlers, unless SetAxisDeadzone configures a different value for that exact (pad, axis)
+ * pair. Today's own value, unchanged by F4 - only now it is the same named constant for every
+ * axis, where before each stick axis had its own (identically-valued) copy.
+ */
+#define DEFAULT_AXIS_DEADZONE   0.1f
+
 
 namespace SunLight {
     namespace Input  {
@@ -133,6 +142,26 @@ namespace SunLight {
              * @param handler The callback to invoke, or nullptr to stop receiving the event;
              */
             virtual void SetGamepadConnectionHandler( SunLight :: Input :: GAMEPAD_CONNECTION_HANDLER handler ) = 0;
+
+            /**
+             * @brief Configure the deadzone for one gamepad's one axis, overriding
+             * DEFAULT_AXIS_DEADZONE for that exact (pad, axis) pair only. Only the two
+             * analog sticks' four axes are consulted by Update() today - see GetAxisDeadzone.
+             * @param nGamePadId The gamepad device id;
+             * @param axis The axis to configure;
+             * @param fDeadzone The deadzone radius (a stick position strictly within this
+             * distance of center reads as zero; exactly at the boundary reads as a real value);
+             */
+            virtual void SetAxisDeadzone( int nGamePadId, SunLight :: Input :: GamepadAxis axis, float fDeadzone ) = 0;
+
+            /**
+             * @brief The deadzone configured for one gamepad's one axis.
+             * @param nGamePadId The gamepad device id;
+             * @param axis The axis to check;
+             * @return The configured deadzone, or DEFAULT_AXIS_DEADZONE if never configured
+             * for this exact (pad, axis) pair;
+             */
+            virtual float GetAxisDeadzone( int nGamePadId, SunLight :: Input :: GamepadAxis axis ) const = 0;
 
             /**
              * @brief Poll every added gamepad and dispatch matching gamepad handlers, then

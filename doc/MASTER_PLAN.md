@@ -696,7 +696,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 | F1 | Device list and hot-plug events | DONE |
 | F2 | Player slots: claim, release, reassign after unplug | DONE |
 | F3 | Action map: named actions, rebinding, load and save | DONE |
-| F4 | Tunable dead zones and thresholds per pad and axis | TODO |
+| F4 | Tunable dead zones and thresholds per pad and axis | DONE |
 | F5 | Duplicate pad registration is ignored | TODO |
 | F6 | Default handlers are opt-in, and a game can take over input | N/A, subsumed by F0b - once default bindings are a separate, un-auto-installed preset, there is nothing left for this item to do |
 | F7a | Rumble interface, factory, null and mock implementations (no real device) | TODO |
@@ -989,7 +989,33 @@ and keeps its bindings in its own files. The file format is decided before imple
 
 **F4: dead zones and thresholds.** Configurable per pad and per axis, with today's values
 as the defaults.
-- Test items: a value exactly at the boundary behaves as specified; defaults match today.
+- `IControllerManager` gains `SetAxisDeadzone(pad, axis, deadzone)`/`GetAxisDeadzone(pad,
+  axis)`, backed by a `std::map<std::pair<int,int>, float>` keyed by exactly the (pad,
+  axis) pair being configured; an unconfigured pair reads the new `DEFAULT_AXIS_DEADZONE`
+  (0.1f - today's own value, unchanged).
+- Found and fixed a real pre-existing bug while wiring this in: `Update()`'s deadzone
+  check for the *left* stick's Y axis (`fPosY`) read the *right* stick's Y deadzone
+  constant (`__RIGHT_STICK_DEADZONE_Y`), not the left one - invisible before this item
+  only because all four of the old hardcoded constants happened to equal 0.1f. Now that
+  each (pad, axis) pair can genuinely differ, the swap would have been an observable bug;
+  fixed by routing all four axes through `GetAxisDeadzone` with their own correct axis.
+  The four old per-stick constants are removed - one named default replaces them, since
+  their only distinction was this bug.
+- Test items, in `tests/test_controllermanager.cpp` (4 new cases): `GetAxisDeadzone`'s
+  defaults match today's value for any (pad, axis) pair; `SetAxisDeadzone` configures
+  exactly the one pair asked, leaving every other pair (including the same axis on a
+  different pad) at the default; **a value exactly at the deadzone's own boundary behaves
+  as specified** (strictly inside reads as zero, exactly at the boundary is a real,
+  dispatchable value); and a regression test pinning the bug fix itself (a left-Y
+  deadzone of 0.5 and a right-Y deadzone of 0.0 - a left-stick Y position of 0.3 must not
+  dispatch, which it would if the swap were still present).
+- Mutation check (two independent points): reverting `fPosY`'s lookup back to
+  `fRightDeadzoneY` failed the regression test exactly as the real historical bug would
+  have; separately, changing the boundary comparison from strict `<` to `<=` failed the
+  boundary test (the boundary value reading as zero instead of real). Both confirmed by
+  reverting the fix, seeing the test fail, then restoring it.
+- Full suite (505 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F5: duplicate pads.** A pad added twice is dispatched once.
 - Test items: adding the same id twice produces one dispatch per event.
