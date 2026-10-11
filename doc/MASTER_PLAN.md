@@ -699,7 +699,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 | F4 | Tunable dead zones and thresholds per pad and axis | DONE |
 | F5 | Duplicate pad registration is ignored | DONE |
 | F6 | Default handlers are opt-in, and a game can take over input | N/A, subsumed by F0b - once default bindings are a separate, un-auto-installed preset, there is nothing left for this item to do |
-| F7a | Rumble interface, factory, null and mock implementations (no real device) | TODO |
+| F7a | Rumble interface, factory, null and mock implementations (no real device) | DONE |
 | F7b | Real rumble backend, once a platform that vibrates is chosen | TODO |
 
 Today the renderer only polls gamepads a caller has added with `AddGamePad`. It does
@@ -1042,8 +1042,38 @@ how a game takes over input.
 `SetVibration(pad, left, right, duration)` and `Stop(pad)`, strengths from 0 to 1. It
 gets a factory, a null implementation that reports unsupported, and a recording mock.
 Nothing is wired to a real device.
-- Test items: a game that checks `IsSupported` can skip an effect; calls reach the mock
-  with the exact arguments; the null implementation never errors.
+- `IGamepadHaptics` (`src/input/igamepadhaptics.h`) is deliberately separate from
+  `IInputHandler` - haptics is an output, not an input. `NullGamepadHaptics`
+  (`src/input/nullgamepadhaptics.{h,cpp}`) reports every pad unsupported and makes
+  `SetVibration`/`Stop` harmless no-ops; it does *not* live under `backends/null/` like
+  `NullInputHandler` does, since it isn't a headless substitute for a real backend
+  installed only while a null renderer is live - it is every build's only and permanent
+  implementation until F7b picks a real one, so it sits beside the interface in
+  `src/input/` instead.
+- `GamepadHapticsFactory` (`src/input/gamepadhapticsfactory.{h,cpp}`) follows
+  `SoundFactory`'s shape exactly: a fresh `IGamepadHaptics` per call (not a shared
+  singleton - a game could plausibly want more than one in flight), and a `SetCreator`
+  override hook for tests. Unlike `EngineFactory`/`WindowFactory`/`InputHandlerFactory`,
+  there is no build-time `#if DEFAULT_ENGINE` switch yet - `NullGamepadHaptics` is the
+  unconditional default, since no second backend exists to switch between until F7b.
+- `tests/mock_gamepadhaptics.h` adds `MockGamepadHaptics` (records every `SetVibration`/
+  `Stop` call's exact arguments in a vector, `bSupportedResult` scriptable) and
+  `MockGamepadHapticsFixture`, the same `SetCreator`-based RAII swap shape as
+  `mock_input.h`/`mock_sound.h`.
+- Test items, in `tests/test_gamepadhaptics.cpp` (7 cases): `NullGamepadHaptics`'s
+  `IsSupported` is always false and its `SetVibration`/`Stop` never error, for any
+  argument including out-of-range strengths; a game that checks `IsSupported` can skip
+  an effect entirely (checked against both the null implementation directly and through
+  the mock with support turned off); the factory defaults to `NullGamepadHaptics` and
+  `SetCreator` swaps in a mock and restores the default on `nullptr`; calls through the
+  factory-created mock reach it with the exact arguments (gamepad id, both motor
+  strengths, duration for `SetVibration`; the id for `Stop`).
+- Mutation check: making `CreateGamepadHaptics` ignore `s_pCreator` entirely broke both
+  the swap test (a null pointer instead of the mock) and the exact-arguments test (a
+  segfault, calling into a `NullGamepadHaptics` through a pointer the test expected to be
+  the mock), confirmed by reverting the fix, seeing both fail, then restoring it.
+- Full suite (513 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F7b: rumble backend.** A real implementation, once a platform that vibrates is chosen.
 raylib's desktop build does not vibrate, so this may need another library or a custom
