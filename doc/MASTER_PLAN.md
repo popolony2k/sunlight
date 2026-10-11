@@ -694,7 +694,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 | F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | DONE |
 | F0c | Record the Scarab/Caravellius breakage in `doc/BREAKAGES.md` | DONE |
 | F1 | Device list and hot-plug events | DONE |
-| F2 | Player slots: claim, release, reassign after unplug | TODO |
+| F2 | Player slots: claim, release, reassign after unplug | DONE |
 | F3 | Action map: named actions, rebinding, load and save | TODO |
 | F4 | Tunable dead zones and thresholds per pad and axis | TODO |
 | F5 | Duplicate pad registration is ignored | TODO |
@@ -913,8 +913,35 @@ connect and disconnect events.
 
 **F2: player slots.** A pad is claimed by a slot, released on request, and reassigned
 after an unplug. Slots are a sunlight concept, so the game decides how many there are.
-- Test items: unplug and replug keeps the slot; releasing a slot frees the pad; claiming
-  an already claimed pad is refused.
+- `IPlayerSlotManager`/`PlayerSlotManager` (`src/input/iplayerslotmanager.h`,
+  `src/input/playerslotmanager.{h,cpp}`) is a new class, directly constructible like
+  `ControllerManager` - no factory, no backend variation. `ClaimSlot(slot, pad)` succeeds
+  for a free pad or a pad the same slot already holds (idempotent), replaces whatever pad
+  a slot held before (freeing it), and refuses a pad a *different* slot already holds.
+  `ReleaseSlot(slot)` frees whatever it holds, a no-op if it holds nothing. Both lookups
+  (`GetGamepadForSlot`/`GetSlotForGamepad`) return the new `NO_SLOT_ASSOCIATION` sentinel
+  when nothing matches.
+- Deliberately independent of `IControllerManager`/`IInputHandler`: a slot's claim is a
+  plain `slot -> gamepad id` map, never consulted against or cleared by the gamepad's own
+  live availability. "Reassigned after an unplug" (the item's own wording) resolves to
+  "the claim is never touched by connectivity at all" - unplugging and replugging the same
+  device need not do anything, since the slot was never told to let go; a reassignment to
+  a *different* pad after a permanent unplug is the caller's own decision (e.g. from
+  `IControllerManager`'s F1 hot-plug event), not something this class does on its own.
+- Test items, in `tests/test_playerslotmanager.cpp` (8 cases): an unclaimed slot/pad
+  report `NO_SLOT_ASSOCIATION` both ways; a claim round-trips both lookups; claiming an
+  already-claimed pad is refused and leaves state unchanged; releasing a slot frees its
+  pad for another slot; releasing an unclaimed slot is a no-op; re-claiming the same
+  slot+pad is an idempotent success; claiming a different pad for an already-claimed slot
+  replaces it and frees the old one; and the exact "unplug and replug keeps the slot"
+  scenario, using `ControllerManager` + `mock_input.h` to toggle a gamepad's live
+  availability across `Update()` calls and confirming the slot's claim never moves.
+- Mutation check: forcing `ClaimSlot`'s refusal branch to `if( false )` (always allow)
+  failed the refusal test's two assertions (`ClaimSlot` returning `true` instead of
+  `false`, and the second slot reading the pad instead of `NO_SLOT_ASSOCIATION`),
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (486 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F3: action map.** Named actions bound to keys, buttons or axes, with rebinding at run
 time and load and save. Sunlight provides the mechanism. Each game names its own actions
