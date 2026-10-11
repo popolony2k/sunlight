@@ -672,9 +672,19 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 - Checked by eye by the owner: confirmed working on the first try, no iteration needed (unlike the isometric
   sample's own first pass, which went through several rounds of movement/collision/camera fixes before the
   owner confirmed it).
-- **Tracked follow-up (not part of this item):** the owner asked that `samples/staggered/` be upgraded to the
-  same Sunny collision/movement structure once Phase E closes, so all three new orientations demonstrate the
-  same sample consistently. Scoped as its own change, after E3 is merged.
+- **Follow-up (DONE, as its own change after E3 merged):** `samples/staggered/` upgraded to the same Sunny
+  collision/movement structure, so all three new orientations now demonstrate the same sample consistently.
+  Porting it required checking, not assuming, whether isometric's `TryMoveStep(row±1, col±1)` logic would
+  carry over: it would not have. In isometric, row/col ARE the diamond's own diagonal screen axes, so a plain
+  ±1 step is itself diagonal; staggered stores a plain rectangular array where col is a true screen-horizontal
+  axis, so the two same-row neighbors (`col±1`) are actually two diamond-widths apart on screen (confirmed
+  numerically against `CellTopLeft` itself: distance 64 vs the real touching neighbors' distance 40), not a
+  real touch. Staggered needed the same parity-aware neighbor logic E3c's own hex sample used (NW/NE/SW/SE),
+  just four directions instead of hex's six, since a diamond has no true "side" neighbor the way a hexagon's
+  flat edges give it one. Confirmed working by the owner in a real window.
+  Both the staggered and hexagonal obstacle tiles were then simplified from a raised, shaded 3D block (the
+  isometric sample's own obstacle art style) to a plain flat fill matching the ground tiles' own shape, at
+  the owner's request - the 3D look wasn't wanted on either of these two orientations.
 
 ## Phase F: input configuration
 
