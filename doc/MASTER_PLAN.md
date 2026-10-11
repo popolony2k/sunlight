@@ -697,7 +697,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 | F2 | Player slots: claim, release, reassign after unplug | DONE |
 | F3 | Action map: named actions, rebinding, load and save | DONE |
 | F4 | Tunable dead zones and thresholds per pad and axis | DONE |
-| F5 | Duplicate pad registration is ignored | TODO |
+| F5 | Duplicate pad registration is ignored | DONE |
 | F6 | Default handlers are opt-in, and a game can take over input | N/A, subsumed by F0b - once default bindings are a separate, un-auto-installed preset, there is nothing left for this item to do |
 | F7a | Rumble interface, factory, null and mock implementations (no real device) | TODO |
 | F7b | Real rumble backend, once a platform that vibrates is chosen | TODO |
@@ -1018,7 +1018,21 @@ as the defaults.
   builds cleanly.
 
 **F5: duplicate pads.** A pad added twice is dispatched once.
-- Test items: adding the same id twice produces one dispatch per event.
+- `AddGamePad` now checks `m_GamePadList` first (`std::find`) and is a no-op for an id
+  already present - the fix F0a's own pinning test anticipated but deliberately did not
+  make yet (that item was a pure extraction, no behavior change).
+- F0a's "double-fires" pinning test is updated in place to assert the fixed behavior
+  (one dispatch, not two) - its role was always to track this exact bug, not to prevent
+  it from ever being fixed; a second case confirms two genuinely *different* ids still
+  each dispatch their own event once.
+- Test items, in `tests/test_controllermanager.cpp` (1 new case, 1 updated in place):
+  adding the same id twice produces one dispatch per event; two different ids still
+  produce one dispatch each (not collapsed together).
+- Mutation check: reverting `AddGamePad` to its old unconditional `push_back` reproduced
+  the historical double-fire exactly (`nFireCount == 2` where the test expects `1`),
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (506 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F6: opt-in default handlers.** The camera handlers become opt-in, and the docs explain
 how a game takes over input.

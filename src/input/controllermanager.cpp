@@ -20,6 +20,7 @@
 
 #include "input/controllermanager.h"
 #include "input/inputhandlerfactory.h"
+#include <algorithm>
 
 namespace SunLight  {
     namespace Input  {
@@ -33,12 +34,14 @@ namespace SunLight  {
         }
 
         /**
-         * @brief Set the gamepad id that will be polled by this manager.
+         * @brief Set the gamepad id that will be polled by this manager - a no-op if that id
+         * is already added (F5 of the master plan: a duplicate add must not double-dispatch).
          * @param nGamePadId The gamepad device index to add;
          */
         void ControllerManager :: AddGamePad( int nGamePadId )  {
 
-            m_GamePadList.push_back( nGamePadId );
+            if( std :: find( m_GamePadList.begin(), m_GamePadList.end(), nGamePadId ) == m_GamePadList.end() )
+                m_GamePadList.push_back( nGamePadId );
         }
 
         /**
