@@ -266,4 +266,66 @@ TEST_SUITE( "input/ControllerManager" )  {
         manager.Update();
         CHECK( events.size() == 1 );
     }
+
+    // F4 of the master plan: configurable dead zones and thresholds.
+
+    TEST_CASE( "GetAxisDeadzone defaults match today's own value, per pad and per axis" )  {
+
+        MockInputHandlerFixture  fixture;
+        ControllerManager        manager;
+
+        CHECK( manager.GetAxisDeadzone( 0, GAMEPAD_AXIS_LEFT_X ) == DEFAULT_AXIS_DEADZONE );
+        CHECK( manager.GetAxisDeadzone( 0, GAMEPAD_AXIS_LEFT_Y ) == DEFAULT_AXIS_DEADZONE );
+        CHECK( manager.GetAxisDeadzone( 1, GAMEPAD_AXIS_RIGHT_X ) == DEFAULT_AXIS_DEADZONE );
+        CHECK( manager.GetAxisDeadzone( 1, GAMEPAD_AXIS_RIGHT_Y ) == DEFAULT_AXIS_DEADZONE );
+    }
+
+    TEST_CASE( "SetAxisDeadzone configures exactly one (pad, axis) pair, leaving every other default" )  {
+
+        MockInputHandlerFixture  fixture;
+        ControllerManager        manager;
+
+        manager.SetAxisDeadzone( 1, GAMEPAD_AXIS_LEFT_X, 0.5f );
+
+        CHECK( manager.GetAxisDeadzone( 1, GAMEPAD_AXIS_LEFT_X ) == 0.5f );
+        CHECK( manager.GetAxisDeadzone( 1, GAMEPAD_AXIS_LEFT_Y ) == DEFAULT_AXIS_DEADZONE );
+        CHECK( manager.GetAxisDeadzone( 0, GAMEPAD_AXIS_LEFT_X ) == DEFAULT_AXIS_DEADZONE );
+    }
+
+    TEST_CASE( "A value exactly at the deadzone boundary behaves as specified: it is a real value, not zeroed" )  {
+
+        MockInputHandlerFixture  fixture;
+        ControllerManager        manager;
+        int                      nFireCount = 0;
+
+        manager.AddGamePad( 1 );
+        manager.SetUserGamePadEventHandler( GAMEPAD_BUTTON_LEFT_FACE_RIGHT, [&]( ControllerType, int ) { nFireCount++; } );
+
+        // Exactly at the default deadzone's own boundary - not strictly inside it.
+        fixture.pLastCreated -> axisValues[ GAMEPAD_AXIS_LEFT_X ] = DEFAULT_AXIS_DEADZONE;
+        manager.Update();
+
+        CHECK( nFireCount == 1 );
+    }
+
+    TEST_CASE( "A configured left-stick Y deadzone is the one consulted for the left stick's Y axis "
+               "(regression: it used to read the right stick's Y deadzone instead)" )  {
+
+        MockInputHandlerFixture  fixture;
+        ControllerManager        manager;
+        int                      nFireCount = 0;
+
+        manager.AddGamePad( 1 );
+        manager.SetUserGamePadEventHandler( GAMEPAD_BUTTON_LEFT_FACE_DOWN, [&]( ControllerType, int ) { nFireCount++; } );
+
+        // Left Y has a wide deadzone; right Y has none. A left-stick Y position inside the
+        // left deadzone but outside the (irrelevant) right one must not dispatch.
+        manager.SetAxisDeadzone( 1, GAMEPAD_AXIS_LEFT_Y, 0.5f );
+        manager.SetAxisDeadzone( 1, GAMEPAD_AXIS_RIGHT_Y, 0.0f );
+
+        fixture.pLastCreated -> axisValues[ GAMEPAD_AXIS_LEFT_Y ] = 0.3f;
+        manager.Update();
+
+        CHECK( nFireCount == 0 );
+    }
 }

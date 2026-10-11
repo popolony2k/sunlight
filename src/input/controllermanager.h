@@ -24,7 +24,9 @@
 #include "input/icontrollermanager.h"
 #include <array>
 #include <deque>
+#include <map>
 #include <memory>
+#include <utility>
 
 
 namespace SunLight {
@@ -60,6 +62,7 @@ namespace SunLight {
             SunLight :: Input :: InputDispatchMode                 m_DispatchMode;
             std :: array<bool, MAX_GAMEPAD_COUNT>                  m_GamepadConnected {};
             SunLight :: Input :: GAMEPAD_CONNECTION_HANDLER        m_pConnectionHandler;
+            std :: map<std :: pair<int, int>, float>                m_AxisDeadzones;   // (pad, axis) -> deadzone, F4
 
             // Dispatches to every registered key handler whose event matches evt - the
             // REACTIVE dispatch strategy's own per-key-press lookup.
@@ -85,6 +88,8 @@ namespace SunLight {
             SunLight :: Input :: InputDispatchMode GetInputDispatchMode( void ) const override;
             std :: vector<SunLight :: Input :: stGamepadInfo> GetConnectedGamepads( void ) const override;
             void SetGamepadConnectionHandler( SunLight :: Input :: GAMEPAD_CONNECTION_HANDLER handler ) override;
+            void SetAxisDeadzone( int nGamePadId, SunLight :: Input :: GamepadAxis axis, float fDeadzone ) override;
+            float GetAxisDeadzone( int nGamePadId, SunLight :: Input :: GamepadAxis axis ) const override;
             void Update( void ) override;
         };
     }
