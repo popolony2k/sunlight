@@ -26,12 +26,12 @@
 #include <stdexcept>
 
 /**
- * @brief Test double for SunLight::TileMap::ITileMap - only implements the
- * subset CollisionManager actually calls (GetLayer, TileMapToTileMatrix,
- * GetTile) with configurable results; everything else is a trivial stub
- * since CollisionManager never reaches it. GetInputHandler()/
- * GetCollisionManager() throw if called - there's no sane mock value for
- * either and CollisionManager doesn't call them on its parent.
+ * @brief Test double for SunLight::TileMap::ITileMap - the subset CollisionManager actually
+ * calls (GetLayer, TileMapToTileMatrix, GetTile) has configurable results; the camera/zoom
+ * methods (ResetZoom, ZoomIn, ZoomOut, ResetCamera, MoveCameraUp/Down/Left/Right) count their
+ * own calls, for DefaultControllerBindings's tests; everything else is a trivial stub since
+ * neither consumer reaches it. GetInputHandler()/GetCollisionManager() throw if called -
+ * there's no sane mock value for either and neither consumer calls them on its parent.
  */
 class MockTileMap : public SunLight :: TileMap :: ITileMap  {
 
@@ -65,14 +65,23 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> & )  { return false; }
     int GetViewCount( void )  { return 1; }
 
-    void ResetZoom( void )  {}
-    void ZoomIn( void )  {}
-    void ZoomOut( void )  {}
-    void ResetCamera( void )  {}
-    void MoveCameraUp( void )  {}
-    void MoveCameraDown( void )  {}
-    void MoveCameraLeft( void )  {}
-    void MoveCameraRight( void )  {}
+    int  nResetZoomCalls      = 0;
+    int  nZoomInCalls         = 0;
+    int  nZoomOutCalls        = 0;
+    int  nResetCameraCalls    = 0;
+    int  nMoveCameraUpCalls   = 0;
+    int  nMoveCameraDownCalls = 0;
+    int  nMoveCameraLeftCalls = 0;
+    int  nMoveCameraRightCalls = 0;
+
+    void ResetZoom( void )  { nResetZoomCalls++; }
+    void ZoomIn( void )  { nZoomInCalls++; }
+    void ZoomOut( void )  { nZoomOutCalls++; }
+    void ResetCamera( void )  { nResetCameraCalls++; }
+    void MoveCameraUp( void )  { nMoveCameraUpCalls++; }
+    void MoveCameraDown( void )  { nMoveCameraDownCalls++; }
+    void MoveCameraLeft( void )  { nMoveCameraLeftCalls++; }
+    void MoveCameraRight( void )  { nMoveCameraRightCalls++; }
     void SetCameraPosition( int, int )  {}
 
     void GetCameraPosition( int &nX, int &nY )  {

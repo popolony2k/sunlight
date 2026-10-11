@@ -265,19 +265,6 @@ namespace SunLight {
             // Object management internals
             bool FindObjectByName( tmx_layer *pLayer, const char *szObjectName, SunLight :: TileMap :: stObject& object );
 
-            // General engine handlers
-            void InitalizeDefaultUserInputHandlers( void );
-
-            // Default Input handlers callbacks
-            void InputKeyUp( SunLight :: Input :: ControllerType type, int nId );
-            void InputKeyDown( SunLight :: Input :: ControllerType type, int nId );
-            void InputKeyLeft( SunLight :: Input :: ControllerType type, int nId );
-            void InputKeyRight( SunLight :: Input :: ControllerType type, int nId );
-            void InputKeyPageUp( SunLight :: Input :: ControllerType type, int nId );
-            void InputKeyPageDown( SunLight :: Input :: ControllerType type, int nId );
-            void InputKeyHome( SunLight :: Input :: ControllerType type, int nId );
-            void InputKeyEnd( SunLight :: Input :: ControllerType type, int nId );
-
             // User interaction handlers
             inline void HandleTileMapUpdate( void );
             inline void HandleUserCollisions( void );
@@ -295,8 +282,7 @@ namespace SunLight {
             TileMapRenderer( float fWidth,
                              float fHeight,
                              const char* szTitle,
-                             int nTargetFps = -1,
-                             bool bUseDefaultKeyHandler = true );
+                             int nTargetFps = -1 );
             explicit TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config );
             virtual ~TileMapRenderer( void );
 

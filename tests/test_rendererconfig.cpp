@@ -130,7 +130,7 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
 
     TEST_CASE( "A default config builds the same renderer the classic constructor does" )  {
 
-        TileMapRenderer  classic( 800, 600, "SunLight", -1, true );
+        TileMapRenderer  classic( 800, 600, "SunLight", -1 );
         TileMapRenderer  fromConfig( ( RendererConfig() ) );
 
         CHECK( fromConfig.GetWindowWidth()        == classic.GetWindowWidth() );
@@ -147,7 +147,7 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
 
         MockWindowFixture  windowFixture;
         MockEngineFixture  engineFixture;
-        TileMapRenderer    classic( 320, 240, "classic", 45, false );
+        TileMapRenderer    classic( 320, 240, "classic", 45 );
 
         CHECK( classic.GetWindowWidth() == 320 );
         CHECK( classic.GetWindowHeight() == 240 );
@@ -228,7 +228,7 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
         fromConfig.Stop();
 
         // Via SetExitKey before Start (used to be overwritten with ESC).
-        TileMapRenderer  viaSetter( 800, 600, "test", -1, false );
+        TileMapRenderer  viaSetter( 800, 600, "test", -1 );
 
         viaSetter.SetExitKey( SunLight :: Input :: KEY_Q );
 
@@ -248,7 +248,7 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
 
         MockWindowFixture  windowFixture;
         MockEngineFixture  engineFixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1, false );
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
 
         REQUIRE( renderer.Start() == true );
         CHECK( windowFixture.window.lastExitKey == SunLight :: Input :: KEY_ESCAPE );
@@ -271,7 +271,7 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
         config.nZoomPos = 60u;
 
         TileMapRenderer  fromConfig( config );
-        TileMapRenderer  byHand( 800, 600, "SunLight", -1, true );
+        TileMapRenderer  byHand( 800, 600, "SunLight", -1 );
 
         byHand.GetViewport().SetZoom( 60 );
         byHand.GetViewport().SetDimension2D( MakeViewport( 10, 10, 1250, 910 ) );
@@ -294,7 +294,7 @@ TEST_SUITE( "renderer/TileMapRenderer(RendererConfig)" )  {
     TEST_CASE( "Left unset, the viewport covers the whole render area and the zoom keeps its default" )  {
 
         TileMapRenderer  fromConfig( ( RendererConfig() ) );
-        TileMapRenderer  classic( 800, 600, "SunLight", -1, true );
+        TileMapRenderer  classic( 800, 600, "SunLight", -1 );
 
         CHECK( fromConfig.GetViewport().GetZoomProperties().nCurrentZoomPos ==
                classic.GetViewport().GetZoomProperties().nCurrentZoomPos );
