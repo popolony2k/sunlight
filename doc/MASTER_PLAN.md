@@ -690,12 +690,15 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 
 | # | Item | Status |
 |---|------|--------|
+| F0a | Extract input dispatch/registration into `IControllerManager` + `ControllerManager`, owned by `TileMapRenderer` (mirroring `ICollisionManager`). No behavior change | TODO |
+| F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | TODO |
+| F0c | Execute the compatibility break: update every sample, `RendererConfig`, and record the Scarab/Caravellius breakage | TODO |
 | F1 | Device list and hot-plug events | TODO |
 | F2 | Player slots: claim, release, reassign after unplug | TODO |
 | F3 | Action map: named actions, rebinding, load and save | TODO |
 | F4 | Tunable dead zones and thresholds per pad and axis | TODO |
 | F5 | Duplicate pad registration is ignored | TODO |
-| F6 | Default handlers are opt-in, and a game can take over input | TODO |
+| F6 | Default handlers are opt-in, and a game can take over input | N/A, subsumed by F0b - once default bindings are a separate, un-auto-installed preset, there is nothing left for this item to do |
 | F7a | Rumble interface, factory, null and mock implementations (no real device) | TODO |
 | F7b | Real rumble backend, once a platform that vibrates is chosen | TODO |
 
@@ -707,7 +710,114 @@ functions that Scarab provides.
 
 **Coordination rule for this phase:** any change to a sunlight input signature also
 lists the Scarab wrappers and Caravellius call sites it affects, and those are updated in
-the same coordination.
+the same coordination. Phase F stages through its own branch, `feat/complete_f_plan`,
+created from `feat/master_plan` - every sub-item merges there first, and only once the
+whole phase is finished does `feat/complete_f_plan` itself merge into `feat/master_plan`
+(the same staging pattern Phase E used with `feat/complete_e_plan`).
+
+**F0: the controller-manager seam.** `TileMapRenderer` today owns three logically distinct
+layers under one roof, confirmed by reading the renderer rather than assumed: raw input
+polling (`IInputHandler`/`InputHandlerFactory`, already a clean, swappable backend - nothing
+to change here); the event dispatch/registration machinery (the key/gamepad handler lists,
+the gamepad list, the analog-stick-to-DPad-button translation with its deadzone constants,
+`AddGamePad`/`SetUserKeyEventHandler`/`SetUserGamePadEventHandler`/`GetInputHandler`, and the
+per-frame dispatch itself, `HandleUserInput`/`HandleKeyEvent`); and the default camera/zoom
+key bindings (`InitalizeDefaultUserInputHandlers` plus the `InputKeyUp/Down/Left/Right/
+PageUp/PageDown/Home/End` callbacks, which just call `MoveCameraUp/Down/Left/Right`,
+`ZoomIn`/`ZoomOut`, `ResetZoom`, `ResetCamera` - methods `ITileMap` already declares as pure
+virtuals, confirmed by reading `tilemap/itilemap.h`, so a preset wired against `ITileMap&`
+needs no new interface surface for this part). Every reference to the second layer's own
+members (`m_pInputHandler`, `m_GamePadList`, the two handler lists,
+`m_pNullInputEventHandler`) was checked across the whole file: they are touched only by this
+small cluster of methods, never by sprite/view/collision code - a clean extraction, not a
+tangle.
+
+- `F0a` moves the second layer into `SunLight::Input::IControllerManager` (+ concrete
+  `ControllerManager`), in its own module (`input/controllermanager.*`, the same shape as
+  every other `I*`/concrete/factory split in this codebase):
+
+  ```cpp
+  enum InputDispatchMode {
+      INPUT_DISPATCH_MODE_ACTIVE,    // continuous IsKeyDown/IsGamepadButtonDown polling, fires every frame held
+      INPUT_DISPATCH_MODE_REACTIVE   // fires once per key-press edge (GetKeyPressed)
+  };
+
+  class IControllerManager {
+      public:
+      virtual ~IControllerManager( void ) = default;
+      virtual void AddGamePad( int nGamePadId ) = 0;
+      virtual void SetUserKeyEventHandler( KeyboardKey evt, INPUT_EVENT_HANDLER handler ) = 0;
+      virtual void SetUserGamePadEventHandler( GamepadButton evt, INPUT_EVENT_HANDLER handler ) = 0;
+      virtual IInputHandler& GetInputHandler( void ) = 0;
+      virtual void SetInputDispatchMode( InputDispatchMode mode ) = 0;
+      virtual InputDispatchMode GetInputDispatchMode( void ) const = 0;   // new: no equivalent getter exists today
+      virtual void Update( void ) = 0;   // per-frame dispatch, renamed from HandleUserInput
+  };
+  ```
+
+  `InputDispatchMode` moves from `SunLight::Renderer` (where it was named `ViewControlMode` -
+  a camera-flavored name for what has only ever been an input dispatch strategy, not a camera
+  concern) into `SunLight::Input`, alongside the class that actually owns dispatching.
+  `ControllerManager` is directly constructible, no factory - the same shape
+  `CollisionManager` already uses (no backend variation to swap; the only real swap point,
+  `IInputHandler`, already has its own factory and test-override hook,
+  `InputHandlerFactory::SetCreator`, confirmed sufficient for a `MockInputHandler` without
+  needing a second factory layer here). `TileMapRenderer` owns one internally
+  (`std::unique_ptr<IControllerManager>`), exposes it via `GetControllerManager()` (mirroring
+  `GetCollisionManager()` exactly), and its own frame loop calls
+  `m_pControllerManager -> Update()` where it previously called `HandleUserInput()` directly -
+  same shape as it already calls `m_CollisionManager.Update()`.
+  - Test items: a new `tests/test_controllermanager.cpp`, using a new `tests/mock_input.h`
+    (`MockInputHandler`, swapped in via `InputHandlerFactory::SetCreator`, the same pattern
+    `mock_engine.h`/`mock_window.h` already use) - every public method's behavior matches
+    today's `TileMapRenderer` dispatch exactly: `ACTIVE` mode fires continuously while a key/
+    button is held, `REACTIVE` mode fires once per press; gamepad analog sticks translate to
+    DPad-equivalent dispatch at the documented deadzones (now named constants, not the inline
+    literals `HandleUserInput` has today); a duplicate `AddGamePad` call is confirmed to
+    double-fire, matching today's actual behavior exactly (checked against the source: no
+    dedup exists) - a pinning test for the bug F5 later fixes, not a claim it is already fixed
+    here, since F0a is a pure extraction with no behavior change; the
+    gamepad-overrides-keyboard-when-handled precedence holds.
+  - This item directly unblocks T3 ("direct tests for `Run()`'s input... dispatch"), stuck
+    TODO until now because the dispatch logic had no seam to mock.
+
+- `F0b` moves the third layer into `SunLight::Input::DefaultControllerBindings`, a stateless
+  preset (a static method, no instance - nothing here varies by backend or needs mocking):
+
+  ```cpp
+  class DefaultControllerBindings {
+      public:
+      // Wires WASD/arrow keys to camera moves, PageUp/PageDown to zoom, Home/End to
+      // reset-zoom/reset-camera, on both keyboard and every gamepad already added to
+      // controllerManager - exactly today's InitalizeDefaultUserInputHandlers behavior,
+      // just external and opt-in now.
+      static void Install( SunLight :: TileMap :: ITileMap &map, IControllerManager &controllerManager );
+  };
+  ```
+
+  `TileMapRenderer` no longer auto-installs anything; `RendererConfig::bUseDefaultKeyHandler`
+  is removed, and the classic `TileMapRenderer(width, height, title, targetFps)` constructor
+  drops its fifth parameter. A game that wants the old defaults calls
+  `DefaultControllerBindings::Install( *pRenderer, pRenderer -> GetControllerManager() )`
+  once, explicitly, itself.
+  - Test items: `Install` wires exactly the documented keys/buttons - driven through a mock
+    `IControllerManager`/`IInputHandler` (or the real `ControllerManager` against the null
+    backend, same style `test_camera.cpp` already uses), each key/button fires the matching
+    `ITileMap` camera/zoom call exactly once.
+
+- `F0c` is the mechanical fallout of the clean break already agreed (Caravellius/Scarab are
+  going through this same refactor regardless, so a compatibility shim buys nothing but dead
+  code to maintain): every sample using the classic constructor or calling
+  `AddGamePad`/`SetUserKeyEventHandler`/`SetUserGamePadEventHandler`/`GetInputHandler`/
+  `SetViewControlMode` directly on the renderer (8 of them - `tilemaprenderer`, `sprite`,
+  `collision`, `gamepad`, `scriptprocessor`, `isometric`, `staggered`, `hexagonal`, confirmed
+  by grep) is updated to the new `GetControllerManager()`-based API, plus
+  `DefaultControllerBindings::Install` wherever a sample still wants the defaults. A
+  `doc/BREAKAGES.md` entry records the full signature change for Scarab/Caravellius.
+  - Test items: full suite + every sample builds and is manually re-verified to still behave
+    identically (no automated trace harness exists for input, the same caveat R1 and E0 noted
+    for anything checked only by eye); AddressSanitizer run, since this touches
+    `TileMapRenderer`'s own member lifetimes (the new `unique_ptr<IControllerManager>`).
 
 **F1: device list and hot-plug.** Expose the connected pads and their names, and raise
 connect and disconnect events. This needs new `IInputHandler` methods, so the mock is
