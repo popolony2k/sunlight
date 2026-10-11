@@ -695,7 +695,7 @@ per E3a's confirmed formula) for both the ground checkerboard and a raised, shad
 | F0c | Record the Scarab/Caravellius breakage in `doc/BREAKAGES.md` | DONE |
 | F1 | Device list and hot-plug events | DONE |
 | F2 | Player slots: claim, release, reassign after unplug | DONE |
-| F3 | Action map: named actions, rebinding, load and save | TODO |
+| F3 | Action map: named actions, rebinding, load and save | DONE |
 | F4 | Tunable dead zones and thresholds per pad and axis | TODO |
 | F5 | Duplicate pad registration is ignored | TODO |
 | F6 | Default handlers are opt-in, and a game can take over input | N/A, subsumed by F0b - once default bindings are a separate, un-auto-installed preset, there is nothing left for this item to do |
@@ -946,8 +946,46 @@ after an unplug. Slots are a sunlight concept, so the game decides how many ther
 **F3: action map.** Named actions bound to keys, buttons or axes, with rebinding at run
 time and load and save. Sunlight provides the mechanism. Each game names its own actions
 and keeps its bindings in its own files. The file format is decided before implementation.
-- Test items: a rebind round trip; a saved file reloads to the same bindings; a
-  conflicting binding is reported.
+- `IActionMap`/`ActionMap` (`src/input/iactionmap.h`, `src/input/actionmap.{h,cpp}`) is a
+  new class, directly constructible like `ControllerManager`/`PlayerSlotManager` - no
+  factory. An action name maps to at most one `stActionBinding` (`{ type, nCode,
+  nDirection }`): `BindKey`/`BindGamepadButton`/`BindGamepadAxis` each replace whatever
+  binding the action held before (a rebind, free of charge - no separate "rebind" method
+  needed), and refuse (return false) a physical input already bound to a *different*
+  action, mirroring `PlayerSlotManager::ClaimSlot`'s own refuse/replace shape. An axis
+  binding's conflict check includes its direction, so opposite directions on the same
+  axis (`MoveLeft`/`MoveRight`) are two separate, non-conflicting bindings.
+  `IsActionActive(action, input, gamePadId, axisThreshold)` evaluates the binding against
+  a live `IInputHandler` - a key via `IsKeyDown`, a button via `IsGamepadButtonDown`, an
+  axis via `GetGamepadAxisMovement` compared against the caller-supplied threshold in the
+  binding's own direction. No default threshold is baked in - deadzone/threshold tuning is
+  this item's own job (F4), not F3's.
+- File format, decided before writing any code: a plain text file, one binding per line,
+  `Action=Tag:code` (`Action=Tag:code:direction` for an axis), `Tag` one of `KEY`/
+  `BUTTON`/`AXIS`, `#`-prefixed and blank lines ignored. Chosen over JSON/INI since the
+  project has no JSON dependency and the grammar is this simple; `Save`/`Load` use plain
+  `std::ofstream`/`std::ifstream` against a real OS path (not `IFileSystem` - there is no
+  write abstraction in this project yet, and a save target only makes sense as a real,
+  writable path anyway). `Load` parses into a temporary map first and only replaces the
+  live bindings if every line parsed - a malformed file fails atomically, never leaving a
+  half-loaded map.
+- Test items, in `tests/test_actionmap.cpp` (15 cases): an unbound action has no binding
+  and is never active; each of the three binding kinds both binds and drives
+  `IsActionActive` correctly (including the axis binding's threshold and direction);
+  opposite axis directions don't conflict; **a rebind round trip** (rebinding frees the
+  old input for a different action to take); a no-op self-rebind still succeeds; **a
+  conflicting binding is reported** for each of the three binding kinds; `Unbind`; **a
+  saved file reloads to the same bindings** for all three kinds; `Load` fully replaces
+  stale prior bindings; `Load` fails (state untouched) for a missing file and for a
+  malformed line.
+- Mutation check (two independent invariants): forcing every refusal branch to
+  `if( false )` failed all three conflict tests (`BindKey`/`BindGamepadButton`/
+  `BindGamepadAxis` each returning `true` instead of `false`); separately, replacing the
+  axis's direction-sign comparison with a direction-blind "past either threshold" check
+  failed the axis direction test (the wrong-direction case reading active). Both
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (501 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F4: dead zones and thresholds.** Configurable per pad and per axis, with today's values
 as the defaults.
