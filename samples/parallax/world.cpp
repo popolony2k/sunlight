@@ -36,7 +36,11 @@
 #define __SUNNY_SPRITE_IDLE         "resources/sprites/sunny_idle_down.png"
 #define __SUNNY_SPRITE_IDLE_DELAY   100
 #define __SUNNY_TILE_SIZE           32
-#define __SUNNY_LAYER_ID            1        // "terrain", the factor-1 layer she stands on
+// "clouds", the LAST layer - not because she is logically part of it, but because a sprite
+// draws right after its own container layer's tiles, so attaching her to the topmost layer is
+// what keeps her drawn on top of everything, never covered by a drifting cloud landing on her
+// fixed screen position (found live: clouds are translucent but still visibly obscured her).
+#define __SUNNY_LAYER_ID            4
 #define __GAME_NAME                 "Parallax test"
 #define __PLAYER_STEP               4         // world pixels moved per frame the key is held
 

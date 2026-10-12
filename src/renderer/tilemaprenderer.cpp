@@ -444,7 +444,8 @@ namespace SunLight {
                                           int32_t nSourceH,
                                           int32_t nDestX,
                                           int32_t nDestY,
-                                          float fOpacity ) {
+                                          float fOpacity,
+                                          SunLight :: Base :: stColor tintColor ) {
 
 
             SunLight :: Base :: stDimension2D  clip;
@@ -480,6 +481,12 @@ namespace SunLight {
                 // Helper::RoundHalfUp's own doc comment. Found live (not assumed): samples/
                 // sprite's own default zoom (position 60, factor 3.8125) showed both the
                 // general seam and this specific half-pixel gap on ordinary scrolling.
+                //
+                // tintColor's own RGB multiplies into the tile's own pixels (Tiled's own
+                // "tintcolor" layer property - white, the default, leaves every pixel
+                // unchanged); its alpha channel is ignored here, replaced by the layer's own
+                // opacity (op, above) - the two are independent controls in Tiled itself, and
+                // DrawTile already had its own correct alpha source before tintColor existed.
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
                                                       SunLight :: Base :: stRectangle  { ( float ) nSourceX,
                                                                    ( float ) nSourceY,
@@ -492,7 +499,7 @@ namespace SunLight {
                                                       SunLight :: Base :: stVector2D  { 0, 0 },
                                                       0.0f,
                                                       fZoomFactor,
-                                                      SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, op } );
+                                                      SunLight :: Base :: stColor  { tintColor.nRed, tintColor.nGreen, tintColor.nBlue, op } );
             }
         }
 
@@ -828,7 +835,8 @@ namespace SunLight {
             tmx_tile      *pTile   = ( pBase -> animation_len != 0 ) ? AnimatedFrameOf( pBase, nGID ) : pBase;
             tmx_tileset   *pTs     = pTile -> tileset;
             void          *pImage  = ( pTile -> image != nullptr ) ? pTile -> image -> resource_image : pTs -> image -> resource_image;
-            float          fOpacity = ( float ) pLayer -> opacity;
+            float          fOpacity  = ( float ) pLayer -> opacity;
+            SunLight :: Base :: stColor  tintColor = IntToColor( pLayer -> tintcolor );
             int            nTileW   = ( int ) pTs -> tile_width;
             int            nTileH   = ( int ) pTs -> tile_height;
 
@@ -850,7 +858,7 @@ namespace SunLight {
                 SunLight :: Base :: stRectangle  source { ( float ) pTile -> ul_x, ( float ) pTile -> ul_y, ( float ) nTileW, ( float ) nTileH };
                 SunLight :: Base :: stRectangle  dest   { ( float ) fAnchorX, ( float ) fAnchorY, ( float ) fBoxW, ( float ) fBoxH };
                 SunLight :: Base :: stVector2D   origin { 0.0f, ( float ) fBoxH };
-                SunLight :: Base :: stColor      tint   { __OPAQUE_CHANNEL, __OPAQUE_CHANNEL, __OPAQUE_CHANNEL, ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) };
+                SunLight :: Base :: stColor      tint   { tintColor.nRed, tintColor.nGreen, tintColor.nBlue, ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) };
 
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureRotated( pImage, source, dest, origin, ( float ) fRotation, tint );
                 return;
@@ -861,7 +869,8 @@ namespace SunLight {
                 DrawTile( pImage, pTile -> ul_x, pTile -> ul_y, nTileW, nTileH,
                           ( int ) ( pObject -> x + pLayer -> offsetx ),
                           ( int ) ( pObject -> y + pLayer -> offsety ) - nTileH,
-                          fOpacity );
+                          fOpacity,
+                          tintColor );
 
                 return;
             }
@@ -919,6 +928,7 @@ namespace SunLight {
             tmx_image                             *pTmxImage = pLayer -> content.image;
             void                                   *pImage    = pTmxImage -> resource_image;
             SunLight :: Base :: Viewport&          vp         = GetViewport();
+            SunLight :: Base :: stColor         tintColor  = IntToColor( pLayer -> tintcolor );
             SunLight :: Base :: stDimension2D  clip;
             SunLight :: Base :: stDimension2D  dm         = { { ( int ) ( pLayer -> offsetx + m_EffectiveLayerCameraPos.x ),
                                                                  ( int ) ( pLayer -> offsety + m_EffectiveLayerCameraPos.y ) },
@@ -944,7 +954,7 @@ namespace SunLight {
                                                       SunLight :: Base :: stVector2D  { 0, 0 },
                                                       0.0f,
                                                       fZoomFactor,
-                                                      SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, 0xFF } );
+                                                      SunLight :: Base :: stColor  { tintColor.nRed, tintColor.nGreen, tintColor.nBlue, 0xFF } );
             }
         }
 
@@ -1025,7 +1035,8 @@ namespace SunLight {
          */
         void TileMapRenderer :: DrawLayer( tmx_layer *pLayer ) {
 
-            float                       fOpacity = ( float ) pLayer -> opacity;
+            float                              fOpacity  = ( float ) pLayer -> opacity;
+            SunLight :: Base :: stColor  tintColor = IntToColor( pLayer -> tintcolor );
             Projection :: stTileRange   range;
 
             if( m_bUniformTileGrid )  {
@@ -1088,7 +1099,8 @@ namespace SunLight {
                                 pTs -> tile_height,
                                 dest.x,
                                 dest.y,
-                                fOpacity );
+                                fOpacity,
+                                tintColor );
                     }
                 }
             }

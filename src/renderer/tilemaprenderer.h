@@ -255,7 +255,8 @@ namespace SunLight {
                            int32_t nSourceH,
                            int32_t nDestX,
                            int32_t nDestY,
-                           float fOpacity );
+                           float fOpacity,
+                           SunLight :: Base :: stColor tintColor = { 0xFF, 0xFF, 0xFF, 0xFF } );
 
             // High level primitive map handlers
             void DrawObjects( tmx_layer *pLayer );
