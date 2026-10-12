@@ -99,6 +99,11 @@ namespace SunLight {
             // Unload() does not touch it: the mode is the sprite's, not the textures'.
             void SetWorldSpace( bool bWorldSpace );
 
+            // L1 of the master plan: same propagation shape as SetWorldSpace, for
+            // BaseCanvas::SetParallaxLayerId - set by TileMapRenderer::AddSprite, not meant to
+            // be called directly by application code.
+            void SetParallaxLayerId( int nLayerId );
+
             // Whether the ACTIVE texture passes the viewport test that gates Advance() and Draw() in the
             // view being drawn (the sprite is visible, has an active sequence, and the texture's rectangle is
             // not entirely past the viewport's far edges - one entirely before its origin still passes, as it

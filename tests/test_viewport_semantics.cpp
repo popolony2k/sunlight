@@ -246,8 +246,19 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "MoveCameraLeft/Up limits equal the legacy code on the same visible area, step by step" )  {
+    TEST_CASE( "MoveCameraLeft/Up limits keep the map's far edge at or past the viewport's, step by step" )  {
 
+        // This test used to pin the OLD MoveCameraLeft/Up formula verbatim as its own oracle
+        // (an "nErrorFix" term, step.nWidth / round(zoom)) - but that formula itself never
+        // added the viewport's own pos.x/pos.y (the render target's origin its own doc
+        // comment always claimed it was measured from), compensating instead with that
+        // zoom-imprecise fudge term. At zoom 1 with a small pos, the error was invisible;
+        // at a real, non-integer zoom (found live, in samples/sprite's own default zoom,
+        // 3.8125) it left a visible gap of dozens of pixels between the map's own edge and
+        // the viewport's - confirmed by direct measurement, not assumed, before the fix
+        // below. The oracle here is now the independently-derived, exact "no gap" formula -
+        // the far edge (nPosX + nWidth) compared against the map's own candidate screen
+        // position, pos.x included - which is what MoveCameraLeft/Up now compute.
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
 
@@ -262,15 +273,15 @@ TEST_SUITE( "renderer/viewport semantics" )  {
             float                               fZoom     = pRenderer -> GetViewport().GetZoomProperties().fZoomFactor;
             int                                 nFarX     = v.nPosX + v.nWidth;
             int                                 nFarY     = v.nPosY + v.nHeight;
-            float                               fCamX     = 0.0f;      // the legacy simulation's camera
+            float                               fCamX     = 0.0f;      // the oracle's own camera
             float                               fCamY     = 0.0f;
             const int                           nStep     = 16;        // LoadMap sets the scroll step to the tile size
-            int                                 nErrorFix = ( int ) ( 16 / std :: round( fZoom ) );
 
             for( int nIter = 0; nIter < 400; nIter++ )  {
-                // Legacy MoveCameraLeft / MoveCameraUp, verbatim, against the far edges.
-                int  nBoundX = ( int ) std :: round( ( fCamX - nStep + 640 + nErrorFix ) * fZoom );
-                int  nBoundY = ( int ) std :: round( ( fCamY - nStep + 640 + 16 ) * fZoom );
+                // The exact, no-gap boundary: the map's far edge's own screen position after
+                // this hypothetical step, pos included - not a fudge-term approximation.
+                int  nBoundX = ( int ) std :: round( ( fCamX - nStep + 640 ) * fZoom ) + v.nPosX;
+                int  nBoundY = ( int ) std :: round( ( fCamY - nStep + 640 ) * fZoom ) + v.nPosY;
 
                 if( nFarX < nBoundX )  {
                     fCamX-=nStep;

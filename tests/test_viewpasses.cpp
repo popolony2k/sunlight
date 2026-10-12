@@ -183,7 +183,10 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
         CHECK( scene.FrameClear() == 0 );
         CHECK( scene.Count( Event :: FILL ) == 0 );
-        CHECK( scene.Count( Event :: TILE ) == 18 );        // ground 16 + props 1 + glow 1
+        // ground 16 + props 1 + glow 1 + sky (L1 of the master plan: DrawImageLayer is now
+        // camera/zoom/viewport-aware, via DrawTextureTiled like every other layer, so it is
+        // recorded as a TILE event too - it used to call plain DrawTexture, uncounted here).
+        CHECK( scene.Count( Event :: TILE ) == 19 );
     }
 
     TEST_CASE( "Each view's pass is clipped to its own rectangle, and the clip ends with the pass" )  {
@@ -263,10 +266,11 @@ TEST_SUITE( "renderer/viewpasses" )  {
         CHECK( fill.w == 100.0f );
         CHECK( fill.h == 100.0f );
 
-        // Each view drew the whole map, inside its own rectangle only.
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+        // Each view drew the whole map, inside its own rectangle only - the default view's
+        // own rect also gets the sky image layer (default-view-only), the side view's does not.
+        CHECK( scene.TilesIn( g_DefaultRect ) == 19 );
         CHECK( scene.TilesIn( g_SideRect ) == 18 );
-        CHECK( scene.Count( Event :: TILE ) == 36 );
+        CHECK( scene.Count( Event :: TILE ) == 37 );
 
         // Default view first, then the fill, then the extra view's tiles (painter's order).
         int  nFill = scene.IndexOf( Event :: FILL );
@@ -312,28 +316,39 @@ TEST_SUITE( "renderer/viewpasses" )  {
             }
         }
 
-        CHECK( nPlain == 18 );
+        CHECK( nPlain == 19 );          // ground 16 + props 1 + glow 1 + sky (default view's own zoom)
         CHECK( nScaled > 0 );
     }
 
-    TEST_CASE( "An image layer is drawn once - by the default view - because it is drawn at the screen origin, camera- and viewport-blind" )  {
+    TEST_CASE( "An image layer is drawn once - by the default view only - even with an extra view" )  {
 
         Scene  scene;
 
+        // L1 of the master plan: DrawImageLayer is now camera/zoom/viewport-aware, via
+        // DrawTextureTiled (an Event::TILE) like every ordinary tile - it used to call plain
+        // DrawTexture at the screen origin, unmistakable on its own counter. The sky image's
+        // own distinctive size (32x32, unlike this map's 16x16 tiles) isolates its own draw(s)
+        // from ordinary tile draws now that both share the same event kind.
+        auto  nImageDraws = [&]() {
+            int  n = 0;
+            for( const Event &evt : scene.engine().events )
+                if( ( evt.kind == Event :: TILE ) && ( evt.w == 32.0f ) && ( evt.h == 32.0f ) )
+                    n++;
+            return n;
+        };
+
         scene.RunFrames( 1 );
-        CHECK( scene.engine().nDrawTextureCalls == 1 );
+        CHECK( nImageDraws() == 1 );
 
         int  nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
 
-        scene.engine().nDrawTextureCalls = 0;
         scene.RunFrames( 1 );
-        CHECK( scene.engine().nDrawTextureCalls == 1 );          // still one, not one per view
+        CHECK( nImageDraws() == 1 );          // still one, not one per view
 
         // Hidden default view: nothing draws it (no other view does).
         scene.pRenderer -> GetDefaultView().SetVisible( false );
-        scene.engine().nDrawTextureCalls = 0;
         scene.RunFrames( 1 );
-        CHECK( scene.engine().nDrawTextureCalls == 0 );
+        CHECK( nImageDraws() == 0 );
         (void) nId;
     }
 
@@ -347,7 +362,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         view.ShowOnlyLayers( { 1 } );
         scene.RunFrames( 1 );
         CHECK( scene.TilesIn( g_SideRect ) == 16 );
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );           // the default view is untouched
+        CHECK( scene.TilesIn( g_DefaultRect ) == 19 );           // the default view is untouched (18 tiles + sky)
 
         // Ground plus props: props is a plain add-back by id...
         view.ShowLayer( 2, true );
@@ -454,7 +469,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         scene.RunFrames( 1 );
         CHECK( scene.TilesIn( g_SideRect ) == 0 );
         CHECK( scene.Count( Event :: FILL ) == 0 );                 // not even its backdrop
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+        CHECK( scene.TilesIn( g_DefaultRect ) == 19 );               // 18 tiles + sky
 
         view.SetVisible( true );
         view.SetVisible( true );
@@ -610,11 +625,11 @@ TEST_SUITE( "renderer/viewpasses" )  {
         int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
 
         scene.RunFrames( 1 );
-        CHECK( scene.Count( Event :: TILE ) == 36 );
+        CHECK( scene.Count( Event :: TILE ) == 37 );          // 18 + 18 + sky (default view only)
 
         REQUIRE( scene.pRenderer -> RemoveView( nId ) == true );
         scene.RunFrames( 1 );
-        CHECK( scene.Count( Event :: TILE ) == 18 );
+        CHECK( scene.Count( Event :: TILE ) == 19 );          // 18 + sky
         CHECK( scene.Count( Event :: FILL ) == 0 );
     }
 
@@ -1229,7 +1244,7 @@ TEST_SUITE( "renderer/viewhandles" )  {
 
         // Still drawn, still the renderer's own view.
         scene.RunFrames( 1 );
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+        CHECK( scene.TilesIn( g_DefaultRect ) == 19 );          // 18 tiles + sky
     }
 
     TEST_CASE( "A held handle stays SAFE after its view is removed: inert, not gone" )  {

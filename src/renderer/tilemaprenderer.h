@@ -104,6 +104,19 @@ namespace SunLight {
             TileMapListenerList                        m_TileMapListenerList;
             SunLight :: Collision :: CollisionManager  m_CollisionManager;
             stVector                                   m_CameraPos;
+
+            // The CURRENT layer's own effective camera (L1 of the master plan: per-layer
+            // parallax) - m_CameraPos scaled by that layer's own parallax factor (and its
+            // group ancestors', multiplied together, matching Tiled's own nesting rule) and
+            // anchored at the map's parallaxoriginx/y. Set once per layer, of any type, at
+            // the top of DrawAllLayers's own loop body - before dispatching to
+            // DrawLayer/DrawObjects/DrawImageLayer and before HandleSpriteUpdate, so every one
+            // of them (including a world-space sprite's own GetCameraOffset) reads the same,
+            // already-correct value for whichever layer is currently being processed, with no
+            // separate per-sprite layer tracking needed at all. A layer with no parallax
+            // (factor 1,1 - the overwhelming default) gets this set to exactly m_CameraPos,
+            // byte-identical to this project's pre-L1 behavior.
+            stVector                                   m_EffectiveLayerCameraPos;
             uint16_t                                   m_nMapWidth;
             uint16_t                                   m_nMapHeight;
             std :: unique_ptr<Projection :: IMapProjection>  m_pProjection;
@@ -259,8 +272,15 @@ namespace SunLight {
             void DrawImageLayer( tmx_layer *pLayer );
             void DrawLayer( tmx_layer *pLayer );
             tmx_tile* AnimatedFrameOf( tmx_tile *pBase, unsigned int nGID );
-            void DrawAllLayers( tmx_layer *pLayer );
+            void DrawAllLayers( tmx_layer *pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0 );
             void RenderMap( void );
+
+            // L1 of the master plan: the effective camera for a layer whose own accumulated
+            // parallax factor (its own parallaxx/y, already multiplied by every group ancestor's
+            // own factor) is fFactorX/fFactorY - m_CameraPos itself, anchored at the map's own
+            // parallaxoriginx/y, scaled by the factor; exactly m_CameraPos, per axis, when that
+            // axis's factor is 1.0 (byte-identical to this project's pre-L1 behavior).
+            stVector GetEffectiveCameraForFactor( double fFactorX, double fFactorY ) const;
 
             // Object management internals
             bool FindObjectByName( tmx_layer *pLayer, const char *szObjectName, SunLight :: TileMap :: stObject& object );
@@ -289,8 +309,13 @@ namespace SunLight {
             // A sprite that is destroyed, or moved to another parent, calls this on the parent it is leaving.
             void ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild );
 
-            // The camera of the view being drawn (the active view's), for world-space sprites.
-            void GetCameraOffset( float &fX, float &fY );
+            // The camera of the view being drawn (the active view's), for world-space sprites -
+            // scaled by nLayerId's own parallax factor (L1 of the master plan) when it names a
+            // real layer (-1, BaseCanvas's own sentinel, means none: a loose canvas, or one never
+            // added via AddSprite, gets the true, unscaled camera). Computed fresh on every call,
+            // not from any per-frame draw-time state, so it answers correctly whether or not a
+            // render pass has run yet.
+            void GetCameraOffset( float &fX, float &fY, int nLayerId = -1 ) override;
 
             // Checked creation: validates the config (see
             // RendererConfig::Validate) and returns nullptr, with a message
@@ -403,6 +428,14 @@ namespace SunLight {
             bool SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer );
             bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer );
             bool GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer );
+
+            // L1 of the master plan: set a layer's own parallax factor in code, overriding
+            // whatever the TMX file itself declared (fFactorX/fFactorY 1.0 = no parallax).
+            // Writes straight into the tmx_layer, the same pattern SetLayer already uses for
+            // opacity/offset/visible - so, like those, the original TMX-authored value is not
+            // recoverable once overridden.
+            bool SetLayerParallax( int nLayerId, float fFactorX, float fFactorY );
+            bool SetLayerParallax( const char *szLayerName, float fFactorX, float fFactorY );
 
             // Tile management
             bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,

@@ -19,9 +19,11 @@
  */
 
 #include "texturecanvas.h"
+#include <cmath>
 #include <cstring>
 #include "engines/enginefactory.h"
 #include "base/primitives.h"
+#include "general/helper.h"
 
 
 namespace SunLight {
@@ -388,10 +390,20 @@ namespace SunLight {
                                                                                   m_nTileSize :
                                                                                   m_nTextureWidth ),
                                                                       ( float ) m_nTextureHeight },
-                                                          SunLight :: Base :: stRectangle { dm.pos.x * fZoomFactor + vpDm.pos.x,
-                                                                      dm.pos.y * fZoomFactor + vpDm.pos.y,
-                                                                      dm.size.nWidth * fZoomFactor,
-                                                                      dm.size.nHeight * fZoomFactor },
+                                                          // Rounded to the nearest whole screen pixel, half-up
+                                                          // (SunLight::General::Helper::RoundHalfUp, never std::round -
+                                                          // see its own doc comment): at a non-integer zoom, the exact
+                                                          // value can land on a fractional pixel that mathematically
+                                                          // abuts its neighbor but that the rasterizer draws with a
+                                                          // visible 1px seam between them, and std::round's
+                                                          // away-from-zero ties can open a real gap of their own (see
+                                                          // DrawTile's own identical rounding and its doc comment for
+                                                          // the full story - this canvas is drawn through the very
+                                                          // same path a world-space sprite's neighbor tile is).
+                                                          SunLight :: Base :: stRectangle { SunLight :: General :: Helper :: RoundHalfUp( dm.pos.x * fZoomFactor + vpDm.pos.x ),
+                                                                      SunLight :: General :: Helper :: RoundHalfUp( dm.pos.y * fZoomFactor + vpDm.pos.y ),
+                                                                      SunLight :: General :: Helper :: RoundHalfUp( dm.size.nWidth * fZoomFactor ),
+                                                                      SunLight :: General :: Helper :: RoundHalfUp( dm.size.nHeight * fZoomFactor ) },
                                                           SunLight :: Base :: stVector2D { 0.0, 0.0 },
                                                           0.0,
                                                           fZoomFactor,
