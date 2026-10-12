@@ -41,4 +41,18 @@ TEST_SUITE( "general/Helper" )  {
             CHECK( Helper :: Random( 5, 5 ) == 5 );
         }
     }
+
+    TEST_CASE( "RoundHalfUp rounds ties toward +infinity on both sides of zero, unlike std::round" )  {
+
+        // The whole reason this exists instead of std::round: std::round ties AWAY from
+        // zero, so a negative and a positive half-integer round in opposite directions
+        // relative to each other - exactly what opened a real 1px gap between two otherwise
+        // contiguous screen-space tiles (see tests/test_pixelsnapping.cpp).
+        CHECK( Helper :: RoundHalfUp( -30.5f ) == -30.0f );     // std::round would give -31
+        CHECK( Helper :: RoundHalfUp( 91.5f ) == 92.0f );        // same as std::round here
+        CHECK( Helper :: RoundHalfUp( -0.5f ) == 0.0f );         // std::round would give -1
+        CHECK( Helper :: RoundHalfUp( 0.5f ) == 1.0f );
+        CHECK( Helper :: RoundHalfUp( 2.4f ) == 2.0f );
+        CHECK( Helper :: RoundHalfUp( -2.4f ) == -2.0f );
+    }
 }

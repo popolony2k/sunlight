@@ -38,6 +38,17 @@ namespace SunLight {
             SunLight :: Base :: Viewport  *m_pViewport;
             SunLight :: Base :: Viewport  m_Viewport;
 
+            // L1 of the master plan: the renderer layer id this canvas is registered against
+            // (TileMapRenderer::AddSprite), or -1 for none - a loose canvas, or one never
+            // added to a renderer. Used only so GetCameraOffset can ask for THIS canvas' own
+            // layer's parallax factor, computed fresh on every call (never cached): unlike the
+            // tile/object/image draw path (only ever invoked synchronously during that layer's
+            // own draw, where a per-frame scratch value is safe), a sprite's GetCameraOffset
+            // must answer correctly at any time, including with no render pass having run yet
+            // (pinned by tests/test_viewpasses.cpp's own "GetCameraOffset... with one
+            // [renderer]" case) - so it cannot reuse that scratch value at all.
+            int                            m_nParallaxLayerId;
+
 
             public:
 
@@ -65,8 +76,18 @@ namespace SunLight {
 
             // The offset to ADD to a map position to get a position relative to the view being drawn: the
             // camera of the active view, i.e. the negated map point shown at the view's top-left. 0, 0 unless
-            // an ancestor - the renderer - answers otherwise.
-            virtual void GetCameraOffset( float &fX, float &fY );
+            // an ancestor - the renderer - answers otherwise. nLayerId (L1 of the master plan) is not this
+            // canvas' own concern - it always passes its OWN GetParallaxLayerId() up to its parent,
+            // regardless of what it was called with; only TileMapRenderer's own override gives the
+            // parameter any meaning (a layer's parallax factor). Defaulted so every existing 2-argument
+            // call site keeps compiling unchanged.
+            virtual void GetCameraOffset( float &fX, float &fY, int nLayerId = -1 );
+
+            // L1 of the master plan: which renderer layer (if any) this canvas should be treated as
+            // belonging to for parallax purposes - set by TileMapRenderer::AddSprite, -1 (GetCameraOffset's
+            // own "no specific layer" sentinel) for a canvas never added to a renderer.
+            void SetParallaxLayerId( int nLayerId );
+            int GetParallaxLayerId( void ) const;
 
             virtual void SetVisible( bool bVisible );
             virtual bool GetVisible( void );

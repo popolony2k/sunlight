@@ -37,6 +37,7 @@
 #include <memory.h>
 #include <cstring>
 #include "general/clock.h"
+#include "general/helper.h"
 #include <cmath>
 #include <algorithm>
 #include <limits>
@@ -259,8 +260,8 @@ namespace SunLight {
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
 
-            fOffset_x = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
-            fOffset_y = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
+            fOffset_x = ( ( fOffset_x + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
+            fOffset_y = ( ( fOffset_y + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
 
             std :: vector<Shape :: ScreenPoint>  points = ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor, fRotation );
 
@@ -295,8 +296,8 @@ namespace SunLight {
             SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
 
             if( nLineWidth > __HAIRLINE_WIDTH ) {
-                DrawStrokedPath( ScreenPointsOf( ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x,
-                                                 ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y,
+                DrawStrokedPath( ScreenPointsOf( ( ( fOffset_x + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x,
+                                                 ( ( fOffset_y + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y,
                                                  fPoints, nPointsCount, zp.fZoomFactor, fRotation ),
                                  true, nLineWidth, color );
                 return;
@@ -312,9 +313,9 @@ namespace SunLight {
 
             if( nPointsCount > 2 ) {
 
-                fOffset_x = ( ( fOffset_x + m_CameraPos.x ) *
+                fOffset_x = ( ( fOffset_x + m_EffectiveLayerCameraPos.x ) *
                             zp.fZoomFactor ) + vp.pos.x;
-                fOffset_y = ( ( fOffset_y + m_CameraPos.y ) *
+                fOffset_y = ( ( fOffset_y + m_EffectiveLayerCameraPos.y ) *
                             zp.fZoomFactor ) + vp.pos.y;
 
                 std :: vector<Shape :: ScreenPoint>  points = ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor, fRotation );
@@ -350,8 +351,8 @@ namespace SunLight {
             for( const Shape :: MapPoint &point : local )  {
                 Shape :: MapPoint  turned = Shape :: Rotate( point, fRotation );
 
-                corners.push_back( Shape :: ScreenPoint { ( int ) ( ( ( fOffset_x + turned.fX + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x ),
-                                                          ( int ) ( ( ( fOffset_y + turned.fY + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y ) } );
+                corners.push_back( Shape :: ScreenPoint { ( int ) ( ( ( fOffset_x + turned.fX + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x ),
+                                                          ( int ) ( ( ( fOffset_y + turned.fY + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y ) } );
             }
 
             // A wide edge is the closed path of the four corners, so each corner is a round join.
@@ -388,8 +389,8 @@ namespace SunLight {
             SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
             SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
 
-            double  fScreenX = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
-            double  fScreenY = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
+            double  fScreenX = ( ( fOffset_x + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
+            double  fScreenY = ( ( fOffset_y + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
 
             Shape :: DrawFilledSquare( ( int ) fScreenX, ( int ) fScreenY, Shape :: ScreenLineWidth( fSize, zp.fZoomFactor ), color );
         }
@@ -409,8 +410,8 @@ namespace SunLight {
             // The centre of the box, relative to its stored point (the top-left corner), turned about that point in map units.
             Shape :: MapPoint  centre = Shape :: Rotate( Shape :: MapPoint { fWidth / 2.0, fHeight / 2.0 }, fRotation );
 
-            double  fCenterX = ( ( fOffset_x + centre.fX + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
-            double  fCenterY = ( ( fOffset_y + centre.fY + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
+            double  fCenterX = ( ( fOffset_x + centre.fX + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
+            double  fCenterY = ( ( fOffset_y + centre.fY + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
             double  fRadiusX = ( fWidth / 2.0 ) * zp.fZoomFactor;
             double  fRadiusY = ( fHeight / 2.0 ) * zp.fZoomFactor;
 
@@ -449,8 +450,8 @@ namespace SunLight {
             SunLight :: Base :: stDimension2D  clip;
             SunLight :: Base :: Viewport&         vp        = GetViewport();
             unsigned char                         op        = ( uint8_t ) ( 0xFF * fOpacity );
-            SunLight :: Base :: stDimension2D  dm        =  { { ( int ) ( nDestX + m_CameraPos.x ),
-                                                                 ( int ) ( nDestY + m_CameraPos.y ) },
+            SunLight :: Base :: stDimension2D  dm        =  { { ( int ) ( nDestX + m_EffectiveLayerCameraPos.x ),
+                                                                 ( int ) ( nDestY + m_EffectiveLayerCameraPos.y ) },
                                                                  { nSourceW, nSourceH } };
 
             if( vp.GetClippedRect( dm, clip ) )  {
@@ -458,15 +459,36 @@ namespace SunLight {
                 float                                 fZoomFactor = vp.GetZoomProperties().fZoomFactor;
                 SunLight :: Base :: stDimension2D& vpDm        = vp.GetDimension2D();
                 // Study: the whole tile is drawn at its zoomed size; the view pass's clip cuts it.
+                //
+                // The destination rect is rounded to the nearest whole screen pixel, half-up
+                // (SunLight::General::Helper::RoundHalfUp), never std::round. Two adjacent
+                // tiles' edges are always mathematically contiguous (their difference is an
+                // exact multiple of the tile's own zoomed width/height), but at a non-integer
+                // zoom that shared edge itself commonly lands on a fractional pixel (e.g.
+                // 552.8125) - and two separately-issued draw calls whose shared edge is off
+                // the pixel grid can leave the rasterizer's coverage of that boundary pixel
+                // ambiguous, visible as a thin seam of the clear colour between every pair of
+                // tiles at most camera positions. Rounding both tiles' edges onto the same
+                // integer grid keeps them exactly abutting (round(x) + round(width) ==
+                // round(x + width) whenever width is itself already a whole number AND both
+                // round consistently - true for same-size tiles at a shared zoom with
+                // round-half-UP, but NOT with std::round's round-half-AWAY-FROM-ZERO: found
+                // live, a second time, with std::round still in place - two tiles whose exact
+                // position each landed exactly on a half-pixel (an integer map position times
+                // zoom 3.8125 can do that) rounded AWAY from each other across x = 0, opening
+                // a real 1px gap even though they were exactly contiguous mathematically; see
+                // Helper::RoundHalfUp's own doc comment. Found live (not assumed): samples/
+                // sprite's own default zoom (position 60, factor 3.8125) showed both the
+                // general seam and this specific half-pixel gap on ordinary scrolling.
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
                                                       SunLight :: Base :: stRectangle  { ( float ) nSourceX,
                                                                    ( float ) nSourceY,
                                                                    ( float ) nSourceW,
                                                                    ( float ) nSourceH },
-                                                      SunLight :: Base :: stRectangle  { dm.pos.x * fZoomFactor + vpDm.pos.x,
-                                                                   dm.pos.y * fZoomFactor + vpDm.pos.y,
-                                                                   nSourceW * fZoomFactor,
-                                                                   nSourceH * fZoomFactor },
+                                                      SunLight :: Base :: stRectangle  { SunLight :: General :: Helper :: RoundHalfUp( dm.pos.x * fZoomFactor + vpDm.pos.x ),
+                                                                   SunLight :: General :: Helper :: RoundHalfUp( dm.pos.y * fZoomFactor + vpDm.pos.y ),
+                                                                   SunLight :: General :: Helper :: RoundHalfUp( nSourceW * fZoomFactor ),
+                                                                   SunLight :: General :: Helper :: RoundHalfUp( nSourceH * fZoomFactor ) },
                                                       SunLight :: Base :: stVector2D  { 0, 0 },
                                                       0.0f,
                                                       fZoomFactor,
@@ -598,8 +620,8 @@ namespace SunLight {
             double                                 fZoom    = zp.fZoomFactor;
 
             // Same screen mapping as DrawRectangle: (position + camera) x zoom + viewport origin.
-            double  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vp.pos.x;
-            double  fBoxY = ( ( pObject -> y + pLayer -> offsety + m_CameraPos.y ) * fZoom ) + vp.pos.y;
+            double  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_EffectiveLayerCameraPos.x ) * fZoom ) + vp.pos.x;
+            double  fBoxY = ( ( pObject -> y + pLayer -> offsety + m_EffectiveLayerCameraPos.y ) * fZoom ) + vp.pos.y;
             double  fBoxW = pObject -> width * fZoom;
             double  fBoxH = pObject -> height * fZoom;
             double  fRotation = Shape :: RotationOf( pObject );
@@ -819,8 +841,8 @@ namespace SunLight {
 
                 SunLight :: Base :: stDimension2D&  vpDm = GetViewport().GetDimension2D();
                 double                              fZoom = GetViewport().GetZoomProperties().fZoomFactor;
-                double                              fAnchorX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vpDm.pos.x;
-                double                              fAnchorY = ( ( pObject -> y + pLayer -> offsety + m_CameraPos.y ) * fZoom ) + vpDm.pos.y;
+                double                              fAnchorX = ( ( pObject -> x + pLayer -> offsetx + m_EffectiveLayerCameraPos.x ) * fZoom ) + vpDm.pos.x;
+                double                              fAnchorY = ( ( pObject -> y + pLayer -> offsety + m_EffectiveLayerCameraPos.y ) * fZoom ) + vpDm.pos.y;
                 double                              fBoxW    = pObject -> width * fZoom;
                 double                              fBoxH    = pObject -> height * fZoom;
 
@@ -850,8 +872,8 @@ namespace SunLight {
             SunLight :: Base :: stDimension2D&     vpDm   = vp.GetDimension2D();
             float                                  fZoom  = vp.GetZoomProperties().fZoomFactor;
 
-            float  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_CameraPos.x ) * fZoom ) + vpDm.pos.x;
-            float  fBoxY = ( ( pObject -> y + pLayer -> offsety - pObject -> height + m_CameraPos.y ) * fZoom ) + vpDm.pos.y;
+            float  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_EffectiveLayerCameraPos.x ) * fZoom ) + vpDm.pos.x;
+            float  fBoxY = ( ( pObject -> y + pLayer -> offsety - pObject -> height + m_EffectiveLayerCameraPos.y ) * fZoom ) + vpDm.pos.y;
             float  fBoxW = pObject -> width * fZoom;
             float  fBoxH = pObject -> height * fZoom;
 
@@ -880,17 +902,50 @@ namespace SunLight {
         }
 
         /**
-         * Draw image layer on canvas;
-         * @param pImage Pointer to layer containing image to draw;
+         * Draw image layer on canvas (L1 of the master plan: now camera/parallax/zoom/
+         * viewport-aware - before L1 this drew at the raw screen pixel (0,0), ignoring the
+         * camera, zoom and viewport position entirely, which made adding a camera term alone
+         * incoherent: the same screen mapping every tile already gets (position + effective
+         * camera) x zoom + viewport origin, exactly mirroring DrawTile's own structure,
+         * including its early-exit "fully offscreen" check - clipping to the viewport's own
+         * rectangle is otherwise the active view's own clip region (BeginClip/EndClip), not
+         * this function's job, same as DrawTile. Still only drawn for the default view (see
+         * DrawAllLayers's own call site) - a separate, pre-existing restriction this item does
+         * not lift.
+         * @param pLayer The image layer to draw;
          */
         void TileMapRenderer :: DrawImageLayer( tmx_layer *pLayer ) {
 
-            void *pImage = pLayer -> content.image -> resource_image;
+            tmx_image                             *pTmxImage = pLayer -> content.image;
+            void                                   *pImage    = pTmxImage -> resource_image;
+            SunLight :: Base :: Viewport&          vp         = GetViewport();
+            SunLight :: Base :: stDimension2D  clip;
+            SunLight :: Base :: stDimension2D  dm         = { { ( int ) ( pLayer -> offsetx + m_EffectiveLayerCameraPos.x ),
+                                                                 ( int ) ( pLayer -> offsety + m_EffectiveLayerCameraPos.y ) },
+                                                                 { ( int ) pTmxImage -> width, ( int ) pTmxImage -> height } };
 
-            SunLight :: Engines :: EngineFactory :: GetEngine().DrawTexture( pImage,
-                                                                              0,
-                                                                              0,
-                                                                              SunLight :: Base :: stColor { 0xFF, 0xFF, 0xFF, 0xFF } );
+            if( vp.GetClippedRect( dm, clip ) )  {
+
+                float                                 fZoomFactor = vp.GetZoomProperties().fZoomFactor;
+                SunLight :: Base :: stDimension2D& vpDm        = vp.GetDimension2D();
+
+                // Rounded to the nearest whole screen pixel, half-up - see DrawTile's own
+                // identical rounding and its doc comment for why (a non-integer zoom can land
+                // a tile's edge on a fractional pixel, visible as a seam against its neighbor,
+                // and std::round's away-from-zero ties can open a real gap of their own).
+                SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
+                                                      SunLight :: Base :: stRectangle  { 0.0f, 0.0f,
+                                                                   ( float ) pTmxImage -> width,
+                                                                   ( float ) pTmxImage -> height },
+                                                      SunLight :: Base :: stRectangle  { SunLight :: General :: Helper :: RoundHalfUp( dm.pos.x * fZoomFactor + vpDm.pos.x ),
+                                                                   SunLight :: General :: Helper :: RoundHalfUp( dm.pos.y * fZoomFactor + vpDm.pos.y ),
+                                                                   SunLight :: General :: Helper :: RoundHalfUp( pTmxImage -> width * fZoomFactor ),
+                                                                   SunLight :: General :: Helper :: RoundHalfUp( pTmxImage -> height * fZoomFactor ) },
+                                                      SunLight :: Base :: stVector2D  { 0, 0 },
+                                                      0.0f,
+                                                      fZoomFactor,
+                                                      SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, 0xFF } );
+            }
         }
 
         /**
@@ -984,8 +1039,8 @@ namespace SunLight {
                 int                                  nPadY = __CULL_PADDING_TILES * ( int ) m_pTmxMap -> tile_height;
 
                 SunLight :: Base :: stRectangle  visibleRect {
-                    -m_CameraPos.x - pLayer -> offsetx - nPadX,
-                    -m_CameraPos.y - pLayer -> offsety - nPadY,
+                    -m_EffectiveLayerCameraPos.x - pLayer -> offsetx - nPadX,
+                    -m_EffectiveLayerCameraPos.y - pLayer -> offsety - nPadY,
                     ( vpDm.size.nWidth / fZoom ) + ( 2 * nPadX ),
                     ( vpDm.size.nHeight / fZoom ) + ( 2 * nPadY ) };
 
@@ -1040,10 +1095,43 @@ namespace SunLight {
         }
 
         /**
+         * The effective camera for a layer whose own accumulated parallax factor (its own
+         * parallaxx/y, already multiplied by every group ancestor's own factor - see
+         * DrawAllLayers) is fFactorX/fFactorY (L1 of the master plan).
+         *
+         * Verified against both Tiled's own documented parallax formula and this project's
+         * own camera convention (m_CameraPos is the NEGATED map coordinate shown at the
+         * viewport's top-left - GetCameraPosition's own doc comment): the layer's own screen
+         * position should be unshifted relative to its authored position exactly when the
+         * camera sits at the map's own parallax origin (Tiled's own definition of that origin -
+         * "the point parallax is measured from"), and should move at fFactor times the rate
+         * the real camera moves otherwise. That is exactly
+         * `(m_CameraPos + origin) * factor - origin`, which reduces to m_CameraPos itself when
+         * factor is 1 algebraically - except floating point does not guarantee
+         * `(a + b) * 1 - b == a` bit-for-bit for arbitrary a/b, so factor 1 is special-cased per
+         * axis to return m_CameraPos exactly, unchanged, rather than trust that identity (the
+         * master plan's own first L1 test item: factor 1 is byte-identical to today).
+         */
+        stVector TileMapRenderer :: GetEffectiveCameraForFactor( double fFactorX, double fFactorY ) const  {
+
+            double  fOriginX = m_pTmxMap ? m_pTmxMap -> parallaxoriginx : 0.0;
+            double  fOriginY = m_pTmxMap ? m_pTmxMap -> parallaxoriginy : 0.0;
+
+            float  fX = ( fFactorX == 1.0 ) ? m_CameraPos.x : ( float ) ( ( m_CameraPos.x + fOriginX ) * fFactorX - fOriginX );
+            float  fY = ( fFactorY == 1.0 ) ? m_CameraPos.y : ( float ) ( ( m_CameraPos.y + fOriginY ) * fFactorY - fOriginY );
+
+            return { fX, fY };
+        }
+
+        /**
          * Draw all layers on screen canvas;
          * @param pLayer Array of layer objects to draw;
+         * @param fParentParallaxX The accumulated parallax factor of every group ancestor of
+         * pLayer, multiplied together (L1 of the master plan - Tiled's own documented nesting
+         * rule: a layer's effective factor is its own, times every parent group's own);
+         * @param fParentParallaxY Same as fParentParallaxX, for the vertical axis;
          */
-        void TileMapRenderer :: DrawAllLayers( tmx_layer *pLayer ) {
+        void TileMapRenderer :: DrawAllLayers( tmx_layer *pLayer, double fParentParallaxX, double fParentParallaxY ) {
 
             while( pLayer ) {
 
@@ -1056,21 +1144,29 @@ namespace SunLight {
                  * unmasked view shows every layer.
                  */
                 if( pLayer -> visible && m_pActiveView -> IsLayerShown( ( int ) pLayer -> id ) ) {
+
+                    // L1 of the master plan: this layer's own effective camera, set once here
+                    // regardless of layer type - DrawLayer/DrawObjects/DrawImageLayer and the
+                    // HandleSpriteUpdate call below (for this exact layer, still in scope) all
+                    // read m_EffectiveLayerCameraPos instead of m_CameraPos directly, so a
+                    // world-space sprite's own GetCameraOffset sees the right value with no
+                    // separate per-sprite layer tracking at all.
+                    double  fEffectiveParallaxX = pLayer -> parallaxx * fParentParallaxX;
+                    double  fEffectiveParallaxY = pLayer -> parallaxy * fParentParallaxY;
+
+                    m_EffectiveLayerCameraPos = GetEffectiveCameraForFactor( fEffectiveParallaxX, fEffectiveParallaxY );
+
                     switch( pLayer -> type )  {
                         case L_GROUP :
-                            DrawAllLayers( pLayer -> content.group_head ); // recursive call
+                            DrawAllLayers( pLayer -> content.group_head, fEffectiveParallaxX, fEffectiveParallaxY ); // recursive call
                             break;
                         case L_OBJGR :
                             DrawObjects( pLayer );
                             break;
                         case L_IMAGE :
-                            /*
-                             * An image layer is drawn straight at the screen origin, with no
-                             * camera and no viewport clipping - fine for the default view, but
-                             * in another view it would land on top of whatever is at the screen's
-                             * top-left corner, outside the view's own rectangle. So only the
-                             * default view draws them.
-                             */
+                            // L1 of the master plan: now camera/parallax/zoom/viewport-aware
+                            // (see DrawImageLayer's own comment) - still default-view-only,
+                            // a separate, pre-existing restriction this item does not lift.
                             if( m_pActiveView == m_pDefaultView.get() )
                                 DrawImageLayer( pLayer );
                             break;
@@ -1317,11 +1413,13 @@ namespace SunLight {
          */
         void TileMapRenderer :: CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
 
-            pTmxLayer -> opacity = ( __MAX_OPACITY_LEVEL - layer.nOpacity );
-            pTmxLayer -> offsetx = layer.offset.x;
-            pTmxLayer -> offsety = layer.offset.y;
-            pTmxLayer -> visible = layer.bVisible;
-            layer.pLayer         = pTmxLayer;
+            pTmxLayer -> opacity   = ( __MAX_OPACITY_LEVEL - layer.nOpacity );
+            pTmxLayer -> offsetx   = layer.offset.x;
+            pTmxLayer -> offsety   = layer.offset.y;
+            pTmxLayer -> visible   = layer.bVisible;
+            pTmxLayer -> parallaxx = layer.fParallaxX;
+            pTmxLayer -> parallaxy = layer.fParallaxY;
+            layer.pLayer           = pTmxLayer;
         }
 
         /**
@@ -1331,11 +1429,13 @@ namespace SunLight {
          */
         void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer *pTmxLayer )  {
 
-            layer.nOpacity = ( int ) ( pTmxLayer -> opacity + __MAX_OPACITY_LEVEL );
-            layer.offset.x = pTmxLayer -> offsetx;
-            layer.offset.y = pTmxLayer -> offsety;
-            layer.bVisible = pTmxLayer -> visible;
-            layer.pLayer         = pTmxLayer;
+            layer.nOpacity   = ( int ) ( pTmxLayer -> opacity + __MAX_OPACITY_LEVEL );
+            layer.offset.x   = pTmxLayer -> offsetx;
+            layer.offset.y   = pTmxLayer -> offsety;
+            layer.bVisible   = pTmxLayer -> visible;
+            layer.fParallaxX = ( float ) pTmxLayer -> parallaxx;
+            layer.fParallaxY = ( float ) pTmxLayer -> parallaxy;
+            layer.pLayer     = pTmxLayer;
         }
 
         /**
@@ -1430,6 +1530,7 @@ namespace SunLight {
             m_SpriteMap.clear();
 
             memset( &m_CameraPos, 0, sizeof( m_CameraPos ) );
+            memset( &m_EffectiveLayerCameraPos, 0, sizeof( m_EffectiveLayerCameraPos ) );
             ResetZoom();
             SetVisible( __DEFAULT_VISIBLE_STATUS );
 
@@ -1546,12 +1647,30 @@ namespace SunLight {
         /**
          * The camera of the view being drawn: what a world-space canvas adds to a map
          * position to get a position relative to that view - the same offset every map
-         * tile gets (see DrawTile). m_CameraPos is the ACTIVE view's working camera.
+         * tile gets (see DrawTile). nLayerId == -1 (BaseCanvas's own sentinel - a loose
+         * canvas, or one never added via AddSprite) gets the true, unscaled m_CameraPos,
+         * exactly as before L1 of the master plan. A real layer id gets that layer's own
+         * parallax factor applied (GetEffectiveCameraForFactor) - computed fresh here, every
+         * call, from the live tmx_layer, NOT from m_EffectiveLayerCameraPos: that member is
+         * only ever valid synchronously during DrawAllLayers's own loop (the tile/object/image
+         * draw path, which never outlives one call), but GetCameraOffset must answer correctly
+         * at any time, including with no render pass having run yet (pinned by
+         * tests/test_viewpasses.cpp's own "GetCameraOffset... with one [renderer]" case) - a
+         * world-space sprite can ask for its camera offset from application code whenever it
+         * likes. A screen-space sprite never calls this at all (TextureCanvas::GetScreenRect
+         * only does for a world-space one), so it is entirely unaffected by any layer's
+         * parallax factor, by construction. Like GetTile's own parallax handling, this uses
+         * the layer's own factor only, not accumulated with any parent group's own - a sprite
+         * registered against a layer nested inside a parallax GROUP is the same narrow,
+         * documented exception.
          */
-        void TileMapRenderer :: GetCameraOffset( float &fX, float &fY )  {
+        void TileMapRenderer :: GetCameraOffset( float &fX, float &fY, int nLayerId )  {
 
-            fX = m_CameraPos.x;
-            fY = m_CameraPos.y;
+            tmx_layer  *pTmxLayer = ( nLayerId >= 0 ) ? GetLayer( nLayerId ) : nullptr;
+            stVector    offset    = pTmxLayer ? GetEffectiveCameraForFactor( pTmxLayer -> parallaxx, pTmxLayer -> parallaxy ) : m_CameraPos;
+
+            fX = offset.x;
+            fY = offset.y;
         }
 
         /**
@@ -2111,22 +2230,29 @@ namespace SunLight {
             if( !m_pTmxMap )
                 return;
 
-            SunLight :: Base :: Viewport&  vp   = GetViewport();
-            SunLight :: Base :: stSize2D   step = m_pProjection -> DefaultScrollStep( m_pTmxMap );
-            int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.y -
-                                                                        m_nScrollStepHeight +
-                                                                        m_nMapHeight +
-                                                                        step.nHeight ) *
-                                                                        vp.GetZoomProperties().fZoomFactor );
+            SunLight :: Base :: Viewport&      vp   = GetViewport();
+            SunLight :: Base :: stDimension2D& vpDm = vp.GetDimension2D();
 
-            // The vertical boundary is compared against the viewport's
-            // bottom edge (pos.y + height - it used to compare its WIDTH,
-            // a copy-paste of MoveCameraLeft's horizontal check, which only
-            // happened to work for a square viewport). The edge, not the
-            // bare height, because nMapBoundary is measured from the
-            // render target's origin: this keeps the scroll limit exactly
-            // where it always was for the same visible area.
-            if( ( vp.GetDimension2D().pos.y + vp.GetDimension2D().size.nHeight ) < nMapBoundary )
+            // The vertical boundary is compared against the viewport's bottom edge (pos.y +
+            // height - it used to compare its WIDTH, a copy-paste of MoveCameraLeft's
+            // horizontal check, which only happened to work for a square viewport).
+            //
+            // nMapBoundary is the map's own bottom edge's SCREEN position after this
+            // hypothetical step - (mapHeight + candidate camera.y) * zoom, offset by the
+            // viewport's own pos.y (the render target's origin, which the doc comment here
+            // always claimed this was measured from - but the actual formula never added it,
+            // compensating instead with an ad-hoc, zoom-imprecise "+ step.nHeight" fudge term
+            // that only approximately cancelled the missing offset, closely enough not to
+            // show at zoom 1 but leaving a visible gap - found live, via a non-integer zoom -
+            // of dozens of pixels between the map's own edge and the viewport's, past this
+            // boundary, confirmed by directly measuring the stopping m_CameraPos.y against
+            // the exact zero-gap formula, not assumed). The fix: add the missing pos.y
+            // directly, and drop the fudge term - no approximation needed once the real
+            // offset is there.
+            int  nMapBoundary = ( int ) std :: round( ( m_CameraPos.y - m_nScrollStepHeight + m_nMapHeight ) *
+                                                        vp.GetZoomProperties().fZoomFactor ) + vpDm.pos.y;
+
+            if( ( vpDm.pos.y + vpDm.size.nHeight ) < nMapBoundary )
                 m_CameraPos.y-=m_nScrollStepHeight;
         }
 
@@ -2155,19 +2281,18 @@ namespace SunLight {
             if( !m_pTmxMap )
                 return;
 
-            SunLight :: Base :: Viewport&  vp   = GetViewport();
-            SunLight :: Base :: stSize2D   step = m_pProjection -> DefaultScrollStep( m_pTmxMap );
-            int                  nErrorFix    = ( step.nWidth / std :: round( vp.GetZoomProperties().fZoomFactor ) );
-            int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.x -
-                                                                        m_nScrollStepWidth + 
-                                                                        m_nMapWidth
-                                                                        + nErrorFix ) * 
-                                                                        vp.GetZoomProperties().fZoomFactor );
+            SunLight :: Base :: Viewport&      vp   = GetViewport();
+            SunLight :: Base :: stDimension2D& vpDm = vp.GetDimension2D();
 
-            // Compared against the viewport's right edge (pos.x + width):
-            // nMapBoundary is measured from the render target's origin - see
-            // MoveCameraUp.
-            if( ( vp.GetDimension2D().pos.x + vp.GetDimension2D().size.nWidth ) < nMapBoundary )
+            // Compared against the viewport's right edge (pos.x + width); nMapBoundary is
+            // measured from the render target's origin - see MoveCameraUp for the full "why"
+            // (this formula used to compensate for the same missing pos.x offset with an
+            // unrelated, zoom-imprecise "step.nWidth / round(zoom)" fudge term - same bug,
+            // same fix).
+            int  nMapBoundary = ( int ) std :: round( ( m_CameraPos.x - m_nScrollStepWidth + m_nMapWidth ) *
+                                                        vp.GetZoomProperties().fZoomFactor ) + vpDm.pos.x;
+
+            if( ( vpDm.pos.x + vpDm.size.nWidth ) < nMapBoundary )
                 m_CameraPos.x-=m_nScrollStepWidth;
         }
 
@@ -2453,6 +2578,46 @@ namespace SunLight {
         }
 
         /**
+         * Set a layer's own parallax factor in code (L1 of the master plan), overriding
+         * whatever the TMX file itself declared for it.
+         * @param nLayerId The layer id to set the parallax factor for;
+         * @param fFactorX The horizontal parallax factor (1.0 = no parallax);
+         * @param fFactorY The vertical parallax factor (1.0 = no parallax);
+         */
+        bool TileMapRenderer :: SetLayerParallax( int nLayerId, float fFactorX, float fFactorY )  {
+
+            tmx_layer *pTmxLayer = GetLayer( nLayerId );
+
+            if( pTmxLayer )  {
+                pTmxLayer -> parallaxx = fFactorX;
+                pTmxLayer -> parallaxy = fFactorY;
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * Set a layer's own parallax factor in code (L1 of the master plan), overriding
+         * whatever the TMX file itself declared for it.
+         * @param szLayerName The layer name to set the parallax factor for;
+         * @param fFactorX The horizontal parallax factor (1.0 = no parallax);
+         * @param fFactorY The vertical parallax factor (1.0 = no parallax);
+         */
+        bool TileMapRenderer :: SetLayerParallax( const char *szLayerName, float fFactorX, float fFactorY )  {
+
+            tmx_layer *pTmxLayer = GetLayer( szLayerName );
+
+            if( pTmxLayer )  {
+                pTmxLayer -> parallaxx = fFactorX;
+                pTmxLayer -> parallaxy = fFactorY;
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
          * Get a tile based row and column on specified map layer;
          * @param pos The tile position on layer map.
          * @param layer Reference to the layer whose tile will be
@@ -2491,7 +2656,14 @@ namespace SunLight {
                 return false;
             }
 
-            tile.dimension = m_pProjection -> TileViewRect( pos, m_pTmxMap, GetDimension2D(), m_CameraPos );
+            // L1 of the master plan: layer.pLayer's own parallax factor (not accumulated with
+            // any parent group's own - this call has no ancestor chain to walk, only the one
+            // tmx_layer pointer the caller passed), so a non-nested parallax layer's picked
+            // tile position is correct; a tile layer nested inside a parallax-factored GROUP
+            // is a narrow, documented exception (DrawLayer's own render path does not depend
+            // on this field at all - only external pick/collision callers read it).
+            tile.dimension = m_pProjection -> TileViewRect( pos, m_pTmxMap, GetDimension2D(),
+                                                            GetEffectiveCameraForFactor( layer.pLayer -> parallaxx, layer.pLayer -> parallaxy ) );
 
             return true;
         }
@@ -2939,6 +3111,10 @@ namespace SunLight {
                         m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() ) )  {
 
                         sprite.SetParent( this );
+                        // L1 of the master plan: so a world-space sprite's own GetCameraOffset
+                        // can later ask for THIS layer's parallax factor, at any time, with no
+                        // dependency on whether a render pass has ever run.
+                        sprite.SetParallaxLayerId( nLayerId );
                         m_ParentedSprites.insert( &sprite );
                         itItemLayer -> second -> push_back( &sprite );
                         return true;

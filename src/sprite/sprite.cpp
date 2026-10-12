@@ -132,6 +132,7 @@ namespace SunLight {
 
             pTexture -> SetVisible( GetVisible() );
             pTexture -> SetWorldSpace( IsWorldSpace() );
+            pTexture -> SetParallaxLayerId( GetParallaxLayerId() );
             pTexture -> SetParent( pParent );
             pTexture -> SetDimension2DPtr( &spritePos );
 
@@ -281,6 +282,21 @@ namespace SunLight {
             for( auto &pair : m_Sequences )  {
                 pair.second -> ForEachTexture( [bWorldSpace]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
                     pTexture -> SetWorldSpace( bWorldSpace );
+                } );
+            }
+        }
+
+        /**
+         * L1 of the master plan: same propagation shape as SetWorldSpace, for
+         * BaseCanvas::SetParallaxLayerId.
+         */
+        void Sprite :: SetParallaxLayerId( int nLayerId )  {
+
+            Canvas :: SetParallaxLayerId( nLayerId );
+
+            for( auto &pair : m_Sequences )  {
+                pair.second -> ForEachTexture( [nLayerId]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+                    pTexture -> SetParallaxLayerId( nLayerId );
                 } );
             }
         }
