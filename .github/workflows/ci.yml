@@ -106,8 +106,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Doxygen
+      - name: Install Doxygen and Graphviz
         run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
           curl -sSL "https://github.com/doxygen/doxygen/releases/download/Release_${DOXYGEN_VERSION//./_}/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz" | tar -xz -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/doxygen-${DOXYGEN_VERSION}/bin" >> "$GITHUB_PATH"
 
