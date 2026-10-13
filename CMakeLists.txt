@@ -28,7 +28,7 @@ add_subdirectory(src)
 
 # Samples
 if(BUILD_LIBRARY_SAMPLES)
-    add_subdirectory(samples/tilemaprenderer)
+    add_subdirectory(samples/orthogonal)
     add_subdirectory(samples/sprite)
     add_subdirectory(samples/multiview)
     add_subdirectory(samples/collision)
@@ -45,6 +45,7 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/parallax)
     add_subdirectory(samples/opacity)
     add_subdirectory(samples/zorder)
+    add_subdirectory(samples/surface)
 endif(BUILD_LIBRARY_SAMPLES)
 
 # Unit tests

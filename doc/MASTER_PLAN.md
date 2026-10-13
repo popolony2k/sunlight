@@ -447,7 +447,7 @@ the fallback is occasionally more conservative than isometric strictly needs, bu
 - Full suite (407 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
 
 **E1c: isometric sample map and real-window check (DONE).** `samples/isometric/` (new sample, mirroring
-`samples/tilemaprenderer/`'s structure and the same pan/zoom keys): an 8x6 checkerboard of two green diamond
+`samples/orthogonal/` (then `samples/tilemaprenderer/`)'s structure and the same pan/zoom keys): an 8x6 checkerboard of two green diamond
 shades, with a red marker tile at (row 0, col 0) and the opposite corner (row 5, col 7) - the diamond's own top
 and bottom vertices per the confirmed formula, not its left/right ones, since those sit `tileWidth/2` off
 center on each side. Diamond tile art generated for this sample specifically (an actual 64x32 diamond polygon
@@ -537,7 +537,7 @@ are supported" after isometric was already accepted) is corrected to name all th
 - Full suite (434 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
 
 **E2c: staggered sample map and real-window check (DONE).** `samples/staggered/` (new sample, mirroring
-`samples/tilemaprenderer/`'s structure and pan/zoom keys, `-`/`=` to zoom like `samples/isometric/`): an 8x6
+`samples/orthogonal/` (then `samples/tilemaprenderer/`)'s structure and pan/zoom keys, `-`/`=` to zoom like `samples/isometric/`): an 8x6
 grid, `SA_Y`/`SI_ODD` (Tiled's own default), two checkerboard shades, a red marker at (row 0, col 0) and a
 gold one at the opposite corner (row 5, col 7). First checked with plain solid-color 64x48 rectangles - the
 same choice E1a made for its own probe tiles, the clearest way to see the raw grid math with no art to second
@@ -854,7 +854,7 @@ constructor argument positionally, found only once the build actually failed on 
 a reminder that grepping for a named parameter (`bUseDefaultKeyHandler`) misses every call site
 using positional arguments instead. None of these were testing the removed parameter's own
 effect; all 43 just needed the trailing argument dropped. Separately,
-`samples/tilemaprenderer/world.cpp` was checked and confirmed to use a deliberately *inverted*
+`samples/orthogonal/world.cpp` (then `samples/tilemaprenderer/`) was checked and confirmed to use a deliberately *inverted*
 camera mapping (`KEY_UP` to `MoveCameraDown`, `KEY_PAGE_UP` to `ZoomOut` - the documented
 sprite-relative convention), not the literal default mapping, so it does not call
 `DefaultControllerBindings::Install` - no sample does, since none actually wants the literal
@@ -1569,7 +1569,7 @@ supported use case the library should serve as a first-class citizen, not an aft
 |---|------|--------|
 | M1 | Promote the Phase C/D shape primitives (`DrawRectangle`, `DrawPolygon`, `DrawPolyline`, `DrawEllipse`, `DrawPoint`) onto a public, mapless interface | DONE |
 | M2 | Make sprite drawing actually mapless: a frame with no map loaded still updates and draws every layer's registered sprites, completing `AddSprite`'s already-documented intent | DONE |
-| M3 | A sample demonstrating `TileMapRenderer` used purely as a drawing surface - shapes and sprites, `LoadMap` never called | TODO |
+| M3 | A sample demonstrating `TileMapRenderer` used purely as a drawing surface - shapes and sprites, `LoadMap` never called | DONE |
 
 **Found while investigating the owner's own question, not assumed:**
 - The shape primitives (`DrawRectangle`/`DrawPolygon`/`DrawPolyline`/`DrawEllipse`/`DrawPoint`,
@@ -1719,6 +1719,22 @@ the new `UnloadSprites()` call from `Stop()` fails the restart case.
 Full suite: 568/568 (562 existing + 6 new), both in a normal build and under
 AddressSanitizer (clean, no reports - run because this is the renderer's own sprite draw
 path). Every sample builds cleanly. `doc/BREAKAGES.md` item 39 is written.
+
+**M3: `samples/surface/` (DONE, real-window checked by the owner).** A `TileMapRenderer` that
+never calls `LoadMap`, drawing only through the three mapless paths: `IShapeSurface` shapes
+(M1) - a thick square spinning about its own centre, a thick turning ellipse ring, a thick
+rectangle, a travelling sine wave as a thick polyline, and a row of growing points; Sunny as a
+sprite registered on a plain grouping id (M2), moved with the arrow keys; and an
+`IDrawSurface` HUD (a text line and a progress bar) in raw screen pixels outside the viewport.
+Shapes and the HUD are drawn from `ITileMapListener::OnUpdate`, which `Run()` calls inside the
+frame's render target after the sprites - the place a mapless game draws its own content.
+
+Found while building it: adding `override` to `TileMapRenderer`'s new `IShapeSurface`
+declarations (M1) made clang's `-Winconsistent-missing-override` fire for every other
+interface method the class overrides without the keyword - 58 warnings, all in
+`src/renderer/tilemaprenderer.h`, repeated in every file that includes it. Every one is now
+marked `override` (it also makes the compiler catch a future interface signature drift). A
+clean rebuild of every sunlight source, test and sample reports 0 warnings.
 
 **Test items, to refine further while building:**
 - A `TileMapRenderer` that calls `Start()` but never `LoadMap` can draw a shape primitive

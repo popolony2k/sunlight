@@ -22,10 +22,10 @@ cmake -B build -S . -DBUILD_LIBRARY_SAMPLES=ON
 cmake --build build -j 4
 ```
 
-This builds `tilemaprenderer_test`, `sprite_test`, `collision_test`, `gamepad_test`, and `scriptprocessor_test`, and copies the raylib/tmx/LibXml2/sunlight shared libs next to each executable (required at runtime, via the `*_copy_binaries` custom targets). Each sample takes its own directory as `argv[1]` and resolves resource paths relative to it, e.g.:
+This builds `orthogonal_test`, `sprite_test`, `collision_test`, `gamepad_test`, and `scriptprocessor_test`, and copies the raylib/tmx/LibXml2/sunlight shared libs next to each executable (required at runtime, via the `*_copy_binaries` custom targets). Each sample takes its own directory as `argv[1]` and resolves resource paths relative to it, e.g.:
 
 ```shell
-./build/samples/tilemaprenderer/tilemaprenderer_test samples/tilemaprenderer/
+./build/samples/orthogonal/orthogonal_test samples/orthogonal/
 ```
 
 Unit tests are opt-in too (`OFF` by default), using [doctest](https://github.com/doctest/doctest) fetched via `FetchContent`:

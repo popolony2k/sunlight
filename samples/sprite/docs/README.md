@@ -1,6 +1,6 @@
 # sprite sample
 
-This sample builds on [tilemaprenderer](/samples/tilemaprenderer/docs/README.md) by adding an animated `Sprite` ("Sunny") on top of the loaded map — it's the smallest example of `sunlight`'s sprite/animation API: loading a texture into a `TextureCanvas`, wrapping it in a `Sprite` texture sequence, and registering it with the renderer on a specific map layer.
+This sample builds on [orthogonal](/samples/orthogonal/docs/README.md) by adding an animated `Sprite` ("Sunny") on top of the loaded map — it's the smallest example of `sunlight`'s sprite/animation API: loading a texture into a `TextureCanvas`, wrapping it in a `Sprite` texture sequence, and registering it with the renderer on a specific map layer.
 
 ## Building
 
@@ -39,7 +39,7 @@ The current FPS is drawn in the corner of the window.
 
 - `World::LoadSprites()` ([world.cpp](/samples/sprite/world.cpp)) loads `resources/sprites/sunny_idle_down.png` into a `TextureCanvas`, splits it into 32×32 tiles, and sets `TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR` so it cycles through the frames on its own.
 - The canvas is added as sequence `0` of a `Sprite`, which is then registered on the renderer's layer `4` via `TileMapRenderer::AddSprite()` — sprites are drawn per-layer, interleaved with the tilemap's own layers.
-- The rest of `World` mirrors the [tilemaprenderer sample](/samples/tilemaprenderer/docs/README.md): same camera/zoom controls, same `resources/map/test.tmx` map, same viewport setup.
+- The rest of `World` mirrors the [orthogonal sample](/samples/orthogonal/docs/README.md): same camera/zoom controls, same `resources/map/test.tmx` map, same viewport setup.
 
 ## Resources
 
