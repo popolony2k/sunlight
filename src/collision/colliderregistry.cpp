@@ -35,8 +35,8 @@ namespace SunLight {
         }
 
         /**
-         * Register a newly constructed Collider and obtain a handle for it.
-         * @param pCollider The collider being registered;
+         * Register a newly constructed Collider and obtain a handle for it
+         * (parameters documented in the header).
          */
         ColliderHandle ColliderRegistry :: Register( Collider *pCollider )  {
 
@@ -66,8 +66,8 @@ namespace SunLight {
         }
 
         /**
-         * Retire a handle: the Collider it referred to is no longer alive.
-         * @param handle The handle to retire;
+         * Retire a handle: the Collider it referred to is no longer alive
+         * (parameters documented in the header).
          */
         void ColliderRegistry :: Retire( const ColliderHandle& handle )  {
 
@@ -85,8 +85,8 @@ namespace SunLight {
         }
 
         /**
-         * Resolve a handle back to its Collider pointer.
-         * @param handle The handle to resolve;
+         * Resolve a handle back to its Collider pointer (parameters
+         * documented in the header).
          */
         Collider* ColliderRegistry :: Resolve( const ColliderHandle& handle ) const  {
 

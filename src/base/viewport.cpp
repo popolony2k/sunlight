@@ -262,7 +262,7 @@ namespace SunLight  {
         }
 
         /**
-         * Return the reference to internal @link stZoomProperties struct;
+         * Return the reference to internal @ref stZoomProperties struct;
          */
         stZoomProperties& Viewport :: GetZoomProperties( void )  {
 

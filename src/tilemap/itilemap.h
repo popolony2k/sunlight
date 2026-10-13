@@ -38,7 +38,7 @@ namespace SunLight {
          * Screen-space drawing/window-state primitives (text, filled
          * rectangles, screen fade, fullscreen/resizeable/stretch-to-fill
          * toggles, window title, the fixed design-resolution getters)
-         * used to live here too - moved out to @link
+         * used to live here too - moved out to @ref
          * SunLight::DrawSurface::IDrawSurface once it became clear every
          * one of them was a pure IEngine pass-through with zero access to
          * map data, kept here only because ITileMap was the sole public
@@ -109,7 +109,7 @@ namespace SunLight {
             /**
              * @brief Get the Input Handler object
              * 
-             * @return S\The reference to IInputHandler object;
+             * @return The reference to IInputHandler object;
              */
             virtual SunLight :: Input :: IInputHandler& GetInputHandler( void ) = 0;
 
@@ -282,7 +282,7 @@ namespace SunLight {
              * @param pos The tile position on layer map.
              * @param layer Reference to the layer whose tile will be
              * retrieved;
-             * @param tile reference to @link stTile object to receive
+             * @param tile reference to @ref stTile object to receive
              * tile information;
              */
             virtual bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
@@ -292,7 +292,7 @@ namespace SunLight {
             /**
              * Get the tile position based on TileMap absolute coordinate passed as parameter.
              * @param coord The TileMap absolute coordinate to translate to tile position;
-             * @param pos Reference to struct @link stTilePosition to receive the
+             * @param pos Reference to struct @ref SunLight::TileMap::stMatrixPosition to receive the
              * tile position based on world coordinate passed as parameter;
              */
             virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
@@ -300,14 +300,14 @@ namespace SunLight {
 
             /**
              * Get the current map information data.
-             * @param mapInfo Reference to the struct @link stMapInfo that will
+             * @param mapInfo Reference to the struct @ref stMapInfo that will
              * receive the map information.
              */
             virtual bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo ) = 0;
 
             /**
              * @brief Look up a level-design-authored object (a Tiled
-             * <object> placed inside any <objectgroup> layer, eg. a
+             * `<object>` placed inside any `<objectgroup>` layer, eg. a
              * trigger/marker) by name.
              *
              * @param szObjectName The object's name, as set in the map
@@ -354,8 +354,8 @@ namespace SunLight {
 
             /**
              * Load the specified map to renderer.
-             * @param szTmxMapFile Renderer map file;
-             * @param alignment Map alignment according @link MapAlignment enumerator;
+             * @param szTxMapFile Renderer map file;
+             * @param alignment Map alignment according @ref MapAlignment enumerator;
              */
             virtual bool LoadMap( const char *szTxMapFile, 
                                   SunLight :: TileMap :: ITileMap :: MapAlignment alignment = SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER ) = 0;

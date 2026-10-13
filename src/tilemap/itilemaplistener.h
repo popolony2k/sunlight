@@ -39,7 +39,7 @@ namespace SunLight {
 
             /**
              * @brief Must be implemented to provide action on frame update.
-             * @param tileMap The @link ITileMap object used to interact with tilemap
+             * @param tileMap The @ref ITileMap object used to interact with tilemap
              * renderer implementation;
              */
             virtual void OnUpdate( SunLight :: TileMap :: ITileMap& tileMap ) = 0;

@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/popolony2k/sunlight/actions/workflows/ci.yml/badge.svg)](https://github.com/popolony2k/sunlight/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/popolony2k/sunlight)](https://github.com/popolony2k/sunlight/releases/latest)
-[![License: zlib](https://img.shields.io/badge/license-zlib-blue.svg)](LICENSE)
+[![License: zlib](https://img.shields.io/badge/license-zlib-blue.svg)](https://github.com/popolony2k/sunlight/blob/main/LICENSE)
 
 `sunlight` is an open source library written in C++ to make 2D games. Overall, its present main features include a manager that can deal with map, collision, sprites and graphic primitives.
 
@@ -14,8 +14,8 @@
 
 ## Table of Contents :pushpin:
 * [API documentation](https://popolony2k.github.io/sunlight/) :book:
-* [Changelog](CHANGELOG.md) :scroll:
-* [License](LICENSE) (zlib) :page_facing_up:
+* [Changelog](https://github.com/popolony2k/sunlight/blob/main/CHANGELOG.md) :scroll:
+* [License](https://github.com/popolony2k/sunlight/blob/main/LICENSE) (zlib) :page_facing_up:
 * [Requirements](#requirements-memo)
     - [CMake 3.24](#cmake-324)
     - [vcpkg](#vcpkg-windows-only)
@@ -122,7 +122,7 @@ cmake --build build --target sunlight_tests
 
 ### Configuring VsCode
 
-If you intend to use VsCode as your IDE, follow the instructions shown [here](/doc/vscode/README.md).
+If you intend to use VsCode as your IDE, follow the instructions shown [here](https://github.com/popolony2k/sunlight/blob/main/doc/vscode/README.md).
 
 ## Samples :sunny:
 
@@ -131,11 +131,11 @@ Each sample takes its own directory as `argv[1]` and resolves its resources rela
 ./build/samples/sprite/sprite_test samples/sprite/
 ```
 
-* [orthogonal](/samples/orthogonal/docs/README.md) — the minimal setup: loads an orthogonal Tiled map and drives the renderer's camera/zoom, no sprites.
-* [sprite](/samples/sprite/docs/README.md) — builds on `tilemaprenderer` by adding an animated `Sprite` on top of the map.
-* [collision](/samples/collision/docs/README.md) — builds on `sprite` by making the sprite player-controlled and colliding it with a static obstacle via `CollisionManager`.
-* [gamepad](/samples/gamepad/docs/README.md) — builds on `collision` by giving two independent characters their own controller: one gamepad's left stick/DPad drives Sunny, the right stick/face buttons drive a second sprite.
-* [scriptprocessor](/samples/scriptprocessor/docs/README.md) — a scripted "stage intro" cutscene demonstrating `ScriptProcessor`: queued commands load a stage, slide sprites on screen, and play/pause/resume a tone via `SoundManager`, exercising every control-flow command (`WAIT_CMD`, `WAIT_SPRITES_QUEUE_EMPTY`, `LOOP_CMD`/`END_LOOP_CMD`, `LABEL_CMD`/`GOTO_LABEL_CMD`).
-* [text](/samples/text/docs/README.md) — Tiled text objects: registered fonts, wrap and alignment, and the clipping that cuts text at the viewport's edges.
-* [objects](/samples/objects/docs/README.md) — tile objects: their own size, resized (stretched), cut by the viewport edges, animated, and flipped gids.
-* [multiview](/samples/multiview/docs/README.md) — the same map and the same character shown in three places at once (a main view, a minimap, and a zoomed close-up that follows the character), demonstrating `sunlight`'s multiple views (`TileMapRenderer::CreateView`) and world-space sprites (`Sprite::SetWorldSpace`).
+* [orthogonal](https://github.com/popolony2k/sunlight/blob/main/samples/orthogonal/docs/README.md) — the minimal setup: loads an orthogonal Tiled map and drives the renderer's camera/zoom, no sprites.
+* [sprite](https://github.com/popolony2k/sunlight/blob/main/samples/sprite/docs/README.md) — builds on `orthogonal` by adding an animated `Sprite` on top of the map.
+* [collision](https://github.com/popolony2k/sunlight/blob/main/samples/collision/docs/README.md) — builds on `sprite` by making the sprite player-controlled and colliding it with a static obstacle via `CollisionManager`.
+* [gamepad](https://github.com/popolony2k/sunlight/blob/main/samples/gamepad/docs/README.md) — builds on `collision` by giving two independent characters their own controller: one gamepad's left stick/DPad drives Sunny, the right stick/face buttons drive a second sprite.
+* [scriptprocessor](https://github.com/popolony2k/sunlight/blob/main/samples/scriptprocessor/docs/README.md) — a scripted "stage intro" cutscene demonstrating `ScriptProcessor`: queued commands load a stage, slide sprites on screen, and play/pause/resume a tone via `SoundManager`, exercising every control-flow command (`WAIT_CMD`, `WAIT_SPRITES_QUEUE_EMPTY`, `LOOP_CMD`/`END_LOOP_CMD`, `LABEL_CMD`/`GOTO_LABEL_CMD`).
+* [text](https://github.com/popolony2k/sunlight/blob/main/samples/text/docs/README.md) — Tiled text objects: registered fonts, wrap and alignment, and the clipping that cuts text at the viewport's edges.
+* [objects](https://github.com/popolony2k/sunlight/blob/main/samples/objects/docs/README.md) — tile objects: their own size, resized (stretched), cut by the viewport edges, animated, and flipped gids.
+* [multiview](https://github.com/popolony2k/sunlight/blob/main/samples/multiview/docs/README.md) — the same map and the same character shown in three places at once (a main view, a minimap, and a zoomed close-up that follows the character), demonstrating `sunlight`'s multiple views (`TileMapRenderer::CreateView`) and world-space sprites (`Sprite::SetWorldSpace`).

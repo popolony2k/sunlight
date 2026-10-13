@@ -147,8 +147,8 @@ namespace SunLight  {
             }
 
             /**
-             * Collect every external reference in an XML document: a <tileset source="...">, and an
-             * <object template="...">. (A plain scan for those two tags - the documents are Tiled's own
+             * Collect every external reference in an XML document: a `<tileset source="...">`, and an
+             * `<object template="...">`. (A plain scan for those two tags - the documents are Tiled's own
              * output; anything it misses is left for libtmx's own lookup, anything extra is harmless.)
              */
             void ScanExternalReferences( const std :: string &strXml, std :: vector<ExternalReference> &references )  {
