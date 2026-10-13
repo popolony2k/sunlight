@@ -51,7 +51,7 @@ TEST_SUITE( "filesystem/IFileSystem::ToVirtualPath" )  {
 
     TEST_CASE( "Leaves a relative path untouched" )  {
 
-        CHECK( IFileSystem :: ToVirtualPath( "samples/tilemaprenderer/" ) == "samples/tilemaprenderer/" );
+        CHECK( IFileSystem :: ToVirtualPath( "samples/orthogonal/" ) == "samples/orthogonal/" );
     }
 
     TEST_CASE( "Is idempotent - safe to call on it's own prior output" )  {
