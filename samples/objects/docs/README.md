@@ -46,5 +46,5 @@ Tiled places a tile object by its bottom-left corner, so each tile's top-left is
 
 ## Assets
 
-- `resources/map/tileset_house.tsx` and `resources/map/images/house.png`: the house tileset from the [tilemaprenderer sample](../../tilemaprenderer/docs/README.md).
+- `resources/map/tileset_house.tsx` and `resources/map/images/house.png`: the house tileset from the [orthogonal sample](/samples/orthogonal/docs/README.md).
 - `../shared/fonts/caravellius8x8.fnt` and `.png`: Caravellius 8x8, designed by PopolonY2k and Leidson Campos A. Ferreira. Dual-licensed under the zlib License or the SIL Open Font License 1.1 (`../shared/fonts/OFL-caravellius8x8.txt`).

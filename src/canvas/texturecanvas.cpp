@@ -78,7 +78,7 @@ namespace SunLight {
         }
 
         /**
-         * Unload a previously loaded texture  by @link Load method.
+         * Unload a previously loaded texture  by @ref Load method.
          */
         bool TextureCanvas :: Unload( void )  {
 

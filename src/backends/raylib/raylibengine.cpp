@@ -377,16 +377,6 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Fill a rectangle with a solid/alpha-blended color, at
-             * exactly the coordinates given - no viewport/camera logic of
-             * its own, same as every other draw method here.
-             * @param nPosX X coordinate of the rectangle's top-left corner;
-             * @param nPosY Y coordinate of the rectangle's top-left corner;
-             * @param nWidth Rectangle width;
-             * @param nHeight Rectangle height;
-             * @param color Fill color (including alpha);
-             */
-            /**
              * @brief A thick line through raylib's own routine (see @see IEngine::DrawLine).
              */
             void RaylibEngine :: DrawLine( float fX0,
@@ -413,6 +403,16 @@ namespace SunLight  {
                                     Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }
 
+            /**
+             * @brief Fill a rectangle with a solid/alpha-blended color, at
+             * exactly the coordinates given - no viewport/camera logic of
+             * its own, same as every other draw method here.
+             * @param nPosX X coordinate of the rectangle's top-left corner;
+             * @param nPosY Y coordinate of the rectangle's top-left corner;
+             * @param nWidth Rectangle width;
+             * @param nHeight Rectangle height;
+             * @param color Fill color (including alpha);
+             */
             void RaylibEngine :: DrawFilledRectangle( int nPosX,
                                                       int nPosY,
                                                       int nWidth,

@@ -74,7 +74,7 @@ namespace SunLight  {
         };
 
         /**
-         * A single Tiled object (<object> element inside an <objectgroup>
+         * A single Tiled object (`<object>` element inside an `<objectgroup>`
          * layer), eg. a level-design-authored marker/trigger placed in the
          * map editor - world-space position/size, in pixels.
          */

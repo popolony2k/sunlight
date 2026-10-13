@@ -276,7 +276,7 @@ namespace SunLight {
         /**
          * @brief Get the Script Listener object;
          * 
-         * @return IScriptListener previously assigned by @link AddScriptListener;
+         * @return IScriptListener previously assigned by @ref AddScriptListener;
          */
         IScriptListener* ScriptProcessor :: GetScriptListener( void )  {
 

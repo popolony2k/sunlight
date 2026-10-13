@@ -1785,7 +1785,7 @@ Done last, once the features they describe are settled.
 
 | # | Item | Status |
 |---|------|--------|
-| T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | TODO |
+| T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | DONE |
 | T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | TODO |
 | T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | TODO |
 | T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | TODO |
@@ -1794,6 +1794,24 @@ Done last, once the features they describe are settled.
 - T1: each warning is fixed, and the Doxygen run reports no new warnings.
 - T2 and T3: tests fail on a deliberate break of the loader or dispatch path.
 - T4 and T5: checked against the features as they are when this item is reached.
+
+**T1: Doxygen warnings (DONE).** `doxygen Doxyfile` went from 147 warning lines to 0.
+- `@link X` without `@endlink` (about 40 places) became `@ref X`, qualified where the name
+  is not in scope (`SunLight::TileMap::stTile`, ...). Two stale names were corrected:
+  `stTilePosition` is `stMatrixPosition`, and `DrawTile` takes a `TextureHandle`, not a
+  `Texture2D`.
+- Stale `@param` names fixed (`AddColliderToTileRule`, `AddGamePad`, `AddTexture`,
+  `AddTextureSequence`, `LoadMap`). Parameters documented in both the header and the
+  source now live in the header only (`Collider::SetInset`, `ColliderRegistry`).
+- Three comment blocks sat above the wrong function, so Doxygen merged them into the
+  next one: `RaylibEngine::DrawFilledRectangle`'s, `Sprite::SetActiveTextureSequence`'s
+  and `Sprite::SetVisible`'s. Each was moved back above its own function.
+- Tiled XML element names in comments (`<object>`, `<objectgroup>`, ...) are in
+  backticks, so they are not read as HTML. `@ITileMapListener`, `\The` and `Timer`'s
+  `@return` on its constructor and destructor are gone.
+- README: `MARKDOWN_ID_STYLE = GITHUB` in `Doxyfile`, so the table of contents' anchors
+  resolve as they do on GitHub. Links to other repository files are absolute GitHub URLs:
+  the generated site does not hold those files, so a relative link would be broken there.
 
 ## Out of scope for this plan
 

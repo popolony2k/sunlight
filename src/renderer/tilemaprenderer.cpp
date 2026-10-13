@@ -200,7 +200,7 @@ namespace SunLight {
         }
 
         /**
-         * Convert integer color representation to @link Color object;
+         * Convert integer color representation to a SunLight::Base::stColor;
          */
         SunLight :: Base :: stColor TileMapRenderer :: IntToColor( uint32_t color ) {
 
@@ -527,14 +527,15 @@ namespace SunLight {
 
         /**
          * Draw a tile to specified position on texture.
-         * @param pImage Pointer to a @link Texture2D object used as renderer.
-         * @param uSourceX Source tile X coordinate;
-         * @param uSourceY Source tile Y coordinate;
-         * @param uSourceW Source tile width;
-         * @param uSourceH Source tile height;
-         * @param uDestX destination X coordinate on texture;
-         * @param uDestY destination Y coordinate on texture;
-         * @param opacity opacity level to be applied on texture;
+         * @param pImage Handle of the tileset texture to draw from.
+         * @param nSourceX Source tile X coordinate;
+         * @param nSourceY Source tile Y coordinate;
+         * @param nSourceW Source tile width;
+         * @param nSourceH Source tile height;
+         * @param nDestX destination X coordinate on texture;
+         * @param nDestY destination Y coordinate on texture;
+         * @param fOpacity opacity level to be applied on texture;
+         * @param tintColor tint color to be applied on texture;
          */
         void TileMapRenderer :: DrawTile( SunLight :: Base :: TextureHandle pImage,
                                           int32_t nSourceX,
@@ -1915,7 +1916,7 @@ namespace SunLight {
         /**
          * Add a TileMap listener to internal listener list renderer.
          * All listeners will be called for each update step;
-         * @param pListener Pointer to the @ITileMapListener object to add;
+         * @param pListener Pointer to the @ref SunLight::TileMap::ITileMapListener object to add;
          */
         void TileMapRenderer :: AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
 
@@ -1929,7 +1930,7 @@ namespace SunLight {
 
         /**
          * Remove a TileMap listener from internal listener list renderer.
-         * @param pListener Pointer to the @ITileMapListener object to remove;
+         * @param pListener Pointer to the @ref SunLight::TileMap::ITileMapListener object to remove;
          */
         void TileMapRenderer :: RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
 
@@ -2340,8 +2341,7 @@ namespace SunLight {
         /**
          * @brief Set the Game Pad Id that will be handled by this renderer;
          *
-         * @param nIndex The GamePad device index to set GamePadId;
-         * @param nGamePadId The gme pad id to set;
+         * @param nGamePadId The game pad id to set;
          */
         void TileMapRenderer :: AddGamePad( int nGamePadId )  {
 
@@ -2375,7 +2375,7 @@ namespace SunLight {
         /**
          * @brief Get the Input Handler object
          *
-         * @return S\The reference to IInputHandler object;
+         * @return The reference to IInputHandler object;
          */
         SunLight :: Input :: IInputHandler& TileMapRenderer :: GetInputHandler( void )  {
 
@@ -2826,7 +2826,7 @@ namespace SunLight {
          * @param pos The tile position on layer map.
          * @param layer Reference to the layer whose tile will be
          * retrieved;
-         * @param tile reference to @link stTile object to receive
+         * @param tile reference to @ref SunLight::TileMap::stTile object to receive
          * tile information;
          */
         bool TileMapRenderer :: GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
@@ -2875,7 +2875,7 @@ namespace SunLight {
         /**
          * Convert world coordinate to tile matrix coordinate.
          * @param coord The World coordinate to translate to tile matrix coordinate;
-         * @param pos Reference to struct @link stMatrixPosition to receive the
+         * @param pos Reference to struct @ref SunLight::TileMap::stMatrixPosition to receive the
          * tile matrix position based on world coordinate passed as parameter;
          */
         bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
@@ -2905,7 +2905,7 @@ namespace SunLight {
         /**
          * Load the specified map to renderer.
          * @param szTmxMapFile Renderer map file;
-         * @param alignment Map alignment according @link MapAlignment enumerator;
+         * @param alignment Map alignment according @ref SunLight::TileMap::ITileMap::MapAlignment enumerator;
          */
         bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
 
@@ -2922,7 +2922,7 @@ namespace SunLight {
                  * to tmx_load_buffer() first: it's own public signature
                  * takes no vpath at all, unlike tmx_load()'s own path
                  * argument - internally, every relative reference inside
-                 * the map (a <tileset source="..."> or <imagelayer>'s own
+                 * the map (a `<tileset source="...">` or `<imagelayer>`'s own
                  * <image source="...">) gets resolved against this vpath
                  * via mk_absolute_path() (tmx_utils.c) - passing none
                  * means every such reference resolves to just it's own
@@ -3176,7 +3176,7 @@ namespace SunLight {
 
         /**
          * Get the current map information data.
-         * @param mapInfo Reference to the struct @link stMapInfo that will
+         * @param mapInfo Reference to the struct @ref SunLight::TileMap::stMapInfo that will
          * receive the map information.
          */
         bool TileMapRenderer :: GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo )  {
@@ -3198,7 +3198,7 @@ namespace SunLight {
          * @brief Recursive helper for GetObjectByName() - walks pLayer's
          * linked list looking for a named object inside any L_OBJGR layer,
          * recursing into L_GROUP the same way DrawAllLayers() does, so a
-         * map that nests an object group inside a <group> layer is still
+         * map that nests an object group inside a `<group>` layer is still
          * searched correctly instead of silently skipped.
          *
          * @param pLayer Head of the tmx_layer linked list to search;
@@ -3240,10 +3240,10 @@ namespace SunLight {
         }
 
         /**
-         * @brief Look up a level-design-authored object (a Tiled <object>
-         * placed inside any <objectgroup> layer) by name - searches every
+         * @brief Look up a level-design-authored object (a Tiled `<object>`
+         * placed inside any `<objectgroup>` layer) by name - searches every
          * object-group layer in the loaded map, including ones nested
-         * inside <group> layers (see FindObjectByName()), since libtmx has
+         * inside `<group>` layers (see FindObjectByName()), since libtmx has
          * no tmx_find_object_by_name of it's own (only
          * tmx_find_object_by_id, no use here - objects are authored/named
          * by hand in the map editor, not looked up by their internal id).
