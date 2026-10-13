@@ -185,6 +185,7 @@ namespace SunLight {
             };
             std :: vector<__stRegisteredFont>          m_RegisteredFonts;
             std :: set<std :: string>                  m_WarnedFonts;       // "family|bold|italic" keys already warned about
+            std :: set<unsigned int>                   m_WarnedOpacityObjects;   // object ids already warned about an invalid "opacity" property
             std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvancedSprites;
             std :: set<SunLight :: Sprite :: Sprite*>  m_FramePendingSprites;       // reached by a pass, but not on screen there (yet)
             std :: vector<View*>                       m_PassViews;
@@ -260,6 +261,13 @@ namespace SunLight {
 
             // High level primitive map handlers
             void DrawObjects( tmx_layer *pLayer );
+
+            // L2 of the master plan: an object's own effective opacity (0 to 1) - its own "opacity"
+            // property when it has a usable one, otherwise its layer's opacity, exactly as before L2.
+            // An unusable property (wrong type, or outside 0 to 1) warns once per object and falls
+            // back to the layer's opacity too, same as having none.
+            float ObjectOpacity( tmx_object *pObject, float fLayerOpacity );
+            void WarnInvalidOpacity( unsigned int nObjectId );
 
             // Draws one text object (B1). See DrawTextObject's own comment for
             // the placeholder used when its font is not registered.

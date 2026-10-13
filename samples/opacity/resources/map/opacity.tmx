@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="60" height="40" tilewidth="32" tileheight="32" nextlayerid="10" nextobjectid="60">
+ <!-- The viewport in the sample is 1000 x 800 px and starts with the camera at (100, 100): its edges are the rectangle drawn in "frame". -->
+ <tileset firstgid="1" source="tileset_house.tsx"/>
+ <objectgroup id="1" name="frame" color="#ff00ff00">
+  <object id="1" name="viewport" x="100" y="100" width="1000" height="800"/>
+ </objectgroup>
+ <!-- Row 1: tile objects, each with its own "opacity" property - a fade from fully opaque (left) to fully transparent (right). -->
+ <objectgroup id="2" name="tile objects" color="#ffffffff">
+  <object id="10" name="tile-1.0" gid="1" x="150" y="232" width="32" height="32">
+   <properties><property name="opacity" type="float" value="1.0"/></properties>
+  </object>
+  <object id="11" name="tile-0.75" gid="1" x="250" y="232" width="32" height="32">
+   <properties><property name="opacity" type="float" value="0.75"/></properties>
+  </object>
+  <object id="12" name="tile-0.5" gid="1" x="350" y="232" width="32" height="32">
+   <properties><property name="opacity" type="float" value="0.5"/></properties>
+  </object>
+  <object id="13" name="tile-0.25" gid="1" x="450" y="232" width="32" height="32">
+   <properties><property name="opacity" type="float" value="0.25"/></properties>
+  </object>
+  <object id="14" name="tile-0.0" gid="1" x="550" y="232" width="32" height="32">
+   <properties><property name="opacity" type="float" value="0.0"/></properties>
+  </object>
+ </objectgroup>
+ <!-- Row 2: shape objects (rectangle outlines), the same opacity property and the same fade. -->
+ <objectgroup id="3" name="shape objects" color="#ffffffff">
+  <object id="20" name="rect-1.0" x="150" y="300" width="60" height="40">
+   <properties><property name="opacity" type="float" value="1.0"/></properties>
+  </object>
+  <object id="21" name="rect-0.75" x="250" y="300" width="60" height="40">
+   <properties><property name="opacity" type="float" value="0.75"/></properties>
+  </object>
+  <object id="22" name="rect-0.5" x="350" y="300" width="60" height="40">
+   <properties><property name="opacity" type="float" value="0.5"/></properties>
+  </object>
+  <object id="23" name="rect-0.25" x="450" y="300" width="60" height="40">
+   <properties><property name="opacity" type="float" value="0.25"/></properties>
+  </object>
+  <object id="24" name="rect-0.0" x="550" y="300" width="60" height="40">
+   <properties><property name="opacity" type="float" value="0.0"/></properties>
+  </object>
+ </objectgroup>
+ <!-- Row 3: text objects - opacity applies to text the same way (B1's text objects, now opacity-aware too). -->
+ <objectgroup id="4" name="text objects" color="#ffffffff">
+  <object id="30" name="text-1.0" x="150" y="430" width="0" height="0">
+   <properties><property name="opacity" type="float" value="1.0"/></properties>
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">Text at opacity 1.0</text>
+  </object>
+  <object id="33" name="text-0.75" x="150" y="465" width="0" height="0">
+   <properties><property name="opacity" type="float" value="0.75"/></properties>
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">Text at opacity 0.75</text>
+  </object>
+  <object id="31" name="text-0.5" x="150" y="500" width="0" height="0">
+   <properties><property name="opacity" type="float" value="0.5"/></properties>
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">Text at opacity 0.5</text>
+  </object>
+  <object id="34" name="text-0.25" x="150" y="535" width="0" height="0">
+   <properties><property name="opacity" type="float" value="0.25"/></properties>
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">Text at opacity 0.25</text>
+  </object>
+  <object id="32" name="text-0.0" x="150" y="570" width="0" height="0">
+   <properties><property name="opacity" type="float" value="0.0"/></properties>
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">Text at opacity 0.0</text>
+  </object>
+ </objectgroup>
+ <!-- Row 4: no property vs. an invalid property (out of 0..1) - both fall back to this layer's own
+      opacity (0.4), so the two tiles below should look identical. -->
+ <objectgroup id="5" name="fallback" color="#ffffffff" opacity="0.4">
+  <object id="40" name="tile-no-property" gid="1" x="150" y="702" width="32" height="32"/>
+  <object id="41" name="tile-invalid-property" gid="1" x="400" y="702" width="32" height="32">
+   <properties><property name="opacity" type="int" value="5"/></properties>
+  </object>
+ </objectgroup>
+ <!-- Labels: one per row, explaining the row above it. -->
+ <objectgroup id="6" name="labels" color="#ffffffff">
+  <object id="50" name="title" x="150" y="130" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffff00">Per-object opacity (L2 of the master plan)</text>
+  </object>
+  <object id="51" name="label-tiles" x="150" y="170" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">1. Tile objects: 1.0, 0.75, 0.5, 0.25, 0.0</text>
+  </object>
+  <object id="52" name="label-shapes" x="150" y="270" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">2. Shape objects: the same opacity fade</text>
+  </object>
+  <object id="53" name="label-text" x="150" y="400" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">3. Text objects: 1.0, 0.75, 0.5, 0.25, 0.0</text>
+  </object>
+  <object id="54" name="label-fallback" x="150" y="615" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">4. No property vs. invalid (5, outside 0..1):</text>
+  </object>
+  <object id="55" name="label-fallback-2" x="150" y="645" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">both fall back to the layer's opacity (0.4)</text>
+  </object>
+  <object id="56" name="label-fallback-left" x="100" y="740" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="16" color="#ffffffff">no property</text>
+  </object>
+  <object id="57" name="label-fallback-right" x="350" y="740" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="16" color="#ffffffff">invalid (5) -&gt; falls back</text>
+  </object>
+ </objectgroup>
+</map>

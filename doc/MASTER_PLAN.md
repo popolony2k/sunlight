@@ -1263,7 +1263,7 @@ backend. Real behaviour can only be proven here, so this item stays open until t
 | # | Item | Status |
 |---|------|--------|
 | L1 | Per-layer camera and parallax | DONE |
-| L2 | Per-object opacity | TODO |
+| L2 | Per-object opacity | DONE |
 | L3 | Sprite draw order within a layer | TODO |
 
 **Coordination rule for this phase:** same staging pattern as Phases E/F -
@@ -1448,17 +1448,70 @@ every layer blend and show through the one above it.
   their own hardcoded sprite positions happened to stay small enough to survive the
   scaling by coincidence, not because the convention does not apply to them too.
 
-### L2: per-object opacity
+### L2: per-object opacity (DONE)
 Decision taken: option A. The object's custom `opacity` property (0 to 1) is used when
 present. Tiled objects have no opacity field of their own, but custom properties can be
 set on any object in the editor. When the property is absent, the object uses its
-layer's opacity, which is the current behaviour.
+layer's opacity.
 
-Test items:
+**Found while implementing, not assumed:** the plan's own text above said falling back to
+the layer's opacity "is the current behaviour" - checked against the actual code rather
+than taken on faith, and it was only true for tile objects (`DrawTileObject` already read
+`pLayer -> opacity`). Shape objects (rectangle, polygon, polyline, ellipse, point) and text
+objects applied no opacity at all before this item - their drawn alpha was whatever their
+own stored colour's alpha byte already was, with the layer's opacity never consulted. So L2
+is not purely an override on top of existing behaviour for those two object kinds; it is the
+first time they respect layer opacity at all, with the per-object property layered on top of
+that new base behaviour.
+
+Implementation:
+- `Shape::ObjectOpacityOf` (`shapeobjects.h`/`.cpp`, alongside `LineWidthOf`/`PointSizeOf`)
+  reads an object's own `opacity` property and returns one of three outcomes: `NONE` (no
+  such property - not an error), `VALID` (a number in 0 to 1), or `INVALID` (present but
+  unusable - wrong type, or outside 0 to 1).
+- `TileMapRenderer::ObjectOpacity(pObject, fLayerOpacity)` turns that into the effective
+  opacity to draw with: the object's own value when `VALID`, otherwise `fLayerOpacity` -
+  for `INVALID` only after warning once per object id (`WarnInvalidOpacity`, the same
+  once-per-key shape as `WarnMissingFont`; its own warned-id set is cleared at the same
+  point `m_WarnedFonts` already is, `ReleaseRegisteredFonts` - the renderer's one existing
+  "forget warnings" reset point, reused rather than inventing a second one).
+- Tile objects (`DrawTileObject`): one line changed, `fOpacity` now reads
+  `ObjectOpacity(pObject, (float) pLayer -> opacity)` instead of `pLayer -> opacity`
+  directly - its own existing alpha handling (tintColor's own alpha channel ignored,
+  replaced by opacity) is otherwise untouched, since that was already tested, documented
+  behaviour from L1 and not in scope to change here.
+- Shape objects (`DrawObjects`) and text objects (`DrawTextObject`): the object's effective
+  opacity now *multiplies* into the colour's own stored alpha byte
+  (`color.nAlpha = (uint8_t)(color.nAlpha * ObjectOpacity(...))`), not a replacement -
+  deliberately different from the tile-object path above, because a shape/text object's
+  colour never had a separate alpha control to begin with (unlike a tile's tintcolor vs.
+  opacity, which are documented as independent), so there is nothing else to replace it
+  from. This also matches the test items' own wording directly ("halves the alpha of the
+  drawn colour", not "replaces it").
+
+Test items, in `tests/test_objectopacity.cpp` (7 cases):
 - With no property, output is identical to the layer opacity.
-- A property of 0.5 halves the alpha of the drawn colour.
-- An invalid value logs a warning and falls back to the layer opacity.
-- A text object follows the same rule once B1 is done.
+- A property of 0.5 halves the alpha of the drawn colour - and does so by multiplying, not
+  replacing: a dedicated case uses a group colour whose own alpha is 0x80 (128), confirms
+  the result is 64 (128 x 0.5), not 127 (0xFF x 0.5) - the value a replace-not-multiply
+  mutant would produce.
+- An opacity property outside 0 to 1 is invalid and falls back to the layer's opacity (not
+  the invalid value).
+- An opacity property of the wrong type (a string) is invalid the same way.
+- A text object follows the same rule as a shape object.
+- A tile object's own opacity property overrides its layer's.
+- A tile object with no opacity property still uses its layer's, as before L2.
+
+Mutation checks, each confirmed by reverting the fix, seeing the specific test fail, then
+restoring it: replacing the shape/text path's multiply with a plain replace (`0xFF *
+ObjectOpacity(...)`) fails the dedicated multiply-vs-replace case (expected 64, got 127);
+removing `ObjectOpacityOf`'s own 0-to-1 range check fails the out-of-range case (expected
+127, got 125 - `(uint8_t)(255 * 2.5)` wrapping, not even close to a plausible "valid"
+result, which is itself worth noting: an unchecked range doesn't just accept a slightly
+wrong value here, it silently overflows into nonsense).
+
+Full suite: 551/551 (544 existing + 7 new). Every sample builds cleanly. No new pure
+virtual methods were added to any interface, so no mock updates were needed.
 
 ### L3: sprite draw order within a layer
 - Add `SetZOrder(int)` to `Sprite`, default 0.
