@@ -38,14 +38,27 @@
  * has no built-in map-wrap) bound a rectangle Sunny's logical position is kept inside: crossing
  * one teleports her to the opposite marker, carrying over the exact overflow so there is no
  * stutter, and the camera follows in the very same step, so the wrap reads as instantaneous.
- * "terrain" (factor 1, where Sunny stands - grass, a few scattered "mountain"-shaded patches
- * and houses) is the only opaque layer; "sky" and "clouds" are translucent washes drawn ON TOP
- * of it, each at their own slower parallax factor - authored directly in the TMX via Tiled's
- * own parallaxx/parallaxy, L1's own feature - so they read as drifting tints/cloud shadows
- * over the terrain rather than a hidden backdrop (an earlier version of this sample tried
- * layering sky/clouds BEHIND an opaque or partly-gapped terrain layer and, even after several
- * iterations, it never read clearly as depth - a translucent overlay on top of an always-fully-
- * visible terrain is both simpler and unambiguous).
+ * Four tile layers, back to front: "terrain" (factor 1 - grass with a few scattered
+ * "mountain"-shaded patches, a generated placeholder since no real mountain tileset was
+ * available among the reused assets); "buildings" (also factor 1, but a SEPARATE layer drawn
+ * right after terrain, not baked into it - a house's own tile art has transparent corners
+ * around its peaked roof, so it needs an opaque layer already drawn behind it for those
+ * corners to show grass instead of the renderer's raw clear colour, confirmed live: baking
+ * the houses directly into terrain, overwriting the grass tile outright, showed a black box
+ * around each one); "sky" (factor 0.25, a sparse scatter of a generated solid-colour puff);
+ * "clouds" (factor 0.5, a sparse scatter of real cloud art reused from samples/sprite's own
+ * sky.png - the compact single-tile puff and the wider two-tile cluster, specifically, the
+ * two shapes confirmed not to read as a clipped/incomplete fragment at in-game scale, unlike
+ * a couple of others in the same sheet). Sunny's own sprite is attached to "clouds" - the
+ * LAST layer - purely for draw order (a sprite draws right after its own container layer's
+ * tiles): not because she is logically part of the clouds, but because that is what keeps her
+ * drawn on top of everything, never covered by a drifting cloud that happens to land on her
+ * fixed screen position (confirmed live: translucent clouds still visibly obscured her when
+ * she was attached to "terrain" instead, the layer she actually stands on). Every layer's own
+ * pattern repeats at exactly its own effective shift distance at the wrap boundary, not a
+ * single shared period, and both "terrain" and "buildings" share the same period (they move
+ * at the same factor, so the same effective shift) - the actual requirement for every layer to
+ * loop seamlessly at once, not just the one whose factor happens to be 1.
  */
 class World {
 
