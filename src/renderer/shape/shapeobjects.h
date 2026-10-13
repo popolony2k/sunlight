@@ -45,6 +45,25 @@ namespace SunLight  {
             double PointSizeOf( tmx_object *pObject );
 
             /**
+             * @brief Outcome of reading an object's own "opacity" property (L2 of the master plan).
+             * NONE: the object has no such property - not an error, the caller falls back to its
+             * layer's own opacity silently, the same as today. VALID: the object has it, and it is
+             * a number in 0 to 1 - the caller uses it in place of the layer's opacity. INVALID: the
+             * object has it, but it is not a usable number (wrong type, or outside 0 to 1) - the
+             * caller should warn once and fall back to the layer's opacity, not silently.
+             */
+            enum class OpacityProperty { NONE, VALID, INVALID };
+
+            /**
+             * @brief Reads an object's own "opacity" property into fValue, when it has one and it is
+             * usable. See OpacityProperty for what each outcome means and what the caller should do.
+             * @param pObject The object, as libtmx parsed it;
+             * @param fValue Set to the property's own value (0 to 1) only when the return is VALID;
+             * @return Which of the three outcomes above;
+             */
+            OpacityProperty ObjectOpacityOf( tmx_object *pObject, double &fValue );
+
+            /**
              * @brief A point in map units, relative to an object's stored point.
              */
             struct MapPoint  {

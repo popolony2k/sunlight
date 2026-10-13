@@ -510,10 +510,16 @@ namespace SunLight {
         void TileMapRenderer :: DrawObjects( tmx_layer *pLayer ) {
 
             tmx_object *head = pLayer ->  content.objgr -> head;
-            SunLight :: Base :: stColor  color = IntToColor( pLayer ->  content.objgr -> color );
+            SunLight :: Base :: stColor  baseColor = IntToColor( pLayer ->  content.objgr -> color );
 
             while( head ) {
                 if( head -> visible ) {
+                    // L2: the object's own "opacity" property, or its layer's, multiplies into the
+                    // object group's own stored colour alpha - shapes have no separate alpha control
+                    // of their own to begin with, the same reasoning as DrawTextObject's.
+                    SunLight :: Base :: stColor  color = baseColor;
+                    color.nAlpha = ( uint8_t ) ( color.nAlpha * ObjectOpacity( head, ( float ) pLayer -> opacity ) );
+
                     switch( head -> obj_type )  {
                         case OT_SQUARE :
                             DrawRectangle( ( head -> x + pLayer -> offsetx ),
@@ -622,6 +628,11 @@ namespace SunLight {
             SunLight :: Base :: stZoomProperties&  zp       = GetViewport().GetZoomProperties();
             SunLight :: Base :: stColor            color    = IntToColor( pText -> color );
             const char                            *szFamily = ( pText -> fontfamily != nullptr ) ? pText -> fontfamily : "";
+
+            // L2: the object's own "opacity" property, or its layer's, multiplies into the text's
+            // own stored colour alpha (not replaced - unlike a tile's tintcolor, a text object's
+            // colour has no separate alpha control of its own to begin with).
+            color.nAlpha = ( uint8_t ) ( color.nAlpha * ObjectOpacity( pObject, ( float ) pLayer -> opacity ) );
             bool                                   bBold    = ( pText -> bold != 0 );
             bool                                   bItalic  = ( pText -> italic != 0 );
             double                                 fZoom    = zp.fZoomFactor;
@@ -793,6 +804,45 @@ namespace SunLight {
         }
 
         /**
+         * @brief An object's own effective opacity (L2 of the master plan): its own "opacity"
+         * property (0 to 1) when it has a usable one, otherwise fLayerOpacity unchanged - the
+         * object has no opacity field of its own in Tiled, so this is the only way to override it
+         * per object. An unusable property (wrong type, or outside 0 to 1) warns once for that
+         * object and falls back to fLayerOpacity too, the same as having none.
+         * @param pObject The object, as libtmx parsed it;
+         * @param fLayerOpacity Its layer's own opacity, used when the object has none of its own;
+         * @return The effective opacity to draw this object with, 0 to 1;
+         */
+        float TileMapRenderer :: ObjectOpacity( tmx_object *pObject, float fLayerOpacity )  {
+
+            double  fValue;
+
+            switch( Shape :: ObjectOpacityOf( pObject, fValue ) )  {
+                case Shape :: OpacityProperty :: VALID :
+                    return ( float ) fValue;
+
+                case Shape :: OpacityProperty :: INVALID :
+                    WarnInvalidOpacity( pObject -> id );
+                    return fLayerOpacity;
+
+                case Shape :: OpacityProperty :: NONE :
+                default :
+                    return fLayerOpacity;
+            }
+        }
+
+        /**
+         * @brief Log, once per object id, that its own "opacity" property is not usable.
+         */
+        void TileMapRenderer :: WarnInvalidOpacity( unsigned int nObjectId )  {
+
+            if( !m_WarnedOpacityObjects.insert( nObjectId ).second )
+                return;
+
+            fprintf( stderr, "Object %u's own \"opacity\" property is not a number in 0..1; using its layer's opacity instead.\n", nObjectId );
+        }
+
+        /**
          * @brief Release every font RegisterFont loaded, and forget the
          * warnings already given. Called by Stop() while the window and its
          * render context still exist, and by the destructor.
@@ -802,6 +852,7 @@ namespace SunLight {
             // Each font is destroyed here, which releases it while the window is open.
             m_RegisteredFonts.clear();
             m_WarnedFonts.clear();
+            m_WarnedOpacityObjects.clear();   // the renderer's one existing "forget warnings" point; see WarnInvalidOpacity
         }
 
         /**
@@ -835,7 +886,7 @@ namespace SunLight {
             tmx_tile      *pTile   = ( pBase -> animation_len != 0 ) ? AnimatedFrameOf( pBase, nGID ) : pBase;
             tmx_tileset   *pTs     = pTile -> tileset;
             void          *pImage  = ( pTile -> image != nullptr ) ? pTile -> image -> resource_image : pTs -> image -> resource_image;
-            float          fOpacity  = ( float ) pLayer -> opacity;
+            float          fOpacity  = ObjectOpacity( pObject, ( float ) pLayer -> opacity );   // L2: object's own "opacity" property, or the layer's
             SunLight :: Base :: stColor  tintColor = IntToColor( pLayer -> tintcolor );
             int            nTileW   = ( int ) pTs -> tile_width;
             int            nTileH   = ( int ) pTs -> tile_height;
