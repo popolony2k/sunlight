@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="40" height="30" tilewidth="32" tileheight="32" nextlayerid="2" nextobjectid="10">
+ <!-- No tile layer or tileset: the four overlapping "cards" are sprites added by world.cpp
+      (AddSprite), registered against this same layer id (1) so their visibility follows it. -->
+ <objectgroup id="1" name="labels" color="#ffffffff">
+  <object id="1" name="title" x="100" y="100" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffff00">Sprite draw order within a layer (L3 of the master plan)</text>
+  </object>
+  <object id="2" name="instructions" x="100" y="140" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">Press 1, 2, 3 or 4 to bring that card to the front</text>
+  </object>
+  <object id="3" name="initial-order" x="100" y="175" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="16" color="#ffffffff">Starting order, back to front: red, green, blue, gold</text>
+  </object>
+ </objectgroup>
+</map>

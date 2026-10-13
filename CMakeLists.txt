@@ -44,6 +44,7 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/hexagonal)
     add_subdirectory(samples/parallax)
     add_subdirectory(samples/opacity)
+    add_subdirectory(samples/zorder)
 endif(BUILD_LIBRARY_SAMPLES)
 
 # Unit tests
