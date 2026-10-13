@@ -1567,7 +1567,7 @@ supported use case the library should serve as a first-class citizen, not an aft
 
 | # | Item | Status |
 |---|------|--------|
-| M1 | Promote the Phase C/D shape primitives (`DrawRectangle`, `DrawPolygon`, `DrawPolyline`, `DrawEllipse`, `DrawPoint`) onto a public, mapless interface | TODO |
+| M1 | Promote the Phase C/D shape primitives (`DrawRectangle`, `DrawPolygon`, `DrawPolyline`, `DrawEllipse`, `DrawPoint`) onto a public, mapless interface | DONE |
 | M2 | Make sprite drawing actually mapless: a frame with no map loaded still updates and draws every layer's registered sprites, completing `AddSprite`'s already-documented intent | TODO |
 | M3 | A sample demonstrating `TileMapRenderer` used purely as a drawing surface - shapes and sprites, `LoadMap` never called | TODO |
 
@@ -1604,17 +1604,76 @@ story is completed in place: a consumer who wants a bare drawing surface uses
 `IDrawSurface` handle (not `ITileMap`) if they want the compiler to enforce that they never
 touch map-only API.
 
-**M1: open questions, not yet decided:**
-- Whether the promoted methods keep their current signatures (raw doubles/ints, a
-  `SunLight::Base::stColor`, a pre-computed `nLineWidth` in screen pixels) or take friendlier,
-  higher-level parameters (e.g. a `thickness` in map units, converted internally the way
-  `Shape::ScreenLineWidth` already does for TMX objects) - today's signatures were shaped
-  entirely by `DrawObjects`' own call sites, never designed as a public API.
-- Whether rotation (`fRotation`) stays a required parameter on every call, or gets a
-  defaulted-0.0 overload, since most mapless callers will not want it.
-- Where the promoted declarations physically live: added straight to `IDrawSurface`, or a new
-  sibling interface (e.g. `IShapeSurface`) `TileMapRenderer` also implements, kept separate so
-  `IDrawSurface` itself does not grow much further - leaning toward the latter, not decided.
+**M1: a public, mapless shape interface (DONE).** All three open questions settled while
+building it:
+- The promoted methods take friendlier, higher-level parameters than the private bodies they
+  wrap: `fThickness`/`fSize` in MAP units (converted to screen pixels internally via the same
+  `Shape::ScreenLineWidth` every TMX shape object already uses - a caller never computes that
+  conversion itself), and a flat `const SunLight::Base::stVector2D *pPoints, int nPointsCount`
+  for `DrawPolyline`/`DrawPolygon` instead of libtmx's own `double**` point-array shape (a
+  small, local-only conversion back to that shape, `TileMapRenderer::ToTmxPointArray`, feeds
+  the unchanged private bodies).
+- `fRotation` gets a defaulted `0.0` overload (as does `fThickness`, defaulting to `1.0`, a
+  hairline) - most mapless callers want neither.
+- The promoted declarations live on a new sibling interface, `IShapeSurface`
+  (`src/drawsurface/ishapesurface.h`), not added to `IDrawSurface` directly - confirmed via
+  the owner's own call: `IDrawSurface`'s own doc comment is explicit that its primitives are
+  screen space, zero viewport/camera transform (a HUD layer); these shape primitives are the
+  opposite, viewport/zoom-aware the same way a Tiled object's own position already is. Merging
+  the two would make `IDrawSurface`'s own documented guarantee false for exactly these methods.
+
+Implementation: each `IShapeSurface` override on `TileMapRenderer` is a thin wrapper - convert
+units, then call straight through to the existing private method of the **same name**
+(`DrawRectangle`/`DrawEllipse`/`DrawPolyline`/`DrawPolygon`/`DrawPoint`), an intentional
+overload rather than a rename: the two signatures differ in both the type and the order of
+their later parameters (a `stColor` at a position the private body has a `double`), so the
+call is unambiguous at compile time, verified directly rather than assumed - it built and ran
+correctly on the first try, and the regression-guard tests below exist specifically to keep
+proving it rather than trust that once.
+
+Test items, in `tests/test_shapesurface.cpp` (7 cases):
+- A `TileMapRenderer` that calls `Start()` but never `LoadMap` can draw a hairline rectangle,
+  a thick polygon, and a point, each through the public `IShapeSurface` door, each landing in
+  the mock engine's own event log - no real window, no map.
+- A rotated, thick polyline and a rotated, thick ellipse, each drawn through the public API,
+  produce the exact same `FILL` spans as the identical shape drawn via a TMX object - the
+  regression guard that promoting the methods did not fork their behavior.
+- Thickness is converted by the current zoom, not passed through raw: a width-3-map-unit line
+  at zoom 2 produces the same six-row span pattern `tests/test_thick_lines.cpp`'s own TMX-based
+  "zoom scales the width" case already pins. **Added after a mutation the first four tests
+  could not catch**, found live: every other case in this file runs at the default zoom 1.0,
+  where `(int) fThickness` (a raw, un-converted cast) and the real `Shape::ScreenLineWidth`
+  conversion coincide exactly - a mutant that skipped the zoom conversion entirely still passed
+  every other test, since none of them exercised a non-default zoom. This case does.
+- A pre-existing, unrelated test case (`tests/test_thick_lines.cpp`'s own, unchanged) confirms
+  promoting the private methods to also be publicly callable did not alter `DrawObjects`' own
+  behavior - the full suite passing unchanged is the real coverage for this, this case just
+  pins one concrete value directly in this file too.
+
+**A real, pre-existing test-fixture bug found and fixed while building these tests, not in the
+feature itself:** `MockEngineFixture`'s install (`EngineFactory::SetEngine`) is a single global
+slot, not a stack. The first version of the two TMX-vs-public comparison tests kept a `TmxScene`
+and a `MaplessScene` - each carrying its own `MockEngineFixture` - alive at the same time: the
+second fixture's constructor silently clobbered the first's install, and C++'s own reverse
+local-destruction order meant the second (newer) fixture's destructor cleared the engine slot
+*before* the first (older) one's own destructor ran - leaving `TmxScene`'s own `Stop()` to reach
+the **real** `RaylibEngine` with a mock-issued render-target handle. Confirmed live as a genuine
+`SIGSEGV` in `RaylibEngine::UnloadRenderTarget`, caught under AddressSanitizer with a full stack
+trace before the test was trusted - not a flaky or environment-specific failure, reproduced on
+every run until fixed. The fix scopes the TMX side into its own block, so it is fully torn down
+(and its fixture's engine slot cleanly reset) before the mapless side's own fixture is ever
+constructed. Worth a general caution for any future test mixing two `*Fixture`-carrying scenes
+in one case: at most one may be alive at a time, full stop.
+
+Mutation checks, each confirmed by reverting the fix, seeing the specific test fail, then
+restoring it: swapping x/y in `ToTmxPointArray` fails the rotated-polyline comparison case;
+replacing the zoom conversion with a raw `(int)` cast fails only the dedicated zoom case above
+(confirmed it does NOT fail the other six, which is exactly why that dedicated case exists).
+
+Full suite: 562/562 (555 existing + 7 new), both in a normal build and under AddressSanitizer
+(clean, no reports - run here despite the change itself touching no object lifetime, because
+the fixture bug above was a real, live crash during development). Every sample builds cleanly.
+`doc/BREAKAGES.md` item 38 is written.
 
 **M2:**
 - `RenderMap`'s sprite-drawing path (`DrawAllLayers` -> `HandleSpriteUpdate`) is reached only

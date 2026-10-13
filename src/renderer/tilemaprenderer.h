@@ -31,6 +31,7 @@
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "drawsurface/idrawsurface.h"
+#include "drawsurface/ishapesurface.h"
 #include "font/ifont.h"
 #include "renderer/rendererconfig.h"
 #include "renderer/shape/shapeprimitives.h"
@@ -67,7 +68,8 @@ namespace SunLight {
          * both are ultimately backed by.
          */
         class TileMapRenderer : public SunLight :: TileMap :: ITileMap,
-                                 public SunLight :: DrawSurface :: IDrawSurface  {
+                                 public SunLight :: DrawSurface :: IDrawSurface,
+                                 public SunLight :: DrawSurface :: IShapeSurface  {
 
             /**
              * Tile animation information.
@@ -234,6 +236,15 @@ namespace SunLight {
                                                                           int nPointsCount,
                                                                           double fZoom,
                                                                           double fRotation );
+
+            // M1 of the master plan: converts a caller-owned stVector2D array into the double**
+            // shape the private DrawPolyline/DrawPolygon overloads (and libtmx itself) use, in
+            // storage/ppRows only - nothing escapes this call. See IShapeSurface::DrawPolyline's
+            // own doc comment for the full why.
+            void ToTmxPointArray( const SunLight :: Base :: stVector2D *pPoints,
+                                  int nPointsCount,
+                                  std :: vector<double> &storage,
+                                  std :: vector<double*> &ppRows );
             void DrawRectangle( double offset_x,
                                 double offset_y,
                                 double width,
@@ -431,6 +442,28 @@ namespace SunLight {
             int MeasureText( const char *szText, int nFontSize );
             int GetWindowWidth( void );
             int GetWindowHeight( void );
+
+            // IShapeSurface (M1 of the master plan): the same shape-drawing bodies DrawObjects
+            // already uses for Tiled shape objects, given a public, mapless door. Each override
+            // converts its own map-unit thickness/rotation into the existing private methods'
+            // own screen-pixel/point-array shape, then calls straight through - no drawing logic
+            // is duplicated or reimplemented here.
+            void DrawRectangle( double fX, double fY, double fWidth, double fHeight,
+                                SunLight :: Base :: stColor color,
+                                double fThickness = 1.0, double fRotation = 0.0 ) override;
+            void DrawEllipse( double fX, double fY, double fWidth, double fHeight,
+                              SunLight :: Base :: stColor color,
+                              double fThickness = 1.0, double fRotation = 0.0 ) override;
+            void DrawPolyline( double fX, double fY,
+                               const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                               SunLight :: Base :: stColor color,
+                               double fThickness = 1.0, double fRotation = 0.0 ) override;
+            void DrawPolygon( double fX, double fY,
+                              const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                              SunLight :: Base :: stColor color,
+                              double fThickness = 1.0, double fRotation = 0.0 ) override;
+            void DrawPoint( double fX, double fY, SunLight :: Base :: stColor color,
+                            double fSize = 1.0 ) override;
 
             // Layer management
             bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer );
