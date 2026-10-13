@@ -1258,49 +1258,306 @@ backend. Real behaviour can only be proven here, so this item stays open until t
 - Full suite (530 cases) passes under AddressSanitizer with no reports. Every sample,
   including the new one, builds cleanly.
 
-## Later
+## Phase L: layer camera, opacity and sprite order
 
-### L1: per-layer camera and parallax
-Decisions taken:
+| # | Item | Status |
+|---|------|--------|
+| L1 | Per-layer camera and parallax | DONE |
+| L2 | Per-object opacity | DONE |
+| L3 | Sprite draw order within a layer | DONE |
+
+**Coordination rule for this phase:** same staging pattern as Phases E/F -
+`feat/complete_l_plan`, created from `feat/master_plan`; every sub-item merges there
+first, and only once the whole phase is finished does `feat/complete_l_plan` itself
+merge into `feat/master_plan`.
+
+**L1: per-layer camera and parallax (DONE).** Decisions taken:
 - Factors come from two sources: Tiled's `parallaxx`/`parallaxy` (libtmx already reads
-  them) and a code API (`SetLayerParallax`). The code value overrides the Tiled value.
-- A sprite follows its layer's factor only if it is in screen space. World-space
-  sprites stay in map coordinates.
-- Each layer's camera offset is `camera × factor`, and the map's parallax origin is
-  respected. A factor of 1 is unchanged.
+  them into `tmx_layer`) and a new code API, `SetLayerParallax(id or name, fx, fy)`,
+  mirroring `SetLayer`'s existing opacity/offset override pattern exactly (writes
+  directly into the live `tmx_layer`). The code value overrides the Tiled one, last
+  write wins - the same rule offset/opacity already follow.
+- A **world-space** sprite follows its own layer's factor; a **screen-space** sprite is
+  entirely unaffected - the opposite of this item's own original planning note above,
+  corrected once research was actually done: Tiled's own data model has no "sprite"
+  concept at all - anything placed on a layer (tile or object) inherits that layer's
+  factor uniformly, with no screen-space equivalent to fall back to. Screen-space
+  sprites are sunlight's own concept, outside Tiled's model entirely, so mapping them to
+  "unaffected" (rather than retrofitting them into the per-layer factor) was chosen
+  after comparing three options against Tiled's own documented behavior.
+- Image layers are in scope. This required `DrawImageLayer` to become camera/zoom/
+  viewport-aware for the first time - before this item it called `IEngine::DrawTexture`
+  directly at the literal screen origin, ignoring the camera, zoom and viewport
+  position entirely. Still drawn only by the default view, a separate, pre-existing,
+  undiscussed restriction, left exactly as it was.
+- The clamp/margin test item below (the original plan's own wording) is dropped: no new
+  clamp logic is added. The map author is trusted to choose sane factors and origins;
+  sunlight does not try to keep a parallax layer's visible area inside any particular
+  bound.
+- A child of a group layer accumulates its own factor with every ancestor group's own
+  factor (its own factor × the product of every parent's), matching Tiled's own nested-
+  group behavior.
+- The formula is `effectiveCamera = (camera + origin) × factor - origin` (Tiled's own
+  documented model), computed by one shared helper,
+  `TileMapRenderer::GetEffectiveCameraForFactor`. A factor of exactly 1.0 is special-
+  cased per axis to return the real camera position unchanged, rather than trust the
+  general formula to reduce to it bit-for-bit (floating-point associativity does not
+  guarantee that).
+- `GetTile`'s own camera computation uses its own layer's factor directly, not
+  accumulated with ancestor groups - a narrow, documented, accepted limitation, since
+  the only render path that matters (`DrawLayer`) never reads the field this affects;
+  only an external pick/collision caller against a tile on a *nested* group layer would
+  see the gap.
 
-Test items:
-- A factor of 1 is byte-identical to today.
-- A factor of 0.5 moves the layer half as far as the camera, against a reference.
-- The parallax origin shifts the layer as expected.
-- The clamp and margins keep each layer's visible area inside its bounds.
-- Each view applies the factor to its own camera.
-- The code API overrides the Tiled value.
-- A screen-space sprite follows its layer's factor; a world-space sprite does not.
+Implementation notes:
+- `stLayer` gains `fParallaxX`/`fParallaxY` (`tilemap/tilemapdefs.h`), appended at the
+  end rather than inserted among the existing fields, so every existing positional
+  initializer elsewhere in the codebase keeps compiling unchanged.
+- A per-frame scratch member, `TileMapRenderer::m_EffectiveLayerCameraPos`, is set once
+  per layer inside `DrawAllLayers`'s own loop, before that layer's draw dispatch, and
+  consumed by every per-layer draw helper (`DrawLayer`, `DrawTile`, the object/shape
+  primitives, `DrawTextObject`/`DrawTileObject`, the rewritten `DrawImageLayer`) - safe
+  because all of these are private methods only ever reachable synchronously from
+  within that same loop iteration, so the scratch value is never stale when read.
+- `GetCameraOffset` cannot reuse that scratch member: unlike the draw helpers above, it
+  is called by application code (through a sprite) at any time, including with no
+  render pass ever having run - an existing test already required this to work. Fixed
+  by threading a per-canvas `m_nParallaxLayerId` through `BaseCanvas` (new
+  `SetParallaxLayerId`/`GetParallaxLayerId`, mirroring `SetWorldSpace`'s own exact
+  propagation shape through `Sprite`/`TextureCanvas`), set once by
+  `TileMapRenderer::AddSprite`. `GetCameraOffset` gained a defaulted
+  `int nLayerId = -1` parameter and now always computes its answer fresh from the live
+  `tmx_layer`, never from the scratch value - this was a real regression caught by the
+  existing suite during implementation (10 failures), not a guess ahead of time.
+- `DrawImageLayer`'s rewrite (mirroring `DrawTile`'s own clip-then-`DrawTextureTiled`
+  structure) reclassified its own mock-engine draw event from an uncounted
+  `DrawTexture` call into `Event::TILE` - a necessary side effect of giving it a camera
+  term at all, not scope creep, but it broke 8 pre-existing `test_viewpasses.cpp`
+  assertions (off-by-one tile counts), each individually re-diagnosed and fixed rather
+  than blindly adjusted.
 
-### L2: per-object opacity
+Test items, in `tests/test_parallax.cpp` (7 new cases):
+- A factor of 1 is byte-identical to today, regardless of the map's own parallax
+  origin.
+- A factor of 0.5 moves the layer half as far as the camera, against the factor-1
+  reference - asserted both as a ratio and as an absolute value; the absolute check
+  alone catches an implementation that silently drops the origin term while still
+  passing the ratio check (origin cancels out of a pure shift).
+- Each view applies the factor to its own camera (two views, two different cameras, one
+  frame).
+- `SetLayerParallax` overrides the TMX-declared factor, by id and by name (and returns
+  `false` for an unknown name).
+- A world-space sprite on a parallax layer follows its own layer's factor exactly as a
+  tile on that layer would, at the same map position; a screen-space sprite on the very
+  same layer is provably unaffected by both the camera move and the layer's own factor.
+- The clamp/margin item from the original plan is dropped (see decisions above).
+- A dedicated "camera positioned exactly at the parallax origin" case was tried first
+  for the origin test item, but turned out incompatible with this map's own tile layout
+  without tripping `Viewport::GetClippedRect`'s pre-existing clipping behavior (it trims
+  anything at a negative *local*, pre-viewport-offset position, regardless of where the
+  viewport itself sits - the scroll-boundary FIXME, master plan item A6, from the
+  renderer's other end); the absolute-value check above covers the same ground safely.
+
+Verification:
+- Three mutations confirmed-fail-then-restore: `GetCameraOffset` reading the per-frame
+  scratch value instead of computing fresh (the real regression above, caught by an
+  existing test); `GetEffectiveCameraForFactor` with the origin term dropped (caught by
+  the new suite's absolute-value and multi-view checks); `SetLayerParallax(int, ...)`
+  writing only `parallaxy` (caught by its own dedicated test).
+- Full suite: 537/537 (530 existing + 7 new), both in a normal build and under
+  AddressSanitizer (clean, no reports).
+- Full project (library and every sample) builds cleanly, no new warnings beyond
+  pre-existing, unrelated `-Winconsistent-missing-override` warnings on other, untouched
+  `ITileMap` overrides.
+
+**Three pre-existing, unrelated rendering bugs found live while visually verifying L1**
+(`samples/sprite`, its default zoom - position 60, factor 3.8125 - the first non-integer
+zoom this renderer had ever actually been run at). Each confirmed against a pre-L1
+baseline build first, to rule out an L1 regression, then root-caused, fixed, covered by a
+new, mutation-tested regression case, and re-verified live before moving to the next:
+- **Tile-to-tile rasterization seam.** `DrawTile`/`DrawImageLayer`/`TextureCanvas::Draw`
+  passed their destination rect to the engine unrounded. Two adjacent tiles' edges are
+  always mathematically contiguous (their difference is an exact multiple of the tile's
+  own zoomed width), but at a non-integer zoom that shared edge commonly lands on a
+  fractional screen pixel - and two separately-issued draw calls sharing a
+  fractional-pixel edge can leave the rasterizer's coverage of that boundary pixel
+  ambiguous, a visible seam of the clear colour between nearly every pair of tiles.
+  Fixed by rounding each destination rect to the nearest whole pixel before drawing.
+- **Camera scroll-boundary gap.** `MoveCameraLeft`/`MoveCameraUp`'s own scroll-limit
+  formula never added the viewport's own `pos.x`/`pos.y` - despite a doc comment
+  claiming it did - compensating instead with an imprecise, zoom-rounded fudge term
+  mirrored in neither axis consistently. At this zoom it let the camera scroll tens of
+  pixels past the map's own edge, pulling the map inside the viewport and exposing the
+  clear colour as a gap - worse on whichever axis's fudge term was further from exact.
+  Fixed by adding the real `pos` offset and dropping the fudge term entirely; a
+  pre-existing test (`tests/test_viewport_semantics.cpp`) had pinned the old, buggy
+  formula as its own oracle and needed updating to the exact, independently-derived
+  no-gap formula instead.
+- **`std::round`'s away-from-zero tie, straddling screen x/y = 0.** Even after the first
+  fix, a sweep of every camera position from -300 to 300 against the real sample's exact
+  map/zoom found 19 positions (out of 601) with a genuine missing column - not just a
+  sub-pixel seam. Root cause: at zoom 3.8125 an integer map position can land exactly on
+  a half-pixel (e.g. one tile at -30.5, its neighbor at 91.5 - both exact ties).
+  `std::round` ties away from zero: `round(-30.5) == -31` but `round(91.5) == 92` - two
+  tiles that are otherwise exactly contiguous round away from EACH OTHER purely because
+  one is negative and the other positive, opening a real 1px gap at exactly the camera
+  positions where this happens (the "blinking" the owner first reported). This codebase
+  already had the correct convention for exactly this, elsewhere
+  (`Shape::ScreenLineWidth`'s own "half-up rounding") - factored out into a new, shared
+  `SunLight::General::Helper::RoundHalfUp` (`std::floor(x + 0.5)`, which never flips
+  direction at zero) and used at all three sites above instead of `std::round`.
+  Re-swept afterward: 0 bad positions out of 601, both axes.
+
+Each of these three fixes shipped with its own mutation-tested regression case
+(confirmed-fail-then-restore): `tests/test_pixelsnapping.cpp` (new, 3 cases - tile
+contiguity, a world-space sprite landing on a whole pixel, and the specific
+zero-straddling half-pixel tie) and `tests/test_helper.cpp` (new case, pins
+`RoundHalfUp`'s own behavior directly against `std::round`'s). Full suite after all
+three: 541/541, both normally and under AddressSanitizer (clean, no reports). Found and
+verified against the owner's own live testing throughout (two real builds compared
+side by side for the first fix; screenshots and a live isometric-sample check for the
+others) - not merely a sandboxed claim.
+
+**`samples/parallax/` (new sample, real-window checked live by the owner).** An "eternal
+map": Sunny's own sprite is screen-space, fixed at the viewport's centre for the whole
+run (never moved); what makes her look like she is walking is the camera, recomputed
+every step to centre on a tracked world position. Four marker objects
+(`wrap_left`/`right`/`top`/`bottom`, read via the existing `GetObjectByName` - the same
+mechanism Caravellius already uses on its own side to cycle a map forever between two
+authored marks, sunlight itself has no built-in map-wrap) bound a rectangle that
+position is kept inside: crossing one teleports her to the opposite marker, carrying
+over the exact overflow so there is no stutter. Three background layers (`sky`,
+`clouds`, `far_terrain`, factors 0.1/0.3/0.6, declared directly via Tiled's own
+`parallaxx`/`parallaxy`) move at their own slower rates behind the `ground` layer
+(factor 1, where Sunny stands) - each a single repeating tile, so the wrap is seamless
+for them by construction, and partial `opacity` on `clouds`/`far_terrain`/`ground` lets
+every layer blend and show through the one above it.
+- **The wrap margin must exceed the viewport's own visible half-extent on each axis** at
+  the sample's zoom (safe choice: comfortably larger than `(viewport size / zoom) / 2`)
+  - found live: with a margin smaller than that, the camera could see past the map's own
+    true edge before a wrap ever triggered, showing a gap of whatever layer happened to
+    still have content there.
+- **A screen-space canvas's own stored position is not a raw screen pixel** - it is
+  drawn at `position x zoom`, camera ignored (`BaseCanvas`'s own documented convention),
+  not something this sample's own first attempt respected: it stored the literal desired
+  screen pixel directly, which at this sample's own non-integer zoom (3.8125) scaled far
+  outside the viewport, and `Viewport::GetClippedRect` silently clipped Sunny away
+  entirely (confirmed directly via `IsOnScreen()`, not guessed). The fix divides the
+  desired screen position by the current zoom before storing it, and recomputes it on
+  every zoom change (`RecenterSunnyOnScreen`) - existing samples never hit this because
+  their own hardcoded sprite positions happened to stay small enough to survive the
+  scaling by coincidence, not because the convention does not apply to them too.
+
+### L2: per-object opacity (DONE)
 Decision taken: option A. The object's custom `opacity` property (0 to 1) is used when
 present. Tiled objects have no opacity field of their own, but custom properties can be
 set on any object in the editor. When the property is absent, the object uses its
-layer's opacity, which is the current behaviour.
+layer's opacity.
 
-Test items:
+**Found while implementing, not assumed:** the plan's own text above said falling back to
+the layer's opacity "is the current behaviour" - checked against the actual code rather
+than taken on faith, and it was only true for tile objects (`DrawTileObject` already read
+`pLayer -> opacity`). Shape objects (rectangle, polygon, polyline, ellipse, point) and text
+objects applied no opacity at all before this item - their drawn alpha was whatever their
+own stored colour's alpha byte already was, with the layer's opacity never consulted. So L2
+is not purely an override on top of existing behaviour for those two object kinds; it is the
+first time they respect layer opacity at all, with the per-object property layered on top of
+that new base behaviour.
+
+Implementation:
+- `Shape::ObjectOpacityOf` (`shapeobjects.h`/`.cpp`, alongside `LineWidthOf`/`PointSizeOf`)
+  reads an object's own `opacity` property and returns one of three outcomes: `NONE` (no
+  such property - not an error), `VALID` (a number in 0 to 1), or `INVALID` (present but
+  unusable - wrong type, or outside 0 to 1).
+- `TileMapRenderer::ObjectOpacity(pObject, fLayerOpacity)` turns that into the effective
+  opacity to draw with: the object's own value when `VALID`, otherwise `fLayerOpacity` -
+  for `INVALID` only after warning once per object id (`WarnInvalidOpacity`, the same
+  once-per-key shape as `WarnMissingFont`; its own warned-id set is cleared at the same
+  point `m_WarnedFonts` already is, `ReleaseRegisteredFonts` - the renderer's one existing
+  "forget warnings" reset point, reused rather than inventing a second one).
+- Tile objects (`DrawTileObject`): one line changed, `fOpacity` now reads
+  `ObjectOpacity(pObject, (float) pLayer -> opacity)` instead of `pLayer -> opacity`
+  directly - its own existing alpha handling (tintColor's own alpha channel ignored,
+  replaced by opacity) is otherwise untouched, since that was already tested, documented
+  behaviour from L1 and not in scope to change here.
+- Shape objects (`DrawObjects`) and text objects (`DrawTextObject`): the object's effective
+  opacity now *multiplies* into the colour's own stored alpha byte
+  (`color.nAlpha = (uint8_t)(color.nAlpha * ObjectOpacity(...))`), not a replacement -
+  deliberately different from the tile-object path above, because a shape/text object's
+  colour never had a separate alpha control to begin with (unlike a tile's tintcolor vs.
+  opacity, which are documented as independent), so there is nothing else to replace it
+  from. This also matches the test items' own wording directly ("halves the alpha of the
+  drawn colour", not "replaces it").
+
+Test items, in `tests/test_objectopacity.cpp` (7 cases):
 - With no property, output is identical to the layer opacity.
-- A property of 0.5 halves the alpha of the drawn colour.
-- An invalid value logs a warning and falls back to the layer opacity.
-- A text object follows the same rule once B1 is done.
+- A property of 0.5 halves the alpha of the drawn colour - and does so by multiplying, not
+  replacing: a dedicated case uses a group colour whose own alpha is 0x80 (128), confirms
+  the result is 64 (128 x 0.5), not 127 (0xFF x 0.5) - the value a replace-not-multiply
+  mutant would produce.
+- An opacity property outside 0 to 1 is invalid and falls back to the layer's opacity (not
+  the invalid value).
+- An opacity property of the wrong type (a string) is invalid the same way.
+- A text object follows the same rule as a shape object.
+- A tile object's own opacity property overrides its layer's.
+- A tile object with no opacity property still uses its layer's, as before L2.
 
-### L3: sprite draw order within a layer
-- Add `SetZOrder(int)` to `Sprite`, default 0.
-- Sort each layer's sprites with a stable sort, only when a z-order changed. Equal
-  values keep insertion order.
-- Z-order applies only within a layer. Layers already order sprites between each other.
+Mutation checks, each confirmed by reverting the fix, seeing the specific test fail, then
+restoring it: replacing the shape/text path's multiply with a plain replace (`0xFF *
+ObjectOpacity(...)`) fails the dedicated multiply-vs-replace case (expected 64, got 127);
+removing `ObjectOpacityOf`'s own 0-to-1 range check fails the out-of-range case (expected
+127, got 125 - `(uint8_t)(255 * 2.5)` wrapping, not even close to a plausible "valid"
+result, which is itself worth noting: an unchecked range doesn't just accept a slightly
+wrong value here, it silently overflows into nonsense).
 
-Test items:
-- With every z-order at 0, output is byte-identical to today.
-- A higher z-order is drawn after a lower one on the same layer.
-- The sort is stable: equal values keep insertion order.
-- Sprites on different layers keep the layer order, whatever their z-values.
+Full suite: 551/551 (544 existing + 7 new). Every sample builds cleanly. No new pure
+virtual methods were added to any interface, so no mock updates were needed.
+
+### L3: sprite draw order within a layer (DONE)
+- `Sprite::SetZOrder(int)`/`GetZOrder()`, default 0 - plain storage on `Sprite`, no
+  propagation to its own canvases (unlike `SetWorldSpace`/`SetParallaxLayerId`): z-order is
+  a sibling-ordering concern the renderer applies from outside the sprite, not something an
+  individual canvas needs to know about itself.
+- `TileMapRenderer::HandleSpriteUpdate` stable-sorts a layer's own `SpriteList` (a
+  `std::deque<Sprite*>`, already random-access) by ascending z-order before iterating it,
+  every time it runs. **Decided while building it, departing from the plan's own wording
+  above ("only when a z-order changed")**: a dirty-flag optimization would need `Sprite` to
+  notify its owning `TileMapRenderer` on every `SetZOrder` call, and `Sprite` has no
+  back-channel to it today (its own `m_pParent` is a generic `BaseCanvas*`, not specifically
+  a `TileMapRenderer`) - wiring one would be real new plumbing for a cost no test or real
+  workload here showed to matter. `std::stable_sort` on an already-correctly-ordered deque
+  reproduces that same order exactly, so sorting unconditionally is always correct, just not
+  maximally cheap; revisit only if a real profile shows it matters.
+- Z-order applies only within a layer: `HandleSpriteUpdate` is called once per TMX layer
+  (from `DrawAllLayers`'s own per-layer dispatch), so sorting happens independently per
+  layer's own `SpriteList` - a sprite's z-value can never move it across a layer boundary.
+
+Test items, in `tests/test_spritezorder.cpp` (4 cases):
+- With every z-order at 0 (the default), draw order is unchanged - the order sprites were
+  added in (`AddSprite`'s own `push_back`).
+- A higher z-order draws after a lower one on the same layer, even added out of order.
+- The sort is stable: equal-z sprites keep their own add order. **Found while writing this
+  case, not assumed:** a small sprite count (4, even 24) could not actually tell
+  `std::stable_sort` from a plain `std::sort` apart on this platform's standard library -
+  both passed identically, because small-range sorts commonly fall back to an
+  insertion-sort-shaped algorithm that happens to be stable anyway, even though `std::sort`
+  promises no such thing. 60 sprites spread across 5 distinct z-order groups is what
+  actually exposed the difference - confirmed directly (see the mutation check below), not
+  guessed at from a vague "probably enough" sample size.
+- Sprites on different layers keep their own layer's draw order, whatever their z-values -
+  a z=100 sprite on layer 1 still draws before a z=0 sprite on layer 2, since layer order is
+  the TMX layer order, untouched by L3.
+
+Mutation checks, each confirmed by reverting the fix, seeing the specific test fail, then
+restoring it: removing the sort entirely fails the "higher z draws after" and "stable" cases;
+replacing `stable_sort` with plain `sort` fails only the 60-sprite/5-group stable case (and,
+as found above, does NOT fail a smaller same-shape case, which is why the test uses 60/5 and
+says so).
+
+Full suite: 555/555 (551 existing + 4 new), both in a normal build and under
+AddressSanitizer (clean, no reports) - sorting a `SpriteList` of raw, non-owning pointers
+in place touches no lifetime, but the suite was run there anyway since it is the renderer's
+own sprite-registration/draw path. Every sample builds cleanly.
 
 ## Structure: a smaller TileMapRenderer
 

@@ -37,13 +37,19 @@ namespace SunLight  {
         };
 
         /**
-         * Layer definition struct.
+         * Layer definition struct. fParallaxX/fParallaxY (L1 of the master plan) mirror the
+         * TMX layer's own parallaxx/parallaxy (1.0 = no parallax, today's exact behavior) -
+         * appended at the end, not inserted among the existing fields, so every positional
+         * initializer already in this codebase (eg. `stLayer{ true, 255, {0,0}, nullptr }`)
+         * keeps compiling unchanged.
          */
         struct stLayer  {
             bool           bVisible;
             int            nOpacity;
             Base :: stCoordinate2D offset;
             tmx_layer      *pLayer;
+            float          fParallaxX = 1.0f;
+            float          fParallaxY = 1.0f;
         };
 
         /**

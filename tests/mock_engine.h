@@ -112,7 +112,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         float  scale;
         float  srcX;                 // TILE only: the source rectangle's x
         void   *handle;              // TILE only: the texture drawn
-        SunLight :: Base :: stColor  color;   // CLEAR, FILL and TEXT
+        SunLight :: Base :: stColor  color;   // CLEAR, FILL, TEXT and TILE (the tint DrawTextureTiled was given)
         std :: string                text;    // TEXT only: the string drawn
         const void                  *font = nullptr;     // TEXT only: the MockFont drawn with (nullptr = active font)
         int                          nFontSize = 0;      // TEXT only
@@ -177,7 +177,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
                             float scale,
                             SunLight :: Base :: stColor tint )  {
         nDrawTextureTiledCalls++;
-        events.push_back( Event { Event :: TILE, dest.x, dest.y, dest.width, dest.height, scale, source.x, hTexture, SunLight :: Base :: stColor { 0, 0, 0, 0 } } );
+        events.push_back( Event { Event :: TILE, dest.x, dest.y, dest.width, dest.height, scale, source.x, hTexture, tint } );
         hLastDrawnTexture = hTexture;
         lastDrawTextureTiledSource = source;
         lastDrawTextureTiledDest   = dest;

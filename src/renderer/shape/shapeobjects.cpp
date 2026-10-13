@@ -30,8 +30,11 @@ namespace SunLight  {
 
                 const char * const  __LINE_WIDTH_PROPERTY  = "line_width";
                 const char * const  __POINT_SIZE_PROPERTY  = "point_size";
+                const char * const  __OPACITY_PROPERTY     = "opacity";
                 const double        __DEFAULT_LINE_WIDTH   = 1.0;
                 const double        __DEFAULT_POINT_SIZE   = 1.0;
+                const double        __OPACITY_MIN          = 0.0;
+                const double        __OPACITY_MAX          = 1.0;
                 const double        __DEGREES_TO_RADIANS   = 3.14159265358979323846 / 180.0;
                 const double        __ROTATION_EPSILON     = 1e-12;   // a cosine or sine this close to zero is zero
 
@@ -83,6 +86,35 @@ namespace SunLight  {
             double PointSizeOf( tmx_object *pObject )  {
 
                 return NumberPropertyOf( pObject, __POINT_SIZE_PROPERTY, __DEFAULT_POINT_SIZE );
+            }
+
+            OpacityProperty ObjectOpacityOf( tmx_object *pObject, double &fValue )  {
+
+                tmx_property *pProperty = pObject -> properties ? tmx_get_property( pObject -> properties, __OPACITY_PROPERTY ) : nullptr;
+
+                if( pProperty == nullptr )
+                    return OpacityProperty :: NONE;
+
+                double  fRaw;
+
+                switch( pProperty -> type )  {
+                    case PT_INT :
+                        fRaw = ( double ) pProperty -> value.integer;
+                        break;
+
+                    case PT_FLOAT :
+                        fRaw = ( double ) pProperty -> value.decimal;
+                        break;
+
+                    default :
+                        return OpacityProperty :: INVALID;
+                }
+
+                if( ( fRaw < __OPACITY_MIN ) || ( fRaw > __OPACITY_MAX ) )
+                    return OpacityProperty :: INVALID;
+
+                fValue = fRaw;
+                return OpacityProperty :: VALID;
             }
         }
     }

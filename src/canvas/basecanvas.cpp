@@ -29,9 +29,10 @@ namespace SunLight {
          */
         BaseCanvas :: BaseCanvas( void )  {
 
-            m_pParent     = NULL;
-            m_bWorldSpace = false;
-            m_pViewport = &m_Viewport;
+            m_pParent          = NULL;
+            m_bWorldSpace      = false;
+            m_pViewport        = &m_Viewport;
+            m_nParallaxLayerId = -1;
         }
 
         /**
@@ -85,17 +86,33 @@ namespace SunLight {
         /**
          * The camera offset of the view currently being drawn, asked of the
          * parent chain (only the renderer knows the cameras). A canvas with
-         * no renderer above it has none.
+         * no renderer above it has none. Always passes this canvas' OWN
+         * GetParallaxLayerId() up to the parent - whatever nLayerId it was called
+         * with is irrelevant here (see the header's own comment).
          */
-        void BaseCanvas :: GetCameraOffset( float &fX, float &fY )  {
+        void BaseCanvas :: GetCameraOffset( float &fX, float &fY, int nLayerId )  {
 
             if( m_pParent )  {
-                m_pParent -> GetCameraOffset( fX, fY );
+                m_pParent -> GetCameraOffset( fX, fY, m_nParallaxLayerId );
             }
             else  {
                 fX = 0.0f;
                 fY = 0.0f;
             }
+        }
+
+        /**
+         * Set which renderer layer (if any) this canvas should be treated as belonging to
+         * for parallax purposes (L1 of the master plan).
+         */
+        void BaseCanvas :: SetParallaxLayerId( int nLayerId )  {
+
+            m_nParallaxLayerId = nLayerId;
+        }
+
+        int BaseCanvas :: GetParallaxLayerId( void ) const  {
+
+            return m_nParallaxLayerId;
         }
 
         /**
