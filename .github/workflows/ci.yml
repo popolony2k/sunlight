@@ -94,3 +94,22 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:abort_on_error=1
         run: ./build/tests/sunlight_tests
+
+  doxygen:
+    name: Doxygen warnings
+    runs-on: ubuntu-latest
+    env:
+      # Pinned to the version the docs are checked with: each Doxygen release reports
+      # different warnings, so the distribution's own package would not be a stable check.
+      DOXYGEN_VERSION: 1.17.0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Doxygen
+        run: |
+          curl -sSL "https://github.com/doxygen/doxygen/releases/download/Release_${DOXYGEN_VERSION//./_}/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/doxygen-${DOXYGEN_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Generate documentation, failing on any warning
+        run: ( cat Doxyfile; echo "WARN_AS_ERROR = FAIL_ON_WARNINGS" ) | doxygen -
