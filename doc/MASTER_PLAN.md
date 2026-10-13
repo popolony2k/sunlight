@@ -1568,7 +1568,7 @@ supported use case the library should serve as a first-class citizen, not an aft
 | # | Item | Status |
 |---|------|--------|
 | M1 | Promote the Phase C/D shape primitives (`DrawRectangle`, `DrawPolygon`, `DrawPolyline`, `DrawEllipse`, `DrawPoint`) onto a public, mapless interface | DONE |
-| M2 | Make sprite drawing actually mapless: a frame with no map loaded still updates and draws every layer's registered sprites, completing `AddSprite`'s already-documented intent | TODO |
+| M2 | Make sprite drawing actually mapless: a frame with no map loaded still updates and draws every layer's registered sprites, completing `AddSprite`'s already-documented intent | DONE |
 | M3 | A sample demonstrating `TileMapRenderer` used purely as a drawing surface - shapes and sprites, `LoadMap` never called | TODO |
 
 **Found while investigating the owner's own question, not assumed:**
@@ -1675,16 +1675,50 @@ Full suite: 562/562 (555 existing + 7 new), both in a normal build and under Add
 the fixture bug above was a real, live crash during development). Every sample builds cleanly.
 `doc/BREAKAGES.md` item 38 is written.
 
-**M2:**
-- `RenderMap`'s sprite-drawing path (`DrawAllLayers` -> `HandleSpriteUpdate`) is reached only
-  inside `if( m_pTmxMap )` today; a mapless frame currently clears the background and
-  optionally draws the FPS counter, nothing else. Needs its own path that walks `m_SpriteMap`
-  directly (not a TMX layer list) when no map is loaded, calling the same per-sprite
-  update/draw logic `HandleSpriteUpdate` already uses (including L3's own z-order sort) for
-  every layer's own sprites.
-- Collision dispatch (`HandleUserCollisions`) is unconditional today, not gated on
-  `m_pTmxMap` - confirmed by reading `Run()`'s own per-frame call sequence, it already works
-  mapless. Drawing is the only gap.
+**M2: mapless sprite drawing (DONE).**
+- `RenderMap`'s whole layer/sprite block was gated on `if( m_pTmxMap )`, so a mapless frame
+  only cleared the background. It now runs when a map is loaded **or** any sprite list exists
+  (`m_SpriteMap` non-empty); a mapless renderer with no sprites still only clears, opening no
+  clip, exactly as before.
+- A new `TileMapRenderer::DrawPassContent()` is what one pass draws, used by both the
+  single-view frame and `DrawViewPasses`: the map's own layers (`DrawAllLayers`, unchanged)
+  when a map is loaded; otherwise every layer id in `m_SpriteMap`, in ascending id order (a
+  `std::map`, the only layer order a mapless renderer has), each through the same
+  `HandleSpriteUpdate` the map path uses - so L3's z-order sort and the multi-view
+  advance-once-per-frame logic apply unchanged.
+- The active view's layer mask (`IView::ShowLayer`) applies to mapless layer ids the same way
+  it applies to map layers, since both key on the layer id.
+- `m_EffectiveLayerCameraPos` is not touched on the mapless path: `HandleSpriteUpdate` never
+  reads it, and a world-space sprite's own `GetCameraOffset` computes its camera fresh.
+- Collision dispatch (`HandleUserCollisions`) was already unconditional, confirmed by reading
+  `Run()`'s per-frame call sequence - drawing was the only gap.
+- `IDrawSurface`'s own doc comment, which still called sprite drawing "the missing piece" for
+  mapless rendering, is corrected.
+
+- **A leak found by CI, not locally:** `Stop()` and the destructor released the per-layer
+  sprite lists only through `UnloadMap()`, which does nothing without a map - so every
+  `AddSprite` on a renderer that never loaded a map leaked its layer's list (and the sprites
+  stayed registered across a `Stop()`/`Start()`). It predates M2, but M2's tests were the first
+  to exercise it. CI's Linux AddressSanitizer job caught it via LeakSanitizer; macOS's own
+  AddressSanitizer does not support leak detection (`detect_leaks is not supported on this
+  platform`), which is why the local run passed. `Stop()` and the destructor now call
+  `UnloadSprites()` unconditionally after `UnloadMap()` (a no-op when it already ran).
+
+Test items, in `tests/test_maplesssprites.cpp` (6 cases): a sprite registered with no map is
+drawn; mapless layer ids draw in ascending order whatever order they were added in; a view's
+layer mask hides a mapless layer id's sprites; with an extra view, each view draws the sprite
+once; `Stop()` releases mapless sprites as it does with a map (no longer drawn after a
+restart - the observable side of the leak fix, since leak detection itself cannot run on
+macOS); and with no map and no sprite the frame only clears, opening no clip (the case M2 must
+not change).
+
+Mutation checks, confirmed-fail-then-restore: putting the old `if( m_pTmxMap )` condition back
+fails the first four cases; the unchanged empty case passes both ways, as it should. Removing
+the new `UnloadSprites()` call from `Stop()` fails the restart case.
+
+Full suite: 568/568 (562 existing + 6 new), both in a normal build and under
+AddressSanitizer (clean, no reports - run because this is the renderer's own sprite draw
+path). Every sample builds cleanly. `doc/BREAKAGES.md` item 39 is written.
 
 **Test items, to refine further while building:**
 - A `TileMapRenderer` that calls `Start()` but never `LoadMap` can draw a shape primitive

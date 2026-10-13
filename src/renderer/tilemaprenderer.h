@@ -311,6 +311,7 @@ namespace SunLight {
             inline void HandleSpriteUpdate( int nLayerId );
             SunLight :: Base :: stColor BackgroundColorOf( View &view );
             void DrawViewPasses( void );
+            void DrawPassContent( void );
 
             // Internal layer handlers
             void CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer );
