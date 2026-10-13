@@ -1431,10 +1431,26 @@ namespace SunLight {
          */
         void TileMapRenderer :: HandleSpriteUpdate( int nLayerId )  {
 
-            SpriteMap :: iterator  itSpriteMap = m_SpriteMap.find( nLayerId ); 
+            SpriteMap :: iterator  itSpriteMap = m_SpriteMap.find( nLayerId );
 
             // Handle sprite animation
             if( itSpriteMap != m_SpriteMap.end() )  {
+                // L3 of the master plan: a layer's own sprites draw in ascending z-order, stably -
+                // equal values (every sprite at the default 0, among others) keep the order they
+                // were added in (AddSprite's own push_back), so an all-zero layer's draw order is
+                // byte-identical to before this item existed. Re-sorted on every call rather than
+                // only when a z-order actually changed: stable_sort on an already-correctly-ordered
+                // deque reproduces that same order exactly, so sorting unconditionally is always
+                // correct, and SpriteList's raw pointers give it std::deque's own random-access
+                // iterators, keeping the sort itself cheap (O(n log n) comparisons) even at this
+                // frequency - a dirty-flag optimization was not worth the extra sprite-to-renderer
+                // wiring it would need (Sprite has no back-channel to its owning TileMapRenderer
+                // today) for a cost no test or real workload here has shown to matter.
+                std :: stable_sort( itSpriteMap -> second -> begin(), itSpriteMap -> second -> end(),
+                                     []( SunLight :: Sprite :: Sprite *pLeft, SunLight :: Sprite :: Sprite *pRight )  {
+                                         return pLeft -> GetZOrder() < pRight -> GetZOrder();
+                                     } );
+
                 for( SunLight :: Sprite :: Sprite* pSprite : *itSpriteMap -> second )  {
                     if( m_ExtraViews.empty() )  {
                         pSprite -> Update();
