@@ -1559,6 +1559,95 @@ AddressSanitizer (clean, no reports) - sorting a `SpriteList` of raw, non-owning
 in place touches no lifetime, but the suite was run there anyway since it is the renderer's
 own sprite-registration/draw path. Every sample builds cleanly.
 
+## Phase M: a drawing surface independent of any map
+
+`TileMapRenderer` is the library's only renderer, used today as if it inherently needed a
+loaded TMX map - but a game built directly on the window canvas (no map at all) is a real,
+supported use case the library should serve as a first-class citizen, not an afterthought.
+
+| # | Item | Status |
+|---|------|--------|
+| M1 | Promote the Phase C/D shape primitives (`DrawRectangle`, `DrawPolygon`, `DrawPolyline`, `DrawEllipse`, `DrawPoint`) onto a public, mapless interface | TODO |
+| M2 | Make sprite drawing actually mapless: a frame with no map loaded still updates and draws every layer's registered sprites, completing `AddSprite`'s already-documented intent | TODO |
+| M3 | A sample demonstrating `TileMapRenderer` used purely as a drawing surface - shapes and sprites, `LoadMap` never called | TODO |
+
+**Found while investigating the owner's own question, not assumed:**
+- The shape primitives (`DrawRectangle`/`DrawPolygon`/`DrawPolyline`/`DrawEllipse`/`DrawPoint`,
+  `src/renderer/tilemaprenderer.cpp`) are private `TileMapRenderer` methods, reachable today
+  only through TMX object-group parsing (`DrawObjects`). Checked what they actually touch:
+  `m_EffectiveLayerCameraPos` is zeroed at construction and only ever set while walking a
+  loaded map's own layers; the viewport and zoom are valid immediately at construction. They
+  have no real dependency on map data at all - the only blocker is that they are private and
+  bundled inside one monolithic class, not a genuine architectural coupling.
+- There is already a precedent for exactly this split: `IDrawSurface`
+  (`src/drawsurface/idrawsurface.h`), deliberately carved out of `ITileMap` for this same
+  reason - its own doc comment says every one of its methods is "a pure pass-through straight
+  to `IEngine`... not because any of them are genuine tile-map operations." `TileMapRenderer`
+  already implements it alongside `ITileMap`. But `IDrawSurface` only carries the *simple*
+  primitives (`DrawText`, `DrawFilledRectangle`), predating Phase C/D - the thick-primitive
+  suite was never promoted the same way.
+- `ITileMap::AddSprite` already has deliberate, documented mapless support: it accepts any
+  `nLayerId` as a plain grouping key when no map is loaded. But tracing the draw path found
+  this is unfinished: `RenderMap()` only ever calls `DrawAllLayers` (the sole place
+  `Sprite::Update()`/`Draw()` are invoked) inside `if( m_pTmxMap )`. **A sprite registered
+  with no map loaded updates its collider but is never actually drawn.** `IDrawSurface`'s own
+  doc comment, which still calls sprite drawing "the missing piece for genuinely mapless
+  rendering," is itself stale relative to this - the feature is far closer to done than that
+  comment suggests, just not finished.
+
+**Decided:** no new concrete class (a second "SurfaceRenderer" alongside `TileMapRenderer`).
+The primitives already have no real map dependency, and a second class would duplicate
+window/engine lifecycle, `Start`/`Stop`, the frame loop and input dispatch that
+`TileMapRenderer` already handles identically whether or not a map is loaded. The mapless
+story is completed in place: a consumer who wants a bare drawing surface uses
+`TileMapRenderer`/`Create`/`Start` and simply never calls `LoadMap`, holding an
+`IDrawSurface` handle (not `ITileMap`) if they want the compiler to enforce that they never
+touch map-only API.
+
+**M1: open questions, not yet decided:**
+- Whether the promoted methods keep their current signatures (raw doubles/ints, a
+  `SunLight::Base::stColor`, a pre-computed `nLineWidth` in screen pixels) or take friendlier,
+  higher-level parameters (e.g. a `thickness` in map units, converted internally the way
+  `Shape::ScreenLineWidth` already does for TMX objects) - today's signatures were shaped
+  entirely by `DrawObjects`' own call sites, never designed as a public API.
+- Whether rotation (`fRotation`) stays a required parameter on every call, or gets a
+  defaulted-0.0 overload, since most mapless callers will not want it.
+- Where the promoted declarations physically live: added straight to `IDrawSurface`, or a new
+  sibling interface (e.g. `IShapeSurface`) `TileMapRenderer` also implements, kept separate so
+  `IDrawSurface` itself does not grow much further - leaning toward the latter, not decided.
+
+**M2:**
+- `RenderMap`'s sprite-drawing path (`DrawAllLayers` -> `HandleSpriteUpdate`) is reached only
+  inside `if( m_pTmxMap )` today; a mapless frame currently clears the background and
+  optionally draws the FPS counter, nothing else. Needs its own path that walks `m_SpriteMap`
+  directly (not a TMX layer list) when no map is loaded, calling the same per-sprite
+  update/draw logic `HandleSpriteUpdate` already uses (including L3's own z-order sort) for
+  every layer's own sprites.
+- Collision dispatch (`HandleUserCollisions`) is unconditional today, not gated on
+  `m_pTmxMap` - confirmed by reading `Run()`'s own per-frame call sequence, it already works
+  mapless. Drawing is the only gap.
+
+**Test items, to refine further while building:**
+- A `TileMapRenderer` that calls `Start()` but never `LoadMap` can draw a shape primitive
+  directly (M1) and have a registered sprite actually appear on screen (M2) - both through
+  the mock engine, no real window.
+- A rotated/thick shape drawn through the new public API produces the exact same spans as the
+  same shape drawn via a TMX object (the same underlying private bodies) - a regression guard
+  that promoting the methods did not fork their behavior.
+- Every existing Phase C/D/L test still passes unchanged - promoting these methods to public
+  must not alter `DrawObjects`' own behavior.
+
+**Coordination:** adds public API, removes nothing. `IDrawSurface` gains new pure virtuals;
+confirmed only `TileMapRenderer` implements `IDrawSurface` today (no other class, no mock), so
+nothing else in this codebase needs updating for that alone. Still worth a `doc/BREAKAGES.md`
+entry once built, same as every other API addition - Scarab/Caravellius integration should
+check whether either keeps its own `IDrawSurface`-shaped wrapper that would need the same
+methods added.
+
+**Sequencing:** done before Structure's own `S1` (not after), so that split - which already
+plans to move "object drawing (`DrawObjects` and its dispatch)" into its own file - can be
+designed around the seam M1 establishes, instead of being redone once that seam exists.
+
 ## Structure: a smaller TileMapRenderer
 
 `src/renderer/tilemaprenderer.cpp` is about 3,300 lines, and it holds most of the renderer's work. The
