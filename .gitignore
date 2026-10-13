@@ -81,3 +81,6 @@ doc/doxygen/
 **/build/
 **/out/
 **/_deps/
+
+# Claude Code local settings (per-machine permission allowlist, lock files)
+.claude/
