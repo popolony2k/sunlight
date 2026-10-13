@@ -31,6 +31,7 @@ namespace SunLight {
             m_itActiveSequence = m_Sequences.begin();
             m_bIsValidActiveSequence = ( m_itActiveSequence != m_Sequences.end() );
             m_bFrameHeld = false;
+            m_nZOrder = 0;
         }
 
         /**
@@ -299,6 +300,23 @@ namespace SunLight {
                     pTexture -> SetParallaxLayerId( nLayerId );
                 } );
             }
+        }
+
+        /**
+         * L3 of the master plan: this sprite's own draw order among the other sprites on the same
+         * TMX layer - plain storage, read back by TileMapRenderer::HandleSpriteUpdate before every
+         * draw. No propagation to this sprite's own canvases (unlike SetWorldSpace/
+         * SetParallaxLayerId above): z-order is a sibling-ordering concern the renderer applies
+         * from outside the sprite, not something an individual canvas needs to know about itself.
+         */
+        void Sprite :: SetZOrder( int nZOrder )  {
+
+            m_nZOrder = nZOrder;
+        }
+
+        int Sprite :: GetZOrder( void )  {
+
+            return m_nZOrder;
         }
 
         /**

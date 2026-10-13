@@ -49,6 +49,11 @@ namespace SunLight {
             // new frame, so the current one is held (see Advance/Draw).
             bool                            m_bFrameHeld;
 
+            // L3 of the master plan: draw order among sprites registered on the SAME TMX layer
+            // (TileMapRenderer::AddSprite) - default 0. Layers already order sprites between each
+            // other; this only reorders siblings within one layer, stably, on a change.
+            int                             m_nZOrder;
+
             public:
 
             Sprite( void );
@@ -103,6 +108,13 @@ namespace SunLight {
             // BaseCanvas::SetParallaxLayerId - set by TileMapRenderer::AddSprite, not meant to
             // be called directly by application code.
             void SetParallaxLayerId( int nLayerId );
+
+            // L3 of the master plan: this sprite's draw order among the other sprites on the same
+            // TMX layer. Default 0. TileMapRenderer stable-sorts a layer's sprites by this value
+            // before drawing them, so equal values keep whichever order the sprites were added in
+            // (AddSprite) - every sprite at 0 therefore draws in that same, unchanged order.
+            void SetZOrder( int nZOrder );
+            int GetZOrder( void );
 
             // Whether the ACTIVE texture passes the viewport test that gates Advance() and Draw() in the
             // view being drawn (the sprite is visible, has an active sequence, and the texture's rectangle is

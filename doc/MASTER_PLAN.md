@@ -1264,7 +1264,7 @@ backend. Real behaviour can only be proven here, so this item stays open until t
 |---|------|--------|
 | L1 | Per-layer camera and parallax | DONE |
 | L2 | Per-object opacity | DONE |
-| L3 | Sprite draw order within a layer | TODO |
+| L3 | Sprite draw order within a layer | DONE |
 
 **Coordination rule for this phase:** same staging pattern as Phases E/F -
 `feat/complete_l_plan`, created from `feat/master_plan`; every sub-item merges there
@@ -1513,17 +1513,51 @@ wrong value here, it silently overflows into nonsense).
 Full suite: 551/551 (544 existing + 7 new). Every sample builds cleanly. No new pure
 virtual methods were added to any interface, so no mock updates were needed.
 
-### L3: sprite draw order within a layer
-- Add `SetZOrder(int)` to `Sprite`, default 0.
-- Sort each layer's sprites with a stable sort, only when a z-order changed. Equal
-  values keep insertion order.
-- Z-order applies only within a layer. Layers already order sprites between each other.
+### L3: sprite draw order within a layer (DONE)
+- `Sprite::SetZOrder(int)`/`GetZOrder()`, default 0 - plain storage on `Sprite`, no
+  propagation to its own canvases (unlike `SetWorldSpace`/`SetParallaxLayerId`): z-order is
+  a sibling-ordering concern the renderer applies from outside the sprite, not something an
+  individual canvas needs to know about itself.
+- `TileMapRenderer::HandleSpriteUpdate` stable-sorts a layer's own `SpriteList` (a
+  `std::deque<Sprite*>`, already random-access) by ascending z-order before iterating it,
+  every time it runs. **Decided while building it, departing from the plan's own wording
+  above ("only when a z-order changed")**: a dirty-flag optimization would need `Sprite` to
+  notify its owning `TileMapRenderer` on every `SetZOrder` call, and `Sprite` has no
+  back-channel to it today (its own `m_pParent` is a generic `BaseCanvas*`, not specifically
+  a `TileMapRenderer`) - wiring one would be real new plumbing for a cost no test or real
+  workload here showed to matter. `std::stable_sort` on an already-correctly-ordered deque
+  reproduces that same order exactly, so sorting unconditionally is always correct, just not
+  maximally cheap; revisit only if a real profile shows it matters.
+- Z-order applies only within a layer: `HandleSpriteUpdate` is called once per TMX layer
+  (from `DrawAllLayers`'s own per-layer dispatch), so sorting happens independently per
+  layer's own `SpriteList` - a sprite's z-value can never move it across a layer boundary.
 
-Test items:
-- With every z-order at 0, output is byte-identical to today.
-- A higher z-order is drawn after a lower one on the same layer.
-- The sort is stable: equal values keep insertion order.
-- Sprites on different layers keep the layer order, whatever their z-values.
+Test items, in `tests/test_spritezorder.cpp` (4 cases):
+- With every z-order at 0 (the default), draw order is unchanged - the order sprites were
+  added in (`AddSprite`'s own `push_back`).
+- A higher z-order draws after a lower one on the same layer, even added out of order.
+- The sort is stable: equal-z sprites keep their own add order. **Found while writing this
+  case, not assumed:** a small sprite count (4, even 24) could not actually tell
+  `std::stable_sort` from a plain `std::sort` apart on this platform's standard library -
+  both passed identically, because small-range sorts commonly fall back to an
+  insertion-sort-shaped algorithm that happens to be stable anyway, even though `std::sort`
+  promises no such thing. 60 sprites spread across 5 distinct z-order groups is what
+  actually exposed the difference - confirmed directly (see the mutation check below), not
+  guessed at from a vague "probably enough" sample size.
+- Sprites on different layers keep their own layer's draw order, whatever their z-values -
+  a z=100 sprite on layer 1 still draws before a z=0 sprite on layer 2, since layer order is
+  the TMX layer order, untouched by L3.
+
+Mutation checks, each confirmed by reverting the fix, seeing the specific test fail, then
+restoring it: removing the sort entirely fails the "higher z draws after" and "stable" cases;
+replacing `stable_sort` with plain `sort` fails only the 60-sprite/5-group stable case (and,
+as found above, does NOT fail a smaller same-shape case, which is why the test uses 60/5 and
+says so).
+
+Full suite: 555/555 (551 existing + 4 new), both in a normal build and under
+AddressSanitizer (clean, no reports) - sorting a `SpriteList` of raw, non-owning pointers
+in place touches no lifetime, but the suite was run there anyway since it is the renderer's
+own sprite-registration/draw path. Every sample builds cleanly.
 
 ## Structure: a smaller TileMapRenderer
 
