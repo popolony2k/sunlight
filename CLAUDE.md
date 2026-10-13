@@ -22,10 +22,10 @@ cmake -B build -S . -DBUILD_LIBRARY_SAMPLES=ON
 cmake --build build -j 4
 ```
 
-This builds `tilemaprenderer_test`, `sprite_test`, `collision_test`, `gamepad_test`, and `scriptprocessor_test`, and copies the raylib/tmx/LibXml2/sunlight shared libs next to each executable (required at runtime, via the `*_copy_binaries` custom targets). Each sample takes its own directory as `argv[1]` and resolves resource paths relative to it, e.g.:
+This builds `orthogonal_test`, `sprite_test`, `collision_test`, `gamepad_test`, and `scriptprocessor_test`, and copies the raylib/tmx/LibXml2/sunlight shared libs next to each executable (required at runtime, via the `*_copy_binaries` custom targets). Each sample takes its own directory as `argv[1]` and resolves resource paths relative to it, e.g.:
 
 ```shell
-./build/samples/tilemaprenderer/tilemaprenderer_test samples/tilemaprenderer/
+./build/samples/orthogonal/orthogonal_test samples/orthogonal/
 ```
 
 Unit tests are opt-in too (`OFF` by default), using [doctest](https://github.com/doctest/doctest) fetched via `FetchContent`:
@@ -98,6 +98,7 @@ Both were caught by reading the actual vendored source (`build/_deps/raylib-src/
 - **Check every diff touching rendering/input/sound for a direct raylib (or future SDL) call outside its `*/raylib/` folder** — see "Backend abstraction pattern" above. The fix is always: add or reuse a method on the relevant interface, implement it in the `Raylib*` class, route the original call site through the matching factory instead of the raylib call directly.
 - Build and run the *full* suite (`./build/tests/sunlight_tests`) before calling a change done, not just the tests you touched.
 - **For a change that touches object lifetimes (destructors, raw-pointer holders like `Sprite`/`TileMapRenderer`'s registered sprites, shared/removed handles), also run the suite under AddressSanitizer** - a use-after-free or use-after-scope is invisible in a normal run when the stale read happens to see zeroes (it hid `~Sprite` reading dead canvases for years). Offline, reusing the sources a normal configure already fetched: `D=$PWD/build/_deps; cmake -B /tmp/build-asan -S . -DBUILD_LIBRARY_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DFETCHCONTENT_FULLY_DISCONNECTED=ON -DFETCHCONTENT_SOURCE_DIR_{LIBXML2=$D/libxml2-src,TMX=$D/tmx-src,RAYLIB=$D/raylib-src,PHYSFS=$D/physfs-src,SDL2=$D/sdl2-src,DOCTEST=$D/doctest-src}` plus `-fsanitize=address -fno-omit-frame-pointer -g` in `CMAKE_C_FLAGS`/`CMAKE_CXX_FLAGS` and `-fsanitize=address` in `CMAKE_EXE_LINKER_FLAGS`/`CMAKE_SHARED_LINKER_FLAGS` (spell the five `-DFETCHCONTENT_SOURCE_DIR_*` options out - the brace form is shorthand), then build `sunlight_tests` and run it. A mutation that only ASAN can see (a dangling read that "works") cannot be proven by a plain test run.
+- **macOS's AddressSanitizer does not detect leaks** (`detect_leaks is not supported on this platform`): a clean local ASan run says nothing about leaks. Only CI's "AddressSanitizer (Linux)" job runs LeakSanitizer. For a local leak check, run the normal (non-ASan) test binary under macOS's own `leaks` tool: `MallocStackLogging=1 leaks --atExit -- ./build/tests/sunlight_tests` - it must report `0 leaks`, and each leak it does report comes with the allocating stack. Real example: M2's mapless `AddSprite` leaked its per-layer sprite list (freed only through `UnloadMap()`, a no-op with no map); the local ASan run passed, CI's LeakSanitizer failed, and `leaks --atExit` reproduces it locally (21 leaks rooted in `AddSprite`, 0 with the fix).
 
 ## Known issues and planned work
 

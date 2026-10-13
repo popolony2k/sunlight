@@ -31,6 +31,7 @@
 #include "collision/collisionmanager.h"
 #include "tilemap/itilemaplistener.h"
 #include "drawsurface/idrawsurface.h"
+#include "drawsurface/ishapesurface.h"
 #include "font/ifont.h"
 #include "renderer/rendererconfig.h"
 #include "renderer/shape/shapeprimitives.h"
@@ -67,7 +68,8 @@ namespace SunLight {
          * both are ultimately backed by.
          */
         class TileMapRenderer : public SunLight :: TileMap :: ITileMap,
-                                 public SunLight :: DrawSurface :: IDrawSurface  {
+                                 public SunLight :: DrawSurface :: IDrawSurface,
+                                 public SunLight :: DrawSurface :: IShapeSurface  {
 
             /**
              * Tile animation information.
@@ -234,6 +236,15 @@ namespace SunLight {
                                                                           int nPointsCount,
                                                                           double fZoom,
                                                                           double fRotation );
+
+            // M1 of the master plan: converts a caller-owned stVector2D array into the double**
+            // shape the private DrawPolyline/DrawPolygon overloads (and libtmx itself) use, in
+            // storage/ppRows only - nothing escapes this call. See IShapeSurface::DrawPolyline's
+            // own doc comment for the full why.
+            void ToTmxPointArray( const SunLight :: Base :: stVector2D *pPoints,
+                                  int nPointsCount,
+                                  std :: vector<double> &storage,
+                                  std :: vector<double*> &ppRows );
             void DrawRectangle( double offset_x,
                                 double offset_y,
                                 double width,
@@ -300,6 +311,7 @@ namespace SunLight {
             inline void HandleSpriteUpdate( int nLayerId );
             SunLight :: Base :: stColor BackgroundColorOf( View &view );
             void DrawViewPasses( void );
+            void DrawPassContent( void );
 
             // Internal layer handlers
             void CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer );
@@ -316,7 +328,7 @@ namespace SunLight {
             virtual ~TileMapRenderer( void );
 
             // A sprite that is destroyed, or moved to another parent, calls this on the parent it is leaving.
-            void ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild );
+            void ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild ) override;
 
             // The camera of the view being drawn (the active view's), for world-space sprites -
             // scaled by nLayerId's own parallax factor (L1 of the master plan) when it names a
@@ -338,35 +350,35 @@ namespace SunLight {
             void RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener );
 
             // Window behavior
-            void SetExitKey( SunLight :: Input :: KeyboardKey key );
-            SunLight :: Input :: KeyboardKey GetExitKey( void );
-            void SetWindowResizeable( bool bResizeable );
-            bool GetWindowResizeable( void );
-            void RequestExit( void );
-            bool GetExitRequested( void );
-            void SetTargetFPS( int nTargetFps );
-            int  GetTargetFPS( void );
+            void SetExitKey( SunLight :: Input :: KeyboardKey key ) override;
+            SunLight :: Input :: KeyboardKey GetExitKey( void ) override;
+            void SetWindowResizeable( bool bResizeable ) override;
+            bool GetWindowResizeable( void ) override;
+            void RequestExit( void ) override;
+            bool GetExitRequested( void ) override;
+            void SetTargetFPS( int nTargetFps ) override;
+            int  GetTargetFPS( void ) override;
             void SetWindowBackgroundColor( SunLight :: Base :: stColor color );
             void SetClearBackground( bool bStatus );
             bool GetClearBackground( void );
-            void SetDrawFPS( bool bDrawFPS );
-            bool GetDrawFPS( void );
+            void SetDrawFPS( bool bDrawFPS ) override;
+            bool GetDrawFPS( void ) override;
             void SetFullscreen( bool bFullscreen,
                                SunLight :: Window :: FullscreenStrategy strategy =
-                                   SunLight :: Window :: FULLSCREEN_STRATEGY_REAL );
-            bool GetFullscreen( void );
-            SunLight :: Window :: FullscreenStrategy GetFullscreenStrategy( void );
-            double GetElapsedTime( void );
-            void SetStretchToFill( bool bStretchToFill );
-            bool GetStretchToFill( void );
+                                   SunLight :: Window :: FULLSCREEN_STRATEGY_REAL ) override;
+            bool GetFullscreen( void ) override;
+            SunLight :: Window :: FullscreenStrategy GetFullscreenStrategy( void ) override;
+            double GetElapsedTime( void ) override;
+            void SetStretchToFill( bool bStretchToFill ) override;
+            bool GetStretchToFill( void ) override;
 
             // Views
-            SunLight :: TileMap :: IView& GetDefaultView( void );
-            std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: Base :: stDimension2D& rect );
-            std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int nViewId );
-            bool RemoveView( int nViewId );
-            bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView );
-            int GetViewCount( void );
+            SunLight :: TileMap :: IView& GetDefaultView( void ) override;
+            std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: Base :: stDimension2D& rect ) override;
+            std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int nViewId ) override;
+            bool RemoveView( int nViewId ) override;
+            bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView ) override;
+            int GetViewCount( void ) override;
 
             // View port control
             void SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode );
@@ -374,38 +386,38 @@ namespace SunLight {
             void GetScrollStepSize( int &nStepWidth, int &nStepHeight );
 
             // GamePad handling
-            void AddGamePad( int nGamePadId );
+            void AddGamePad( int nGamePadId ) override;
 
             // User input handling           
-            void SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt, SunLight :: Input :: INPUT_EVENT_HANDLER handler );
-            void SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, SunLight :: Input :: INPUT_EVENT_HANDLER handler );
+            void SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt, SunLight :: Input :: INPUT_EVENT_HANDLER handler ) override;
+            void SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, SunLight :: Input :: INPUT_EVENT_HANDLER handler ) override;
 
-            SunLight :: Input :: IInputHandler& GetInputHandler( void );
+            SunLight :: Input :: IInputHandler& GetInputHandler( void ) override;
 
             // The controller manager these input methods delegate to (F0a of the master plan),
             // for direct access - the same shape as GetCollisionManager().
             SunLight :: Input :: IControllerManager& GetControllerManager( void );
 
             // Zoom wrappers
-            void ResetZoom( void );
-            void ZoomIn( void );
-            void ZoomOut( void );
+            void ResetZoom( void ) override;
+            void ZoomIn( void ) override;
+            void ZoomOut( void ) override;
 
             // Camera management
-            void ResetCamera( void );
-            void MoveCameraUp( void );
-            void MoveCameraDown( void );
-            void MoveCameraLeft( void );
-            void MoveCameraRight( void );
-            void SetCameraPosition( int nX, int nY );
-            void GetCameraPosition( int &nX, int &nY );
+            void ResetCamera( void ) override;
+            void MoveCameraUp( void ) override;
+            void MoveCameraDown( void ) override;
+            void MoveCameraLeft( void ) override;
+            void MoveCameraRight( void ) override;
+            void SetCameraPosition( int nX, int nY ) override;
+            void GetCameraPosition( int &nX, int &nY ) override;
 
             // Window management
-            void SetWindowTitle( const std :: string &strTitle );
-            void SetScreenFade( float fAlpha );
+            void SetWindowTitle( const std :: string &strTitle ) override;
+            void SetScreenFade( float fAlpha ) override;
 
             // Text rendering
-            bool SetFont( const char *szFilePath );
+            bool SetFont( const char *szFilePath ) override;
 
             // Register a font for text objects: a text object whose fontfamily
             // and bold/italic flags match these draws with it. Needs a started
@@ -419,7 +431,7 @@ namespace SunLight {
                            unsigned char nRed,
                            unsigned char nGreen,
                            unsigned char nBlue,
-                           unsigned char nAlpha );
+                           unsigned char nAlpha ) override;
             void DrawFilledRectangle( int nPosX,
                                       int nPosY,
                                       int nWidth,
@@ -427,16 +439,38 @@ namespace SunLight {
                                       unsigned char nRed,
                                       unsigned char nGreen,
                                       unsigned char nBlue,
-                                      unsigned char nAlpha );
-            int MeasureText( const char *szText, int nFontSize );
-            int GetWindowWidth( void );
-            int GetWindowHeight( void );
+                                      unsigned char nAlpha ) override;
+            int MeasureText( const char *szText, int nFontSize ) override;
+            int GetWindowWidth( void ) override;
+            int GetWindowHeight( void ) override;
+
+            // IShapeSurface (M1 of the master plan): the same shape-drawing bodies DrawObjects
+            // already uses for Tiled shape objects, given a public, mapless door. Each override
+            // converts its own map-unit thickness/rotation into the existing private methods'
+            // own screen-pixel/point-array shape, then calls straight through - no drawing logic
+            // is duplicated or reimplemented here.
+            void DrawRectangle( double fX, double fY, double fWidth, double fHeight,
+                                SunLight :: Base :: stColor color,
+                                double fThickness = 1.0, double fRotation = 0.0 ) override;
+            void DrawEllipse( double fX, double fY, double fWidth, double fHeight,
+                              SunLight :: Base :: stColor color,
+                              double fThickness = 1.0, double fRotation = 0.0 ) override;
+            void DrawPolyline( double fX, double fY,
+                               const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                               SunLight :: Base :: stColor color,
+                               double fThickness = 1.0, double fRotation = 0.0 ) override;
+            void DrawPolygon( double fX, double fY,
+                              const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                              SunLight :: Base :: stColor color,
+                              double fThickness = 1.0, double fRotation = 0.0 ) override;
+            void DrawPoint( double fX, double fY, SunLight :: Base :: stColor color,
+                            double fSize = 1.0 ) override;
 
             // Layer management
-            bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer );
-            bool SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer );
-            bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer );
-            bool GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer );
+            bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) override;
+            bool SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer ) override;
+            bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer ) override;
+            bool GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer ) override;
 
             // L1 of the master plan: set a layer's own parallax factor in code, overriding
             // whatever the TMX file itself declared (fFactorX/fFactorY 1.0 = no parallax).
@@ -449,26 +483,26 @@ namespace SunLight {
             // Tile management
             bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
                           const SunLight :: TileMap :: stLayer& layer,
-                          SunLight :: TileMap :: stTile& tile );
+                          SunLight :: TileMap :: stTile& tile ) override;
 
             // Coordinate conversion
             bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
-                                      SunLight :: TileMap :: stMatrixPosition& pos );
+                                      SunLight :: TileMap :: stMatrixPosition& pos ) override;
 
             // Map management
-            bool LoadMap( const char *szTxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment = MAP_ALIGNMENT_CENTER );
-            bool UnloadMap( void );
-            bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo );
+            bool LoadMap( const char *szTxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment = MAP_ALIGNMENT_CENTER ) override;
+            bool UnloadMap( void ) override;
+            bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo ) override;
 
             // Object management
-            bool GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object );
+            bool GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object ) override;
 
             // Collision management
-            SunLight :: Collision :: ICollisionManager& GetCollisionManager( void );
+            SunLight :: Collision :: ICollisionManager& GetCollisionManager( void ) override;
 
             // Sprite management
-            bool AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite );
-            bool RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite );
+            bool AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite ) override;
+            bool RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite ) override;
 
             // Renderer flow control.
             bool Start( void );

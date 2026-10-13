@@ -427,6 +427,105 @@ namespace SunLight {
         }
 
         /**
+         * @brief IShapeSurface::DrawRectangle (M1 of the master plan). Converts fThickness (map
+         * units) to a screen-pixel line width via the same Shape::ScreenLineWidth every TMX shape
+         * object already uses, then calls straight through to the existing, already-tested
+         * private DrawRectangle(double,double,double,double,double,int,stColor) overload above -
+         * unambiguous despite the shared name, since the two signatures differ in both the type
+         * and the order of their later parameters (stColor at position 5 here, a plain double at
+         * position 5 there).
+         */
+        void TileMapRenderer :: DrawRectangle( double fX, double fY, double fWidth, double fHeight,
+                                               SunLight :: Base :: stColor color,
+                                               double fThickness, double fRotation )  {
+
+            int  nScreenWidth = Shape :: ScreenLineWidth( fThickness, GetViewport().GetZoomProperties().fZoomFactor );
+
+            DrawRectangle( fX, fY, fWidth, fHeight, fRotation, nScreenWidth, color );
+        }
+
+        /**
+         * @brief IShapeSurface::DrawEllipse (M1). Same conversion-then-delegate shape as
+         * DrawRectangle above, to the private DrawEllipse overload.
+         */
+        void TileMapRenderer :: DrawEllipse( double fX, double fY, double fWidth, double fHeight,
+                                             SunLight :: Base :: stColor color,
+                                             double fThickness, double fRotation )  {
+
+            int  nScreenWidth = Shape :: ScreenLineWidth( fThickness, GetViewport().GetZoomProperties().fZoomFactor );
+
+            DrawEllipse( fX, fY, fWidth, fHeight, fRotation, nScreenWidth, color );
+        }
+
+        /**
+         * @brief The private path methods take a point array as libtmx itself stores one
+         * (tmx_shape::points), double**, each entry a heap-owned {x, y} pair - not something a
+         * mapless public caller should ever have to build by hand. This converts a flat,
+         * caller-owned stVector2D array into that same double** shape, in local storage only
+         * (nothing escapes this call), for IShapeSurface::DrawPolyline/DrawPolygon (M1) below to
+         * then call straight through with.
+         * @param pPoints The caller's own points;
+         * @param nPointsCount How many;
+         * @param storage Backing storage for the converted coordinates - kept alive by the
+         * caller for exactly as long as ppRows, which points into it;
+         * @param ppRows Receives nPointsCount pointers, each into one pair inside storage;
+         */
+        void TileMapRenderer :: ToTmxPointArray( const SunLight :: Base :: stVector2D *pPoints,
+                                                 int nPointsCount,
+                                                 std :: vector<double> &storage,
+                                                 std :: vector<double*> &ppRows )  {
+
+            storage.resize( ( size_t ) nPointsCount * 2 );
+            ppRows.resize( ( size_t ) nPointsCount );
+
+            for( int nIdx = 0; nIdx < nPointsCount; nIdx++ )  {
+                storage[( nIdx * 2 )]     = ( double ) pPoints[nIdx].x;
+                storage[( nIdx * 2 ) + 1] = ( double ) pPoints[nIdx].y;
+                ppRows[nIdx]              = &storage[nIdx * 2];
+            }
+        }
+
+        void TileMapRenderer :: DrawPolyline( double fX, double fY,
+                                              const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                                              SunLight :: Base :: stColor color,
+                                              double fThickness, double fRotation )  {
+
+            std :: vector<double>   storage;
+            std :: vector<double*>  ppRows;
+
+            ToTmxPointArray( pPoints, nPointsCount, storage, ppRows );
+
+            int  nScreenWidth = Shape :: ScreenLineWidth( fThickness, GetViewport().GetZoomProperties().fZoomFactor );
+
+            DrawPolyline( fX, fY, ppRows.data(), nPointsCount, fRotation, nScreenWidth, color );
+        }
+
+        void TileMapRenderer :: DrawPolygon( double fX, double fY,
+                                             const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                                             SunLight :: Base :: stColor color,
+                                             double fThickness, double fRotation )  {
+
+            std :: vector<double>   storage;
+            std :: vector<double*>  ppRows;
+
+            ToTmxPointArray( pPoints, nPointsCount, storage, ppRows );
+
+            int  nScreenWidth = Shape :: ScreenLineWidth( fThickness, GetViewport().GetZoomProperties().fZoomFactor );
+
+            DrawPolygon( fX, fY, ppRows.data(), nPointsCount, fRotation, nScreenWidth, color );
+        }
+
+        /**
+         * @brief IShapeSurface::DrawPoint (M1). The private DrawPoint(double,double,double,
+         * stColor) already takes its own size in map units and converts it internally - this
+         * only reorders fX/fY/color/fSize into that shape before calling straight through.
+         */
+        void TileMapRenderer :: DrawPoint( double fX, double fY, SunLight :: Base :: stColor color, double fSize )  {
+
+            DrawPoint( fX, fY, fSize, color );
+        }
+
+        /**
          * Draw a tile to specified position on texture.
          * @param pImage Pointer to a @link Texture2D object used as renderer.
          * @param uSourceX Source tile X coordinate;
@@ -1343,7 +1442,7 @@ namespace SunLight {
                                                                                               BackgroundColorOf( *pView ) );
                 }
 
-                DrawAllLayers( m_pTmxMap -> ly_head );
+                DrawPassContent();
 
                 SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
             }
@@ -1356,6 +1455,27 @@ namespace SunLight {
                 pSprite -> Advance();
 
             m_FramePendingSprites.clear();
+        }
+
+        /**
+         * @brief What one pass draws (M2 of the master plan): the map's own layers - each with its
+         * sprites, in the map's layer order - when a map is loaded; otherwise every layer id
+         * sprites were registered under, in ascending id order (m_SpriteMap is a std::map), as
+         * the only layer order a mapless renderer has. The active view's layer mask applies the
+         * same way in both cases (IView::ShowLayer keys on the same layer id), so a view can hide
+         * a mapless sprite group exactly as it hides a map layer.
+         */
+        void TileMapRenderer :: DrawPassContent( void )  {
+
+            if( m_pTmxMap )  {
+                DrawAllLayers( m_pTmxMap -> ly_head );
+                return;
+            }
+
+            for( const std :: pair<const int, SpriteList*> &layer : m_SpriteMap )  {
+                if( m_pActiveView -> IsLayerShown( layer.first ) )
+                    HandleSpriteUpdate( layer.first );
+            }
         }
 
         /**
@@ -1379,7 +1499,11 @@ namespace SunLight {
                     engine.ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
             }
 
-            if( m_pTmxMap )  {
+            // M2 of the master plan: a frame with no map loaded still draws the sprites registered
+            // with AddSprite (which has always accepted a mapless caller) - before M2 this whole
+            // block was skipped without a map, so such a sprite's collider was updated every frame
+            // but the sprite itself was never drawn.
+            if( m_pTmxMap || !m_SpriteMap.empty() )  {
                 if( m_ExtraViews.empty() )  {
                     /*
                      * The single-view frame - every renderer that never calls CreateView -
@@ -1394,7 +1518,7 @@ namespace SunLight {
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.y,
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nWidth,
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nHeight } );
-                        DrawAllLayers( m_pTmxMap -> ly_head );
+                        DrawPassContent();
                         SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
                     }
                 }
@@ -1700,6 +1824,7 @@ namespace SunLight {
 
             ReleaseRegisteredFonts();
             UnloadMap();
+            UnloadSprites();   // see Stop(): a mapless renderer's sprite lists are not reached by UnloadMap
 
             /*
              * Every sprite that still has this renderer as its parent (registered or removed with
@@ -3309,6 +3434,10 @@ namespace SunLight {
 
             if( m_bIsStarted )  {
                 UnloadMap();
+                // UnloadMap only reaches UnloadSprites when a map is loaded; sprites registered
+                // with no map ever loaded (M2) must be released here too, or their per-layer
+                // lists leak and they stay registered across a restart.
+                UnloadSprites();
 
                 // Fonts go before the window closes: the engine's close handler
                 // would release them too, but that is its own state, not ours.

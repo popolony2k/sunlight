@@ -47,11 +47,13 @@ namespace SunLight {
          * (here, a tile map) may or may not currently be loaded.
          *
          * A consumer holding only an IDrawSurface (not also an ITileMap)
-         * can draw text/shapes and query/toggle window state with no tile
-         * map ever having been loaded - the missing piece for genuinely
-         * mapless rendering is sprite drawing (@link
-         * SunLight::TileMap::ITileMap::AddSprite still requires a loaded
-         * map to resolve a layer id), not this.
+         * can draw text and filled rectangles and query/toggle window state
+         * with no tile map ever having been loaded. Viewport/zoom-aware
+         * shapes are on the sibling @link IShapeSurface, and sprites
+         * registered with @link SunLight::TileMap::ITileMap::AddSprite
+         * are drawn with no map loaded too (any layer id is then a plain
+         * grouping key, drawn in ascending id order) - so a game built on
+         * the window canvas alone needs no map at all.
          */
         class IDrawSurface {
 
