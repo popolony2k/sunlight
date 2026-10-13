@@ -1695,17 +1695,28 @@ the fixture bug above was a real, live crash during development). Every sample b
 - `IDrawSurface`'s own doc comment, which still called sprite drawing "the missing piece" for
   mapless rendering, is corrected.
 
-Test items, in `tests/test_maplesssprites.cpp` (5 cases): a sprite registered with no map is
+- **A leak found by CI, not locally:** `Stop()` and the destructor released the per-layer
+  sprite lists only through `UnloadMap()`, which does nothing without a map - so every
+  `AddSprite` on a renderer that never loaded a map leaked its layer's list (and the sprites
+  stayed registered across a `Stop()`/`Start()`). It predates M2, but M2's tests were the first
+  to exercise it. CI's Linux AddressSanitizer job caught it via LeakSanitizer; macOS's own
+  AddressSanitizer does not support leak detection (`detect_leaks is not supported on this
+  platform`), which is why the local run passed. `Stop()` and the destructor now call
+  `UnloadSprites()` unconditionally after `UnloadMap()` (a no-op when it already ran).
+
+Test items, in `tests/test_maplesssprites.cpp` (6 cases): a sprite registered with no map is
 drawn; mapless layer ids draw in ascending order whatever order they were added in; a view's
 layer mask hides a mapless layer id's sprites; with an extra view, each view draws the sprite
-once; and with no map and no sprite the frame only clears, opening no clip (the case M2 must
+once; `Stop()` releases mapless sprites as it does with a map (no longer drawn after a
+restart - the observable side of the leak fix, since leak detection itself cannot run on
+macOS); and with no map and no sprite the frame only clears, opening no clip (the case M2 must
 not change).
 
-Mutation check, confirmed-fail-then-restore: putting the old `if( m_pTmxMap )` condition back
-fails the first four cases; the fifth (the unchanged empty case) passes both ways, as it
-should.
+Mutation checks, confirmed-fail-then-restore: putting the old `if( m_pTmxMap )` condition back
+fails the first four cases; the unchanged empty case passes both ways, as it should. Removing
+the new `UnloadSprites()` call from `Stop()` fails the restart case.
 
-Full suite: 567/567 (562 existing + 5 new), both in a normal build and under
+Full suite: 568/568 (562 existing + 6 new), both in a normal build and under
 AddressSanitizer (clean, no reports - run because this is the renderer's own sprite draw
 path). Every sample builds cleanly. `doc/BREAKAGES.md` item 39 is written.
 

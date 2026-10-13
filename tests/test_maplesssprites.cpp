@@ -176,6 +176,22 @@ TEST_SUITE( "renderer/mapless_sprites" )  {
         CHECK( scene.TileHandles() == std :: vector<void*> { H1, H1 } );
     }
 
+    TEST_CASE( "With no map, Stop() releases the registered sprites, as it does with a map" )  {
+
+        // With a map, Stop() -> UnloadMap() -> UnloadSprites() drops every registered sprite.
+        // With no map UnloadMap() does nothing, so before this the per-layer sprite lists were
+        // never released (a leak LeakSanitizer reported in CI) and the sprites stayed registered
+        // across a restart - drawn again after Start() with no new AddSprite.
+        MaplessScene  scene;
+        SpriteRig     rig( scene, 1, H1 );
+
+        scene.pRenderer -> Stop();
+        REQUIRE( scene.pRenderer -> Start() == true );
+        scene.RunFrames( 1 );
+
+        CHECK( scene.TileHandles().empty() );
+    }
+
     TEST_CASE( "With no map and no sprite, the frame only clears: no clip is opened" )  {
 
         MaplessScene  scene;

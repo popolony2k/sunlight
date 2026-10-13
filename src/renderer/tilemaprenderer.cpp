@@ -1824,6 +1824,7 @@ namespace SunLight {
 
             ReleaseRegisteredFonts();
             UnloadMap();
+            UnloadSprites();   // see Stop(): a mapless renderer's sprite lists are not reached by UnloadMap
 
             /*
              * Every sprite that still has this renderer as its parent (registered or removed with
@@ -3433,6 +3434,10 @@ namespace SunLight {
 
             if( m_bIsStarted )  {
                 UnloadMap();
+                // UnloadMap only reaches UnloadSprites when a map is loaded; sprites registered
+                // with no map ever loaded (M2) must be released here too, or their per-layer
+                // lists leak and they stay registered across a restart.
+                UnloadSprites();
 
                 // Fonts go before the window closes: the engine's close handler
                 // would release them too, but that is its own state, not ours.
