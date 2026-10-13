@@ -1442,7 +1442,7 @@ namespace SunLight {
                                                                                               BackgroundColorOf( *pView ) );
                 }
 
-                DrawAllLayers( m_pTmxMap -> ly_head );
+                DrawPassContent();
 
                 SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
             }
@@ -1455,6 +1455,27 @@ namespace SunLight {
                 pSprite -> Advance();
 
             m_FramePendingSprites.clear();
+        }
+
+        /**
+         * @brief What one pass draws (M2 of the master plan): the map's own layers - each with its
+         * sprites, in the map's layer order - when a map is loaded; otherwise every layer id
+         * sprites were registered under, in ascending id order (m_SpriteMap is a std::map), as
+         * the only layer order a mapless renderer has. The active view's layer mask applies the
+         * same way in both cases (IView::ShowLayer keys on the same layer id), so a view can hide
+         * a mapless sprite group exactly as it hides a map layer.
+         */
+        void TileMapRenderer :: DrawPassContent( void )  {
+
+            if( m_pTmxMap )  {
+                DrawAllLayers( m_pTmxMap -> ly_head );
+                return;
+            }
+
+            for( const std :: pair<const int, SpriteList*> &layer : m_SpriteMap )  {
+                if( m_pActiveView -> IsLayerShown( layer.first ) )
+                    HandleSpriteUpdate( layer.first );
+            }
         }
 
         /**
@@ -1478,7 +1499,11 @@ namespace SunLight {
                     engine.ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
             }
 
-            if( m_pTmxMap )  {
+            // M2 of the master plan: a frame with no map loaded still draws the sprites registered
+            // with AddSprite (which has always accepted a mapless caller) - before M2 this whole
+            // block was skipped without a map, so such a sprite's collider was updated every frame
+            // but the sprite itself was never drawn.
+            if( m_pTmxMap || !m_SpriteMap.empty() )  {
                 if( m_ExtraViews.empty() )  {
                     /*
                      * The single-view frame - every renderer that never calls CreateView -
@@ -1493,7 +1518,7 @@ namespace SunLight {
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.y,
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nWidth,
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nHeight } );
-                        DrawAllLayers( m_pTmxMap -> ly_head );
+                        DrawPassContent();
                         SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
                     }
                 }
