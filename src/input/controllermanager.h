@@ -59,6 +59,9 @@ namespace SunLight {
             InputEventHandlerList                                  m_KeyInputEventHandlerList;
             InputEventHandlerList                                  m_GPadInputEventHandlerList;
             SunLight :: Input :: INPUT_EVENT_HANDLER               m_pNullInputEventHandler;
+
+            // How many key handlers this frame's dispatch walks (see Update): those added by a handler wait a frame
+            size_t                                                 m_nKeyHandlersThisFrame = 0;
             SunLight :: Input :: InputDispatchMode                 m_DispatchMode;
             std :: array<bool, MAX_GAMEPAD_COUNT>                  m_GamepadConnected {};
             SunLight :: Input :: GAMEPAD_CONNECTION_HANDLER        m_pConnectionHandler;

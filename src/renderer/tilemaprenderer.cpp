@@ -1537,9 +1537,34 @@ namespace SunLight {
          */
         void TileMapRenderer :: HandleTileMapUpdate( void )  {
 
-            for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
-                pListener -> OnUpdate( *this );
+            for( SunLight :: TileMap :: ITileMapListener* pListener : ListenersSnapshot() )  {
+                if( IsListenerRegistered( pListener ) )
+                    pListener -> OnUpdate( *this );
             }
+        }
+
+        /**
+         * The listeners registered right now, copied: what HandleTileMapUpdate and Stop walk. A
+         * listener may call AddTileMapListener/RemoveTileMapListener from OnUpdate/OnStop (eg. a
+         * stage handing over to the next one), and both mutate m_TileMapListenerList, a std::deque:
+         * push_back invalidates every iterator into it and erase can too, so the range-for loops
+         * this replaced were undefined behaviour then. The same snapshot CollisionManager::Update
+         * already takes of it's collider lists.
+         */
+        TileMapRenderer :: TileMapListenerList TileMapRenderer :: ListenersSnapshot( void ) const  {
+
+            return m_TileMapListenerList;
+        }
+
+        /**
+         * Whether pListener is still registered - checked right before each call over a snapshot,
+         * so a listener removed earlier in the same walk (and maybe deleted by whoever removed it)
+         * is never called. One added during the walk is not in the snapshot: it starts next frame.
+         * @param pListener The listener to look for;
+         */
+        bool TileMapRenderer :: IsListenerRegistered( SunLight :: TileMap :: ITileMapListener *pListener ) const  {
+
+            return std :: find( m_TileMapListenerList.begin(), m_TileMapListenerList.end(), pListener ) != m_TileMapListenerList.end();
         }
 
         /**
@@ -3460,8 +3485,9 @@ namespace SunLight {
          */
         void TileMapRenderer :: Stop( void )  {
 
-            for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
-                pListener -> OnStop();
+            for( SunLight :: TileMap :: ITileMapListener* pListener : ListenersSnapshot() )  {
+                if( IsListenerRegistered( pListener ) )
+                    pListener -> OnStop();
             }
 
             if( m_bIsStarted )  {
