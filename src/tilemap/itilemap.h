@@ -196,22 +196,22 @@ namespace SunLight {
             virtual void ResetCamera( void ) = 0;
 
             /**
-             * Move view camera up.
+             * Move view camera up: one scroll step, or less when less is left, until the map's bottom edge reaches the viewport's.
              */
             virtual void MoveCameraUp( void ) = 0;
 
             /**
-             * Move view camera down.
+             * Move view camera down: one scroll step, or less when less is left, back to the origin (the map's unscrolled alignment).
              */
             virtual void MoveCameraDown( void ) = 0;
 
             /**
-             * Move view camera left.
+             * Move view camera left: one scroll step, or less when less is left, until the map's right edge reaches the viewport's.
              */
             virtual void MoveCameraLeft( void ) = 0;
 
             /**
-             * Move view camera right.
+             * Move view camera right: one scroll step, or less when less is left, back to the origin (the map's unscrolled alignment).
              */
             virtual void MoveCameraRight( void ) = 0;
 

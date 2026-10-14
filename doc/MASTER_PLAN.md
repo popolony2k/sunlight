@@ -1869,6 +1869,15 @@ Full suite 635/635, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark withi
   object ignored its layer's tint (it was drawn white, with its opacity), while one at its
   tile's size and a turned one took it. It now takes the tint too; `tests/test_layerrenderer.cpp`
   checks it and fails on the old code.
+- Found by the owner's real-window check, pre-existing (the limit dates from Phase L), fixed
+  in its own PR (owner's call): the staggered and hexagonal samples never showed their last
+  strip on the right and at the bottom. `MoveCameraUp`/`MoveCameraLeft` refused a scroll step
+  that went past the map's far edge, so up to a step less one pixel stayed hidden (about 55 map px at
+  the staggered sample's right edge, 37 and 18 at the hexagonal sample's). The last step is now
+  a partial one to the edge (rounded up to a whole map pixel: no gap, under a pixel hidden at a
+  non-integer zoom), and `MoveCameraDown`/`MoveCameraRight` end with a partial step onto the
+  origin. `tests/test_camera.cpp` (two cases) and the step-by-step check in
+  `tests/test_viewport_semantics.cpp` fail on the old code.
 
 ## Docs, samples and tests
 

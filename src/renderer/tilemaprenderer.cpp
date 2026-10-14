@@ -61,6 +61,7 @@
  * Engine limits.
  */
 #define __MAX_OPACITY_LEVEL            0xFF
+#define __CAMERA_ORIGIN                0.0f    // the camera at the map's own unscrolled top-left corner
 
 
 
@@ -1479,91 +1480,86 @@ namespace SunLight {
         }
 
         /**
-         * Move view camera up. Does nothing while no map is loaded: the
-         * scroll limit is worked out from the map's tile size and extent.
+         * @brief The camera value at which the map's far edge (its bottom or right edge) lands on
+         * the viewport's far edge: the furthest MoveCameraUp/MoveCameraLeft may scroll.
+         *
+         * A map position p is drawn at (p + camera) x zoom + viewport.pos, so the map's far edge
+         * (p = nMapSize) reaches the viewport's far edge (viewport.pos + nViewportSize) exactly
+         * when camera = nViewportSize / zoom - nMapSize. That is rounded UP to a whole map pixel:
+         * the camera stays whole (SetCameraPosition/GetCameraPosition and the scroll steps are
+         * whole), and rounding up keeps the map's edge at or past the viewport's - never a gap
+         * of the clear colour, at the cost of under one map pixel left hidden at a non-integer
+         * zoom. A map smaller than the viewport gives a limit above the origin: no scrolling.
+         * @param nViewportSize The viewport's height or width, in screen pixels;
+         * @param fZoom The zoom factor;
+         * @param nMapSize The map's height or width, in map pixels;
+         */
+        static float FarCameraLimit( int nViewportSize, float fZoom, int nMapSize )  {
+
+            return std :: ceil( ( ( float ) nViewportSize / fZoom ) - ( float ) nMapSize );
+        }
+
+        /**
+         * Move view camera up: one scroll step, or less when less is left - the last step stops
+         * with the map's bottom edge on the viewport's bottom edge (FarCameraLimit). It used to
+         * refuse any step that went past that point, so a map whose height is not a whole number
+         * of steps past the viewport's kept its last strip hidden for good (found in the
+         * staggered and hexagonal samples: 20 to 54 map pixels at their edges). Does nothing
+         * while no map is loaded: the limit is worked out from the map's extent.
          */
         void TileMapRenderer :: MoveCameraUp( void )  {
 
             if( !Tmx() )
                 return;
 
-            SunLight :: Base :: Viewport&      vp   = GetViewport();
-            SunLight :: Base :: stDimension2D& vpDm = vp.GetDimension2D();
+            SunLight :: Base :: Viewport&      vp     = GetViewport();
+            SunLight :: Base :: stDimension2D& vpDm   = vp.GetDimension2D();
+            float                              fLimit = FarCameraLimit( vpDm.size.nHeight, vp.GetZoomProperties().fZoomFactor,
+                                                                        MapPixelHeight() );
 
-            // The vertical boundary is compared against the viewport's bottom edge (pos.y +
-            // height - it used to compare its WIDTH, a copy-paste of MoveCameraLeft's
-            // horizontal check, which only happened to work for a square viewport).
-            //
-            // nMapBoundary is the map's own bottom edge's SCREEN position after this
-            // hypothetical step - (mapHeight + candidate camera.y) * zoom, offset by the
-            // viewport's own pos.y (the render target's origin, which the doc comment here
-            // always claimed this was measured from - but the actual formula never added it,
-            // compensating instead with an ad-hoc, zoom-imprecise "+ step.nHeight" fudge term
-            // that only approximately cancelled the missing offset, closely enough not to
-            // show at zoom 1 but leaving a visible gap - found live, via a non-integer zoom -
-            // of dozens of pixels between the map's own edge and the viewport's, past this
-            // boundary, confirmed by directly measuring the stopping m_CameraPos.y against
-            // the exact zero-gap formula, not assumed). The fix: add the missing pos.y
-            // directly, and drop the fudge term - no approximation needed once the real
-            // offset is there.
-            int  nMapBoundary = ( int ) std :: round( ( m_CameraPos.y - m_nScrollStepHeight + MapPixelHeight() ) *
-                                                        vp.GetZoomProperties().fZoomFactor ) + vpDm.pos.y;
-
-            if( ( vpDm.pos.y + vpDm.size.nHeight ) < nMapBoundary )
-                m_CameraPos.y-=m_nScrollStepHeight;
+            if( fLimit < m_CameraPos.y )
+                m_CameraPos.y = std :: max( m_CameraPos.y - m_nScrollStepHeight, fLimit );
         }
 
         /**
-         * Move view camera down. The boundary is "<= 0", not "< 0": camera.y reaching exactly
-         * 0 - the origin MoveCameraUp scrolls away from - is itself a legal position (the map's
-         * own natural, unscrolled alignment), not one past a limit. A strict "< 0" refuses the
-         * single step that would land exactly there, permanently - e.g. one MoveCameraUp() call
-         * (camera.y -= step) leaves camera.y == -step, and camera.y + step == 0 fails "< 0", so
-         * MoveCameraDown() can never undo that single step back to the origin again.
+         * Move view camera down: one scroll step, or less when less is left - the last step stops
+         * at the origin, the map's own unscrolled alignment (camera.y == 0). It used to refuse a
+         * step that went past the origin, which left a camera that MoveCameraUp had stopped short
+         * of a whole step (FarCameraLimit) unable to get back there.
          */
         void TileMapRenderer :: MoveCameraDown( void )  {
 
-            int    nMapBoundary = ( int ) ( m_CameraPos.y + m_nScrollStepHeight );
-
-            if( nMapBoundary <= 0 )
-                m_CameraPos.y+=m_nScrollStepHeight;
+            if( m_CameraPos.y < __CAMERA_ORIGIN )
+                m_CameraPos.y = std :: min( m_CameraPos.y + m_nScrollStepHeight, __CAMERA_ORIGIN );
         }
 
         /**
-         * Move view camera left. Does nothing while no map is loaded (see
-         * @see MoveCameraUp).
+         * Move view camera left: one scroll step, or less when less is left - the last step stops
+         * with the map's right edge on the viewport's right edge (see MoveCameraUp). Does nothing
+         * while no map is loaded.
          */
         void TileMapRenderer :: MoveCameraLeft( void )  {
 
             if( !Tmx() )
                 return;
 
-            SunLight :: Base :: Viewport&      vp   = GetViewport();
-            SunLight :: Base :: stDimension2D& vpDm = vp.GetDimension2D();
+            SunLight :: Base :: Viewport&      vp     = GetViewport();
+            SunLight :: Base :: stDimension2D& vpDm   = vp.GetDimension2D();
+            float                              fLimit = FarCameraLimit( vpDm.size.nWidth, vp.GetZoomProperties().fZoomFactor,
+                                                                        MapPixelWidth() );
 
-            // Compared against the viewport's right edge (pos.x + width); nMapBoundary is
-            // measured from the render target's origin - see MoveCameraUp for the full "why"
-            // (this formula used to compensate for the same missing pos.x offset with an
-            // unrelated, zoom-imprecise "step.nWidth / round(zoom)" fudge term - same bug,
-            // same fix).
-            int  nMapBoundary = ( int ) std :: round( ( m_CameraPos.x - m_nScrollStepWidth + MapPixelWidth() ) *
-                                                        vp.GetZoomProperties().fZoomFactor ) + vpDm.pos.x;
-
-            if( ( vpDm.pos.x + vpDm.size.nWidth ) < nMapBoundary )
-                m_CameraPos.x-=m_nScrollStepWidth;
+            if( fLimit < m_CameraPos.x )
+                m_CameraPos.x = std :: max( m_CameraPos.x - m_nScrollStepWidth, fLimit );
         }
 
         /**
-         * Move view camera right. Same "<= 0" boundary as MoveCameraDown, and for the same
-         * reason: camera.x == 0 is the map's own unscrolled origin, a legal position to land on
-         * exactly, not a limit a strict "< 0" should refuse the last step into.
+         * Move view camera right: one scroll step, or less when less is left - the last step
+         * stops at the origin (see MoveCameraDown).
          */
         void TileMapRenderer :: MoveCameraRight( void )  {
 
-            int nMapBoundary = ( int ) ( m_CameraPos.x + m_nScrollStepWidth );
-
-            if( nMapBoundary <= 0 )
-                m_CameraPos.x+=m_nScrollStepWidth;
+            if( m_CameraPos.x < __CAMERA_ORIGIN )
+                m_CameraPos.x = std :: min( m_CameraPos.x + m_nScrollStepWidth, __CAMERA_ORIGIN );
         }
 
         /**

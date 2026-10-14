@@ -152,8 +152,8 @@ TEST_SUITE( "renderer/TileMapRenderer camera" )  {
         // Found via the isometric sample: MoveCameraDown's own boundary used to be a strict
         // "camera.y + step < 0", which refuses the one step that would land exactly on 0 - so a
         // single prior MoveCameraUp() (camera.y -= step, leaving camera.y == -step) could never
-        // be undone, permanently. "<= 0" is correct: camera.y == 0 is the map's own legal,
-        // unscrolled origin, not a limit to refuse landing on.
+        // be undone, permanently. camera.y == 0 is the map's own legal, unscrolled origin, not a
+        // limit to refuse landing on (MoveCameraDown now steps to it and stops there).
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareMap();
 
@@ -193,6 +193,78 @@ TEST_SUITE( "renderer/TileMapRenderer camera" )  {
 
         CHECK( nX2 == nX0 );
         CHECK( nY2 == nY0 );
+
+        pRenderer -> Stop();
+    }
+
+    TEST_CASE( "MoveCameraUp/Down: the last step is a partial one, to the map's bottom edge and back to the origin" )  {
+
+        // A 100 px tall viewport over the 640 px map at zoom 1: the map's bottom edge reaches the
+        // viewport's at camera.y == 100 - 640 == -540 (reported 540), which is 33 steps of 16 and
+        // 12 px more. The old rule refused that partial step and stopped at 528, its last 12 px
+        // never shown (seen in the staggered and hexagonal samples, at their right and bottom edges).
+        MemoryFileSystemFixture  fixture;
+        fixture.fs.files["maps/square.tmx"] = MakeSquareMap();
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( 1000, 100 );
+        const int                           nWholeSteps = 33;
+        int                                 nX = 0, nY = 0;
+
+        for( int i = 0; i < nWholeSteps; i++ )
+            pRenderer -> MoveCameraUp();
+
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nY == nWholeSteps * 16 );            // 528
+
+        pRenderer -> MoveCameraUp();
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nY == 540 );                         // the partial step
+
+        pRenderer -> MoveCameraUp();
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nY == 540 );                         // and no further
+
+        // Back down: whole steps from 540 leave 12, and the last, partial step lands on the origin.
+        for( int i = 0; i < nWholeSteps; i++ )
+            pRenderer -> MoveCameraDown();
+
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nY == 12 );
+
+        pRenderer -> MoveCameraDown();
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nY == 0 );
+
+        pRenderer -> MoveCameraDown();
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nY == 0 );
+        CHECK( nX == 0 );
+
+        pRenderer -> Stop();
+    }
+
+    TEST_CASE( "MoveCameraLeft/Right: the last step is a partial one, to the map's right edge and back to the origin" )  {
+
+        // The horizontal pair, on a 100 px wide viewport: the same 540 = 33 x 16 + 12.
+        MemoryFileSystemFixture  fixture;
+        fixture.fs.files["maps/square.tmx"] = MakeSquareMap();
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( 100, 1000 );
+        const int                           nWholeSteps = 33;
+        int                                 nX = 0, nY = 0;
+
+        for( int i = 0; i <= nWholeSteps + 1; i++ )
+            pRenderer -> MoveCameraLeft();
+
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nX == 540 );
+        CHECK( nY == 0 );
+
+        for( int i = 0; i <= nWholeSteps + 1; i++ )
+            pRenderer -> MoveCameraRight();
+
+        pRenderer -> GetCameraPosition( nX, nY );
+        CHECK( nX == 0 );
 
         pRenderer -> Stop();
     }
