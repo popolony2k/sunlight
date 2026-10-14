@@ -1777,7 +1777,7 @@ text, the map's tilesets or the registered fonts.
 | S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch and the per-object opacity rule, `ObjectOpacity`, with its warnings). Tile objects are handed back to the renderer and move in S1c | DONE |
 | S1c1 | `MapData`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), freeing by its destructor, and tile, layer and object lookups | DONE |
 | S1c2 | `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | DONE |
-| S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | TODO |
+| S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | DONE |
 | S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | TODO |
 
 What stays in `TileMapRenderer`: the lifecycle (`Start`/`Run`/`Stop`), the views and the multi-view passes,
@@ -1878,6 +1878,27 @@ Full suite 635/635, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark withi
   non-integer zoom), and `MoveCameraDown`/`MoveCameraRight` end with a partial step onto the
   origin. `tests/test_camera.cpp` (two cases) and the step-by-step check in
   `tests/test_viewport_semantics.cpp` fail on the old code.
+
+**S1d: `SpriteRegistry` (DONE).** `renderer/sprite/spriteregistry.h/.cpp` holds the sprites
+registered per layer, the sprites the renderer is the parent of, and the once-per-frame update
+across the view passes (the z-order sort, `Update` with one view, advance-once-then-`Draw` with
+several, the end-of-frame advance of a sprite no pass had on screen), moved as they were; it
+never owns a sprite and does not know `TileMapRenderer`. Each layer's list is now held by value
+(it was a raw `new` freed by hand in `UnloadSprites`). A layer's list is still opened before
+`AddSprite`'s checks, so a refused sprite leaves it open as before (`OpenLayer`; `Empty` decides
+whether a mapless renderer runs its sprite frame). `AddSprite`/`RemoveSprite` keep their checks
+and the collider; `ChildRemoved` stays the renderer's override and asks `Forget` which sprite left
+and from which layers; `HandleSpriteUpdate`/`UnloadSprites` are one-line calls into it. One
+addition, not reachable today: `Forget` also drops a leaving sprite from the frame's
+advanced/pending sets, so a sprite destroyed during a frame could not be advanced at its end.
+`tilemaprenderer.cpp` 2,407 -> 2,312 lines, the header 427 -> 423. `tests/test_spriteregistry.cpp`
+(7 cases, no renderer): advancing in every pass, dropping the end-of-frame advance and stopping
+`Forget` at the first layer each fail one. Full suite 644/644, ASan clean, `leaks` 0, Doxygen 0,
+the stress benchmark within its spread.
+- Found, not changed (S1 changes no behaviour): `Sprite::Unload()` empties the sprite's sequences
+  but leaves its active sequence marked valid, so an unloaded sprite that is drawn, advanced or
+  asked `IsOnScreen`/`GetActiveTexture` reads through a dangling iterator - eg. one reused after
+  the renderer's `Stop()`, which unloads every registered sprite. An open point for after S1.
 
 ## Docs, samples and tests
 
