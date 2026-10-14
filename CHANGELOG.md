@@ -99,6 +99,11 @@ Each item is described in full in the plan; what each change means for code buil
 - A tile object resized away from its tile's size ignored its object layer's tint (Tiled's
   `tintcolor`) and was drawn untinted; it now takes the tint, as a tile object at its own size and
   a turned one already did.
+- `MoveCameraUp`/`MoveCameraLeft` refused a scroll step that went past the map's far edge, so
+  a map whose size was not a whole number of steps past the viewport's kept its last strip
+  hidden (up to a step less one pixel; seen at the right and bottom edges of the staggered and
+  hexagonal samples). The last step is now a partial one, to the edge; `MoveCameraDown`/
+  `MoveCameraRight` likewise end with a partial step onto the origin.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 
