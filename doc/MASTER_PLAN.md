@@ -1773,7 +1773,7 @@ text, the map's tilesets or the registered fonts.
 
 | # | Item | Status |
 |---|------|--------|
-| S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | TODO |
+| S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | DONE |
 | S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch, tile objects, the per-object opacity rule and its warnings) | TODO |
 | S1c | `LoadedMap`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), release, and tile, layer and object lookups. `LayerRenderer`: tile, image and group layer drawing and culling | TODO |
 | S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | TODO |
@@ -1798,6 +1798,17 @@ has simplified them.
 - Every value in new code is named, as in the other modules.
 - Not in S1: shared interfaces for future renderers (an `IRenderer` base, a layer-source interface). They are
   better designed against a second renderer once one exists.
+
+**S1a: `DrawContext` and `ShapeRenderer` (DONE).** `renderer/drawcontext.h` holds the active
+view's rectangle, its zoom and the drawn layer's camera offset, in the very types the renderer
+holds them (int rectangle, float zoom and camera), so a shape's arithmetic is unchanged bit for
+bit. `renderer/shape/shaperenderer.h/.cpp` holds the five shape bodies with `ScreenPointsOf` and
+`DrawEdge`, moved as they were; it has no state and does not know `TileMapRenderer`. The renderer
+builds the context at each call (`CurrentDrawContext`, reading what the bodies read before) for
+its shape objects and its `IShapeSurface` methods. `tilemaprenderer.cpp` 3,652 -> 3,437 lines,
+the header 522 -> 487. `tests/test_shaperenderer.cpp` (8 cases) draws with no renderer at all;
+applying the camera after the zoom fails its context test, which none of the 600 earlier tests
+noticed. Full suite 608/608, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark no slower.
 
 ## Docs, samples and tests
 

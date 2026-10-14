@@ -52,7 +52,6 @@
  * Engine defaults (the per-renderer ones - window size, resizeable,
  * exit key, scroll steps, ... - live in RendererConfig).
  */
-#define __HAIRLINE_WIDTH              1       // rectangle and polygon edges stay one pixel until C2 and C3
 #define __DEFAULT_FPS                   30
 #define __DEFAULT_VISIBLE_STATUS        true
 #define __OPAQUE_CHANNEL                0xFF    // a colour channel at full strength
@@ -210,266 +209,51 @@ namespace SunLight {
         }
 
         /**
-         * @brief Draw one straight edge of a shape, in screen pixels (see Shape::DrawStrokedLine). The
-         * shape's PrimitiveClip keeps it inside the viewport.
-         * @param nWidth Width in screen pixels;
+         * @brief The DrawContext of what is being drawn right now (S1a of the master plan): the
+         * active view's rectangle and zoom (GetViewport, the view a pass activated) and the camera
+         * offset of the layer being drawn (m_EffectiveLayerCameraPos, its parallax applied) - read
+         * at the moment of the call, exactly what the shape code read from the renderer itself
+         * before it moved into ShapeRenderer.
          */
-        void TileMapRenderer :: DrawEdge( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color )  {
-            Shape :: DrawStrokedLine( nX0, nY0, nX1, nY1, nWidth, color );
-        }
+        DrawContext TileMapRenderer :: CurrentDrawContext( void )  {
 
-        /**
-         * The vertices of a shape in screen pixels: each point scaled by the zoom, from an origin already in
-         * screen pixels. Converted to whole pixels the same way the hairline edges are.
-         */
-        std :: vector<Shape :: ScreenPoint> TileMapRenderer :: ScreenPointsOf( double fOriginX,
-                                                                                         double fOriginY,
-                                                                                         double **fPoints,
-                                                                                         int nPointsCount,
-                                                                                         double fZoom,
-                                                                                         double fRotation ) {
-            std :: vector<Shape :: ScreenPoint>  points;
-
-            // Each point turns about the shape's stored point in map units, before the zoom is applied.
-            for( int i = 0; i < nPointsCount; i++ ) {
-                Shape :: MapPoint  turned = Shape :: Rotate( Shape :: MapPoint { fPoints[i][0], fPoints[i][1] }, fRotation );
-
-                points.push_back( Shape :: ScreenPoint { ( int ) ( fOriginX + ( turned.fX * fZoom ) ),
-                                                         ( int ) ( fOriginY + ( turned.fY * fZoom ) ) } );
-            }
-
-            return points;
-        }
-
-        /**
-         * Draw an open polyline (the last point is not joined back to the first).
-         * @param fOffset_x X of the shape's stored point, in map units;
-         * @param fOffset_y Y of the shape's stored point;
-         * @param fPoints The points, each { x, y } relative to the stored point, in map units;
-         * @param nPointsCount Number of points;
-         * @param fRotation Clockwise rotation in degrees, about the stored point (Tiled's rotation);
-         * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
-         * @param color The colour;
-         */
-        void TileMapRenderer :: DrawPolyline( double fOffset_x,
-                                              double fOffset_y,
-                                              double **fPoints,
-                                              int nPointsCount,
-                                              double fRotation,
-                                              int nLineWidth,
-                                              SunLight :: Base :: stColor color ) {
-            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
-
-            SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
-            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
-
-            fOffset_x = ( ( fOffset_x + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
-            fOffset_y = ( ( fOffset_y + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
-
-            std :: vector<Shape :: ScreenPoint>  points = ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor, fRotation );
-
-            if( nLineWidth > __HAIRLINE_WIDTH ) {
-                DrawStrokedPath( points, false, nLineWidth, color );
-                return;
-            }
-
-            for( int i=1; i < nPointsCount; i++ ) {
-
-                DrawEdge( points[i-1].nX, points[i-1].nY, points[i].nX, points[i].nY, nLineWidth, color );
-            }
-        }
-
-        /**
-         * Draw a closed polygon outline (the last point is joined back to the first).
-         * @param fOffset_x X of the shape's stored point, in map units;
-         * @param fOffset_y Y of the shape's stored point;
-         * @param fPoints The points, each { x, y } relative to the stored point, in map units;
-         * @param nPointsCount Number of points;
-         * @param fRotation Clockwise rotation in degrees, about the stored point (Tiled's rotation);
-         * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
-         * @param color The colour;
-         */
-        void TileMapRenderer :: DrawPolygon( double fOffset_x,
-                                         double fOffset_y,
-                                         double **fPoints,
-                                         int nPointsCount,
-                                         double fRotation,
-                                         int nLineWidth,
-                                         SunLight :: Base :: stColor color ) {
-            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
-
-            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
-            SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
-
-            if( nLineWidth > __HAIRLINE_WIDTH ) {
-                DrawStrokedPath( ScreenPointsOf( ( ( fOffset_x + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x,
-                                                 ( ( fOffset_y + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y,
-                                                 fPoints, nPointsCount, zp.fZoomFactor, fRotation ),
-                                 true, nLineWidth, color );
-                return;
-            }
-
-            DrawPolyline( fOffset_x,
-                        fOffset_y,
-                        fPoints,
-                        nPointsCount,
-                        fRotation,
-                        __HAIRLINE_WIDTH,
-                        color );
-
-            if( nPointsCount > 2 ) {
-
-                fOffset_x = ( ( fOffset_x + m_EffectiveLayerCameraPos.x ) *
-                            zp.fZoomFactor ) + vp.pos.x;
-                fOffset_y = ( ( fOffset_y + m_EffectiveLayerCameraPos.y ) *
-                            zp.fZoomFactor ) + vp.pos.y;
-
-                std :: vector<Shape :: ScreenPoint>  points = ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, zp.fZoomFactor, fRotation );
-
-                DrawEdge( points[0].nX, points[0].nY, points[nPointsCount-1].nX, points[nPointsCount-1].nY, __HAIRLINE_WIDTH, color );
-            }
-        }
-
-        /**
-         * Draw a rectangle outline.
-         * @param fOffset_x X of the top-left corner (the stored point), in map units;
-         * @param fOffset_y Y of the top-left corner;
-         * @param fWidth The width, in map units;
-         * @param fHeight The height, in map units;
-         * @param fRotation Clockwise rotation in degrees, about the stored point (Tiled's rotation);
-         * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
-         * @param color The colour;
-         */
-        void TileMapRenderer :: DrawRectangle( double fOffset_x,
-                                               double fOffset_y,
-                                               double fWidth,
-                                               double fHeight,
-                                               double fRotation,
-                                               int nLineWidth,
-                                               SunLight :: Base :: stColor color )  {
-            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
-
-            SunLight :: Base :: stDimension2D&  vp          = GetViewport().GetDimension2D();
-            SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
-
-            // The corners, relative to the stored point (the top-left corner), turned about it in map units.
-            Shape :: MapPoint  local[] = { { 0.0, 0.0 }, { fWidth, 0.0 }, { fWidth, fHeight }, { 0.0, fHeight } };
-            std :: vector<Shape :: ScreenPoint>  corners;
-
-            for( const Shape :: MapPoint &point : local )  {
-                Shape :: MapPoint  turned = Shape :: Rotate( point, fRotation );
-
-                corners.push_back( Shape :: ScreenPoint { ( int ) ( ( ( fOffset_x + turned.fX + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x ),
-                                                          ( int ) ( ( ( fOffset_y + turned.fY + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y ) } );
-            }
-
-            // A wide edge is the closed path of the four corners, so each corner is a round join.
-            if( nLineWidth > __HAIRLINE_WIDTH ) {
-                Shape :: DrawStrokedPath( corners, true, nLineWidth, color );
-                return;
-            }
-
-            // The four edges, as before: top, bottom, left and right, in the order of the corners.
-            DrawEdge( corners[0].nX, corners[0].nY, corners[1].nX, corners[1].nY, __HAIRLINE_WIDTH, color );
-            DrawEdge( corners[3].nX, corners[3].nY, corners[2].nX, corners[2].nY, __HAIRLINE_WIDTH, color );
-            DrawEdge( corners[0].nX, corners[0].nY, corners[3].nX, corners[3].nY, __HAIRLINE_WIDTH, color );
-            DrawEdge( corners[1].nX, corners[1].nY, corners[2].nX, corners[2].nY, __HAIRLINE_WIDTH, color );
-        }
-
-        /**
-         * Draw a point object as a filled square. Its side is the point's size times the zoom, rounded half-up and
-         * at least one pixel (the same rule as a line's width), with the top-left corner at the point's position.
-         * @param fOffset_x X of the point, in map units;
-         * @param fOffset_y Y of the point;
-         * @param fSize Size of the point, in map units;
-         * @param color The colour;
-         */
-        void TileMapRenderer :: DrawPoint( double fOffset_x, double fOffset_y, double fSize, SunLight :: Base :: stColor color )  {
-            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
-
-            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
-            SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
-
-            double  fScreenX = ( ( fOffset_x + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
-            double  fScreenY = ( ( fOffset_y + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
-
-            Shape :: DrawFilledSquare( ( int ) fScreenX, ( int ) fScreenY, Shape :: ScreenLineWidth( fSize, zp.fZoomFactor ), color );
-        }
-
-        /**
-         * Draw an ellipse outline, inscribed in its box.
-         * @param fOffset_x X of the box's top-left corner (the stored point), in map units;
-         * @param fOffset_y Y of the box's top-left corner;
-         * @param fWidth The box's width, in map units;
-         * @param fHeight The box's height, in map units;
-         * @param fRotation Clockwise rotation in degrees, about the stored point (Tiled's rotation);
-         * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
-         * @param color The colour;
-         */
-        void TileMapRenderer :: DrawEllipse( double fOffset_x,
-                                             double fOffset_y,
-                                             double fWidth,
-                                             double fHeight,
-                                             double fRotation,
-                                             int nLineWidth,
-                                             SunLight :: Base :: stColor color )  {
-            Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
-
-            SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
-            SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
-
-            // The centre of the box, relative to its stored point (the top-left corner), turned about that point in map units.
-            Shape :: MapPoint  centre = Shape :: Rotate( Shape :: MapPoint { fWidth / 2.0, fHeight / 2.0 }, fRotation );
-
-            double  fCenterX = ( ( fOffset_x + centre.fX + m_EffectiveLayerCameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
-            double  fCenterY = ( ( fOffset_y + centre.fY + m_EffectiveLayerCameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
-            double  fRadiusX = ( fWidth / 2.0 ) * zp.fZoomFactor;
-            double  fRadiusY = ( fHeight / 2.0 ) * zp.fZoomFactor;
-
-            // An unturned one-pixel outline is the engine's own ellipse. Anything wider, or turned, is a ring of spans;
-            // the shape's PrimitiveClip keeps either inside the viewport.
-            if( ( fRotation == 0.0 ) && ( nLineWidth <= __HAIRLINE_WIDTH ) )  {
-                SunLight :: Engines :: EngineFactory :: GetEngine().DrawEllipseOutline( ( float ) fCenterX, ( float ) fCenterY,
-                                                                                        ( float ) fRadiusX, ( float ) fRadiusY, color );
-                return;
-            }
-
-            Shape :: DrawStrokedEllipse( fCenterX, fCenterY, fRadiusX, fRadiusY, fRotation, nLineWidth, color );
+            return DrawContext { GetViewport().GetDimension2D(),
+                                 GetViewport().GetZoomProperties().fZoomFactor,
+                                 m_EffectiveLayerCameraPos };
         }
 
         /**
          * @brief IShapeSurface::DrawRectangle (M1 of the master plan). Converts fThickness (map
          * units) to a screen-pixel line width via the same Shape::ScreenLineWidth every TMX shape
-         * object already uses, then calls straight through to the existing, already-tested
-         * private DrawRectangle(double,double,double,double,double,int,stColor) overload above -
-         * unambiguous despite the shared name, since the two signatures differ in both the type
-         * and the order of their later parameters (stColor at position 5 here, a plain double at
-         * position 5 there).
+         * object already uses, then draws through ShapeRenderer (S1a) with the current
+         * DrawContext - the very path DrawObjects takes for a Tiled rectangle.
          */
         void TileMapRenderer :: DrawRectangle( double fX, double fY, double fWidth, double fHeight,
                                                SunLight :: Base :: stColor color,
                                                double fThickness, double fRotation )  {
 
-            int  nScreenWidth = Shape :: ScreenLineWidth( fThickness, GetViewport().GetZoomProperties().fZoomFactor );
+            DrawContext  context      = CurrentDrawContext();
+            int          nScreenWidth = Shape :: ScreenLineWidth( fThickness, context.fZoom );
 
-            DrawRectangle( fX, fY, fWidth, fHeight, fRotation, nScreenWidth, color );
+            m_ShapeRenderer.DrawRectangle( context, fX, fY, fWidth, fHeight, fRotation, nScreenWidth, color );
         }
 
         /**
          * @brief IShapeSurface::DrawEllipse (M1). Same conversion-then-delegate shape as
-         * DrawRectangle above, to the private DrawEllipse overload.
+         * DrawRectangle above.
          */
         void TileMapRenderer :: DrawEllipse( double fX, double fY, double fWidth, double fHeight,
                                              SunLight :: Base :: stColor color,
                                              double fThickness, double fRotation )  {
 
-            int  nScreenWidth = Shape :: ScreenLineWidth( fThickness, GetViewport().GetZoomProperties().fZoomFactor );
+            DrawContext  context      = CurrentDrawContext();
+            int          nScreenWidth = Shape :: ScreenLineWidth( fThickness, context.fZoom );
 
-            DrawEllipse( fX, fY, fWidth, fHeight, fRotation, nScreenWidth, color );
+            m_ShapeRenderer.DrawEllipse( context, fX, fY, fWidth, fHeight, fRotation, nScreenWidth, color );
         }
 
         /**
-         * @brief The private path methods take a point array as libtmx itself stores one
+         * @brief ShapeRenderer's path methods take a point array as libtmx itself stores one
          * (tmx_shape::points), double**, each entry a heap-owned {x, y} pair - not something a
          * mapless public caller should ever have to build by hand. This converts a flat,
          * caller-owned stVector2D array into that same double** shape, in local storage only
@@ -506,9 +290,10 @@ namespace SunLight {
 
             ToTmxPointArray( pPoints, nPointsCount, storage, ppRows );
 
-            int  nScreenWidth = Shape :: ScreenLineWidth( fThickness, GetViewport().GetZoomProperties().fZoomFactor );
+            DrawContext  context      = CurrentDrawContext();
+            int          nScreenWidth = Shape :: ScreenLineWidth( fThickness, context.fZoom );
 
-            DrawPolyline( fX, fY, ppRows.data(), nPointsCount, fRotation, nScreenWidth, color );
+            m_ShapeRenderer.DrawPolyline( context, fX, fY, ppRows.data(), nPointsCount, fRotation, nScreenWidth, color );
         }
 
         void TileMapRenderer :: DrawPolygon( double fX, double fY,
@@ -521,19 +306,20 @@ namespace SunLight {
 
             ToTmxPointArray( pPoints, nPointsCount, storage, ppRows );
 
-            int  nScreenWidth = Shape :: ScreenLineWidth( fThickness, GetViewport().GetZoomProperties().fZoomFactor );
+            DrawContext  context      = CurrentDrawContext();
+            int          nScreenWidth = Shape :: ScreenLineWidth( fThickness, context.fZoom );
 
-            DrawPolygon( fX, fY, ppRows.data(), nPointsCount, fRotation, nScreenWidth, color );
+            m_ShapeRenderer.DrawPolygon( context, fX, fY, ppRows.data(), nPointsCount, fRotation, nScreenWidth, color );
         }
 
         /**
-         * @brief IShapeSurface::DrawPoint (M1). The private DrawPoint(double,double,double,
-         * stColor) already takes its own size in map units and converts it internally - this
-         * only reorders fX/fY/color/fSize into that shape before calling straight through.
+         * @brief IShapeSurface::DrawPoint (M1). ShapeRenderer::DrawPoint already takes its size in
+         * map units and converts it internally - this only reorders fX/fY/color/fSize into its
+         * order and adds the current DrawContext.
          */
         void TileMapRenderer :: DrawPoint( double fX, double fY, SunLight :: Base :: stColor color, double fSize )  {
 
-            DrawPoint( fX, fY, fSize, color );
+            m_ShapeRenderer.DrawPoint( CurrentDrawContext(), fX, fY, fSize, color );
         }
 
         /**
@@ -631,48 +417,47 @@ namespace SunLight {
                     SunLight :: Base :: stColor  color = baseColor;
                     color.nAlpha = ( uint8_t ) ( color.nAlpha * ObjectOpacity( head, ( float ) pLayer -> opacity ) );
 
+                    // The view and layer being drawn, for the shapes (S1a).
+                    DrawContext  context = CurrentDrawContext();
+
                     switch( head -> obj_type )  {
                         case OT_SQUARE :
-                            DrawRectangle( ( head -> x + pLayer -> offsetx ),
+                            m_ShapeRenderer.DrawRectangle( context, ( head -> x + pLayer -> offsetx ),
                                            ( head -> y + pLayer -> offsety ),
                                            head -> width,
                                            head -> height,
                                            Shape :: RotationOf( head ),
-                                           Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
-                                                                               GetViewport().GetZoomProperties().fZoomFactor ),
+                                           Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ), context.fZoom ),
                                            color );
                             break;
 
                         case OT_POLYGON :
-                            DrawPolygon( ( head -> x + pLayer -> offsetx ),
+                            m_ShapeRenderer.DrawPolygon( context, ( head -> x + pLayer -> offsetx ),
                                          ( head -> y + pLayer -> offsety ),
                                          head -> content.shape -> points,
                                          head -> content.shape -> points_len,
                                          Shape :: RotationOf( head ),
-                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
-                                                                             GetViewport().GetZoomProperties().fZoomFactor ),
+                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ), context.fZoom ),
                                          color );
                             break;
 
                         case OT_POLYLINE :
-                            DrawPolyline( ( head -> x + pLayer -> offsetx ),
+                            m_ShapeRenderer.DrawPolyline( context, ( head -> x + pLayer -> offsetx ),
                                           ( head -> y + pLayer -> offsety ),
                                           head -> content.shape -> points,
                                           head -> content.shape -> points_len,
                                           Shape :: RotationOf( head ),
-                                          Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
-                                                           GetViewport().GetZoomProperties().fZoomFactor ),
+                                          Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ), context.fZoom ),
                                           color );
                             break;
 
                         case OT_ELLIPSE :
-                            DrawEllipse( ( head -> x + pLayer -> offsetx ),
+                            m_ShapeRenderer.DrawEllipse( context, ( head -> x + pLayer -> offsetx ),
                                          ( head -> y + pLayer -> offsety ),
                                          head -> width,
                                          head -> height,
                                          Shape :: RotationOf( head ),
-                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ),
-                                                                             GetViewport().GetZoomProperties().fZoomFactor ),
+                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ), context.fZoom ),
                                          color );
                             break;
                         
@@ -691,7 +476,7 @@ namespace SunLight {
                             break;
 
                         case OT_POINT :
-                            DrawPoint( ( head -> x + pLayer -> offsetx ),
+                            m_ShapeRenderer.DrawPoint( context, ( head -> x + pLayer -> offsetx ),
                                        ( head -> y + pLayer -> offsety ),
                                        Shape :: PointSizeOf( head ),
                                        color );
