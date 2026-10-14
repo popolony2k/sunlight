@@ -1895,10 +1895,12 @@ advanced/pending sets, so a sprite destroyed during a frame could not be advance
 (7 cases, no renderer): advancing in every pass, dropping the end-of-frame advance and stopping
 `Forget` at the first layer each fail one. Full suite 644/644, ASan clean, `leaks` 0, Doxygen 0,
 the stress benchmark within its spread.
-- Found, not changed (S1 changes no behaviour): `Sprite::Unload()` empties the sprite's sequences
-  but leaves its active sequence marked valid, so an unloaded sprite that is drawn, advanced or
-  asked `IsOnScreen`/`GetActiveTexture` reads through a dangling iterator - eg. one reused after
-  the renderer's `Stop()`, which unloads every registered sprite. An open point for after S1.
+- Found while moving it, fixed right after in its own PR (owner's call): `Sprite::Unload()`
+  emptied the sprite's sequences but left its active sequence marked valid, so an unloaded sprite
+  that was drawn, advanced or asked `IsOnScreen`/`GetActiveTexture` read through a dangling
+  iterator - eg. one reused after the renderer's `Stop()`, which unloads every registered sprite.
+  No sequence is active after `Unload()` now. `tests/test_sprite.cpp` checks it; on the old code
+  AddressSanitizer reports a heap-use-after-free in it.
 
 ## Docs, samples and tests
 

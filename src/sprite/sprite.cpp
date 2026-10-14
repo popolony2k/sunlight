@@ -427,7 +427,10 @@ namespace SunLight {
         * them through the sprite any more, and one that still pointed at a
         * parent that is about to be destroyed (the renderer, which unloads
         * every sprite registered with it when it stops or is destroyed)
-        * would be left dangling.
+        * would be left dangling. The active sequence goes with them: no
+        * sequence is active afterwards (it used to stay marked active,
+        * pointing into the emptied list, so drawing, advancing or asking an
+        * unloaded sprite IsOnScreen/GetActiveTexture read freed memory).
         */
         void Sprite :: Unload( void )  {
 
@@ -447,6 +450,10 @@ namespace SunLight {
 
                 m_Sequences.clear();
             }
+
+            m_itActiveSequence       = m_Sequences.end();
+            m_bIsValidActiveSequence = false;
+            m_bFrameHeld             = false;
         }
     }
 }
