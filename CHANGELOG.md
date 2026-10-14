@@ -104,6 +104,10 @@ Each item is described in full in the plan; what each change means for code buil
   hidden (up to a step less one pixel; seen at the right and bottom edges of the staggered and
   hexagonal samples). The last step is now a partial one, to the edge; `MoveCameraDown`/
   `MoveCameraRight` likewise end with a partial step onto the origin.
+- `Sprite::Unload()` emptied the sprite's sequences but left the active one marked valid, so
+  drawing, advancing or asking an unloaded sprite `IsOnScreen`/`GetActiveTexture` read freed
+  memory (eg. a sprite reused after the renderer's `Stop()`, which unloads every registered
+  sprite). After `Unload()` no sequence is active.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 

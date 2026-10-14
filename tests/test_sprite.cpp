@@ -200,6 +200,40 @@ TEST_SUITE( "sprite/Sprite" )  {
         CHECK( fixture.engine.nUnloadTextureCalls == 2 );
     }
 
+    TEST_CASE( "After Unload no sequence is active: the sprite draws, advances and answers nothing, safely" )  {
+
+        // The active sequence used to stay marked valid, its iterator pointing into the emptied
+        // list: each call below read freed memory (AddressSanitizer: heap-use-after-free).
+        MockEngineFixture  fixture;
+        Sprite             sprite;
+        TextureCanvas      canvas;
+
+        fixture.engine.hLoadTextureResult = ( TextureHandle ) 0x1;
+        fixture.engine.nLoadTextureWidth  = 16;
+        fixture.engine.nLoadTextureHeight = 16;
+        REQUIRE( canvas.Load( "a.png" ) == true );
+        canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 16, 16 } } );
+        sprite.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 640, 480 } } );
+        sprite.AddTextureSequence( 0, &canvas, 0 );
+        REQUIRE( sprite.SetActiveTextureSequence( 0 ) == true );
+        sprite.SetVisible( true );
+
+        sprite.Unload();
+
+        CHECK( sprite.GetActiveTexture() == nullptr );
+        CHECK( sprite.GetActiveTextureSequence() == -1 );
+        CHECK( sprite.IsOnScreen() == false );
+
+        fixture.engine.events.clear();
+        sprite.Update();
+        CHECK( fixture.engine.events.empty() );
+
+        // A sequence added afterwards can be made active again, as on a new sprite.
+        sprite.AddTextureSequence( 0, &canvas, 0 );
+        CHECK( sprite.SetActiveTextureSequence( 0 ) == true );
+        CHECK( sprite.GetActiveTexture() == &canvas );
+    }
+
     TEST_CASE( "Advance lets the texture map pick its frame; Draw never does, however often it is called" )  {
 
         MockClockFixture   clockFixture;
