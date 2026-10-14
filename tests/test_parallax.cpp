@@ -157,7 +157,7 @@ TEST_SUITE( "renderer/parallax" )  {
         CHECK( scene.GroundTile0().x == 0.0f );        // (0 + 0) * 1 + viewport.pos.x
         CHECK( scene.GroundTile0().y == 0.0f );
 
-        // SetCameraPosition(-nX,-nY) -> m_CameraPos == (nX, nY): kept positive throughout this
+        // SetCameraPosition(-nX,-nY) -> Camera::Position() == (nX, nY): kept positive throughout this
         // file so every drawn local position stays non-negative (see the file's own comment).
         scene.pRenderer -> SetCameraPosition( -20, -30 );
         scene.RunFrames( 1 );

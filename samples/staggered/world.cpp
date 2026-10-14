@@ -169,8 +169,8 @@ void World :: TryMoveStep( StaggerDirection dir )  {
     // (TextureCanvas::GetScreenRect adds no camera term at all) - so for her stored position to
     // visually land on a given cell, it must be target + the CURRENT camera, not target alone.
     //
-    // GetCameraPosition() reports -m_CameraPos, but DrawTile adds the raw, un-negated
-    // m_CameraPos - the reported value needs negating back before use here (the same convention
+    // GetCameraPosition() reports -Camera::Position(), but DrawTile adds the raw, un-negated
+    // Camera::Position() - the reported value needs negating back before use here (the same convention
     // confirmed in the isometric sample).
     int  nCamXBeforeReported, nCamYBeforeReported, nCamXAfterReported, nCamYAfterReported;
 
@@ -185,7 +185,7 @@ void World :: TryMoveStep( StaggerDirection dir )  {
     int  nScreenY    = ( int ) ( ( target.y + nCamYBefore ) * fZoom ) + vp.pos.y;
     int  nScreenSize = ( int ) ( __SUNNY_TILE_SIZE * fZoom );
 
-    // MoveCameraLeft/Right/Up/Down name which way m_CameraPos itself shifts, not which way the
+    // MoveCameraLeft/Right/Up/Down name which way Camera::Position() itself shifts, not which way the
     // view visually pans (confirmed sprite-relative inversion, same as every other sample).
     if( nScreenX < vp.pos.x )
         m_pRenderer -> MoveCameraRight();

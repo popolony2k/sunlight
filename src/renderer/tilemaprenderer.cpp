@@ -61,7 +61,6 @@
  * Engine limits.
  */
 #define __MAX_OPACITY_LEVEL            0xFF
-#define __CAMERA_ORIGIN                0.0f    // the camera at the map's own unscrolled top-left corner
 
 
 
@@ -292,16 +291,16 @@ namespace SunLight {
          * DrawAllLayers) is fFactorX/fFactorY (L1 of the master plan).
          *
          * Verified against both Tiled's own documented parallax formula and this project's
-         * own camera convention (m_CameraPos is the NEGATED map coordinate shown at the
+         * own camera convention (Camera::Position() is the NEGATED map coordinate shown at the
          * viewport's top-left - GetCameraPosition's own doc comment): the layer's own screen
          * position should be unshifted relative to its authored position exactly when the
          * camera sits at the map's own parallax origin (Tiled's own definition of that origin -
          * "the point parallax is measured from"), and should move at fFactor times the rate
          * the real camera moves otherwise. That is exactly
-         * `(m_CameraPos + origin) * factor - origin`, which reduces to m_CameraPos itself when
+         * `(Camera::Position() + origin) * factor - origin`, which reduces to Camera::Position() itself when
          * factor is 1 algebraically - except floating point does not guarantee
          * `(a + b) * 1 - b == a` bit-for-bit for arbitrary a/b, so factor 1 is special-cased per
-         * axis to return m_CameraPos exactly, unchanged, rather than trust that identity (the
+         * axis to return Camera::Position() exactly, unchanged, rather than trust that identity (the
          * master plan's own first L1 test item: factor 1 is byte-identical to today).
          */
         stVector TileMapRenderer :: GetEffectiveCameraForFactor( double fFactorX, double fFactorY ) const  {
@@ -310,10 +309,7 @@ namespace SunLight {
             double   fOriginX = pTmxMap ? pTmxMap -> parallaxoriginx : 0.0;
             double   fOriginY = pTmxMap ? pTmxMap -> parallaxoriginy : 0.0;
 
-            float  fX = ( fFactorX == 1.0 ) ? m_CameraPos.x : ( float ) ( ( m_CameraPos.x + fOriginX ) * fFactorX - fOriginX );
-            float  fY = ( fFactorY == 1.0 ) ? m_CameraPos.y : ( float ) ( ( m_CameraPos.y + fOriginY ) * fFactorY - fOriginY );
-
-            return { fX, fY };
+            return ActiveCamera().ForParallax( fFactorX, fFactorY, fOriginX, fOriginY );
         }
 
         /**
@@ -341,7 +337,7 @@ namespace SunLight {
                     // L1 of the master plan: this layer's own effective camera, set once here
                     // regardless of layer type - LayerRenderer/ObjectRenderer (through the DrawContext) and the
                     // HandleSpriteUpdate call below (for this exact layer, still in scope) all
-                    // read m_EffectiveLayerCameraPos instead of m_CameraPos directly, so a
+                    // read m_EffectiveLayerCameraPos instead of the active camera directly, so a
                     // world-space sprite's own GetCameraOffset sees the right value with no
                     // separate per-sprite layer tracking at all.
                     double  fEffectiveParallaxX = pLayer -> parallaxx * fParentParallaxX;
@@ -726,15 +722,12 @@ namespace SunLight {
             m_bStretchToFill              = config.bStretchToFill;
             m_nMaxFrames                  = config.nMaxFrames;
             m_nFramesRun                  = 0;
-            m_nScrollStepWidth            = config.nScrollStepWidth;
-            m_nScrollStepHeight           = config.nScrollStepHeight;
+            m_pDefaultView -> m_Camera.SetScrollStep( config.nScrollStepWidth, config.nScrollStepHeight );
             m_WindowBackgroundColor       = BLACK_COLOR;
             m_bWindowBackgroundSet        = false;
             m_pControllerManager          = std :: make_unique<SunLight :: Input :: ControllerManager>();
             m_pControllerManager -> SetInputDispatchMode( ToInputDispatchMode( config.viewControlMode ) );
             m_TileMapListenerList.clear();
-
-            memset( &m_CameraPos, 0, sizeof( m_CameraPos ) );
             memset( &m_EffectiveLayerCameraPos, 0, sizeof( m_EffectiveLayerCameraPos ) );
             ResetZoom();
             SetVisible( __DEFAULT_VISIBLE_STATUS );
@@ -842,7 +835,7 @@ namespace SunLight {
          * The camera of the view being drawn: what a world-space canvas adds to a map
          * position to get a position relative to that view - the same offset every map
          * tile gets (see LayerRenderer::DrawTile). nLayerId == -1 (BaseCanvas's own sentinel - a loose
-         * canvas, or one never added via AddSprite) gets the true, unscaled m_CameraPos,
+         * canvas, or one never added via AddSprite) gets the true, unscaled Camera::Position(),
          * exactly as before L1 of the master plan. A real layer id gets that layer's own
          * parallax factor applied (GetEffectiveCameraForFactor) - computed fresh here, every
          * call, from the live tmx_layer, NOT from m_EffectiveLayerCameraPos: that member is
@@ -861,7 +854,7 @@ namespace SunLight {
         void TileMapRenderer :: GetCameraOffset( float &fX, float &fY, int nLayerId )  {
 
             tmx_layer  *pTmxLayer = ( nLayerId >= 0 ) ? GetLayer( nLayerId ) : nullptr;
-            stVector    offset    = pTmxLayer ? GetEffectiveCameraForFactor( pTmxLayer -> parallaxx, pTmxLayer -> parallaxy ) : m_CameraPos;
+            stVector    offset    = pTmxLayer ? GetEffectiveCameraForFactor( pTmxLayer -> parallaxx, pTmxLayer -> parallaxy ) : ActiveCamera().Position();
 
             fX = offset.x;
             fY = offset.y;
@@ -1155,18 +1148,20 @@ namespace SunLight {
             if( ( pView == nullptr ) || ( pView == pPrevious ) )
                 return pPrevious;
 
-            pPrevious -> m_State.camera            = m_CameraPos;
-            pPrevious -> m_State.nScrollStepWidth  = m_nScrollStepWidth;
-            pPrevious -> m_State.nScrollStepHeight = m_nScrollStepHeight;
-
-            m_CameraPos         = pView -> m_State.camera;
-            m_nScrollStepWidth  = pView -> m_State.nScrollStepWidth;
-            m_nScrollStepHeight = pView -> m_State.nScrollStepHeight;
-
             SetViewport( pView -> m_pViewport );
             m_pActiveView = pView;
 
             return pPrevious;
+        }
+
+        /**
+         * @brief The active view's camera (S1e of the master plan): the one every camera method of
+         * the renderer reads and moves - the default view's, outside a draw pass and outside a
+         * View's own operation (see ActivateView).
+         */
+        Camera& TileMapRenderer :: ActiveCamera( void ) const  {
+
+            return m_pActiveView -> m_Camera;
         }
 
         /**
@@ -1195,8 +1190,7 @@ namespace SunLight {
             if( m_pMap )  {
                 SunLight :: Base :: stSize2D  step = m_pMap -> DefaultScrollStep();
 
-                pView -> m_State.nScrollStepWidth  = step.nWidth;
-                pView -> m_State.nScrollStepHeight = step.nHeight;
+                pView -> m_Camera.SetScrollStep( step.nWidth, step.nHeight );
             }
 
             m_ExtraViews.push_back( pView );
@@ -1297,8 +1291,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetScrollStepSize( int nStepWidth, int nStepHeight )  {
 
-            m_nScrollStepWidth  = nStepWidth;
-            m_nScrollStepHeight = nStepHeight;
+            ActiveCamera().SetScrollStep( nStepWidth, nStepHeight );
         }
 
         /**
@@ -1312,8 +1305,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
 
-            nStepWidth  = m_nScrollStepWidth;
-            nStepHeight = m_nScrollStepHeight;
+            ActiveCamera().GetScrollStep( nStepWidth, nStepHeight );
         }
 
         /**
@@ -1399,36 +1391,12 @@ namespace SunLight {
          */
         void TileMapRenderer :: ResetCamera( void )  {
 
-            m_CameraPos.x = 0;
-            m_CameraPos.y = 0;
-        }
-
-        /**
-         * @brief The camera value at which the map's far edge (its bottom or right edge) lands on
-         * the viewport's far edge: the furthest MoveCameraUp/MoveCameraLeft may scroll.
-         *
-         * A map position p is drawn at (p + camera) x zoom + viewport.pos, so the map's far edge
-         * (p = nMapSize) reaches the viewport's far edge (viewport.pos + nViewportSize) exactly
-         * when camera = nViewportSize / zoom - nMapSize. That is rounded UP to a whole map pixel:
-         * the camera stays whole (SetCameraPosition/GetCameraPosition and the scroll steps are
-         * whole), and rounding up keeps the map's edge at or past the viewport's - never a gap
-         * of the clear colour, at the cost of under one map pixel left hidden at a non-integer
-         * zoom. A map smaller than the viewport gives a limit above the origin: no scrolling.
-         * @param nViewportSize The viewport's height or width, in screen pixels;
-         * @param fZoom The zoom factor;
-         * @param nMapSize The map's height or width, in map pixels;
-         */
-        static float FarCameraLimit( int nViewportSize, float fZoom, int nMapSize )  {
-
-            return std :: ceil( ( ( float ) nViewportSize / fZoom ) - ( float ) nMapSize );
+            ActiveCamera().Reset();
         }
 
         /**
          * Move view camera up: one scroll step, or less when less is left - the last step stops
-         * with the map's bottom edge on the viewport's bottom edge (FarCameraLimit). It used to
-         * refuse any step that went past that point, so a map whose height is not a whole number
-         * of steps past the viewport's kept its last strip hidden for good (found in the
-         * staggered and hexagonal samples: 20 to 54 map pixels at their edges). Does nothing
+         * with the map's bottom edge on the viewport's bottom edge (Camera::MoveUp). Does nothing
          * while no map is loaded: the limit is worked out from the map's extent.
          */
         void TileMapRenderer :: MoveCameraUp( void )  {
@@ -1436,30 +1404,23 @@ namespace SunLight {
             if( !Tmx() )
                 return;
 
-            SunLight :: Base :: Viewport&      vp     = GetViewport();
-            SunLight :: Base :: stDimension2D& vpDm   = vp.GetDimension2D();
-            float                              fLimit = FarCameraLimit( vpDm.size.nHeight, vp.GetZoomProperties().fZoomFactor,
-                                                                        MapPixelHeight() );
+            SunLight :: Base :: Viewport  &vp = GetViewport();
 
-            if( fLimit < m_CameraPos.y )
-                m_CameraPos.y = std :: max( m_CameraPos.y - m_nScrollStepHeight, fLimit );
+            ActiveCamera().MoveUp( vp.GetDimension2D().size.nHeight, vp.GetZoomProperties().fZoomFactor, MapPixelHeight() );
         }
 
         /**
          * Move view camera down: one scroll step, or less when less is left - the last step stops
-         * at the origin, the map's own unscrolled alignment (camera.y == 0). It used to refuse a
-         * step that went past the origin, which left a camera that MoveCameraUp had stopped short
-         * of a whole step (FarCameraLimit) unable to get back there.
+         * at the origin (Camera::MoveDown).
          */
         void TileMapRenderer :: MoveCameraDown( void )  {
 
-            if( m_CameraPos.y < __CAMERA_ORIGIN )
-                m_CameraPos.y = std :: min( m_CameraPos.y + m_nScrollStepHeight, __CAMERA_ORIGIN );
+            ActiveCamera().MoveDown();
         }
 
         /**
          * Move view camera left: one scroll step, or less when less is left - the last step stops
-         * with the map's right edge on the viewport's right edge (see MoveCameraUp). Does nothing
+         * with the map's right edge on the viewport's right edge (Camera::MoveLeft). Does nothing
          * while no map is loaded.
          */
         void TileMapRenderer :: MoveCameraLeft( void )  {
@@ -1467,31 +1428,26 @@ namespace SunLight {
             if( !Tmx() )
                 return;
 
-            SunLight :: Base :: Viewport&      vp     = GetViewport();
-            SunLight :: Base :: stDimension2D& vpDm   = vp.GetDimension2D();
-            float                              fLimit = FarCameraLimit( vpDm.size.nWidth, vp.GetZoomProperties().fZoomFactor,
-                                                                        MapPixelWidth() );
+            SunLight :: Base :: Viewport  &vp = GetViewport();
 
-            if( fLimit < m_CameraPos.x )
-                m_CameraPos.x = std :: max( m_CameraPos.x - m_nScrollStepWidth, fLimit );
+            ActiveCamera().MoveLeft( vp.GetDimension2D().size.nWidth, vp.GetZoomProperties().fZoomFactor, MapPixelWidth() );
         }
 
         /**
          * Move view camera right: one scroll step, or less when less is left - the last step
-         * stops at the origin (see MoveCameraDown).
+         * stops at the origin (Camera::MoveRight).
          */
         void TileMapRenderer :: MoveCameraRight( void )  {
 
-            if( m_CameraPos.x < __CAMERA_ORIGIN )
-                m_CameraPos.x = std :: min( m_CameraPos.x + m_nScrollStepWidth, __CAMERA_ORIGIN );
+            ActiveCamera().MoveRight();
         }
 
         /**
          * @brief Jump the camera so the given world-space coordinate is
-         * shown at the top-left of the viewport. m_CameraPos itself is the
+         * shown at the top-left of the viewport. Camera::Position() itself is the
          * negated world coordinate currently shown at the viewport's
-         * top-left (confirmed via every MoveCamera call and the alignment-
-         * init code above, all of which treat it that way) - callers pass plain,
+         * top-left (confirmed via every Move call and the alignment code,
+         * Camera::Align, all of which treat it that way) - callers pass plain,
          * positive world-space coordinates (the same space stObject's
          * x/y and TileMapToTileMatrix's input already use), not this
          * internal negated convention.
@@ -1513,14 +1469,13 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetCameraPosition( int nX, int nY )  {
 
-            m_CameraPos.x = ( float ) -nX;
-            m_CameraPos.y = ( float ) -nY;
+            ActiveCamera().SetPosition( nX, nY );
         }
 
         /**
          * @brief Read the world-space coordinate currently shown at the
          * top-left of the viewport - the exact inverse of
-         * SetCameraPosition (m_CameraPos itself stores the negated
+         * SetCameraPosition (Camera::Position() itself stores the negated
          * coordinate, same convention that method's own comment covers).
          *
          * @param nX Receives the world-space x coordinate (pixels)
@@ -1530,8 +1485,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: GetCameraPosition( int &nX, int &nY )  {
 
-            nX = ( int ) -m_CameraPos.x;
-            nY = ( int ) -m_CameraPos.y;
+            ActiveCamera().GetPosition( nX, nY );
         }
 
         /**
@@ -1821,7 +1775,7 @@ namespace SunLight {
                 SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
                 SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
 
-                if( m_pMap -> MapProjection().ViewToTileMatrix( coord, Tmx(), vp, m_CameraPos, zp.fZoomFactor,
+                if( m_pMap -> MapProjection().ViewToTileMatrix( coord, Tmx(), vp, ActiveCamera().Position(), zp.fZoomFactor,
                                                                 MapPixelWidth(), MapPixelHeight(), pos ) )  {
 
                     // Both edges: GetTile indexes gids[] with these, and a
@@ -1861,87 +1815,22 @@ namespace SunLight {
                 uint16_t  nMapWidth  = MapPixelWidth();
                 uint16_t  nMapHeight = MapPixelHeight();
 
-                SunLight :: Base :: stDimension2D vp          = GetViewport().GetDimension2D();
-                float                                fZoomFactor = GetViewport().GetZoomProperties().fZoomFactor;
-
-                // The viewport's right/bottom EDGES (pos + size). The
-                // alignment maths below aligns to the visible rectangle
-                // [pos, pos + size) using them - every "- nVpRight + vp.pos.x"
-                // is "minus the visible width" - so a viewport keeps the
-                // exact alignment it always produced for the same visible area.
-                int                                  nVpRight    = vp.pos.x + vp.size.nWidth;
-                int                                  nVpBottom   = vp.pos.y + vp.size.nHeight;
-                int                                  nVpHeight   = ( nVpBottom > 0 ?
-                                                                     std :: abs( ( ( nMapHeight / nVpBottom ) * nVpBottom ) - nMapHeight ) : 0 );
-
-
-                // Setup alignment
-                switch( alignment & 0xFF )  {
-                    case MAP_ALIGNMENT_TOP_RIGHT :
-                        m_CameraPos.x = ( float ) -( nMapWidth - nVpRight + vp.pos.x );
-                        break;
-
-                    case MAP_ALIGNMENT_TOP_LEFT : // Nothing to do
-                        break;
-
-                    case MAP_ALIGNMENT_BOTTOM_RIGHT :
-                        m_CameraPos.x = ( float ) -( nMapWidth - nVpRight + vp.pos.x );
-                        m_CameraPos.y = ( float ) -( nMapHeight - nVpHeight + vp.pos.y );
-                        break;
-
-                    case MAP_ALIGNMENT_BOTTOM_LEFT :
-                        m_CameraPos.y = ( float ) -( nMapHeight - nVpBottom + vp.pos.y );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM :
-                        m_CameraPos.x = -round( ( ( ( ( nMapWidth * fZoomFactor ) -
-                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
-                        m_CameraPos.y = ( float ) -( nMapHeight - nVpHeight + vp.pos.y );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER_WIDTH_TOP :
-                        m_CameraPos.x = -round( ( ( ( ( nMapWidth * fZoomFactor ) -
-                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER_HEIGHT_LEFT :
-                        m_CameraPos.y = -round( ( ( ( ( nMapHeight * fZoomFactor ) -
-                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT :
-                        m_CameraPos.x = ( float ) -( nMapWidth - nVpRight + vp.pos.x );
-                        m_CameraPos.y = -round( ( ( ( ( nMapHeight * fZoomFactor ) -
-                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER :
-                        m_CameraPos.x = -round( ( ( ( ( nMapWidth * fZoomFactor ) -
-                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
-                        m_CameraPos.y = -round( ( ( ( ( nMapHeight * fZoomFactor ) -
-                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
-                        break;
-                }
+                // Setup alignment (Camera::Align): the active view's camera, for its viewport and zoom.
+                ActiveCamera().Align( alignment, nMapWidth, nMapHeight, GetViewport().GetDimension2D(),
+                                      GetViewport().GetZoomProperties().fZoomFactor );
 
                 /*
+                * Set scrolling properties.
+                */                /*
                 * Set scrolling properties.
                 */
                 SunLight :: Base :: stSize2D  defaultStep = m_pMap -> DefaultScrollStep();
 
-                SetScrollStepSize( ( m_nScrollStepWidth < 0 ? defaultStep.nWidth :
-                                                            m_nScrollStepWidth ),
-                                   ( m_nScrollStepHeight < 0 ? defaultStep.nHeight :
-                                                            m_nScrollStepHeight ) );
+                // For every view: "-1" means the tile size of the map they now show.
+                m_pDefaultView -> m_Camera.ResolveScrollStep( defaultStep );
 
-                // The same for every other view (their state is parked in the View while the
-                // default one is active): "-1" means the tile size of the map they now show.
-                for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
-                    if( pView -> m_State.nScrollStepWidth < 0 )
-                        pView -> m_State.nScrollStepWidth = defaultStep.nWidth;
-
-                    if( pView -> m_State.nScrollStepHeight < 0 )
-                        pView -> m_State.nScrollStepHeight = defaultStep.nHeight;
-                }
+                for( std :: shared_ptr<View> &pView : m_ExtraViews )
+                    pView -> m_Camera.ResolveScrollStep( defaultStep );
 
                 return true;
             }
