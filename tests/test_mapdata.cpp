@@ -38,16 +38,17 @@ using SunLight :: Renderer :: MapData;
 
 namespace  {
 
-    // A 3 x 2 orthogonal map of 16 x 8 tiles. Tileset "t" (firstgid 1, two tiles, an image beside
-    // the map): tile 0 is animated, tile 0 for 100 ms then tile 1 for 50 ms. Layers: "ground"
+    // A 3 x 2 orthogonal map of 16 x 8 tiles. Tileset "t" (firstgid 1, three tiles, an image beside
+    // the map): tile 0 is animated - tile 0 for 100 ms, tile 1 for 50 ms, tile 2 for 70 ms. Layers: "ground"
     // (id 1: gids 1 2 0 / 0 9 1 - gid 9 is past the tileset), a group "grp" (id 2) holding the object
     // group "marks" (id 3, object "spawn").
     const char  *g_szMap =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"3\" height=\"2\" tilewidth=\"16\" tileheight=\"8\">"
-        "<tileset firstgid=\"1\" name=\"t\" tilewidth=\"16\" tileheight=\"8\" tilecount=\"2\" columns=\"2\">"
-        "<image source=\"t.png\" width=\"32\" height=\"8\"/>"
-        "<tile id=\"0\"><animation><frame tileid=\"0\" duration=\"100\"/><frame tileid=\"1\" duration=\"50\"/></animation></tile>"
+        "<tileset firstgid=\"1\" name=\"t\" tilewidth=\"16\" tileheight=\"8\" tilecount=\"3\" columns=\"3\">"
+        "<image source=\"t.png\" width=\"48\" height=\"8\"/>"
+        "<tile id=\"0\"><animation><frame tileid=\"0\" duration=\"100\"/><frame tileid=\"1\" duration=\"50\"/>"
+        "<frame tileid=\"2\" duration=\"70\"/></animation></tile>"
         "</tileset>"
         "<layer id=\"1\" name=\"ground\" width=\"3\" height=\"2\"><data encoding=\"csv\">1,2,0,0,9,1</data></layer>"
         "<group id=\"2\" name=\"grp\"><objectgroup id=\"3\" name=\"marks\">"
@@ -184,38 +185,37 @@ TEST_SUITE( "renderer/MapData" )  {
         CHECK( pMap -> FindObjectByName( "nope", object ) == false );
     }
 
-    TEST_CASE( "An animated tile steps through its frames by the clock (pinned as it is today)" )  {
+    TEST_CASE( "An animated tile shows each frame once per cycle, each for its own duration" )  {
 
-        // Today's sequence, pinned so S1 provably changes nothing: after the last frame the
-        // counter wraps to 0 AND shows frame 0, then shows frame 0 again on the next step - so
-        // frame 0 is held for two durations every cycle. Recorded in the master plan as a
-        // finding to fix after S1; this test will change with that fix.
+        // Frames 0, 1, 2 for 100, 50 and 70 ms, stepped at each frame's end for two full cycles. The
+        // cycle used to wrap one step late and show frame 0 twice in a row (0 1 2 0 0 1 2 0 0 ...).
         Files                        files;
         MockClockFixture             clockFixture;
         std :: unique_ptr<MapData>   pMap = MapData :: Load( "maps/level.tmx" );
 
         REQUIRE( pMap != nullptr );
 
-        tmx_tile  *pBase   = pMap -> Tmx() -> tiles[1];
-        tmx_tile  *pFrame1 = pMap -> Tmx() -> tiles[2];
+        tmx_tile  *pFrames[] = { pMap -> Tmx() -> tiles[1], pMap -> Tmx() -> tiles[2], pMap -> Tmx() -> tiles[3] };
+        tmx_tile  *pBase     = pFrames[0];
 
-        REQUIRE( pBase -> animation_len == 2 );
+        REQUIRE( pBase -> animation_len == 3 );
 
-        // Step at each frame's end: frame 0 lasts 100 ms, frame 1 50 ms.
         std :: vector<tmx_tile*>  shown;
-        const int64_t             steps[] = { 0, 100, 50, 100, 100, 50 };
+        const int64_t             steps[] = { 0, 100, 50, 70, 100, 50, 70 };
 
         for( int64_t nStep : steps )  {
             clockFixture.clock.Advance( nStep );
             shown.push_back( pMap -> AnimatedFrameOf( pBase, 1 ) );
         }
 
-        std :: vector<tmx_tile*>  expected = { pBase, pFrame1, pBase, pBase, pFrame1, pBase };
+        std :: vector<tmx_tile*>  expected = { pFrames[0], pFrames[1], pFrames[2], pFrames[0], pFrames[1], pFrames[2], pFrames[0] };
 
         CHECK( shown == expected );
 
-        // Between two steps the frame on screen does not change.
-        clockFixture.clock.Advance( 10 );
-        CHECK( pMap -> AnimatedFrameOf( pBase, 1 ) == pBase );
+        // Between two steps the frame on screen does not change: frame 0 stays until its 100 ms are up.
+        clockFixture.clock.Advance( 99 );
+        CHECK( pMap -> AnimatedFrameOf( pBase, 1 ) == pFrames[0] );
+        clockFixture.clock.Advance( 1 );
+        CHECK( pMap -> AnimatedFrameOf( pBase, 1 ) == pFrames[1] );
     }
 }
