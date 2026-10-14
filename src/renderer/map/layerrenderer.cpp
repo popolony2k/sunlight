@@ -219,7 +219,8 @@ namespace SunLight  {
                                                        ( fR - fL ) / fBoxW * nTileW,
                                                        ( fB - fT ) / fBoxH * nTileH };
             SunLight :: Base :: stRectangle  dest   { fL, fT, fR - fL, fB - fT };
-            SunLight :: Base :: stColor      tint   { __OPAQUE_CHANNEL, __OPAQUE_CHANNEL, __OPAQUE_CHANNEL, ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) };
+            // The layer's tint, as a tile object at its own size and a turned one take it.
+            SunLight :: Base :: stColor      tint   { tintColor.nRed, tintColor.nGreen, tintColor.nBlue, ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) };
 
             SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureScaled( pImage, source, dest, tint );
         }
