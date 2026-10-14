@@ -1788,7 +1788,7 @@ Done last, once the features they describe are settled.
 | T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | DONE |
 | T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | DONE |
 | T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | DONE |
-| T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | TODO |
+| T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | DONE |
 | T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | TODO |
 
 - T1: each warning is fixed, and the Doxygen run reports no new warnings.
@@ -1848,6 +1848,15 @@ listeners are walked over a copy, each re-checked as still registered before its
 during a dispatch: starts next frame. Removed: never called again. Of the 6 regression tests,
 against the old code 3 fail under AddressSanitizer (heap-use-after-free; one also crashes a
 normal build) and 3 fail their checks. Full suite 595/595, ASan clean, 0 leaks.
+
+**T4: CHANGELOG (DONE).** Every entry had stayed under one `[Unreleased]` heading (with
+`Added`/`Changed`/`Fixed` repeated 12 times), although all of it had shipped, while nothing
+merged since `v0.38.0` - this whole plan - had an entry; the header still said no release
+was tagged (49 were). Each entry now sits under the release that first contained it (found
+from the commit that added its text), condensed to what changed: `0.1.0` and `0.22.0` to
+`0.38.0` (`0.2.0`-`0.21.0` never had entries; their GitHub release notes stand), with
+compare links. `[Unreleased]` holds this plan, grouped Breaking/Added/Changed/Fixed/Removed,
+pointing here and to `doc/BREAKAGES.md` for detail. 536 lines -> 359.
 
 ## Out of scope for this plan
 
