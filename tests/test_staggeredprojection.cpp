@@ -455,7 +455,7 @@ namespace  {
 
     // A 3 x 2 staggered map (64 x 48 declared tile size, no explicit staggeraxis/staggerindex -
     // libtmx defaults a missing attribute to SA_Y/SI_ODD, confirmed against its own source in E2a), one
-    // tileset matching that size exactly (so m_bUniformTileGrid is true and DrawLayer takes the culled
+    // tileset matching that size exactly (so MapData::IsUniformTileGrid() is true and DrawLayer takes the culled
     // path), every cell filled with gid 1.
     Bytes MakeStaggeredTmx( void )  {
 

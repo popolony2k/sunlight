@@ -268,7 +268,7 @@ TEST_SUITE( "Isometric projection" )  {
 namespace  {
 
     // A 3 x 2 isometric map (64 x 32 declared tile size), one tileset matching that size exactly (so
-    // m_bUniformTileGrid is true and DrawLayer takes the culled path), every cell filled with gid 1.
+    // MapData::IsUniformTileGrid() is true and DrawLayer takes the culled path), every cell filled with gid 1.
     Bytes MakeIsometricTmx( void )  {
 
         std :: ostringstream  tmx;

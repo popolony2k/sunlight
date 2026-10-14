@@ -285,7 +285,7 @@ namespace SunLight {
 
         bool View :: ShowLayer( const char *szLayerName, bool bShow )  {
 
-            tmx_layer  *pLayer = ( szLayerName && m_pRenderer && m_pRenderer -> m_pTmxMap ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
+            tmx_layer  *pLayer = ( szLayerName && m_pRenderer && m_pRenderer -> Tmx() ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
 
             if( !pLayer )
                 return false;
@@ -325,7 +325,7 @@ namespace SunLight {
          */
         bool View :: FitToMap( void )  {
 
-            tmx_map  *pMap = ( m_pRenderer ? m_pRenderer -> m_pTmxMap : nullptr );
+            tmx_map  *pMap = ( m_pRenderer ? m_pRenderer -> Tmx() : nullptr );
 
             if( !pMap )
                 return false;
