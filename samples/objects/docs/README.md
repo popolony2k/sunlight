@@ -25,11 +25,13 @@ This produces the `objects_test` executable under `build/samples/objects/`, alon
 
 | Keys | Action |
 | --- | --- |
-| `W` / `Up Arrow` | Scroll the view up |
-| `S` / `Down Arrow` | Scroll the view down |
-| `A` / `Left Arrow` | Scroll the view left |
-| `D` / `Right Arrow` | Scroll the view right |
+| Arrow keys | Scroll the map |
+| `Page Up` / `Page Down` | Zoom in / out |
+| `Home` | Reset the zoom |
+| `End` | Move the camera back to the map's origin |
 | `Esc` | Quit |
+
+These are `DefaultControllerBindings`, installed by the sample with `DefaultControllerBindings::Install`.
 
 ## What to look for
 

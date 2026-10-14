@@ -38,10 +38,10 @@ Each item is described in full in the plan; what each change means for code buil
 - **Isometric, staggered and hexagonal maps** load and render, each behind an `IMapProjection`
   (orthogonal maps too), with visible-tile culling.
 - **Objects:** text objects, drawn with fonts registered through `TileMapRenderer::RegisterFont`
-  (new `IFont` module); tile objects (own size or stretched, animated, flipped); point objects.
-  Polylines, polygons, rectangles and ellipses take a `line_width`, points a `point_size`
-  (map units, scaled by zoom). Rectangles, polylines, polygons, ellipses, tile and text objects
-  honour their Tiled rotation.
+  (new `IFont` module); tile objects (own size or stretched, animated; their flip bits are not
+  drawn yet); point objects. Polylines, polygons, rectangles and ellipses take a `line_width`,
+  points a `point_size` (map units, scaled by zoom). Rectangles, polylines, polygons, ellipses,
+  tile and text objects honour their Tiled rotation.
 - **Layers:** Tiled per-layer parallax (`parallaxx`/`parallaxy`, the map's parallax origin) for
   tile, object and image layers and world-space sprites, plus `SetLayerParallax`; an object's own
   `opacity` property overrides its layer's; `Sprite::SetZOrder` orders sprites within a layer.
@@ -53,8 +53,8 @@ Each item is described in full in the plan; what each change means for code buil
   `DrawPolyline`, `DrawPolygon`, `DrawPoint`, zoom-aware), and sprites registered with no map
   loaded are drawn.
 - Samples: `isometric`, `isometric_haptics`, `staggered`, `hexagonal`, `parallax`, `text`,
-  `objects`, `shapes`, `multiview_overlap`, `opacity`, `zorder` and `surface`; shared fonts in
-  `samples/shared/fonts`.
+  `objects`, `shapes`, `multiview_overlap`, `opacity`, `zorder`, `surface` and `input`, each with a
+  `docs/README.md`; shared fonts in `samples/shared/fonts`.
 - CI: an AddressSanitizer job on Linux (with leak detection), a Doxygen job that fails on any
   warning (Doxygen pinned to 1.17.0, also for the published docs), and suffixed tags
   (`v0.39.0-beta.1`) published as prereleases.
@@ -90,6 +90,8 @@ Each item is described in full in the plan; what each change means for code buil
 - Map listeners, collision listeners and input handlers were walked while the callback could
   change the list (undefined behaviour: a crash, a skipped or a doubled call).
 - Every Doxygen warning.
+- The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
+  keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 
 ### Removed
 

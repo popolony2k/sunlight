@@ -3,3 +3,6 @@
 
 # Samples executables (Linux)
 *_test
+
+# macOS Finder metadata
+.DS_Store

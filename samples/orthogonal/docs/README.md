@@ -37,7 +37,7 @@ The current FPS is drawn in the corner of the window.
 
 ## What it shows
 
-- `World::Run()` ([world.cpp](/samples/orthogonal/world.cpp)) constructs a `TileMapRenderer`, sets up a 900×800 viewport with a default zoom level, wires the controls above via `SetUserKeyEventHandler`, then loads `resources/map/test.tmx` centered in the window (`MAP_ALIGNMENT_CENTER`) before entering the render loop with `Run()`.
+- `World::Run()` ([world.cpp](/samples/orthogonal/world.cpp)) constructs a `TileMapRenderer`, sets up an 890×790 viewport at (10, 10) with a default zoom level, wires the controls above via `SetUserKeyEventHandler`, then loads `resources/map/test.tmx` centered in the window (`MAP_ALIGNMENT_CENTER`) before entering the render loop with `Run()`.
 - This is the minimal setup needed to get a Tiled map on screen — everything else in the library (sprites, collisions, sound, scripting) builds on top of this same `TileMapRenderer` instance.
 
 ## Resources
