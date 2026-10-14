@@ -25,6 +25,7 @@
 #include <set>
 #include "tilemap/iview.h"
 #include "base/primitives.h"
+#include "renderer/camera/camera.h"
 
 
 namespace SunLight {
@@ -35,12 +36,12 @@ namespace SunLight {
         /**
          * @brief The concrete view (see @see SunLight::TileMap::IView).
          *
-         * A view is a holder of state - camera position, scroll step and a
-         * Viewport - and a handle whose operations RE-USE the renderer's own
-         * camera/zoom logic rather than duplicating it: each one briefly
-         * makes this view the ACTIVE one (the renderer's working camera,
-         * scroll step and root viewport pointer are swapped to this view's
-         * state), runs the renderer's own method, and swaps back. So a view
+         * A view is a holder of state - its Camera (position and scroll step)
+         * and a Viewport - and a handle whose operations RE-USE the renderer's
+         * own camera/zoom logic rather than duplicating it: each one briefly
+         * makes this view the ACTIVE one (the renderer then works on this
+         * view's camera, and its root viewport pointer is swapped to this
+         * view's), runs the renderer's own method, and swaps back. So a view
          * always behaves exactly as the renderer itself does, by
          * construction. The default view is the one that is active whenever
          * nothing else is - which is always, outside a draw pass and
@@ -52,21 +53,11 @@ namespace SunLight {
 
             friend class TileMapRenderer;
 
-            /**
-             * The per-view state the renderer keeps as its "working" copy
-             * while the view is active, and that is parked here while it is not.
-             */
-            struct State  {
-                SunLight :: Base :: stVector2D   camera;
-                int                              nScrollStepWidth;
-                int                              nScrollStepHeight;
-            };
-
             TileMapRenderer                        *m_pRenderer;
             int                                    m_nId;
             SunLight :: Base :: Viewport           *m_pViewport;
             std :: unique_ptr<SunLight :: Base :: Viewport>  m_pOwnedViewport;
-            State                                  m_State;
+            Camera                                 m_Camera;            // this view's camera and scroll step (S1e)
 
             // Drawing state (see IView). m_bClear / m_bExplicitBackground /
             // m_Background are read for the default view only when it is asked;

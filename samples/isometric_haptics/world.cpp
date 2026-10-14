@@ -206,9 +206,9 @@ void World :: TryMoveStep( int nDeltaRow, int nDeltaCol )  {
     // (TextureCanvas::GetScreenRect adds no camera term at all) - so for her stored position to
     // visually land on a given cell, it must be target + the CURRENT camera, not target alone.
     //
-    // GetCameraPosition() reports -m_CameraPos (its own doc comment: "the negated world
+    // GetCameraPosition() reports -Camera::Position() (its own doc comment: "the negated world
     // coordinate... shown at the viewport's top-left"), but DrawTile adds the raw, un-negated
-    // m_CameraPos - the reported value needs negating back before use here.
+    // Camera::Position() - the reported value needs negating back before use here.
     int  nCamXBeforeReported, nCamYBeforeReported, nCamXAfterReported, nCamYAfterReported;
 
     m_pRenderer -> GetCameraPosition( nCamXBeforeReported, nCamYBeforeReported );
@@ -222,7 +222,7 @@ void World :: TryMoveStep( int nDeltaRow, int nDeltaCol )  {
     int  nScreenY    = ( int ) ( ( target.y + nCamYBefore ) * fZoom ) + vp.pos.y;
     int  nScreenSize = ( int ) ( __SUNNY_TILE_SIZE * fZoom );
 
-    // MoveCameraLeft/Right/Up/Down name which way m_CameraPos itself shifts, not which way the
+    // MoveCameraLeft/Right/Up/Down name which way Camera::Position() itself shifts, not which way the
     // view visually pans - the same "sprite-relative" inversion the orthogonal tilemaprenderer
     // sample already relies on (its own D key, visually "pan right", calls MoveCameraLeft()).
     // Revealing more map to the right needs camera.x more negative, i.e. MoveCameraLeft(); back

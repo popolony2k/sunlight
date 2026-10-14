@@ -42,6 +42,7 @@
 #include "renderer/map/mapdata.h"
 #include "renderer/map/layerrenderer.h"
 #include "renderer/sprite/spriteregistry.h"
+#include "renderer/camera/camera.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
 #include "input/icontrollermanager.h"
@@ -101,10 +102,9 @@ namespace SunLight {
             TileMapListenerList                        m_TileMapListenerList;
             SunLight :: Collision :: CollisionManager  m_CollisionManager;
             ShapeRenderer                              m_ShapeRenderer;          // draws every shape (S1a): shape objects and IShapeSurface
-            stVector                                   m_CameraPos;
 
             // The CURRENT layer's own effective camera (L1 of the master plan: per-layer
-            // parallax) - m_CameraPos scaled by that layer's own parallax factor (and its
+            // parallax) - the active camera scaled by that layer's own parallax factor (and its
             // group ancestors', multiplied together, matching Tiled's own nesting rule) and
             // anchored at the map's parallaxoriginx/y. Set once per layer, of any type, at
             // the top of DrawAllLayers's own loop body - before dispatching to
@@ -112,11 +112,9 @@ namespace SunLight {
             // of them (including a world-space sprite's own GetCameraOffset) reads the same,
             // already-correct value for whichever layer is currently being processed, with no
             // separate per-sprite layer tracking needed at all. A layer with no parallax
-            // (factor 1,1 - the overwhelming default) gets this set to exactly m_CameraPos,
+            // (factor 1,1 - the overwhelming default) gets this set to exactly the active camera,
             // byte-identical to this project's pre-L1 behavior.
             stVector                                   m_EffectiveLayerCameraPos;
-            int                                        m_nScrollStepWidth;
-            int                                        m_nScrollStepHeight;
             float                                      m_fWindowWidth;
             float                                      m_fWindowHeight;
             int                                        m_nTargetFps;
@@ -151,11 +149,11 @@ namespace SunLight {
 
             // Views (see SunLight::TileMap::IView). The DEFAULT view (id 0)
             // owns what the renderer always had - camera, scroll step and
-            // root viewport - and is the ACTIVE one whenever nothing else is:
-            // m_CameraPos / m_nScrollStep* above are the ACTIVE view's
-            // working state, swapped in and out by ActivateView (which
-            // View's operations and the draw passes use), so all the existing
-            // camera/zoom code serves every view unchanged.
+            // root viewport - and is the ACTIVE one whenever nothing else is.
+            // Every view holds its own Camera (S1e); the renderer's camera code
+            // works on the ACTIVE view's (ActiveCamera), and ActivateView (which
+            // View's operations and the draw passes use) switches which view that
+            // is, so all the camera/zoom code serves every view unchanged.
             std :: shared_ptr<View>                    m_pDefaultView;
             std :: vector<std :: shared_ptr<View>>     m_ExtraViews;
             View                                       *m_pActiveView;
@@ -172,6 +170,7 @@ namespace SunLight {
             friend class View;
 
             View* ActivateView( View *pView );
+            Camera& ActiveCamera( void ) const;      // the active view's camera (S1e)
 
             // The loaded map (S1c1): its libtmx map (null when none is loaded), its size in map pixels
             // (0 when none), and its layers by id or name (null when none, or no such layer).
@@ -208,8 +207,8 @@ namespace SunLight {
 
             // L1 of the master plan: the effective camera for a layer whose own accumulated
             // parallax factor (its own parallaxx/y, already multiplied by every group ancestor's
-            // own factor) is fFactorX/fFactorY - m_CameraPos itself, anchored at the map's own
-            // parallaxoriginx/y, scaled by the factor; exactly m_CameraPos, per axis, when that
+            // own factor) is fFactorX/fFactorY - the active camera, anchored at the map's own
+            // parallaxoriginx/y, scaled by the factor (Camera::ForParallax); exactly that camera, per axis, when that
             // axis's factor is 1.0 (byte-identical to this project's pre-L1 behavior).
             stVector GetEffectiveCameraForFactor( double fFactorX, double fFactorY ) const;
 

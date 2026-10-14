@@ -1778,7 +1778,7 @@ text, the map's tilesets or the registered fonts.
 | S1c1 | `MapData`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), freeing by its destructor, and tile, layer and object lookups | DONE |
 | S1c2 | `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | DONE |
 | S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | DONE |
-| S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | TODO |
+| S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | DONE |
 
 What stays in `TileMapRenderer`: the lifecycle (`Start`/`Run`/`Stop`), the views and the multi-view passes,
 the small setters, getters and pass-throughs to `IWindow`/`IEngine`, and the wiring between the new classes.
@@ -1901,6 +1901,30 @@ the stress benchmark within its spread.
   iterator - eg. one reused after the renderer's `Stop()`, which unloads every registered sprite.
   No sequence is active after `Unload()` now. `tests/test_sprite.cpp` checks it; on the old code
   AddressSanitizer reports a heap-use-after-free in it.
+
+**S1e: `Camera` (DONE).** `renderer/camera/camera.h/.cpp` holds one view's camera: its position
+(the negated map point at the viewport's top-left, as before), its scroll step (-1 until a map
+resolves it), the four moves with #201's limits, the map alignments (`LoadMap`'s switch) and the
+parallax camera (`GetEffectiveCameraForFactor`'s arithmetic), moved as they were; it knows
+nothing about `TileMapRenderer` or `View`, and is handed the map's size, the viewport and the
+zoom. Each `View` now holds its `Camera`: the renderer's `m_CameraPos` and
+`m_nScrollStepWidth`/`Height` and `View::State` are gone, `ActivateView` no longer copies a
+camera in and out (it only switches the active view and its viewport), and `View::Detach` no
+longer parks one. The renderer's camera methods keep their checks and work on the active view's
+camera (`ActiveCamera`); a view's methods still go through `View::Run`, so a removed view's
+setters stay no-ops and its getters return its last values. `tilemaprenderer.cpp` 2,312 ->
+2,201 lines, the header 423 -> 422, `view.cpp` 367 -> 349. `tests/test_cameraunit.cpp` (7
+cases, no renderer); an explicit step overwritten by `ResolveScrollStep`, a wrong axis in
+`Align` and every view using the default view's camera each fail tests (the last, 10 of the
+view tests). Full suite 652/652, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark within
+its spread.
+
+**S1 result.** `tilemaprenderer.cpp` went from 3,652 to 2,201 lines and its header from 522 to
+422, across ten new classes. That is short of the "near 1,400" this section expected: what stays
+is what it lists (the lifecycle, `Run()`, the views and their passes, the layer walk with its
+parallax and masks, about 45 small setters and pass-throughs) plus `LoadMap`, the input wiring
+and `GetTile`/`TileMapToTileMatrix`, with their long comments. Moving the views out, left for
+after S1e above, is the largest piece still in it.
 
 ## Docs, samples and tests
 
