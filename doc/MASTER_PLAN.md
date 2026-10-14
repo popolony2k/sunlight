@@ -1790,11 +1790,12 @@ Done last, once the features they describe are settled.
 | T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | DONE |
 | T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | DONE |
 | T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | DONE |
-| T6 | Load TTF/OTF fonts with Latin accents, not only the 95 ASCII glyphs raylib's `LoadFont` generates | TODO |
+| T6 | Load TTF/OTF fonts with Latin accents, not only the 95 ASCII glyphs raylib's `LoadFont` generates | DONE |
 
 - T1: each warning is fixed, and the Doxygen run reports no new warnings.
 - T2 and T3: tests fail on a deliberate break of the loader or dispatch path.
 - T4 and T5: checked against the features as they are when this item is reached.
+- T6: the `text` sample's Press Start 2P line draws its accents; a unit test pins the code points.
 
 **T1: Doxygen warnings (DONE).** `doxygen Doxyfile` went from 147 warning lines to 0.
 - `@link X` without `@endlink` (about 40 places) became `@ref X`, qualified where the name
@@ -1879,6 +1880,16 @@ pointing here and to `doc/BREAKAGES.md` for detail. 536 lines -> 359.
   `.DS_Store` in both `.gitignore` files.
 - Found, left for T6: a TTF/OTF font is loaded with the 95 ASCII glyphs only, so the `text`
   sample's Press Start 2P line shows `?` for its accents.
+
+**T6: TTF/OTF fonts with Latin accents (DONE, real-window checked by the owner).** raylib's
+`LoadFont` builds a TTF/OTF font with the 95 ASCII glyphs alone (`FONT_TTF_DEFAULT_NUMCHARS`,
+`rtext.c`), so `SetFont`/`LoadFont` drew every accented letter as `?` - seen on the `text`
+sample's Press Start 2P line (`ção, ñ`). `RaylibEngine` now loads a `.ttf`/`.otf` through one
+helper, `LoadFontFile`, with `LoadFontEx` and `TtfCodepoints()` (ASCII 32-126, Latin-1 160-255,
+Latin Extended-A 256-383: 319 glyphs), at raylib's own size (32) and with the point filtering
+`LoadFont` sets, so ASCII text is drawn as before. `.fnt` and other formats still go to
+`LoadFont`. `LoadFontEx` reads through `LoadFileData`, so mounts and the read filter still apply.
+`tests/test_raylibfontglyphs.cpp` pins the list (5 cases); cut to ASCII only, 2 of them fail.
 
 ## Out of scope for this plan
 
