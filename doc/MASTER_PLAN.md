@@ -1759,25 +1759,45 @@ designed around the seam M1 establishes, instead of being redone once that seam 
 
 ## Structure: a smaller TileMapRenderer
 
-`src/renderer/tilemaprenderer.cpp` is about 3,300 lines, and it holds most of the renderer's work. The
-helpers that were not part of the renderer have already moved to their own modules: `shapeprimitives`
-(clip, stroke and screen width), `shapeobjects` (the `line_width` property), `externalresources` (external
-tilesets and templates) and `maporientation` (orientation names). S1 moves the rest.
+`src/renderer/tilemaprenderer.cpp` is about 3,650 lines (1,700 of code, 1,340 of comments) and the header
+about 520. The class implements `ITileMap`, `IDrawSurface` and `IShapeSurface`, holds about 50 data members,
+and `View` (a friend) reaches into 11 of them. The helpers that were not part of the renderer already live in
+their own modules: `shapeprimitives`, `shapeobjects`, `externalresources`, `maporientation` and the
+projections.
+
+S1 does not just split the file. It moves each concern into an **independent class** with its own state, which
+knows nothing about `TileMapRenderer`; the renderer then holds and uses them. Those classes can be reused by
+another renderer later (for example one with no tile map). The drawing code is the easiest part to move: it
+reads only the active viewport (position, size, zoom), the current layer's camera offset and, for tiles and
+text, the map's tilesets or the registered fonts.
 
 | # | Item | Status |
 |---|------|--------|
-| S1 | Split `TileMapRenderer` into one header and source per concern, so no single file holds more than one concern | TODO |
+| S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | TODO |
+| S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch, tile objects, the per-object opacity rule and its warnings) | TODO |
+| S1c | `LoadedMap`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), release, and tile, layer and object lookups. `LayerRenderer`: tile, image and group layer drawing and culling | TODO |
+| S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | TODO |
+| S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | TODO |
 
-- Concerns to move, in this order: text objects; tile objects and their animation; object drawing (`DrawObjects`
-  and its dispatch); view passes and multi-view rendering; map loading and its callbacks; the sprite registry; the
-  default input handlers. Each move is one commit.
-- Target: `tilemaprenderer.cpp` under 1,000 lines, and no new file over 600.
-- No behaviour change in any step: the full suite passes, every sample builds, the AddressSanitizer run is clean,
-  and the shapes stress benchmark stays within its usual spread.
-- Public API of `TileMapRenderer` does not change. If a step has to change it, the change goes in
-  `doc/BREAKAGES.md` first.
+What stays in `TileMapRenderer`: the lifecycle (`Start`/`Run`/`Stop`), the views and the multi-view passes,
+the small setters, getters and pass-throughs to `IWindow`/`IEngine`, and the wiring between the new classes.
+Moving the views out (they are tied to the renderer the most closely) is left for a later decision, once S1e
+has simplified them.
+
+- Order: S1a to S1e, lowest risk first. Each item is one branch and one PR, and the next starts only once the
+  previous one is merged.
+- No behaviour change in any step: the full suite passes, every sample builds, the AddressSanitizer run is
+  clean (S1d and S1e touch object lifetimes), `leaks --atExit` reports none, and the shapes stress benchmark
+  stays within its usual spread. The samples are checked in a real window after S1c, S1d and S1e.
+- Public API of `TileMapRenderer` does not change. Only private members move, so code built on sunlight has to
+  be rebuilt, not changed. If a step has to change the public API, the change goes in `doc/BREAKAGES.md` first.
+- Each new class gets its own doctest coverage where it does not need a window (the mocks and the null backend
+  as elsewhere).
+- Target: no file over about 1,000 lines. `tilemaprenderer.cpp` is expected to end near 1,400 lines with its
+  comments (lifecycle, `Run()`, views and about 45 small methods), so the old "under 1,000" target is dropped.
 - Every value in new code is named, as in the other modules.
-- Start after Phase C is closed, so the thick-line work is not moved underneath it.
+- Not in S1: shared interfaces for future renderers (an `IRenderer` base, a layer-source interface). They are
+  better designed against a second renderer once one exists.
 
 ## Docs, samples and tests
 
