@@ -1776,7 +1776,7 @@ text, the map's tilesets or the registered fonts.
 | S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | DONE |
 | S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch and the per-object opacity rule, `ObjectOpacity`, with its warnings). Tile objects are handed back to the renderer and move in S1c | DONE |
 | S1c1 | `MapData`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), freeing by its destructor, and tile, layer and object lookups | DONE |
-| S1c2 | `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | TODO |
+| S1c2 | `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | DONE |
 | S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | TODO |
 | S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | TODO |
 
@@ -1848,6 +1848,26 @@ old map before loading the new one fails T2's failed-parse test. Full suite 625/
   0 without stepping it on, so frame 0 came again on the next step (0 1 2 0 0 1 2 0 0 ...). The
   counter now steps on and wraps in one place: each frame once per cycle, for its own duration.
   `tests/test_mapdata.cpp` checks two full cycles of three frames and fails on the old code.
+
+**S1c2: `LayerRenderer` (DONE).** `renderer/map/layerrenderer.h/.cpp` draws a tile layer
+(`DrawTileLayer`, with its culling), an image layer and a tile object through a `DrawContext`
+and a `MapData`, the bodies moved as they were; it has no state and does not know
+`TileMapRenderer`. The viewport test a tile goes through is shared as the static
+`Viewport::ClipRect` (`GetClippedRect` calls it with its own rectangle and zoom). Group layers
+stay in `DrawAllLayers`, which still walks the layers (views, parallax camera, sprites) and
+calls `LayerRenderer` for each one; `ObjectRenderer`'s tile-object callback calls it too.
+`DrawLayer`, `DrawImageLayer`, `DrawTileObject` and `DrawTile` are gone from the renderer, and
+the outdated "animated tile objects draw their first frame only" comment is
+corrected. `tilemaprenderer.cpp` 2,728 -> 2,411 lines, the header 440 -> 427.
+`tests/test_layerrenderer.cpp` (10 cases, no renderer): tile positions with zoom, camera and
+viewport origin, opacity, tint and offset, animation, image layers, and tile objects at their
+own size, stretched and cut at the viewport, and turned; dropping the camera from `DrawTile`
+fails 4 of them. Culling saves work only (`ClipRect` skips an off-viewport tile anyway), so it
+is not visible in draw calls; `test_tileculling` still pins that it loses no visible cell.
+Full suite 635/635, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark within its spread.
+- Found, not changed (S1 changes no behaviour): a resized tile object ignores its layer's
+  tint (it is drawn white, with its opacity), while one at its tile's size and a turned one
+  take it. An open point for after S1.
 
 ## Docs, samples and tests
 

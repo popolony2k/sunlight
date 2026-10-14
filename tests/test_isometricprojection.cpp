@@ -268,7 +268,7 @@ TEST_SUITE( "Isometric projection" )  {
 namespace  {
 
     // A 3 x 2 isometric map (64 x 32 declared tile size), one tileset matching that size exactly (so
-    // MapData::IsUniformTileGrid() is true and DrawLayer takes the culled path), every cell filled with gid 1.
+    // MapData::IsUniformTileGrid() is true and LayerRenderer::DrawTileLayer takes the culled path), every cell filled with gid 1.
     Bytes MakeIsometricTmx( void )  {
 
         std :: ostringstream  tmx;
@@ -328,7 +328,7 @@ TEST_SUITE( "Isometric rendering (renderer integration)" )  {
         struct stExpected { int nX; int nY; };
 
         // Same 3x2, 64x32 reference positions measured from Tiled in E1a, now checked end to end: LoadMap's
-        // orientation switch, DrawLayer's culled loop and IsometricProjection must all agree with each other.
+        // orientation switch, DrawTileLayer's culled loop and IsometricProjection must all agree with each other.
         const stExpected  expected[] = {
             { 32, 0 }, { 64, 16 }, { 96, 32 }, { 0, 16 }, { 32, 32 }, { 64, 48 },
         };
