@@ -1617,7 +1617,11 @@ namespace SunLight {
          */
         void TileMapRenderer :: CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
 
-            pTmxLayer -> opacity   = ( __MAX_OPACITY_LEVEL - layer.nOpacity );
+            // nOpacity is 0..__MAX_OPACITY_LEVEL (fully opaque), libtmx's own opacity 0.0..1.0 - the factor
+            // DrawLayer multiplies alpha by. It was "__MAX_OPACITY_LEVEL - nOpacity" here and "opacity +
+            // __MAX_OPACITY_LEVEL" in CopyTmxToLayer: not inverses of each other, and neither in 0..1 - an
+            // opaque layer read back as 256 and was written back as -1.0, and 255 made it invisible.
+            pTmxLayer -> opacity   = ( double ) std :: clamp( layer.nOpacity, 0, __MAX_OPACITY_LEVEL ) / __MAX_OPACITY_LEVEL;
             pTmxLayer -> offsetx   = layer.offset.x;
             pTmxLayer -> offsety   = layer.offset.y;
             pTmxLayer -> visible   = layer.bVisible;
@@ -1633,7 +1637,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer *pTmxLayer )  {
 
-            layer.nOpacity   = ( int ) ( pTmxLayer -> opacity + __MAX_OPACITY_LEVEL );
+            layer.nOpacity   = ( int ) std :: lround( pTmxLayer -> opacity * __MAX_OPACITY_LEVEL );
             layer.offset.x   = pTmxLayer -> offsetx;
             layer.offset.y   = pTmxLayer -> offsety;
             layer.bVisible   = pTmxLayer -> visible;
@@ -2976,9 +2980,16 @@ namespace SunLight {
                         ExternalResources :: PreloadExternalResource( pRcMgr, reference, strMapDir, loadedKeys, visited );
                 }
 
-                m_pTmxMap = ::tmx_rcmgr_load_buffer_vpath( pRcMgr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
+                /*
+                 * Parsed into locals first, and only swapped in once it loaded: a map that is
+                 * already loaded is left exactly as it is by a failed load, and released by
+                 * UnloadMap() (it's textures, sprite lists and Resource Manager) by a good one.
+                 * Assigning straight to m_pTmxMap lost the previous map without freeing any of
+                 * it - and a failed parse lost it too, leaving no map at all.
+                 */
+                tmx_map  *pNewMap = ::tmx_rcmgr_load_buffer_vpath( pRcMgr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
 
-                if( !m_pTmxMap ) {
+                if( !pNewMap ) {
                     ::tmx_perror( "Cannot load map" );
 
                     if( pRcMgr )
@@ -2993,43 +3004,51 @@ namespace SunLight {
                  * any other orientation is refused exactly as before, with the same message. Freed the same
                  * way UnloadMap frees a map: the map first, then the manager it points into.
                  */
-                switch( m_pTmxMap -> orient )  {
+                std :: unique_ptr<Projection :: IMapProjection>  pNewProjection;
+
+                switch( pNewMap -> orient )  {
 
                     case O_ORT:
-                        m_pProjection = std :: make_unique<Projection :: OrthogonalProjection>();
+                        pNewProjection = std :: make_unique<Projection :: OrthogonalProjection>();
                         break;
 
                     case O_ISO:
-                        m_pProjection = std :: make_unique<Projection :: IsometricProjection>();
+                        pNewProjection = std :: make_unique<Projection :: IsometricProjection>();
                         break;
 
                     case O_STA:
-                        m_pProjection = std :: make_unique<Projection :: StaggeredProjection>();
+                        pNewProjection = std :: make_unique<Projection :: StaggeredProjection>();
                         break;
 
                     case O_HEX:
-                        m_pProjection = std :: make_unique<Projection :: HexagonalProjection>();
+                        pNewProjection = std :: make_unique<Projection :: HexagonalProjection>();
                         break;
 
                     default:
                         // Every orientation string libtmx recognizes (orthogonal/isometric/staggered/hexagonal)
                         // now has a projection, and O_NONE is unreachable here - checked against libtmx's own
                         // source (tmx_xml.c): a missing "orientation" attribute and an unrecognized one are
-                        // BOTH rejected at parse time (two separate tmx_err calls), so m_pTmxMap is already
+                        // BOTH rejected at parse time (two separate tmx_err calls), so pNewMap is already
                         // nullptr and LoadMap already returned false above, for any map that would otherwise
                         // reach this switch with orient == O_NONE. The same finding B3 made for L_NONE/OT_NONE -
                         // kept only so the switch covers every enumerator.
                         fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal, isometric, staggered and hexagonal maps are supported.\n",
-                                 szTmxMapFile, MapOrientation :: OrientationName( m_pTmxMap -> orient ) );
+                                 szTmxMapFile, MapOrientation :: OrientationName( pNewMap -> orient ) );
 
-                        ::tmx_map_free( m_pTmxMap );
-                        m_pTmxMap = nullptr;
+                        ::tmx_map_free( pNewMap );
 
                         if( pRcMgr )
                             ::tmx_free_resource_manager( pRcMgr );
 
                         return false;
                 }
+
+                // The new map loaded: only now does the previous one (if any) go - the map alone, the
+                // sprites registered with AddSprite stay registered, as they always did across a LoadMap.
+                ReleaseMap();
+
+                m_pTmxMap     = pNewMap;
+                m_pProjection = std :: move( pNewProjection );
 
                 // The map points into the manager's tilesets/templates: keep it alive as long as the map.
                 m_pTmxRcMgr = pRcMgr;
@@ -3149,6 +3168,23 @@ namespace SunLight {
 
             if( m_pTmxMap )  {
                 UnloadSprites();
+                ReleaseMap();
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * Free the loaded map and what belongs to it - it's tile textures (libtmx frees them through
+         * TextureFreeCallback), the Resource Manager it points into and it's tile animations - and leave
+         * the registered sprites alone. UnloadMap() is this plus UnloadSprites(); LoadMap() calls only this
+         * on the map a new one replaces, since the sprites are the caller's and stay registered across it.
+         */
+        void TileMapRenderer :: ReleaseMap( void )  {
+
+            if( m_pTmxMap )  {
                 ::tmx_map_free( m_pTmxMap );
 
                 // Only now: the map held pointers into the manager's external tilesets/templates.
@@ -3167,11 +3203,7 @@ namespace SunLight {
                 m_nMapHeight = 0;
                 m_pProjection.reset();
                 m_bUniformTileGrid    = false;
-
-                return true;
             }
-
-            return false;
         }
 
         /**

@@ -1786,7 +1786,7 @@ Done last, once the features they describe are settled.
 | # | Item | Status |
 |---|------|--------|
 | T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | DONE |
-| T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | TODO |
+| T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | DONE |
 | T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | TODO |
 | T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | TODO |
 | T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | TODO |
@@ -1812,6 +1812,25 @@ Done last, once the features they describe are settled.
 - README: `MARKDOWN_ID_STYLE = GITHUB` in `Doxyfile`, so the table of contents' anchors
   resolve as they do on GitHub. Links to other repository files are absolute GitHub URLs:
   the generated site does not hold those files, so a relative link would be broken there.
+
+**T2: map-loading tests (DONE).** `tests/test_maploading.cpp`, 13 cases on real `.tmx` bytes
+parsed by libtmx through the mocks: an unreadable and a truncated map, `GetMapInfo`'s exact
+sizes, the embedded tileset image (loaded once beside the map, released once by `UnloadMap`
+and by `Stop`, balanced over repeated cycles), `GetLayer` by id and name inside a group, and
+`GetObjectByName`, which had no test at all. Writing them found two bugs, both fixed here
+(`doc/BREAKAGES.md` 40 and 41):
+- `LoadMap` over a loaded map overwrote the map pointer: the old map, its tile textures and
+  its Resource Manager leaked (Caravellius switches stages this way), and a map that failed
+  to parse lost the old map too. The new map is now parsed first; only once it loaded is the
+  old one freed by `ReleaseMap()`, the map half of `UnloadMap()` - registered sprites are
+  the caller's and stay registered, as before.
+- `GetLayer`/`SetLayer` converted `nOpacity` with two formulas that were not inverses and
+  neither in libtmx's 0..1 (an opaque layer read 256, `SetLayer(255)` hid a layer). It is
+  now 0..255, 255 = opaque.
+
+The 5 regression tests fail on the old code, and the sprite test also fails if the reload
+calls `UnloadMap()` (which would unload the caller's sprites). Full suite 581/581, ASan clean,
+`leaks --atExit` 0 leaks.
 
 ## Out of scope for this plan
 
