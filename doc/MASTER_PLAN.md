@@ -1775,7 +1775,8 @@ text, the map's tilesets or the registered fonts.
 |---|------|--------|
 | S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | DONE |
 | S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch and the per-object opacity rule, `ObjectOpacity`, with its warnings). Tile objects are handed back to the renderer and move in S1c | DONE |
-| S1c | `LoadedMap`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), release, and tile, layer and object lookups. `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | TODO |
+| S1c1 | `MapData`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), freeing by its destructor, and tile, layer and object lookups | DONE |
+| S1c2 | `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | TODO |
 | S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | TODO |
 | S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | TODO |
 
@@ -1784,7 +1785,7 @@ the small setters, getters and pass-throughs to `IWindow`/`IEngine`, and the wir
 Moving the views out (they are tied to the renderer the most closely) is left for a later decision, once S1e
 has simplified them.
 
-- Order: S1a to S1e, lowest risk first. Each item is one branch and one PR, and the next starts only once the
+- Order: S1a to S1e (S1c in two steps, S1c1 then S1c2), lowest risk first. Each item is one branch and one PR, and the next starts only once the
   previous one is merged.
 - No behaviour change in any step: the full suite passes, every sample builds, the AddressSanitizer run is
   clean (S1d and S1e touch object lifetimes), `leaks --atExit` reports none, and the shapes stress benchmark
@@ -1826,6 +1827,27 @@ benchmark within its spread.
   reverse file order (it prepends them, `tmx_xml.c`), and records the group's `draworder`
   (`topdown`/`index`), which sunlight never reads - objects are drawn in that reversed list order.
   Whether to honour `draworder` is an open point for after S1.
+
+**S1c1: `MapData` (DONE).** `renderer/map/mapdata.h/.cpp` owns one loaded map: the `tmx_map`,
+its Resource Manager, the projection, the map's size in map pixels, the uniform-grid flag and
+the tile animation state. `MapData::Load` is `LoadMap`'s loading half, unchanged (FileSystem
+read, external tilesets and templates, parse, projection, the same error messages); its
+destructor frees the map, then the Resource Manager, then the animation state - `ReleaseMap`'s
+order. Lookups: layers by id or name, `TileAt` (the gid and tile; the screen rectangle stays in
+the renderer's `GetTile`, which needs the view), `FindObjectByName`, `AnimatedFrameOf`. The
+libtmx texture hooks move with it, installed by `Load`. `TileMapRenderer` holds one
+`std::unique_ptr<MapData>`: `LoadMap` loads into a new one and only then replaces the old,
+`UnloadMap` is `UnloadSprites()` plus a reset; `ReleaseMap`, `FindObjectByName`,
+`AnimatedFrameOf`, `GetTilesetList` and seven members are gone. `tilemaprenderer.cpp` 3,084 ->
+2,728 lines, the header 467 -> 440. `tests/test_mapdata.cpp` (7 cases, no renderer); freeing the
+old map before loading the new one fails T2's failed-parse test. Full suite 625/625, ASan clean,
+`leaks` 0, Doxygen 0, the stress benchmark within its spread.
+- Found, not changed (S1 changes no behaviour): a Tiled tile animation holds its first frame
+  for two of its durations every cycle. After the last frame, `AnimatedFrameOf` wraps the counter
+  to 0 and shows frame 0, then shows frame 0 again on the next step (on two frames of 100 and
+  50 ms: 0 1 0 0 1 0 ..., frame 0 on screen 200 ms). `tests/test_mapdata.cpp` pins today's
+  sequence; fixing it (as v0.38.0 did for the sprite modes) is an open point for after S1, and
+  that test changes with the fix.
 
 ## Docs, samples and tests
 

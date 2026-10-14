@@ -39,6 +39,7 @@
 #include "renderer/drawcontext.h"
 #include "renderer/text/fontregistry.h"
 #include "renderer/objects/objectrenderer.h"
+#include "renderer/map/mapdata.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
 #include "input/icontrollermanager.h"
@@ -75,16 +76,6 @@ namespace SunLight {
                                  public SunLight :: DrawSurface :: IDrawSurface,
                                  public SunLight :: DrawSurface :: IShapeSurface  {
 
-            /**
-             * Tile animation information.
-             */
-            struct __stTileAnimInfo  {
-                int64_t      nMillis;
-                uint16_t     nCounter;
-                tmx_tile     *pNextTile;
-            };
-
-            typedef std :: deque<std :: unique_ptr<__stTileAnimInfo>> __AnimInfoList;
             typedef std :: deque<SunLight :: TileMap :: ITileMapListener*> TileMapListenerList;
             typedef std :: deque<SunLight :: Sprite :: Sprite*> SpriteList;
             typedef std :: map<int, SpriteList*>                SpriteMap;
@@ -124,13 +115,6 @@ namespace SunLight {
             // (factor 1,1 - the overwhelming default) gets this set to exactly m_CameraPos,
             // byte-identical to this project's pre-L1 behavior.
             stVector                                   m_EffectiveLayerCameraPos;
-            uint16_t                                   m_nMapWidth;
-            uint16_t                                   m_nMapHeight;
-            std :: unique_ptr<Projection :: IMapProjection>  m_pProjection;
-            // Whether every tileset the map uses declares the same tile size as the map itself - only then is
-            // DrawLayer's culled loop exact (its visible-range math assumes one consistent grid step). A map
-            // that mixes tileset sizes falls back to visiting every cell, same as before E0.
-            bool                                       m_bUniformTileGrid;
             int                                        m_nScrollStepWidth;
             int                                        m_nScrollStepHeight;
             float                                      m_fWindowWidth;
@@ -138,16 +122,13 @@ namespace SunLight {
             int                                        m_nTargetFps;
             SunLight :: Base :: stColor                m_WindowBackgroundColor;
             bool                                       m_bWindowBackgroundSet;   // SetWindowBackgroundColor was called: the window area is not the map's colour
-            __AnimInfoList                             m_AnimInfoList;
             std :: string                              m_strTitle;
             float                                      m_fScreenFadeAlpha;
-            tmx_map                                    *m_pTmxMap;
 
-            // Owns the map's EXTERNAL tilesets (.tsx) and object templates
-            // (.tx) - read through SunLight::FileSystem and handed to libtmx
-            // as buffers (see LoadMap). nullptr when the map has none. Must
-            // outlive m_pTmxMap and be freed after it (see UnloadMap).
-            tmx_resource_manager                       *m_pTmxRcMgr;
+            // The loaded map and everything that belongs to it (S1c1: MapData - the libtmx map, its
+            // Resource Manager, projection, pixel size and tile animation state); null when no map is
+            // loaded. Replacing it with a newly loaded MapData frees the old map exactly once.
+            std :: unique_ptr<MapData>                 m_pMap;
             bool                                       m_bClearBackground;
             bool                                       m_bIsStarted;
             bool                                       m_bExitRequested;
@@ -159,7 +140,6 @@ namespace SunLight {
             bool                                       m_bStretchToFill;
             unsigned                                   m_nMaxFrames;
             unsigned                                   m_nFramesRun;
-            static bool                                m_bInitialized;
 
             // Everything is rendered into this fixed-internal-resolution
             // offscreen render target (via IEngine), then Run() blits it
@@ -181,11 +161,12 @@ namespace SunLight {
             View                                       *m_pActiveView;
             int                                        m_nNextViewId;
 
+            FontRegistry                               m_Fonts;             // RegisterFont's fonts (S1b); released by ReleaseRegisteredFonts
+            ObjectRenderer                             m_ObjectRenderer;    // object layers: shapes, text, the opacity rule (S1b)
+
             // Multi-pass frame (only used once an extra view exists - see RenderMap): the
             // sprites already advanced this frame (a sprite advances ONCE per frame, however
             // many views draw it), and the views of this frame's passes in draw order.
-            FontRegistry                               m_Fonts;             // RegisterFont's fonts (S1b); released by ReleaseRegisteredFonts
-            ObjectRenderer                             m_ObjectRenderer;    // object layers: shapes, text, the opacity rule (S1b)
             std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvancedSprites;
             std :: set<SunLight :: Sprite :: Sprite*>  m_FramePendingSprites;       // reached by a pass, but not on screen there (yet)
             std :: vector<View*>                       m_PassViews;
@@ -194,20 +175,16 @@ namespace SunLight {
 
             View* ActivateView( View *pView );
 
-            // TmxLib overrides
-            static void* TextureLoaderCallback( const char *szFileName );
-            static void TextureFreeCallback( void *pTexture );
-
-            // TmxLib miscellaneous
-            tmx_tileset_list* GetTilesetList( tmx_tileset *pTilesetSearch );
+            // The loaded map (S1c1): its libtmx map (null when none is loaded), its size in map pixels
+            // (0 when none), and its layers by id or name (null when none, or no such layer).
+            tmx_map* Tmx( void ) const;
+            uint16_t MapPixelWidth( void ) const;
+            uint16_t MapPixelHeight( void ) const;
             tmx_layer* GetLayer( int nLayerId );
             tmx_layer* GetLayer( const char *szLayerName );
 
             // Sprites miscelaneous
             void UnloadSprites( void );
-
-            // Frees the loaded map and everything that belongs to it, but not the registered sprites
-            void ReleaseMap( void );
 
             // Listener dispatch that tolerates a listener (un)registering listeners from it's own callback
             TileMapListenerList ListenersSnapshot( void ) const;
@@ -243,7 +220,6 @@ namespace SunLight {
             void ReleaseRegisteredFonts( void );
             void DrawImageLayer( tmx_layer *pLayer );
             void DrawLayer( tmx_layer *pLayer );
-            tmx_tile* AnimatedFrameOf( tmx_tile *pBase, unsigned int nGID );
             void DrawAllLayers( tmx_layer *pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0 );
             void RenderMap( void );
 
@@ -253,9 +229,6 @@ namespace SunLight {
             // parallaxoriginx/y, scaled by the factor; exactly m_CameraPos, per axis, when that
             // axis's factor is 1.0 (byte-identical to this project's pre-L1 behavior).
             stVector GetEffectiveCameraForFactor( double fFactorX, double fFactorY ) const;
-
-            // Object management internals
-            bool FindObjectByName( tmx_layer *pLayer, const char *szObjectName, SunLight :: TileMap :: stObject& object );
 
             // User interaction handlers
             inline void HandleTileMapUpdate( void );

@@ -20,7 +20,7 @@
 
 /*
  * This file covers TileMapRenderer's pre-Start() contract: every entry
- * point that gates on m_bIsStarted or a loaded m_pTmxMap (LoadMap,
+ * point that gates on m_bIsStarted or a loaded map (LoadMap,
  * AddSprite, RemoveSprite, GetMapInfo, GetLayer, SetLayer,
  * TileMapToTileMatrix) is documented to fail gracefully rather than crash
  * when called too early - this file locks that contract in, plus the
