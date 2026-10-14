@@ -24,8 +24,8 @@
  * exact multiple of the tile's own zoomed width), but that shared edge commonly lands on a
  * fractional screen pixel - and two SEPARATELY issued draw calls sharing a fractional-pixel
  * edge can leave the rasterizer's coverage of that boundary pixel ambiguous, a visible seam of
- * the clear colour between every pair of tiles at most camera positions. The fix (DrawTile,
- * DrawImageLayer, TextureCanvas::Draw) rounds each destination rect to the nearest whole screen
+ * the clear colour between every pair of tiles at most camera positions. The fix (LayerRenderer's
+ * DrawTile and DrawImageLayer, TextureCanvas::Draw) rounds each destination rect to the nearest whole screen
  * pixel. Zoom position 60 (factor 3.8125 = 61/16) is the exact setting samples/sprite/world.cpp
  * uses by default (__DEFAULT_ZOOM_SCALE_POS) - the same setting the bug was first seen in.
  */

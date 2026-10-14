@@ -40,6 +40,7 @@
 #include "renderer/text/fontregistry.h"
 #include "renderer/objects/objectrenderer.h"
 #include "renderer/map/mapdata.h"
+#include "renderer/map/layerrenderer.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
 #include "input/icontrollermanager.h"
@@ -108,7 +109,7 @@ namespace SunLight {
             // group ancestors', multiplied together, matching Tiled's own nesting rule) and
             // anchored at the map's parallaxoriginx/y. Set once per layer, of any type, at
             // the top of DrawAllLayers's own loop body - before dispatching to
-            // DrawLayer/the object layers (ObjectRenderer)/DrawImageLayer and before HandleSpriteUpdate, so every one
+            // LayerRenderer/ObjectRenderer (through the DrawContext) and before HandleSpriteUpdate, so every one
             // of them (including a world-space sprite's own GetCameraOffset) reads the same,
             // already-correct value for whichever layer is currently being processed, with no
             // separate per-sprite layer tracking needed at all. A layer with no parallax
@@ -163,6 +164,7 @@ namespace SunLight {
 
             FontRegistry                               m_Fonts;             // RegisterFont's fonts (S1b); released by ReleaseRegisteredFonts
             ObjectRenderer                             m_ObjectRenderer;    // object layers: shapes, text, the opacity rule (S1b)
+            LayerRenderer                              m_LayerRenderer;     // tile and image layers, tile objects (S1c2)
 
             // Multi-pass frame (only used once an extra view exists - see RenderMap): the
             // sprites already advanced this frame (a sprite advances ONCE per frame, however
@@ -204,22 +206,7 @@ namespace SunLight {
                                   int nPointsCount,
                                   std :: vector<double> &storage,
                                   std :: vector<double*> &ppRows );
-            void DrawTile( SunLight :: Base :: TextureHandle pImage,
-                           int32_t nSourceX,
-                           int32_t nSourceY,
-                           int32_t nSourceW,
-                           int32_t nSourceH,
-                           int32_t nDestX,
-                           int32_t nDestY,
-                           float fOpacity,
-                           SunLight :: Base :: stColor tintColor = { 0xFF, 0xFF, 0xFF, 0xFF } );
-
-            // Draws one tile object (B2): the tile its gid names, at the object's position, with the
-            // opacity ObjectRenderer worked out for it (S1b hands tile objects back here).
-            void DrawTileObject( tmx_object *pObject, tmx_layer *pLayer, float fOpacity );
             void ReleaseRegisteredFonts( void );
-            void DrawImageLayer( tmx_layer *pLayer );
-            void DrawLayer( tmx_layer *pLayer );
             void DrawAllLayers( tmx_layer *pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0 );
             void RenderMap( void );
 

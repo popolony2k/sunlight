@@ -66,7 +66,7 @@ namespace SunLight  {
 
                 /**
                  * @brief A tile layer cell's own top-left corner, in map pixel space (no camera, zoom or viewport
-                 * origin - those are applied afterwards, identically for every orientation, by DrawTile). Takes
+                 * origin - those are applied afterwards, identically for every orientation, by LayerRenderer::DrawTile). Takes
                  * the map itself (not just its tile_width/tile_height) because an isometric cell's position on
                  * the diamond lattice also depends on the map's own height in cells (see IsometricProjection) -
                  * a fact only found by measuring a real Tiled export, not assumed in advance.

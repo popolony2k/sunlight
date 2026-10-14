@@ -183,7 +183,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
         CHECK( scene.FrameClear() == 0 );
         CHECK( scene.Count( Event :: FILL ) == 0 );
-        // ground 16 + props 1 + glow 1 + sky (L1 of the master plan: DrawImageLayer is now
+        // ground 16 + props 1 + glow 1 + sky (L1 of the master plan: LayerRenderer::DrawImageLayer is now
         // camera/zoom/viewport-aware, via DrawTextureTiled like every other layer, so it is
         // recorded as a TILE event too - it used to call plain DrawTexture, uncounted here).
         CHECK( scene.Count( Event :: TILE ) == 19 );
@@ -324,7 +324,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
         Scene  scene;
 
-        // L1 of the master plan: DrawImageLayer is now camera/zoom/viewport-aware, via
+        // L1 of the master plan: LayerRenderer::DrawImageLayer is now camera/zoom/viewport-aware, via
         // DrawTextureTiled (an Event::TILE) like every ordinary tile - it used to call plain
         // DrawTexture at the screen origin, unmistakable on its own counter. The sky image's
         // own distinctive size (32x32, unlike this map's 16x16 tiles) isolates its own draw(s)

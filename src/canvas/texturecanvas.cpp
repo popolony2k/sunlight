@@ -187,7 +187,7 @@ namespace SunLight {
          * Where this canvas is on screen right now, in the view being drawn:
          * dm receives its rectangle relative to that view - its own dimension,
          * moved by the view's camera when the canvas is in WORLD space (the
-         * same arithmetic a map tile gets in TileMapRenderer::DrawTile, so a
+         * same arithmetic a map tile gets in LayerRenderer::DrawTile, so a
          * canvas placed at a tile's map position lands exactly on that tile) -
          * and clip the part of it inside the view's viewport, zoomed and
          * offset to the render target (see Viewport::GetClippedRect).
@@ -397,7 +397,7 @@ namespace SunLight {
                                                           // abuts its neighbor but that the rasterizer draws with a
                                                           // visible 1px seam between them, and std::round's
                                                           // away-from-zero ties can open a real gap of their own (see
-                                                          // DrawTile's own identical rounding and its doc comment for
+                                                          // LayerRenderer::DrawTile's own identical rounding and its doc comment for
                                                           // the full story - this canvas is drawn through the very
                                                           // same path a world-space sprite's neighbor tile is).
                                                           SunLight :: Base :: stRectangle { SunLight :: General :: Helper :: RoundHalfUp( dm.pos.x * fZoomFactor + vpDm.pos.x ),
