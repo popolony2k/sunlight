@@ -84,3 +84,6 @@ doc/doxygen/
 
 # Claude Code local settings (per-machine permission allowlist, lock files)
 .claude/
+
+# macOS Finder metadata
+.DS_Store

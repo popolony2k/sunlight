@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include "filesystem/filesystemfactory.h"
+#include "input/defaultcontrollerbindings.h"
 #include "renderer/tilemaprenderer.h"
 
 using namespace SunLight :: Renderer;
@@ -117,6 +118,10 @@ int main( int argc, char **argv ) {
     }
 
     pRenderer -> SetCameraPosition( __START_CAMERA_X, __START_CAMERA_Y );
+
+    // The arrow keys scroll and PageUp/PageDown/Home/End zoom and reset - the renderer no longer
+    // installs these itself (F0b of the master plan), so a sample that wants them asks for them.
+    SunLight :: Input :: DefaultControllerBindings :: Install( *pRenderer, pRenderer -> GetControllerManager() );
 
     pRenderer -> SetWindowBackgroundColor( DARK_RED_COLOR );   // around the viewport; the viewport keeps the map's dark green
 

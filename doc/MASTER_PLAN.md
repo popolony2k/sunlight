@@ -1789,7 +1789,8 @@ Done last, once the features they describe are settled.
 | T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | DONE |
 | T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | DONE |
 | T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | DONE |
-| T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | TODO |
+| T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | DONE |
+| T6 | Load TTF/OTF fonts with Latin accents, not only the 95 ASCII glyphs raylib's `LoadFont` generates | TODO |
 
 - T1: each warning is fixed, and the Doxygen run reports no new warnings.
 - T2 and T3: tests fail on a deliberate break of the loader or dispatch path.
@@ -1857,6 +1858,27 @@ from the commit that added its text), condensed to what changed: `0.1.0` and `0.
 `0.38.0` (`0.2.0`-`0.21.0` never had entries; their GitHub release notes stand), with
 compare links. `[Unreleased]` holds this plan, grouped Breaking/Added/Changed/Fixed/Removed,
 pointing here and to `doc/BREAKAGES.md` for detail. 536 lines -> 359.
+
+**T5: README, sample docs and the `input` sample (DONE, real-window checked by the owner).**
+- README: a feature list; all 19 samples, grouped by topic; SDL2 under requirements, with why
+  (raylib reads pads through GLFW, which has no vibration API - raylib's desktop
+  `SetGamepadVibration()` is an empty stub - so SDL2 is used for rumble only).
+- Sample docs: new for `isometric`, `isometric_haptics`, `staggered`, `hexagonal`, `parallax`,
+  `opacity`, `zorder`, `surface` and `input`; `shapes` gained its other maps and arguments;
+  stale details fixed in `orthogonal`, `collision`, `sprite`, `objects` and `text`.
+- `samples/input` (new): `ActionMap` actions rebound at run time and saved/loaded,
+  `PlayerSlotManager` slots claimed and released from a pad (and kept across an unplug),
+  hot-plug events, and a live stick dead zone. `DefaultControllerBindings` cannot be switched
+  off once installed (handlers have no remove call), so it is shown by the samples below
+  instead.
+- Found and fixed: `objects`, `text`, `opacity` and `shapes` could not scroll since F0b (they
+  relied on the camera keys the renderer no longer installs); they now call
+  `DefaultControllerBindings::Install`. The CHANGELOG said tile objects draw flipped (their flip
+  bits are still ignored). `iinputhandler.h` had the Circle/B and Square/X comments swapped.
+- Also: CLAUDE.md's sample list and testing note, `doc/vscode/README.md`'s folder names, and
+  `.DS_Store` in both `.gitignore` files.
+- Found, left for T6: a TTF/OTF font is loaded with the 95 ASCII glyphs only, so the `text`
+  sample's Press Start 2P line shows `?` for its accents.
 
 ## Out of scope for this plan
 

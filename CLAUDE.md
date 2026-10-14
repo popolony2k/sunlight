@@ -22,7 +22,7 @@ cmake -B build -S . -DBUILD_LIBRARY_SAMPLES=ON
 cmake --build build -j 4
 ```
 
-This builds `orthogonal_test`, `sprite_test`, `collision_test`, `gamepad_test`, and `scriptprocessor_test`, and copies the raylib/tmx/LibXml2/sunlight shared libs next to each executable (required at runtime, via the `*_copy_binaries` custom targets). Each sample takes its own directory as `argv[1]` and resolves resource paths relative to it, e.g.:
+This builds every sample under `samples/` (one `<name>_test` executable each, all registered in the root `CMakeLists.txt`; the README's "Samples" section lists them by topic, and each has a `docs/README.md`), and copies the raylib/tmx/LibXml2/sunlight shared libs next to each executable (required at runtime, via the `*_copy_binaries` custom targets). A new sample needs its own `add_subdirectory` line there, a `docs/README.md` in the same format as the others, and an entry in the README's list. Each sample takes its own directory as `argv[1]` and resolves resource paths relative to it, e.g.:
 
 ```shell
 ./build/samples/orthogonal/orthogonal_test samples/orthogonal/
@@ -36,7 +36,7 @@ cmake --build build --target sunlight_tests -j 4
 ./build/tests/sunlight_tests        # or: ctest --test-dir build
 ```
 
-Tests only cover logic that doesn't need a window/display (`Viewport` zoom/clipping, `Collider` AABB overlap, `Helper::Random`, `base/primitives.h`) — anything that calls raylib directly (rather than through `IEngine`/`IWindow`) isn't unit-testable this way. There is no linter/formatter config in the repo.
+Tests run without a window or display: pure logic directly, and everything else through the mock seams (`MockEngine`/`MockWindow`/`MockSound`/`MockInputHandler`/an in-memory `IFileSystem`) or the null backend - including whole frames driven through `Run()` and real `.tmx` maps parsed by libtmx. Only code that calls raylib directly (rather than through `IEngine`/`IWindow`) isn't unit-testable this way, which is one more reason it must stay inside `backends/raylib/`. There is no linter/formatter config in the repo.
 
 For a debug build: `cmake -B build -S . -DCMAKE_C_FLAGS="-g2" -DCMAKE_CXX_FLAGS="-g2"` (or the `SUNLIGHT_DEBUG_SYMBOLS_UNIX` option, on by default on Mac/Linux).
 

@@ -25,6 +25,7 @@
 #include <memory>
 #include <string>
 #include "filesystem/filesystemfactory.h"
+#include "input/defaultcontrollerbindings.h"
 #include "renderer/tilemaprenderer.h"
 #include "base/viewport.h"
 
@@ -140,6 +141,10 @@ int main( int argc, char **argv ) {
                                          [&pRenderer]( SunLight :: Input :: ControllerType, int ) { pRenderer -> ZoomIn(); } );
     pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_MINUS,
                                          [&pRenderer]( SunLight :: Input :: ControllerType, int ) { pRenderer -> ZoomOut(); } );
+
+    // The arrow keys scroll (and PageUp/PageDown/Home/End zoom and reset) - the renderer no longer
+    // installs these itself (F0b of the master plan), so a sample that wants them asks for them.
+    SunLight :: Input :: DefaultControllerBindings :: Install( *pRenderer, pRenderer -> GetControllerManager() );
 
     printf( "Each numbered shape is drawn by the backend. Arrows scroll the map, = and - zoom, Esc quits.\n" );
 

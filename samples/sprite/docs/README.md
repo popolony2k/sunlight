@@ -43,5 +43,5 @@ The current FPS is drawn in the corner of the window.
 
 ## Resources
 
-- `resources/map/` — the Tiled `.tmx` map and its tilesets (shared layout with the `tilemaprenderer` sample).
+- `resources/map/` — the Tiled `.tmx` map and its tilesets (shared layout with the `orthogonal` sample).
 - `resources/sprites/sunny_idle_down.png` — the sprite sheet used for the animated character.
