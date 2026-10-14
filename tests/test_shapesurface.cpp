@@ -20,7 +20,7 @@
 
 /*
  * M1 of the master plan: the Phase C/D shape primitives, promoted onto a public, mapless
- * IShapeSurface - the same underlying drawing code DrawObjects already uses for Tiled shape
+ * IShapeSurface - the same underlying drawing code Tiled shape objects already use (ShapeRenderer) for Tiled shape
  * objects, given a public door. These tests cover the two things M1 itself adds: that the door
  * actually opens with no map ever loaded, and that walking through it reaches the exact same
  * drawing code a TMX object would (not a fork of it).
@@ -291,7 +291,7 @@ TEST_SUITE( "renderer/shapesurface" )  {
 
         // The exact width-2 horizontal line case tests/test_thick_lines.cpp already pins - if
         // promoting DrawRectangle/DrawPolyline/etc. to also be callable publicly had accidentally
-        // forked or altered the private bodies DrawObjects calls, this would catch it.
+        // forked or altered the ShapeRenderer bodies object layers draw through, this would catch it.
         TmxScene  tmxScene( "<object id=\"1\" x=\"100\" y=\"100\" width=\"0\" height=\"0\">"
                             "<properties><property name=\"line_width\" type=\"int\" value=\"2\"/></properties>"
                             "<polyline points=\"0,0 10,0\"/></object>" );

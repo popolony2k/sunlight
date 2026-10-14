@@ -59,6 +59,13 @@ namespace SunLight  {
                 }
             }
 
+            SunLight :: Base :: stColor ColorOf( uint32_t nColor )  {
+
+                tmx_col_bytes  res = ::tmx_col_to_bytes( nColor );
+
+                return *( ( SunLight :: Base :: stColor * ) &res );
+            }
+
             double LineWidthOf( tmx_object *pObject )  {
 
                 return NumberPropertyOf( pObject, __LINE_WIDTH_PROPERTY, __DEFAULT_LINE_WIDTH );

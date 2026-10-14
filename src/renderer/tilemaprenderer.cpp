@@ -55,8 +55,6 @@
 #define __DEFAULT_FPS                   30
 #define __DEFAULT_VISIBLE_STATUS        true
 #define __OPAQUE_CHANNEL                0xFF    // a colour channel at full strength
-#define __DEFAULT_TEXT_PIXEL_SIZE       16      // Tiled's own default when a text object gives no pixelsize
-#define __MISSING_FONT_PLACEHOLDER      "??????"  // drawn in place of a text object whose font is not registered
 #define __DEFAULT_CLEAR_BACKGROUND      true
 
 
@@ -203,9 +201,7 @@ namespace SunLight {
          */
         SunLight :: Base :: stColor TileMapRenderer :: IntToColor( uint32_t color ) {
 
-            tmx_col_bytes res = ::tmx_col_to_bytes( color );
-
-            return *( ( SunLight :: Base :: stColor * ) &res );
+            return Shape :: ColorOf( color );
         }
 
         /**
@@ -226,7 +222,7 @@ namespace SunLight {
          * @brief IShapeSurface::DrawRectangle (M1 of the master plan). Converts fThickness (map
          * units) to a screen-pixel line width via the same Shape::ScreenLineWidth every TMX shape
          * object already uses, then draws through ShapeRenderer (S1a) with the current
-         * DrawContext - the very path DrawObjects takes for a Tiled rectangle.
+         * DrawContext - the very path ObjectRenderer takes for a Tiled rectangle.
          */
         void TileMapRenderer :: DrawRectangle( double fX, double fY, double fWidth, double fHeight,
                                                SunLight :: Base :: stColor color,
@@ -401,344 +397,6 @@ namespace SunLight {
         }
 
         /**
-         * Draw objects on canvas;
-         * @param pLayer Pointer to layer containing object group to draw;
-         */
-        void TileMapRenderer :: DrawObjects( tmx_layer *pLayer ) {
-
-            tmx_object *head = pLayer ->  content.objgr -> head;
-            SunLight :: Base :: stColor  baseColor = IntToColor( pLayer ->  content.objgr -> color );
-
-            while( head ) {
-                if( head -> visible ) {
-                    // L2: the object's own "opacity" property, or its layer's, multiplies into the
-                    // object group's own stored colour alpha - shapes have no separate alpha control
-                    // of their own to begin with, the same reasoning as DrawTextObject's.
-                    SunLight :: Base :: stColor  color = baseColor;
-                    color.nAlpha = ( uint8_t ) ( color.nAlpha * ObjectOpacity( head, ( float ) pLayer -> opacity ) );
-
-                    // The view and layer being drawn, for the shapes (S1a).
-                    DrawContext  context = CurrentDrawContext();
-
-                    switch( head -> obj_type )  {
-                        case OT_SQUARE :
-                            m_ShapeRenderer.DrawRectangle( context, ( head -> x + pLayer -> offsetx ),
-                                           ( head -> y + pLayer -> offsety ),
-                                           head -> width,
-                                           head -> height,
-                                           Shape :: RotationOf( head ),
-                                           Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ), context.fZoom ),
-                                           color );
-                            break;
-
-                        case OT_POLYGON :
-                            m_ShapeRenderer.DrawPolygon( context, ( head -> x + pLayer -> offsetx ),
-                                         ( head -> y + pLayer -> offsety ),
-                                         head -> content.shape -> points,
-                                         head -> content.shape -> points_len,
-                                         Shape :: RotationOf( head ),
-                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ), context.fZoom ),
-                                         color );
-                            break;
-
-                        case OT_POLYLINE :
-                            m_ShapeRenderer.DrawPolyline( context, ( head -> x + pLayer -> offsetx ),
-                                          ( head -> y + pLayer -> offsety ),
-                                          head -> content.shape -> points,
-                                          head -> content.shape -> points_len,
-                                          Shape :: RotationOf( head ),
-                                          Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ), context.fZoom ),
-                                          color );
-                            break;
-
-                        case OT_ELLIPSE :
-                            m_ShapeRenderer.DrawEllipse( context, ( head -> x + pLayer -> offsetx ),
-                                         ( head -> y + pLayer -> offsety ),
-                                         head -> width,
-                                         head -> height,
-                                         Shape :: RotationOf( head ),
-                                         Shape :: ScreenLineWidth( Shape :: LineWidthOf( head ), context.fZoom ),
-                                         color );
-                            break;
-                        
-                        case OT_NONE :
-                            // libtmx turns an object with no shape into OT_POINT while parsing, so this
-                            // kind never reaches the renderer. The case stays so the switch covers every
-                            // enumerator.
-                            break;
-                        
-                        case OT_TILE :
-                            DrawTileObject( head, pLayer );
-                            break;
-
-                        case OT_TEXT :
-                            DrawTextObject( head, pLayer );
-                            break;
-
-                        case OT_POINT :
-                            m_ShapeRenderer.DrawPoint( context, ( head -> x + pLayer -> offsetx ),
-                                       ( head -> y + pLayer -> offsety ),
-                                       Shape :: PointSizeOf( head ),
-                                       color );
-                            break;
-                    }
-                }
-
-                head = head -> next;
-            }
-        }
-
-        /**
-         * @brief Draw one text object (Tiled's OT_TEXT).
-         *
-         * The object's box - its x, y, width and height, mapped to the
-         * screen the way DrawRectangle maps a shape - is where its text is
-         * laid out: wrapped at the box's width when the object asks for wrap,
-         * and aligned as Tiled's halign and valign say. A box with no width
-         * or no height has no edge on that side, so nothing is aligned
-         * against it. Font size is the object's pixelsize, scaled by zoom.
-         *
-         * The font is the one RegisterFont registered for this object's
-         * fontfamily and bold/italic flags. When there is none, the object's
-         * text is NOT drawn: "??????" is drawn in its place, in the object's
-         * colour, with the active font, and a warning is logged once for
-         * that family and style. The placeholder is deliberate - the mistake
-         * shows on screen, not only in the log.
-         *
-         * Culled when its box lies entirely outside the viewport. A box that
-         * straddles the viewport edge is drawn whole, not cut at the edge,
-         * because IEngine::DrawText has no clip rectangle.
-         *
-         * Rotation is not applied yet (plan item D1).
-         *
-         * @param pObject The text object to draw;
-         * @param pLayer The object group it belongs to (its offset applies);
-         */
-        void TileMapRenderer :: DrawTextObject( tmx_object *pObject, tmx_layer *pLayer )  {
-
-            if( !pObject -> content.text )
-                return;
-
-            tmx_text                              *pText    = pObject -> content.text;
-            SunLight :: Base :: stDimension2D&  vp       = GetViewport().GetDimension2D();
-            SunLight :: Base :: stZoomProperties&  zp       = GetViewport().GetZoomProperties();
-            SunLight :: Base :: stColor            color    = IntToColor( pText -> color );
-            const char                            *szFamily = ( pText -> fontfamily != nullptr ) ? pText -> fontfamily : "";
-
-            // L2: the object's own "opacity" property, or its layer's, multiplies into the text's
-            // own stored colour alpha (not replaced - unlike a tile's tintcolor, a text object's
-            // colour has no separate alpha control of its own to begin with).
-            color.nAlpha = ( uint8_t ) ( color.nAlpha * ObjectOpacity( pObject, ( float ) pLayer -> opacity ) );
-            bool                                   bBold    = ( pText -> bold != 0 );
-            bool                                   bItalic  = ( pText -> italic != 0 );
-            double                                 fZoom    = zp.fZoomFactor;
-
-            // Same screen mapping as DrawRectangle: (position + camera) x zoom + viewport origin.
-            double  fBoxX = ( ( pObject -> x + pLayer -> offsetx + m_EffectiveLayerCameraPos.x ) * fZoom ) + vp.pos.x;
-            double  fBoxY = ( ( pObject -> y + pLayer -> offsety + m_EffectiveLayerCameraPos.y ) * fZoom ) + vp.pos.y;
-            double  fBoxW = pObject -> width * fZoom;
-            double  fBoxH = pObject -> height * fZoom;
-            double  fRotation = Shape :: RotationOf( pObject );
-
-            int  nFontSize   = ( pText -> pixelsize > 0 ) ? pText -> pixelsize : __DEFAULT_TEXT_PIXEL_SIZE;
-            int  nScreenSize = std :: max( 1, ( int ) std :: lround( nFontSize * fZoom ) );
-
-            // Culled when the box is entirely outside the viewport. A zero
-            // width or height has no far edge, so it is not tested on that side.
-            double  fVpRight  = vp.pos.x + vp.size.nWidth;
-            double  fVpBottom = vp.pos.y + vp.size.nHeight;
-
-            if( ( fRotation == 0.0 ) && ( ( fBoxX >= fVpRight ) || ( fBoxY >= fVpBottom ) ||
-                ( ( fBoxW > 0 ) && ( fBoxX + fBoxW <= vp.pos.x ) ) ||
-                ( ( fBoxH > 0 ) && ( fBoxY + fBoxH <= vp.pos.y ) ) ) )
-                return;
-
-            SunLight :: Font :: IFont   *pFont   = FindRegisteredFont( szFamily, bBold, bItalic );
-            std :: string                   strText = ( pText -> text != nullptr ) ? pText -> text : "";
-
-            if( pFont == nullptr )  {
-                WarnMissingFont( szFamily, bBold, bItalic );
-                strText = __MISSING_FONT_PLACEHOLDER;   // no font: the engine's active font draws the placeholder
-            }
-
-            SunLight :: Engines :: IEngine&  engine = SunLight :: Engines :: EngineFactory :: GetEngine();
-            bool                             bWrap  = ( pText -> wrap != 0 ) && ( fBoxW > 0 );
-
-            auto  Width = [&]( const std :: string &strLine ) {
-                return pFont ? pFont -> MeasureText( strLine.c_str(), nScreenSize )
-                             : engine.MeasureText( strLine.c_str(), nScreenSize );
-            };
-
-            // One paragraph (text between newlines): greedy word wrap, a word
-            // wider than the box stays whole on its own line.
-            auto  WrapParagraph = [&]( const std :: string &strParagraph, std :: vector<std :: string> &lines ) {
-                std :: vector<std :: string>  words;
-                size_t                        nPos = 0;
-
-                while( nPos <= strParagraph.size() )  {
-                    size_t  nSpace = strParagraph.find( ' ', nPos );
-
-                    if( nSpace == std :: string :: npos )
-                        nSpace = strParagraph.size();
-
-                    if( nSpace > nPos )
-                        words.push_back( strParagraph.substr( nPos, nSpace - nPos ) );
-
-                    nPos = nSpace + 1;
-                }
-
-                std :: string  strCurrent;
-
-                for( const std :: string &strWord : words )  {
-                    std :: string  strCandidate = strCurrent.empty() ? strWord : strCurrent + " " + strWord;
-
-                    if( bWrap && !strCurrent.empty() && ( Width( strCandidate ) > fBoxW ) )  {
-                        lines.push_back( strCurrent );
-                        strCurrent = strWord;
-                    }
-                    else
-                        strCurrent = strCandidate;
-                }
-
-                lines.push_back( strCurrent );   // an empty paragraph is one empty line
-            };
-
-            std :: vector<std :: string>  lines;
-            size_t                        nStart = 0;
-
-            while( true )  {
-                size_t       nEnd       = strText.find( '\n', nStart );
-                std :: string  strParagraph = strText.substr( nStart, ( nEnd == std :: string :: npos ) ? std :: string :: npos : nEnd - nStart );
-
-                WrapParagraph( strParagraph, lines );
-
-                if( nEnd == std :: string :: npos )
-                    break;
-
-                nStart = nEnd + 1;
-            }
-
-            // Line spacing is the font size; the block is aligned inside the box.
-            double  fBlockH = ( double ) lines.size() * nScreenSize;
-            double  fTop    = fBoxY;
-
-            if( fBoxH > 0 )  {
-                if( pText -> valign == VA_CENTER )
-                    fTop = fBoxY + ( ( fBoxH - fBlockH ) / 2 );
-                else if( pText -> valign == VA_BOTTOM )
-                    fTop = fBoxY + fBoxH - fBlockH;
-            }
-
-            // The lines are cut at the viewport's edge: IEngine::DrawText has no clip of its own.
-            // Study: the view's own clip (its pass, or the single-view frame) already covers this
-            // rectangle, so the text does not open a clip of its own.
-
-            for( size_t nIdx = 0; nIdx < lines.size(); nIdx++ )  {
-                double  fLeft = fBoxX;
-
-                if( fBoxW > 0 )  {
-                    double  fLineW = Width( lines[nIdx] );
-
-                    if( pText -> halign == HA_CENTER )
-                        fLeft = fBoxX + ( ( fBoxW - fLineW ) / 2 );
-                    else if( pText -> halign == HA_RIGHT )
-                        fLeft = fBoxX + fBoxW - fLineW;
-                }
-
-                int  nX = ( int ) std :: lround( fLeft );
-                int  nY = ( int ) std :: lround( fTop + ( nIdx * nScreenSize ) );
-
-                // A turned block: each line's top-left corner turns about the block's top-left corner, and the line turns with it.
-                if( fRotation != 0.0 )  {
-                    Shape :: MapPoint  turned = Shape :: Rotate( Shape :: MapPoint { fLeft - fBoxX, ( fTop + ( nIdx * nScreenSize ) ) - fBoxY }, fRotation );
-                    int                nTurnedX = ( int ) std :: lround( fBoxX + turned.fX );
-                    int                nTurnedY = ( int ) std :: lround( fBoxY + turned.fY );
-
-                    if( pFont )
-                        pFont -> DrawTextRotated( lines[nIdx].c_str(), nTurnedX, nTurnedY, nScreenSize, ( float ) fRotation, color );
-                    else
-                        engine.DrawTextRotated( lines[nIdx].c_str(), nTurnedX, nTurnedY, nScreenSize, ( float ) fRotation, color );
-
-                    continue;
-                }
-
-                if( pFont )
-                    pFont -> DrawText( lines[nIdx].c_str(), nX, nY, nScreenSize, color );
-                else
-                    engine.DrawText( lines[nIdx].c_str(), nX, nY, nScreenSize, color );
-            }
-
-        }
-
-        /**
-         * @brief The font RegisterFont registered for a family and style, or
-         * nullptr when none is (see @see DrawTextObject).
-         */
-        SunLight :: Font :: IFont* TileMapRenderer :: FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic )  {
-
-            for( const __stRegisteredFont &registered : m_RegisteredFonts )  {
-                if( ( registered.strFamily == szFamily ) && ( registered.bBold == bBold ) && ( registered.bItalic == bItalic ) )
-                    return registered.pFont.get();
-            }
-
-            return nullptr;
-        }
-
-        /**
-         * @brief Log, once per family and style, that a text object's font
-         * is not registered. Standard error, like the map-load refusals.
-         */
-        void TileMapRenderer :: WarnMissingFont( const char *szFamily, bool bBold, bool bItalic )  {
-
-            std :: string  strKey = std :: string( szFamily ) + ( bBold ? "|bold" : "|regular" ) + ( bItalic ? "|italic" : "|upright" );
-
-            if( !m_WarnedFonts.insert( strKey ).second )
-                return;
-
-            fprintf( stderr, "Text object font [%s%s%s] is not registered (RegisterFont); its text is drawn as ?????? instead.\n",
-                     szFamily, bBold ? " bold" : "", bItalic ? " italic" : "" );
-        }
-
-        /**
-         * @brief An object's own effective opacity (L2 of the master plan): its own "opacity"
-         * property (0 to 1) when it has a usable one, otherwise fLayerOpacity unchanged - the
-         * object has no opacity field of its own in Tiled, so this is the only way to override it
-         * per object. An unusable property (wrong type, or outside 0 to 1) warns once for that
-         * object and falls back to fLayerOpacity too, the same as having none.
-         * @param pObject The object, as libtmx parsed it;
-         * @param fLayerOpacity Its layer's own opacity, used when the object has none of its own;
-         * @return The effective opacity to draw this object with, 0 to 1;
-         */
-        float TileMapRenderer :: ObjectOpacity( tmx_object *pObject, float fLayerOpacity )  {
-
-            double  fValue;
-
-            switch( Shape :: ObjectOpacityOf( pObject, fValue ) )  {
-                case Shape :: OpacityProperty :: VALID :
-                    return ( float ) fValue;
-
-                case Shape :: OpacityProperty :: INVALID :
-                    WarnInvalidOpacity( pObject -> id );
-                    return fLayerOpacity;
-
-                case Shape :: OpacityProperty :: NONE :
-                default :
-                    return fLayerOpacity;
-            }
-        }
-
-        /**
-         * @brief Log, once per object id, that its own "opacity" property is not usable.
-         */
-        void TileMapRenderer :: WarnInvalidOpacity( unsigned int nObjectId )  {
-
-            if( !m_WarnedOpacityObjects.insert( nObjectId ).second )
-                return;
-
-            fprintf( stderr, "Object %u's own \"opacity\" property is not a number in 0..1; using its layer's opacity instead.\n", nObjectId );
-        }
-
-        /**
          * @brief Release every font RegisterFont loaded, and forget the
          * warnings already given. Called by Stop() while the window and its
          * render context still exist, and by the destructor.
@@ -746,9 +404,8 @@ namespace SunLight {
         void TileMapRenderer :: ReleaseRegisteredFonts( void )  {
 
             // Each font is destroyed here, which releases it while the window is open.
-            m_RegisteredFonts.clear();
-            m_WarnedFonts.clear();
-            m_WarnedOpacityObjects.clear();   // the renderer's one existing "forget warnings" point; see WarnInvalidOpacity
+            m_Fonts.Clear();
+            m_ObjectRenderer.ResetWarnings();   // the renderer's one existing "forget warnings" point
         }
 
         /**
@@ -765,9 +422,11 @@ namespace SunLight {
          * yet). Animated tile objects draw their first frame only.
          *
          * @param pObject The tile object to draw;
-         * @param pLayer The object group it belongs to (its offset and opacity apply);
+         * @param pLayer The object group it belongs to (its offset and tint apply);
+         * @param fOpacity The opacity to draw it with - its own "opacity" property, or its
+         * layer's (ObjectRenderer works it out, ObjectOpacity);
          */
-        void TileMapRenderer :: DrawTileObject( tmx_object *pObject, tmx_layer *pLayer )  {
+        void TileMapRenderer :: DrawTileObject( tmx_object *pObject, tmx_layer *pLayer, float fOpacity )  {
 
             unsigned int  nGID = pObject -> content.gid & TMX_FLIP_BITS_REMOVAL;
 
@@ -782,7 +441,6 @@ namespace SunLight {
             tmx_tile      *pTile   = ( pBase -> animation_len != 0 ) ? AnimatedFrameOf( pBase, nGID ) : pBase;
             tmx_tileset   *pTs     = pTile -> tileset;
             void          *pImage  = ( pTile -> image != nullptr ) ? pTile -> image -> resource_image : pTs -> image -> resource_image;
-            float          fOpacity  = ObjectOpacity( pObject, ( float ) pLayer -> opacity );   // L2: object's own "opacity" property, or the layer's
             SunLight :: Base :: stColor  tintColor = IntToColor( pLayer -> tintcolor );
             int            nTileW   = ( int ) pTs -> tile_width;
             int            nTileH   = ( int ) pTs -> tile_height;
@@ -1105,7 +763,7 @@ namespace SunLight {
                 if( pLayer -> visible && m_pActiveView -> IsLayerShown( ( int ) pLayer -> id ) ) {
 
                     // L1 of the master plan: this layer's own effective camera, set once here
-                    // regardless of layer type - DrawLayer/DrawObjects/DrawImageLayer and the
+                    // regardless of layer type - DrawLayer/ObjectRenderer/DrawImageLayer and the
                     // HandleSpriteUpdate call below (for this exact layer, still in scope) all
                     // read m_EffectiveLayerCameraPos instead of m_CameraPos directly, so a
                     // world-space sprite's own GetCameraOffset sees the right value with no
@@ -1120,7 +778,11 @@ namespace SunLight {
                             DrawAllLayers( pLayer -> content.group_head, fEffectiveParallaxX, fEffectiveParallaxY ); // recursive call
                             break;
                         case L_OBJGR :
-                            DrawObjects( pLayer );
+                            // S1b: shapes and text through the ObjectRenderer; tile objects come back here.
+                            m_ObjectRenderer.Draw( CurrentDrawContext(), pLayer, m_Fonts,
+                                                   [this]( tmx_object *pObject, tmx_layer *pObjectLayer, float fOpacity )  {
+                                                       DrawTileObject( pObject, pObjectLayer, fOpacity );
+                                                   } );
                             break;
                         case L_IMAGE :
                             // L1 of the master plan: now camera/parallax/zoom/viewport-aware
@@ -2428,7 +2090,7 @@ namespace SunLight {
         }
 
         /**
-         * @brief Register a font for text objects (see DrawTextObject): a
+         * @brief Register a font for text objects (see TextObjectRenderer): a
          * text object draws with the font whose family and bold/italic flags
          * match its own. Loads through the engine's LoadFont, which does not
          * change the active font (SetFont).
@@ -2449,26 +2111,11 @@ namespace SunLight {
          */
         bool TileMapRenderer :: RegisterFont( const char *szFamily, const char *szFilePath, bool bBold, bool bItalic )  {
 
-            if( !m_bIsStarted || ( szFamily == nullptr ) || ( szFilePath == nullptr ) )
+            // Loading a font needs the render context, which Start() creates.
+            if( !m_bIsStarted )
                 return false;
 
-            std :: unique_ptr<SunLight :: Font :: IFont>  pFont = SunLight :: Engines :: EngineFactory :: GetEngine().LoadFont( szFilePath );
-
-            if( pFont == nullptr )
-                return false;
-
-            for( __stRegisteredFont &registered : m_RegisteredFonts )  {
-                if( ( registered.strFamily == szFamily ) && ( registered.bBold == bBold ) && ( registered.bItalic == bItalic ) )  {
-                    // Assigning destroys the old font, which releases it.
-                    registered.pFont = std :: move( pFont );
-
-                    return true;
-                }
-            }
-
-            m_RegisteredFonts.push_back( __stRegisteredFont { szFamily, bBold, bItalic, std :: move( pFont ) } );
-
-            return true;
+            return m_Fonts.Register( szFamily, szFilePath, bBold, bItalic );
         }
 
         /**
