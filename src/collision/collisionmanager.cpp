@@ -35,8 +35,17 @@ namespace SunLight {
         void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider *pFirst, 
                                                   SunLight :: Collision :: Collider *pSecond )  {
 
-            for( ICollisionListener *pListener : m_Listeners )  {
-                pListener -> OnCollision( pFirst, pSecond );
+            /*
+             * A listener may call AddCollisionListener from OnCollision, which appends to
+             * m_Listeners - a std::deque, whose push_back invalidates every iterator into it, so
+             * the range-for this replaced was undefined behaviour then. Its indexes stay valid:
+             * walked by index over the listeners there were when this event fired, so one added
+             * during it starts with the next collision. (Listeners are never removed.)
+             */
+            size_t  nListeners = m_Listeners.size();
+
+            for( size_t nListener = 0; nListener < nListeners; nListener++ )  {
+                m_Listeners[nListener] -> OnCollision( pFirst, pSecond );
             }
         }
 
@@ -48,8 +57,11 @@ namespace SunLight {
         void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider *pFirst, 
                                                   SunLight :: TileMap :: stTile* pSecond )  {
 
-            for( ICollisionListener *pListener : m_Listeners )  {
-                pListener -> OnCollision( pFirst, pSecond );
+            // By index, as above.
+            size_t  nListeners = m_Listeners.size();
+
+            for( size_t nListener = 0; nListener < nListeners; nListener++ )  {
+                m_Listeners[nListener] -> OnCollision( pFirst, pSecond );
             }
         }
 

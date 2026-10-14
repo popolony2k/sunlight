@@ -211,6 +211,10 @@ namespace SunLight {
             // Frees the loaded map and everything that belongs to it, but not the registered sprites
             void ReleaseMap( void );
 
+            // Listener dispatch that tolerates a listener (un)registering listeners from it's own callback
+            TileMapListenerList ListenersSnapshot( void ) const;
+            bool IsListenerRegistered( SunLight :: TileMap :: ITileMapListener *pListener ) const;
+
             // Color control
             SunLight :: Base :: stColor IntToColor( uint32_t color );
 

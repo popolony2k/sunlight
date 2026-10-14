@@ -1787,7 +1787,7 @@ Done last, once the features they describe are settled.
 |---|------|--------|
 | T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | DONE |
 | T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | DONE |
-| T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | TODO |
+| T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | DONE |
 | T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | TODO |
 | T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | TODO |
 
@@ -1831,6 +1831,23 @@ and by `Stop`, balanced over repeated cycles), `GetLayer` by id and name inside 
 The 5 regression tests fail on the old code, and the sprite test also fails if the reload
 calls `UnloadMap()` (which would unload the caller's sprites). Full suite 581/581, ASan clean,
 `leaks --atExit` 0 leaks.
+
+**T3: `Run()` dispatch tests (DONE).** `tests/test_run_dispatch.cpp`, 14 cases driven through
+`Run()` on the mocks, input included: a held key and a gamepad button fire once per frame (a pad
+that was not added never does), the no-input handler only on frames where nothing else fired,
+collider-to-collider and collider-to-tile collisions (the latter on a real map tile's collision
+shape) once per frame, the order inside a frame (draw, input, `OnUpdate`, collisions, fade - so
+what an input handler moves is drawn the next frame), an invisible renderer (frames presented
+and counted, nothing drawn or dispatched), and a collision callback removing what it hit.
+
+Found writing them, fixed here (`doc/BREAKAGES.md` 42): map listeners, collision listeners and
+input handlers were walked directly over the `std::deque` a callback could append to (map
+listeners: also erase from) - undefined behaviour. The input and collision lists are only ever
+appended to, so they are walked by index over the count at the start of the dispatch; the map
+listeners are walked over a copy, each re-checked as still registered before its call. Added
+during a dispatch: starts next frame. Removed: never called again. Of the 6 regression tests,
+against the old code 3 fail under AddressSanitizer (heap-use-after-free; one also crashes a
+normal build) and 3 fail their checks. Full suite 595/595, ASan clean, 0 leaks.
 
 ## Out of scope for this plan
 
