@@ -35,6 +35,8 @@
 #include "font/ifont.h"
 #include "renderer/rendererconfig.h"
 #include "renderer/shape/shapeprimitives.h"
+#include "renderer/shape/shaperenderer.h"
+#include "renderer/drawcontext.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
 #include "input/icontrollermanager.h"
@@ -105,6 +107,7 @@ namespace SunLight {
             std :: set<SunLight :: Sprite :: Sprite*>  m_ParentedSprites;
             TileMapListenerList                        m_TileMapListenerList;
             SunLight :: Collision :: CollisionManager  m_CollisionManager;
+            ShapeRenderer                              m_ShapeRenderer;          // draws every shape (S1a): shape objects and IShapeSurface
             stVector                                   m_CameraPos;
 
             // The CURRENT layer's own effective camera (L1 of the master plan: per-layer
@@ -218,31 +221,8 @@ namespace SunLight {
             // Color control
             SunLight :: Base :: stColor IntToColor( uint32_t color );
 
-            // Graphics primitives miscellaneous
-            // One straight edge of a shape: the engine's own line (IEngine::DrawLine).
-            void DrawEdge( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color );
-
-            // Engine primitives
-            void DrawPolyline( double fOffset_x,
-                               double fOffset_y,
-                               double **fPoints,
-                               int nPointsCount,
-                               double fRotation,
-                               int nLineWidth,
-                               SunLight :: Base :: stColor color );
-            void DrawPolygon( double fOffset_x,
-                              double fOffset_y,
-                              double **fPoints,
-                              int nPointsCount,
-                              double fRotation,
-                              int nLineWidth,
-                              SunLight :: Base :: stColor color );
-            std :: vector<Shape :: ScreenPoint> ScreenPointsOf( double fOriginX,
-                                                                          double fOriginY,
-                                                                          double **fPoints,
-                                                                          int nPointsCount,
-                                                                          double fZoom,
-                                                                          double fRotation );
+            // The view and layer being drawn, for the drawing classes (S1a)
+            DrawContext CurrentDrawContext( void );
 
             // M1 of the master plan: converts a caller-owned stVector2D array into the double**
             // shape the private DrawPolyline/DrawPolygon overloads (and libtmx itself) use, in
@@ -252,21 +232,6 @@ namespace SunLight {
                                   int nPointsCount,
                                   std :: vector<double> &storage,
                                   std :: vector<double*> &ppRows );
-            void DrawRectangle( double offset_x,
-                                double offset_y,
-                                double width,
-                                double height,
-                                double fRotation,
-                                int nLineWidth,
-                                SunLight :: Base :: stColor color );
-            void DrawPoint( double offset_x, double offset_y, double size, SunLight :: Base :: stColor color );
-            void DrawEllipse( double offset_x,
-                              double offset_y,
-                              double width,
-                              double height,
-                              double fRotation,
-                              int nLineWidth,
-                              SunLight :: Base :: stColor color );
             void DrawTile( SunLight :: Base :: TextureHandle pImage,
                            int32_t nSourceX,
                            int32_t nSourceY,
