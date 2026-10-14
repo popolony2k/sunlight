@@ -1842,12 +1842,12 @@ libtmx texture hooks move with it, installed by `Load`. `TileMapRenderer` holds 
 2,728 lines, the header 467 -> 440. `tests/test_mapdata.cpp` (7 cases, no renderer); freeing the
 old map before loading the new one fails T2's failed-parse test. Full suite 625/625, ASan clean,
 `leaks` 0, Doxygen 0, the stress benchmark within its spread.
-- Found, not changed (S1 changes no behaviour): a Tiled tile animation holds its first frame
-  for two of its durations every cycle. After the last frame, `AnimatedFrameOf` wraps the counter
-  to 0 and shows frame 0, then shows frame 0 again on the next step (on two frames of 100 and
-  50 ms: 0 1 0 0 1 0 ..., frame 0 on screen 200 ms). `tests/test_mapdata.cpp` pins today's
-  sequence; fixing it (as v0.38.0 did for the sprite modes) is an open point for after S1, and
-  that test changes with the fix.
+- Found while moving it, fixed right after in its own PR (owner's call - no peer map has
+  animated tiles yet): a Tiled tile animation held its first frame for two of its durations
+  every cycle. After the last frame, `AnimatedFrameOf` wrapped the counter to 0 and showed frame
+  0 without stepping it on, so frame 0 came again on the next step (0 1 2 0 0 1 2 0 0 ...). The
+  counter now steps on and wraps in one place: each frame once per cycle, for its own duration.
+  `tests/test_mapdata.cpp` checks two full cycles of three frames and fails on the old code.
 
 ## Docs, samples and tests
 

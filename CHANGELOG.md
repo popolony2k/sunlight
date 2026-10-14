@@ -93,6 +93,9 @@ Each item is described in full in the plan; what each change means for code buil
 - A TTF/OTF font was loaded with the 95 ASCII glyphs alone (raylib's `LoadFont`), so every accented
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
+- A Tiled tile animation held its first frame for two of its durations every cycle (frames 0 1 2
+  played as 0 1 2 0 0 1 2 ...). Each frame now shows once per cycle, for its own duration, so an
+  animated tile's cycle is shorter by its first frame's duration.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 

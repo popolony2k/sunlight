@@ -453,14 +453,13 @@ namespace SunLight  {
                 unsigned int     nNextFrmGID;
                 _tmx_frame       *pTmxAnimFrm;
 
-                if( pAnimInfo -> nCounter < pTile -> animation_len )  {
-                    pTmxAnimFrm = &pTile -> animation[pAnimInfo -> nCounter];
-                    pAnimInfo -> nCounter++;
-                }
-                else  {
-                    pAnimInfo -> nCounter = 0;
-                    pTmxAnimFrm = &pTile -> animation[0];
-                }
+                // The frame due now, then the counter steps on to the next one, wrapping after the last:
+                // each frame is shown once per cycle, for its own duration (0 1 2 0 1 2 ...). It used
+                // to wrap only when the frame after the last was due - setting the counter back to 0 AND
+                // showing frame 0 without stepping it on - so frame 0 came again on the next step and was
+                // held for two of its durations every cycle (0 1 2 0 0 1 2 0 0 ...).
+                pTmxAnimFrm = &pTile -> animation[pAnimInfo -> nCounter];
+                pAnimInfo -> nCounter = ( uint16_t ) ( ( pAnimInfo -> nCounter + 1 ) % pTile -> animation_len );
 
                 pTilesetList = TilesetListOf( pTile -> tileset );
                 pTile = nullptr;
