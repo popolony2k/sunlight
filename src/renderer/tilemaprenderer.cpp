@@ -219,13 +219,6 @@ namespace SunLight {
         }
 
         /**
-         * Draw a polygon line (without close the polygon).
-         * @param fOffset_x X polygon coordinate;
-         * @param fOffset_y Y polygon coordinate;
-         * @param points array of points for this polygon;
-         * @param points_count Number of items of points array;
-         */
-        /**
          * The vertices of a shape in screen pixels: each point scaled by the zoom, from an origin already in
          * screen pixels. Converted to whole pixels the same way the hairline edges are.
          */
@@ -248,6 +241,16 @@ namespace SunLight {
             return points;
         }
 
+        /**
+         * Draw an open polyline (the last point is not joined back to the first).
+         * @param fOffset_x X of the shape's stored point, in map units;
+         * @param fOffset_y Y of the shape's stored point;
+         * @param fPoints The points, each { x, y } relative to the stored point, in map units;
+         * @param nPointsCount Number of points;
+         * @param fRotation Clockwise rotation in degrees, about the stored point (Tiled's rotation);
+         * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
+         * @param color The colour;
+         */
         void TileMapRenderer :: DrawPolyline( double fOffset_x,
                                               double fOffset_y,
                                               double **fPoints,
@@ -277,11 +280,14 @@ namespace SunLight {
         }
 
         /**
-         * Draw a polygon line (without close the polygon).
-         * @param fOffset_x X polygon coordinate;
-         * @param fOffset_y Y polygon coordinate;
-         * @param points array of points for this polygon;
-         * @param points_count Number of items of points array;
+         * Draw a closed polygon outline (the last point is joined back to the first).
+         * @param fOffset_x X of the shape's stored point, in map units;
+         * @param fOffset_y Y of the shape's stored point;
+         * @param fPoints The points, each { x, y } relative to the stored point, in map units;
+         * @param nPointsCount Number of points;
+         * @param fRotation Clockwise rotation in degrees, about the stored point (Tiled's rotation);
+         * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
+         * @param color The colour;
          */
         void TileMapRenderer :: DrawPolygon( double fOffset_x,
                                          double fOffset_y,
@@ -325,12 +331,14 @@ namespace SunLight {
         }
 
         /**
-         * Draw a square primitive to specified position on texture.
-         * @param fOffset_x X square coordinate;
-         * @param fOffset_y Y square coordinate;
-         * @param fWidth The square width;
-         * @param fHeight The square height;
-         * @param color Rectangle color;
+         * Draw a rectangle outline.
+         * @param fOffset_x X of the top-left corner (the stored point), in map units;
+         * @param fOffset_y Y of the top-left corner;
+         * @param fWidth The width, in map units;
+         * @param fHeight The height, in map units;
+         * @param fRotation Clockwise rotation in degrees, about the stored point (Tiled's rotation);
+         * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
+         * @param color The colour;
          */
         void TileMapRenderer :: DrawRectangle( double fOffset_x,
                                                double fOffset_y,
@@ -369,19 +377,12 @@ namespace SunLight {
         }
 
         /**
-         * Draw an ellipse primitive to specified position on texture.
-         * @param fOffset_x X ellipse coordinate;
-         * @param fOffset_y Y ellipse coordinate;
-         * @param fWidth The ellipse width;
-         * @param fHeight The ellipse height;
-         * @param color ellipse color;
-         */
-        /**
          * Draw a point object as a filled square. Its side is the point's size times the zoom, rounded half-up and
          * at least one pixel (the same rule as a line's width), with the top-left corner at the point's position.
          * @param fOffset_x X of the point, in map units;
          * @param fOffset_y Y of the point;
          * @param fSize Size of the point, in map units;
+         * @param color The colour;
          */
         void TileMapRenderer :: DrawPoint( double fOffset_x, double fOffset_y, double fSize, SunLight :: Base :: stColor color )  {
             Shape :: PrimitiveClip  primitiveClip( GetViewport().GetDimension2D() );
@@ -395,6 +396,16 @@ namespace SunLight {
             Shape :: DrawFilledSquare( ( int ) fScreenX, ( int ) fScreenY, Shape :: ScreenLineWidth( fSize, zp.fZoomFactor ), color );
         }
 
+        /**
+         * Draw an ellipse outline, inscribed in its box.
+         * @param fOffset_x X of the box's top-left corner (the stored point), in map units;
+         * @param fOffset_y Y of the box's top-left corner;
+         * @param fWidth The box's width, in map units;
+         * @param fHeight The box's height, in map units;
+         * @param fRotation Clockwise rotation in degrees, about the stored point (Tiled's rotation);
+         * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
+         * @param color The colour;
+         */
         void TileMapRenderer :: DrawEllipse( double fOffset_x,
                                              double fOffset_y,
                                              double fWidth,
