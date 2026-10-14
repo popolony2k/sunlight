@@ -61,7 +61,7 @@ namespace SunLight  {
 
         /**
          * Set pointer to a new parent dimension object passed as parameter;
-         * @param pDimension Pointer to the new @link stDimension2D object
+         * @param pDimension Pointer to the new @ref stDimension2D object
          * that will be used by this entity;
          */
         void GraphicObject :: SetDimension2DPtr( SunLight :: Base :: stDimension2D* pDimension )  {

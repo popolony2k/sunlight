@@ -133,9 +133,10 @@ namespace SunLight  {
          */
         void ControllerManager :: HandleKeyEvent( SunLight :: Input :: KeyboardKey evt )  {
 
-            for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
-                if( ( *itItem ) -> nEvent == evt )
-                    ( *itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_KEYBOARD, KEYBOARD_ID );
+            // By index, over the handlers there were when this frame's dispatch began - see Update().
+            for( size_t nItem = 0; nItem < m_nKeyHandlersThisFrame; nItem++ )  {
+                if( m_KeyInputEventHandlerList[nItem] -> nEvent == evt )
+                    m_KeyInputEventHandlerList[nItem] -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_KEYBOARD, KEYBOARD_ID );
             }
         }
 
@@ -172,7 +173,22 @@ namespace SunLight  {
 
             DetectGamepadConnectionChanges();
 
-            for( int nGamePadId : m_GamePadList )  {
+            /*
+             * A handler may call SetUserKeyEventHandler/SetUserGamePadEventHandler/AddGamePad
+             * (eg. a menu switching it's controls): each appends to a std::deque walked right here,
+             * and a deque's push_back invalidates EVERY iterator into it - the range-for/iterator
+             * loops this replaced were undefined behaviour then. Its indexes and element references
+             * stay valid, so the lists are walked by index, over the counts they had when this
+             * frame's dispatch began: what a handler adds is dispatched from the next frame on.
+             * Nothing is ever removed from these lists, so no index can go stale.
+             */
+            size_t  nGamePads             = m_GamePadList.size();
+            size_t  nGamePadHandlers      = m_GPadInputEventHandlerList.size();
+
+            m_nKeyHandlersThisFrame = m_KeyInputEventHandlerList.size();
+
+            for( size_t nPad = 0; nPad < nGamePads; nPad++ )  {
+                int      nGamePadId = m_GamePadList[nPad];
                 SunLight :: Input :: GamepadButton button[]    = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
                                                                    SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
                                                                    SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
@@ -250,8 +266,9 @@ namespace SunLight  {
                 }
 
                 // Handle DPad and analog stick controls (left + right)
-                for( InputEventHandlerList :: iterator itItem = m_GPadInputEventHandlerList.begin(); itItem != m_GPadInputEventHandlerList.end(); itItem++ )  {
-                    SunLight :: Input :: GamepadButton   evt = ( SunLight :: Input :: GamepadButton ) ( * itItem ) -> nEvent;
+                for( size_t nItem = 0; nItem < nGamePadHandlers; nItem++ )  {
+                    __stInputEventData                   *pItem = m_GPadInputEventHandlerList[nItem].get();
+                    SunLight :: Input :: GamepadButton   evt    = ( SunLight :: Input :: GamepadButton ) pItem -> nEvent;
 
                     /*
                      * DPad and Analog MUST be processed in the same handler list iteration.
@@ -259,12 +276,12 @@ namespace SunLight  {
                      * (depending on final developer game logic);
                      */
                     if( m_pInputHandler -> IsGamepadButtonDown( nGamePadId, evt ) )  {
-                        ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
+                        pItem -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
                         bEventHandled = true;
                     }
                     else  {
                         if( ( evt == button[0] ) || ( evt == button[1] ) || ( evt == button[2] ) || ( evt == button[3] ) )  {
-                            ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
+                            pItem -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
                             bEventHandled = true;
                         }
                     }
@@ -280,9 +297,11 @@ namespace SunLight  {
                     break;
 
                     case SunLight :: Input :: INPUT_DISPATCH_MODE_ACTIVE :  {
-                        for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
-                            if( m_pInputHandler -> IsKeyDown( ( SunLight :: Input :: KeyboardKey ) ( * itItem ) -> nEvent ) )  {
-                                ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_KEYBOARD, KEYBOARD_ID );
+                        for( size_t nItem = 0; nItem < m_nKeyHandlersThisFrame; nItem++ )  {
+                            __stInputEventData  *pItem = m_KeyInputEventHandlerList[nItem].get();
+
+                            if( m_pInputHandler -> IsKeyDown( ( SunLight :: Input :: KeyboardKey ) pItem -> nEvent ) )  {
+                                pItem -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_KEYBOARD, KEYBOARD_ID );
                                 bEventHandled = true;
                             }
                         }

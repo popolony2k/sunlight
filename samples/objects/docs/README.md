@@ -25,11 +25,13 @@ This produces the `objects_test` executable under `build/samples/objects/`, alon
 
 | Keys | Action |
 | --- | --- |
-| `W` / `Up Arrow` | Scroll the view up |
-| `S` / `Down Arrow` | Scroll the view down |
-| `A` / `Left Arrow` | Scroll the view left |
-| `D` / `Right Arrow` | Scroll the view right |
+| Arrow keys | Scroll the map |
+| `Page Up` / `Page Down` | Zoom in / out |
+| `Home` | Reset the zoom |
+| `End` | Move the camera back to the map's origin |
 | `Esc` | Quit |
+
+These are `DefaultControllerBindings`, installed by the sample with `DefaultControllerBindings::Install`.
 
 ## What to look for
 
@@ -46,5 +48,5 @@ Tiled places a tile object by its bottom-left corner, so each tile's top-left is
 
 ## Assets
 
-- `resources/map/tileset_house.tsx` and `resources/map/images/house.png`: the house tileset from the [tilemaprenderer sample](../../tilemaprenderer/docs/README.md).
+- `resources/map/tileset_house.tsx` and `resources/map/images/house.png`: the house tileset from the [orthogonal sample](/samples/orthogonal/docs/README.md).
 - `../shared/fonts/caravellius8x8.fnt` and `.png`: Caravellius 8x8, designed by PopolonY2k and Leidson Campos A. Ferreira. Dual-licensed under the zlib License or the SIL Open Font License 1.1 (`../shared/fonts/OFL-caravellius8x8.txt`).

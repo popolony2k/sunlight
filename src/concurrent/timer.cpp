@@ -26,9 +26,7 @@ namespace SunLight {
 
         /**
          * @brief Constructor. Initialize all class data;
-         * @param nTimerId The TImer Id to assign to event hndler parameter;
-         * 
-         * @return Timer 
+         * @param nTimerId The Timer Id to assign to event handler parameter;
          */
         Timer :: Timer( int nTimerId )  {
             m_bRunning = false;
@@ -37,8 +35,6 @@ namespace SunLight {
 
         /**
          * @brief Destructor. Finalize all class data.
-         * 
-         * @return Timer 
          */
         Timer :: ~Timer( void )  {
             Stop();

@@ -19,6 +19,7 @@
  */
 
 #include "backends/raylib/raylibengine.h"
+#include "backends/raylib/raylibfontglyphs.h"
 #include "filesystem/filesystemfactory.h"
 #include "window/windowfactory.h"
 
@@ -146,6 +147,38 @@ namespace SunLight  {
                 pText[ data.size() ] = '\0';
 
                 return pText;
+            }
+
+            /**
+             * @brief Load a font file the way SetFont and LoadFont both do. A TrueType/OpenType
+             * font is loaded with ::LoadFontEx and the code points of TtfCodepoints() (ASCII,
+             * Latin-1 and Latin Extended-A), at raylib's own default glyph size: ::LoadFont
+             * would build it with the 95 ASCII glyphs alone (rtext.c), so an accented letter was
+             * drawn as '?'. Every other format (an AngelCode BMFont ".fnt", an image font) goes
+             * to ::LoadFont unchanged - it brings its own glyph set. ::LoadFontEx reads the file
+             * through LoadFileData, the same @see FileSystemLoadFileDataCallback route ::LoadFont
+             * takes, so mounts and the read filter apply exactly as before. A code point the
+             * font file has no glyph for is still drawn as '?'. ::LoadFont also sets a loaded
+             * font's texture to point filtering, which ::LoadFontEx leaves to the caller: done
+             * here too, so the font is sampled exactly as before.
+             * @param szFilePath The font file;
+             * @return The font; invalid (::IsFontValid false), with nothing allocated, if it
+             * could not be loaded;
+             */
+            static ::Font LoadFontFile( const char *szFilePath )  {
+
+                if( ::IsFileExtension( szFilePath, ".ttf;.otf" ) )  {
+                    const std :: vector<int>  &codepoints = TtfCodepoints();
+                    ::Font                     font       = ::LoadFontEx( szFilePath, TTF_GLYPH_SIZE,
+                                                                          const_cast<int*>( codepoints.data() ), ( int ) codepoints.size() );
+
+                    if( font.texture.id != 0 )
+                        ::SetTextureFilter( font.texture, TEXTURE_FILTER_POINT );
+
+                    return font;
+                }
+
+                return ::LoadFont( szFilePath );
             }
 
             /**
@@ -377,16 +410,6 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Fill a rectangle with a solid/alpha-blended color, at
-             * exactly the coordinates given - no viewport/camera logic of
-             * its own, same as every other draw method here.
-             * @param nPosX X coordinate of the rectangle's top-left corner;
-             * @param nPosY Y coordinate of the rectangle's top-left corner;
-             * @param nWidth Rectangle width;
-             * @param nHeight Rectangle height;
-             * @param color Fill color (including alpha);
-             */
-            /**
              * @brief A thick line through raylib's own routine (see @see IEngine::DrawLine).
              */
             void RaylibEngine :: DrawLine( float fX0,
@@ -413,6 +436,16 @@ namespace SunLight  {
                                     Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }
 
+            /**
+             * @brief Fill a rectangle with a solid/alpha-blended color, at
+             * exactly the coordinates given - no viewport/camera logic of
+             * its own, same as every other draw method here.
+             * @param nPosX X coordinate of the rectangle's top-left corner;
+             * @param nPosY Y coordinate of the rectangle's top-left corner;
+             * @param nWidth Rectangle width;
+             * @param nHeight Rectangle height;
+             * @param color Fill color (including alpha);
+             */
             void RaylibEngine :: DrawFilledRectangle( int nPosX,
                                                       int nPosY,
                                                       int nWidth,
@@ -425,22 +458,21 @@ namespace SunLight  {
 
             /**
              * @brief Load (or replace) the font used by DrawText (see
-             * @see IEngine::SetFont). Forwards straight to raylib's own
-             * ::LoadFont, which auto-detects the font file's format from
-             * it's extension (TrueType/OpenType, or an AngelCode BMFont
-             * ".fnt" atlas) - this method has no format-specific logic of
-             * it's own. The previous custom font, if any, is unloaded only
+             * @see IEngine::SetFont), through @see LoadFontFile (raylib
+             * picks the format from the file's extension - TrueType/OpenType,
+             * or an AngelCode BMFont ".fnt" atlas - and a TrueType/OpenType
+             * font gets its Latin glyphs). The previous custom font, if any, is unloaded only
              * after the new one is confirmed valid, so a failed load never
              * leaves DrawText without a usable font.
              */
             bool RaylibEngine :: SetFont( const char *szFilePath )  {
 
-                ::Font  newFont = ::LoadFont( szFilePath );
+                ::Font  newFont = LoadFontFile( szFilePath );
 
-                // On failure raylib's own ::LoadFont returns an all-zero,
+                // On failure raylib's ::LoadFont/::LoadFontEx return an invalid,
                 // never-allocated Font (confirmed in raylib's own source -
-                // it only reaches a GPU upload on the success path), so
-                // there's nothing of newFont's to release here.
+                // it only builds glyphs and reaches a GPU upload on the success
+                // path), so there's nothing of newFont's to release here.
                 if( !::IsFontValid( newFont ) )
                     return false;
 
@@ -467,12 +499,12 @@ namespace SunLight  {
             /**
              * @brief Load a font without making it the active font (see
              * @see IEngine::LoadFont). Same loader and validity check as
-             * @see SetFont: raylib's own ::LoadFont, which returns an
+             * @see SetFont: @see LoadFontFile, which returns an
              * all-zero Font on failure, nothing allocated to free.
              */
             std :: unique_ptr<SunLight :: Font :: IFont> RaylibEngine :: LoadFont( const char *szFilePath )  {
 
-                ::Font  newFont = ::LoadFont( szFilePath );
+                ::Font  newFont = LoadFontFile( szFilePath );
 
                 if( !::IsFontValid( newFont ) )
                     return nullptr;

@@ -200,7 +200,7 @@ namespace SunLight {
         }
 
         /**
-         * Convert integer color representation to @link Color object;
+         * Convert integer color representation to a SunLight::Base::stColor;
          */
         SunLight :: Base :: stColor TileMapRenderer :: IntToColor( uint32_t color ) {
 
@@ -527,14 +527,15 @@ namespace SunLight {
 
         /**
          * Draw a tile to specified position on texture.
-         * @param pImage Pointer to a @link Texture2D object used as renderer.
-         * @param uSourceX Source tile X coordinate;
-         * @param uSourceY Source tile Y coordinate;
-         * @param uSourceW Source tile width;
-         * @param uSourceH Source tile height;
-         * @param uDestX destination X coordinate on texture;
-         * @param uDestY destination Y coordinate on texture;
-         * @param opacity opacity level to be applied on texture;
+         * @param pImage Handle of the tileset texture to draw from.
+         * @param nSourceX Source tile X coordinate;
+         * @param nSourceY Source tile Y coordinate;
+         * @param nSourceW Source tile width;
+         * @param nSourceH Source tile height;
+         * @param nDestX destination X coordinate on texture;
+         * @param nDestY destination Y coordinate on texture;
+         * @param fOpacity opacity level to be applied on texture;
+         * @param tintColor tint color to be applied on texture;
          */
         void TileMapRenderer :: DrawTile( SunLight :: Base :: TextureHandle pImage,
                                           int32_t nSourceX,
@@ -1536,9 +1537,34 @@ namespace SunLight {
          */
         void TileMapRenderer :: HandleTileMapUpdate( void )  {
 
-            for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
-                pListener -> OnUpdate( *this );
+            for( SunLight :: TileMap :: ITileMapListener* pListener : ListenersSnapshot() )  {
+                if( IsListenerRegistered( pListener ) )
+                    pListener -> OnUpdate( *this );
             }
+        }
+
+        /**
+         * The listeners registered right now, copied: what HandleTileMapUpdate and Stop walk. A
+         * listener may call AddTileMapListener/RemoveTileMapListener from OnUpdate/OnStop (eg. a
+         * stage handing over to the next one), and both mutate m_TileMapListenerList, a std::deque:
+         * push_back invalidates every iterator into it and erase can too, so the range-for loops
+         * this replaced were undefined behaviour then. The same snapshot CollisionManager::Update
+         * already takes of it's collider lists.
+         */
+        TileMapRenderer :: TileMapListenerList TileMapRenderer :: ListenersSnapshot( void ) const  {
+
+            return m_TileMapListenerList;
+        }
+
+        /**
+         * Whether pListener is still registered - checked right before each call over a snapshot,
+         * so a listener removed earlier in the same walk (and maybe deleted by whoever removed it)
+         * is never called. One added during the walk is not in the snapshot: it starts next frame.
+         * @param pListener The listener to look for;
+         */
+        bool TileMapRenderer :: IsListenerRegistered( SunLight :: TileMap :: ITileMapListener *pListener ) const  {
+
+            return std :: find( m_TileMapListenerList.begin(), m_TileMapListenerList.end(), pListener ) != m_TileMapListenerList.end();
         }
 
         /**
@@ -1616,7 +1642,11 @@ namespace SunLight {
          */
         void TileMapRenderer :: CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
 
-            pTmxLayer -> opacity   = ( __MAX_OPACITY_LEVEL - layer.nOpacity );
+            // nOpacity is 0..__MAX_OPACITY_LEVEL (fully opaque), libtmx's own opacity 0.0..1.0 - the factor
+            // DrawLayer multiplies alpha by. It was "__MAX_OPACITY_LEVEL - nOpacity" here and "opacity +
+            // __MAX_OPACITY_LEVEL" in CopyTmxToLayer: not inverses of each other, and neither in 0..1 - an
+            // opaque layer read back as 256 and was written back as -1.0, and 255 made it invisible.
+            pTmxLayer -> opacity   = ( double ) std :: clamp( layer.nOpacity, 0, __MAX_OPACITY_LEVEL ) / __MAX_OPACITY_LEVEL;
             pTmxLayer -> offsetx   = layer.offset.x;
             pTmxLayer -> offsety   = layer.offset.y;
             pTmxLayer -> visible   = layer.bVisible;
@@ -1632,7 +1662,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer *pTmxLayer )  {
 
-            layer.nOpacity   = ( int ) ( pTmxLayer -> opacity + __MAX_OPACITY_LEVEL );
+            layer.nOpacity   = ( int ) std :: lround( pTmxLayer -> opacity * __MAX_OPACITY_LEVEL );
             layer.offset.x   = pTmxLayer -> offsetx;
             layer.offset.y   = pTmxLayer -> offsety;
             layer.bVisible   = pTmxLayer -> visible;
@@ -1915,7 +1945,7 @@ namespace SunLight {
         /**
          * Add a TileMap listener to internal listener list renderer.
          * All listeners will be called for each update step;
-         * @param pListener Pointer to the @ITileMapListener object to add;
+         * @param pListener Pointer to the @ref SunLight::TileMap::ITileMapListener object to add;
          */
         void TileMapRenderer :: AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
 
@@ -1929,7 +1959,7 @@ namespace SunLight {
 
         /**
          * Remove a TileMap listener from internal listener list renderer.
-         * @param pListener Pointer to the @ITileMapListener object to remove;
+         * @param pListener Pointer to the @ref SunLight::TileMap::ITileMapListener object to remove;
          */
         void TileMapRenderer :: RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
 
@@ -2340,8 +2370,7 @@ namespace SunLight {
         /**
          * @brief Set the Game Pad Id that will be handled by this renderer;
          *
-         * @param nIndex The GamePad device index to set GamePadId;
-         * @param nGamePadId The gme pad id to set;
+         * @param nGamePadId The game pad id to set;
          */
         void TileMapRenderer :: AddGamePad( int nGamePadId )  {
 
@@ -2375,7 +2404,7 @@ namespace SunLight {
         /**
          * @brief Get the Input Handler object
          *
-         * @return S\The reference to IInputHandler object;
+         * @return The reference to IInputHandler object;
          */
         SunLight :: Input :: IInputHandler& TileMapRenderer :: GetInputHandler( void )  {
 
@@ -2826,7 +2855,7 @@ namespace SunLight {
          * @param pos The tile position on layer map.
          * @param layer Reference to the layer whose tile will be
          * retrieved;
-         * @param tile reference to @link stTile object to receive
+         * @param tile reference to @ref SunLight::TileMap::stTile object to receive
          * tile information;
          */
         bool TileMapRenderer :: GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
@@ -2875,7 +2904,7 @@ namespace SunLight {
         /**
          * Convert world coordinate to tile matrix coordinate.
          * @param coord The World coordinate to translate to tile matrix coordinate;
-         * @param pos Reference to struct @link stMatrixPosition to receive the
+         * @param pos Reference to struct @ref SunLight::TileMap::stMatrixPosition to receive the
          * tile matrix position based on world coordinate passed as parameter;
          */
         bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
@@ -2905,7 +2934,7 @@ namespace SunLight {
         /**
          * Load the specified map to renderer.
          * @param szTmxMapFile Renderer map file;
-         * @param alignment Map alignment according @link MapAlignment enumerator;
+         * @param alignment Map alignment according @ref SunLight::TileMap::ITileMap::MapAlignment enumerator;
          */
         bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
 
@@ -2922,7 +2951,7 @@ namespace SunLight {
                  * to tmx_load_buffer() first: it's own public signature
                  * takes no vpath at all, unlike tmx_load()'s own path
                  * argument - internally, every relative reference inside
-                 * the map (a <tileset source="..."> or <imagelayer>'s own
+                 * the map (a `<tileset source="...">` or `<imagelayer>`'s own
                  * <image source="...">) gets resolved against this vpath
                  * via mk_absolute_path() (tmx_utils.c) - passing none
                  * means every such reference resolves to just it's own
@@ -2976,9 +3005,16 @@ namespace SunLight {
                         ExternalResources :: PreloadExternalResource( pRcMgr, reference, strMapDir, loadedKeys, visited );
                 }
 
-                m_pTmxMap = ::tmx_rcmgr_load_buffer_vpath( pRcMgr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
+                /*
+                 * Parsed into locals first, and only swapped in once it loaded: a map that is
+                 * already loaded is left exactly as it is by a failed load, and released by
+                 * UnloadMap() (it's textures, sprite lists and Resource Manager) by a good one.
+                 * Assigning straight to m_pTmxMap lost the previous map without freeing any of
+                 * it - and a failed parse lost it too, leaving no map at all.
+                 */
+                tmx_map  *pNewMap = ::tmx_rcmgr_load_buffer_vpath( pRcMgr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
 
-                if( !m_pTmxMap ) {
+                if( !pNewMap ) {
                     ::tmx_perror( "Cannot load map" );
 
                     if( pRcMgr )
@@ -2993,43 +3029,51 @@ namespace SunLight {
                  * any other orientation is refused exactly as before, with the same message. Freed the same
                  * way UnloadMap frees a map: the map first, then the manager it points into.
                  */
-                switch( m_pTmxMap -> orient )  {
+                std :: unique_ptr<Projection :: IMapProjection>  pNewProjection;
+
+                switch( pNewMap -> orient )  {
 
                     case O_ORT:
-                        m_pProjection = std :: make_unique<Projection :: OrthogonalProjection>();
+                        pNewProjection = std :: make_unique<Projection :: OrthogonalProjection>();
                         break;
 
                     case O_ISO:
-                        m_pProjection = std :: make_unique<Projection :: IsometricProjection>();
+                        pNewProjection = std :: make_unique<Projection :: IsometricProjection>();
                         break;
 
                     case O_STA:
-                        m_pProjection = std :: make_unique<Projection :: StaggeredProjection>();
+                        pNewProjection = std :: make_unique<Projection :: StaggeredProjection>();
                         break;
 
                     case O_HEX:
-                        m_pProjection = std :: make_unique<Projection :: HexagonalProjection>();
+                        pNewProjection = std :: make_unique<Projection :: HexagonalProjection>();
                         break;
 
                     default:
                         // Every orientation string libtmx recognizes (orthogonal/isometric/staggered/hexagonal)
                         // now has a projection, and O_NONE is unreachable here - checked against libtmx's own
                         // source (tmx_xml.c): a missing "orientation" attribute and an unrecognized one are
-                        // BOTH rejected at parse time (two separate tmx_err calls), so m_pTmxMap is already
+                        // BOTH rejected at parse time (two separate tmx_err calls), so pNewMap is already
                         // nullptr and LoadMap already returned false above, for any map that would otherwise
                         // reach this switch with orient == O_NONE. The same finding B3 made for L_NONE/OT_NONE -
                         // kept only so the switch covers every enumerator.
                         fprintf( stderr, "Cannot load map: [%s] uses %s orientation; only orthogonal, isometric, staggered and hexagonal maps are supported.\n",
-                                 szTmxMapFile, MapOrientation :: OrientationName( m_pTmxMap -> orient ) );
+                                 szTmxMapFile, MapOrientation :: OrientationName( pNewMap -> orient ) );
 
-                        ::tmx_map_free( m_pTmxMap );
-                        m_pTmxMap = nullptr;
+                        ::tmx_map_free( pNewMap );
 
                         if( pRcMgr )
                             ::tmx_free_resource_manager( pRcMgr );
 
                         return false;
                 }
+
+                // The new map loaded: only now does the previous one (if any) go - the map alone, the
+                // sprites registered with AddSprite stay registered, as they always did across a LoadMap.
+                ReleaseMap();
+
+                m_pTmxMap     = pNewMap;
+                m_pProjection = std :: move( pNewProjection );
 
                 // The map points into the manager's tilesets/templates: keep it alive as long as the map.
                 m_pTmxRcMgr = pRcMgr;
@@ -3149,6 +3193,23 @@ namespace SunLight {
 
             if( m_pTmxMap )  {
                 UnloadSprites();
+                ReleaseMap();
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * Free the loaded map and what belongs to it - it's tile textures (libtmx frees them through
+         * TextureFreeCallback), the Resource Manager it points into and it's tile animations - and leave
+         * the registered sprites alone. UnloadMap() is this plus UnloadSprites(); LoadMap() calls only this
+         * on the map a new one replaces, since the sprites are the caller's and stay registered across it.
+         */
+        void TileMapRenderer :: ReleaseMap( void )  {
+
+            if( m_pTmxMap )  {
                 ::tmx_map_free( m_pTmxMap );
 
                 // Only now: the map held pointers into the manager's external tilesets/templates.
@@ -3167,16 +3228,12 @@ namespace SunLight {
                 m_nMapHeight = 0;
                 m_pProjection.reset();
                 m_bUniformTileGrid    = false;
-
-                return true;
             }
-
-            return false;
         }
 
         /**
          * Get the current map information data.
-         * @param mapInfo Reference to the struct @link stMapInfo that will
+         * @param mapInfo Reference to the struct @ref SunLight::TileMap::stMapInfo that will
          * receive the map information.
          */
         bool TileMapRenderer :: GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo )  {
@@ -3198,7 +3255,7 @@ namespace SunLight {
          * @brief Recursive helper for GetObjectByName() - walks pLayer's
          * linked list looking for a named object inside any L_OBJGR layer,
          * recursing into L_GROUP the same way DrawAllLayers() does, so a
-         * map that nests an object group inside a <group> layer is still
+         * map that nests an object group inside a `<group>` layer is still
          * searched correctly instead of silently skipped.
          *
          * @param pLayer Head of the tmx_layer linked list to search;
@@ -3240,10 +3297,10 @@ namespace SunLight {
         }
 
         /**
-         * @brief Look up a level-design-authored object (a Tiled <object>
-         * placed inside any <objectgroup> layer) by name - searches every
+         * @brief Look up a level-design-authored object (a Tiled `<object>`
+         * placed inside any `<objectgroup>` layer) by name - searches every
          * object-group layer in the loaded map, including ones nested
-         * inside <group> layers (see FindObjectByName()), since libtmx has
+         * inside `<group>` layers (see FindObjectByName()), since libtmx has
          * no tmx_find_object_by_name of it's own (only
          * tmx_find_object_by_id, no use here - objects are authored/named
          * by hand in the map editor, not looked up by their internal id).
@@ -3428,8 +3485,9 @@ namespace SunLight {
          */
         void TileMapRenderer :: Stop( void )  {
 
-            for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
-                pListener -> OnStop();
+            for( SunLight :: TileMap :: ITileMapListener* pListener : ListenersSnapshot() )  {
+                if( IsListenerRegistered( pListener ) )
+                    pListener -> OnStop();
             }
 
             if( m_bIsStarted )  {

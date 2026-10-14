@@ -104,8 +104,9 @@ namespace SunLight {
 
         /**
          * Loads and add a texture to the internal texture map object.
-         * @param pTexture Pointer to a @link TextureCanvas to add;
-         * @param nDetalyMilli Time in millisecond to be used in texture
+         * @param nSequence The sequence id to add the texture to;
+         * @param pTexture Pointer to a @ref SunLight::Canvas::TextureCanvas to add;
+         * @param nDelayMilli Time in millisecond to be used in texture
          * animation sequence;
          */
         void Sprite :: AddTextureSequence( int nSequence,
@@ -148,10 +149,6 @@ namespace SunLight {
             }
         }
 
-        /**
-         * Set the active sprite sequence animation.
-         * @param nSequence The sequence id to activate;
-         */
         /**
          * The number of entries of a sequence.
          * @param nSequence The sequence id;
@@ -216,6 +213,10 @@ namespace SunLight {
             return true;
         }
 
+        /**
+         * Set the active sprite sequence animation.
+         * @param nSequence The sequence id to activate;
+         */
         bool Sprite :: SetActiveTextureSequence( int nSequence )  {
 
             m_itActiveSequence = m_Sequences.find( nSequence );
@@ -254,7 +255,7 @@ namespace SunLight {
 
         /**
         * Move the sprite based on x,y steps passed a parameter.
-        * @param step Reference to a @link stCoordinate2D containing
+        * @param step Reference to a @ref SunLight::Base::stCoordinate2D containing
         * the x,y move steps;
         */
         void Sprite :: Move( SunLight :: Base :: stCoordinate2D& step )  {
@@ -265,10 +266,6 @@ namespace SunLight {
             dimension.pos.y+=step.y;
         }
 
-        /**
-        * Set the visible status of a drawing entity.
-        * @param bVisible The new visible status;
-        */
         /**
          * Switch this sprite - and every canvas it holds - between positions
          * relative to the view that draws it (false, the default) and MAP
@@ -332,6 +329,10 @@ namespace SunLight {
             return false;
         }
 
+        /**
+         * Set the visible status of a drawing entity.
+         * @param bVisible The new visible status;
+         */
         void Sprite :: SetVisible( bool bVisible )  {
 
             TextureSequenceList :: iterator itItem;

@@ -34,7 +34,7 @@ namespace SunLight {
          * @brief Screen-space drawing/window-state surface - every
          * primitive here operates in screen space (no viewport/camera
          * transform) and is independent of whether any tile map is
-         * currently loaded, unlike everything on @link
+         * currently loaded, unlike everything on @ref
          * SunLight::TileMap::ITileMap. Split out from ITileMap (which
          * TileMapRenderer still also implements) once it became clear
          * these had all ended up there for one reason only - ITileMap was
@@ -49,8 +49,8 @@ namespace SunLight {
          * A consumer holding only an IDrawSurface (not also an ITileMap)
          * can draw text and filled rectangles and query/toggle window state
          * with no tile map ever having been loaded. Viewport/zoom-aware
-         * shapes are on the sibling @link IShapeSurface, and sprites
-         * registered with @link SunLight::TileMap::ITileMap::AddSprite
+         * shapes are on the sibling @ref IShapeSurface, and sprites
+         * registered with @ref SunLight::TileMap::ITileMap::AddSprite
          * are drawn with no map loaded too (any layer id is then a plain
          * grouping key, drawn in ascending id order) - so a game built on
          * the window canvas alone needs no map at all.
@@ -105,7 +105,7 @@ namespace SunLight {
 
             /**
              * @brief Query whether the window is currently fullscreen,
-             * regardless of which strategy is active (see @link
+             * regardless of which strategy is active (see @ref
              * SetFullscreen).
              */
             virtual bool GetFullscreen( void ) = 0;
@@ -139,7 +139,7 @@ namespace SunLight {
 
             /**
              * @brief Query whether the FPS counter is currently being drawn
-             * (see @link SetDrawFPS).
+             * (see @ref SetDrawFPS).
              */
             virtual bool GetDrawFPS( void ) = 0;
 
@@ -156,7 +156,7 @@ namespace SunLight {
 
             /**
              * @brief Query whether the window is currently resizeable (see
-             * @link SetWindowResizeable).
+             * @ref SetWindowResizeable).
              */
             virtual bool GetWindowResizeable( void ) = 0;
 
@@ -167,7 +167,7 @@ namespace SunLight {
              * Takes effect at the start of the next Run() loop iteration,
              * not immediately; safe to call from anywhere Run()'s
              * per-frame listener callbacks reach (HandleTileMapUpdate, etc.).
-             * Purely local state, same as @link SetDrawFPS/@link
+             * Purely local state, same as @ref SetDrawFPS / @ref
              * SetScreenFade - there's no IEngine primitive to route this
              * through, since raylib itself never exposes a way to set
              * it's own close flag programmatically (only read it, via
@@ -176,7 +176,7 @@ namespace SunLight {
             virtual void RequestExit( void ) = 0;
 
             /**
-             * @brief Query whether @link RequestExit has been called
+             * @brief Query whether @ref RequestExit has been called
              * since the renderer was last started.
              */
             virtual bool GetExitRequested( void ) = 0;
@@ -184,7 +184,7 @@ namespace SunLight {
             /**
              * @brief Set which key, when pressed, triggers the default
              * quit-the-application behavior (WindowShouldClose()
-             * returning true) - the same observable effect @link
+             * returning true) - the same observable effect @ref
              * RequestExit triggers programmatically, but driven by the
              * backend's own per-frame key check instead. KEY_ESCAPE by
              * default. The chosen key is applied every time the renderer
@@ -203,7 +203,7 @@ namespace SunLight {
 
             /**
              * @brief Query which key currently triggers quit-on-press
-             * (see @link SetExitKey) - reads back a locally cached
+             * (see @ref SetExitKey) - reads back a locally cached
              * value, since the underlying engine has no API to query a
              * previously-set exit key (SetExitKey is write-only there).
              */
@@ -224,7 +224,7 @@ namespace SunLight {
 
             /**
              * @brief Query the currently configured target FPS (see
-             * @link SetTargetFPS) - reads back a locally cached value,
+             * @ref SetTargetFPS) - reads back a locally cached value,
              * since the underlying engine has no API to query a
              * previously-set target FPS (only the live, measured
              * GetFPS(), which this deliberately does not wrap here).
@@ -249,19 +249,19 @@ namespace SunLight {
 
             /**
              * @brief Query whether the render target is currently being
-             * stretched to fill (see @link SetStretchToFill).
+             * stretched to fill (see @ref SetStretchToFill).
              */
             virtual bool GetStretchToFill( void ) = 0;
 
             /**
-             * @brief Load (or replace) the font used by @link DrawText,
+             * @brief Load (or replace) the font used by @ref DrawText,
              * from any backend-supported font file (at minimum TrueType/
              * OpenType; the raylib backend also auto-detects an AngelCode
              * BMFont ".fnt" atlas by extension - see IEngine::SetFont).
              * Callers just pass a file path; which font formats are
              * actually supported is entirely a backend concern, not
              * something callers need to know about. Until this is called
-             * for the first time, @link DrawText falls back to the
+             * for the first time, @ref DrawText falls back to the
              * backend's own built-in default font, so text can be drawn
              * with zero setup.
              *
@@ -275,7 +275,7 @@ namespace SunLight {
             /**
              * @brief Draw a line of text on screen, in screen space (no
              * viewport/camera transform, same as the FPS counter), using
-             * whichever font is currently active (see @link SetFont).
+             * whichever font is currently active (see @ref SetFont).
              *
              * @param szText The text to draw;
              * @param nPosX X coordinate to draw at;
@@ -298,14 +298,14 @@ namespace SunLight {
             /**
              * @brief Draw a filled, solid-color rectangle in screen space
              * (no viewport/camera transform, same coordinate space as
-             * @link DrawText and the FPS counter) - meant for simple HUD
+             * @ref DrawText and the FPS counter) - meant for simple HUD
              * elements (e.g. a progress/health bar) that don't warrant a
              * whole sprite/texture asset. A thin pass-through to
              * IEngine::DrawFilledRectangle, which already exists and is
              * already used internally for the screen-fade overlay - this
              * just exposes that same capability as it's own, arbitrary-
              * position/size/color primitive rather than the fixed, full-
-             * window, single-alpha-value overlay @link SetScreenFade
+             * window, single-alpha-value overlay @ref SetScreenFade
              * already covers.
              *
              * @param nPosX X coordinate of the rectangle's top-left corner;
@@ -329,7 +329,7 @@ namespace SunLight {
             /**
              * @brief Measure how wide a line of text would render, in
              * pixels, at a given font size, using whichever font is
-             * currently active (see @link SetFont) - the same font @link
+             * currently active (see @ref SetFont) - the same font @ref
              * DrawText itself would use. Meant for screen-space HUD
              * layout (e.g. right-aligning a score/lives readout), not for
              * anything camera/viewport-aware.
@@ -342,7 +342,7 @@ namespace SunLight {
 
             /**
              * @brief Return the engine's own fixed design/render
-             * resolution width, in pixels - the coordinate space @link
+             * resolution width, in pixels - the coordinate space @ref
              * DrawText and every other screen-space draw call (the FPS
              * counter, the screen-fade overlay) operate in. This is
              * constant for the lifetime of the app (set once, at
@@ -360,7 +360,7 @@ namespace SunLight {
 
             /**
              * @brief Return the engine's own fixed design/render
-             * resolution height, in pixels (see @link GetWindowWidth).
+             * resolution height, in pixels (see @ref GetWindowWidth).
              *
              * @return The render resolution height, in pixels;
              */

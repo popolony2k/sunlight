@@ -232,11 +232,7 @@ namespace SunLight {
          * Set the inset (as fractions of the parent's own width/height)
          * shrinking the rectangle this collider's Hit() checks use for it's
          * own side of the test. See the header's own doc comment for the
-         * full explanation.
-         * @param fLeftPct Fraction of width to shrink off the left edge;
-         * @param fTopPct Fraction of height to shrink off the top edge;
-         * @param fRightPct Fraction of width to shrink off the right edge;
-         * @param fBottomPct Fraction of height to shrink off the bottom edge;
+         * full explanation (and it's parameters).
          */
         void Collider :: SetInset( float fLeftPct, float fTopPct, float fRightPct, float fBottomPct )  {
 

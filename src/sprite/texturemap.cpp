@@ -42,8 +42,8 @@ namespace SunLight {
 
         /**
          * Loads and add a texture to the internal texture map.
-         * @param texture Texture to add;
-         * @param nDetalyMilli Time in millisecond to be used in texture
+         * @param pTexture Texture to add;
+         * @param nDelayMilli Time in millisecond to be used in texture
          * animation sequence;
          */
         void TextureMap :: AddTexture( SunLight :: Canvas :: TextureCanvas *pTexture,

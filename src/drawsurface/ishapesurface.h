@@ -31,7 +31,7 @@ namespace SunLight {
         /**
          * @brief Viewport/zoom-aware shape drawing - the thick-line, polygon, ellipse and point
          * primitives Phase C/D built, independent of whether any tile map is currently loaded,
-         * the same way @link IDrawSurface already is for its own, simpler primitives. Deliberately
+         * the same way @ref IDrawSurface already is for its own, simpler primitives. Deliberately
          * NOT merged into IDrawSurface: every primitive there is explicit that it is screen space,
          * with no viewport/camera transform at all (a HUD layer, position measured against the
          * fixed render resolution). These are the opposite - every call maps its own (x, y) the

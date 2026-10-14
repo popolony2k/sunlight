@@ -1785,15 +1785,111 @@ Done last, once the features they describe are settled.
 
 | # | Item | Status |
 |---|------|--------|
-| T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | TODO |
-| T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | TODO |
-| T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | TODO |
-| T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | TODO |
-| T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | TODO |
+| T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | DONE |
+| T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | DONE |
+| T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | DONE |
+| T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | DONE |
+| T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | DONE |
+| T6 | Load TTF/OTF fonts with Latin accents, not only the 95 ASCII glyphs raylib's `LoadFont` generates | DONE |
 
 - T1: each warning is fixed, and the Doxygen run reports no new warnings.
 - T2 and T3: tests fail on a deliberate break of the loader or dispatch path.
 - T4 and T5: checked against the features as they are when this item is reached.
+- T6: the `text` sample's Press Start 2P line draws its accents; a unit test pins the code points.
+
+**T1: Doxygen warnings (DONE).** `doxygen Doxyfile` went from 147 warning lines to 0.
+- `@link X` without `@endlink` (about 40 places) became `@ref X`, qualified where the name
+  is not in scope (`SunLight::TileMap::stTile`, ...). Two stale names were corrected:
+  `stTilePosition` is `stMatrixPosition`, and `DrawTile` takes a `TextureHandle`, not a
+  `Texture2D`.
+- Stale `@param` names fixed (`AddColliderToTileRule`, `AddGamePad`, `AddTexture`,
+  `AddTextureSequence`, `LoadMap`). Parameters documented in both the header and the
+  source now live in the header only (`Collider::SetInset`, `ColliderRegistry`).
+- Three comment blocks sat above the wrong function, so Doxygen merged them into the
+  next one: `RaylibEngine::DrawFilledRectangle`'s, `Sprite::SetActiveTextureSequence`'s
+  and `Sprite::SetVisible`'s. Each was moved back above its own function.
+- Tiled XML element names in comments (`<object>`, `<objectgroup>`, ...) are in
+  backticks, so they are not read as HTML. `@ITileMapListener`, `\The` and `Timer`'s
+  `@return` on its constructor and destructor are gone.
+- README: `MARKDOWN_ID_STYLE = GITHUB` in `Doxyfile`, so the table of contents' anchors
+  resolve as they do on GitHub. Links to other repository files are absolute GitHub URLs:
+  the generated site does not hold those files, so a relative link would be broken there.
+
+**T2: map-loading tests (DONE).** `tests/test_maploading.cpp`, 13 cases on real `.tmx` bytes
+parsed by libtmx through the mocks: an unreadable and a truncated map, `GetMapInfo`'s exact
+sizes, the embedded tileset image (loaded once beside the map, released once by `UnloadMap`
+and by `Stop`, balanced over repeated cycles), `GetLayer` by id and name inside a group, and
+`GetObjectByName`, which had no test at all. Writing them found two bugs, both fixed here
+(`doc/BREAKAGES.md` 40 and 41):
+- `LoadMap` over a loaded map overwrote the map pointer: the old map, its tile textures and
+  its Resource Manager leaked (Caravellius switches stages this way), and a map that failed
+  to parse lost the old map too. The new map is now parsed first; only once it loaded is the
+  old one freed by `ReleaseMap()`, the map half of `UnloadMap()` - registered sprites are
+  the caller's and stay registered, as before.
+- `GetLayer`/`SetLayer` converted `nOpacity` with two formulas that were not inverses and
+  neither in libtmx's 0..1 (an opaque layer read 256, `SetLayer(255)` hid a layer). It is
+  now 0..255, 255 = opaque.
+
+The 5 regression tests fail on the old code, and the sprite test also fails if the reload
+calls `UnloadMap()` (which would unload the caller's sprites). Full suite 581/581, ASan clean,
+`leaks --atExit` 0 leaks.
+
+**T3: `Run()` dispatch tests (DONE).** `tests/test_run_dispatch.cpp`, 14 cases driven through
+`Run()` on the mocks, input included: a held key and a gamepad button fire once per frame (a pad
+that was not added never does), the no-input handler only on frames where nothing else fired,
+collider-to-collider and collider-to-tile collisions (the latter on a real map tile's collision
+shape) once per frame, the order inside a frame (draw, input, `OnUpdate`, collisions, fade - so
+what an input handler moves is drawn the next frame), an invisible renderer (frames presented
+and counted, nothing drawn or dispatched), and a collision callback removing what it hit.
+
+Found writing them, fixed here (`doc/BREAKAGES.md` 42): map listeners, collision listeners and
+input handlers were walked directly over the `std::deque` a callback could append to (map
+listeners: also erase from) - undefined behaviour. The input and collision lists are only ever
+appended to, so they are walked by index over the count at the start of the dispatch; the map
+listeners are walked over a copy, each re-checked as still registered before its call. Added
+during a dispatch: starts next frame. Removed: never called again. Of the 6 regression tests,
+against the old code 3 fail under AddressSanitizer (heap-use-after-free; one also crashes a
+normal build) and 3 fail their checks. Full suite 595/595, ASan clean, 0 leaks.
+
+**T4: CHANGELOG (DONE).** Every entry had stayed under one `[Unreleased]` heading (with
+`Added`/`Changed`/`Fixed` repeated 12 times), although all of it had shipped, while nothing
+merged since `v0.38.0` - this whole plan - had an entry; the header still said no release
+was tagged (49 were). Each entry now sits under the release that first contained it (found
+from the commit that added its text), condensed to what changed: `0.1.0` and `0.22.0` to
+`0.38.0` (`0.2.0`-`0.21.0` never had entries; their GitHub release notes stand), with
+compare links. `[Unreleased]` holds this plan, grouped Breaking/Added/Changed/Fixed/Removed,
+pointing here and to `doc/BREAKAGES.md` for detail. 536 lines -> 359.
+
+**T5: README, sample docs and the `input` sample (DONE, real-window checked by the owner).**
+- README: a feature list; all 19 samples, grouped by topic; SDL2 under requirements, with why
+  (raylib reads pads through GLFW, which has no vibration API - raylib's desktop
+  `SetGamepadVibration()` is an empty stub - so SDL2 is used for rumble only).
+- Sample docs: new for `isometric`, `isometric_haptics`, `staggered`, `hexagonal`, `parallax`,
+  `opacity`, `zorder`, `surface` and `input`; `shapes` gained its other maps and arguments;
+  stale details fixed in `orthogonal`, `collision`, `sprite`, `objects` and `text`.
+- `samples/input` (new): `ActionMap` actions rebound at run time and saved/loaded,
+  `PlayerSlotManager` slots claimed and released from a pad (and kept across an unplug),
+  hot-plug events, and a live stick dead zone. `DefaultControllerBindings` cannot be switched
+  off once installed (handlers have no remove call), so it is shown by the samples below
+  instead.
+- Found and fixed: `objects`, `text`, `opacity` and `shapes` could not scroll since F0b (they
+  relied on the camera keys the renderer no longer installs); they now call
+  `DefaultControllerBindings::Install`. The CHANGELOG said tile objects draw flipped (their flip
+  bits are still ignored). `iinputhandler.h` had the Circle/B and Square/X comments swapped.
+- Also: CLAUDE.md's sample list and testing note, `doc/vscode/README.md`'s folder names, and
+  `.DS_Store` in both `.gitignore` files.
+- Found, left for T6: a TTF/OTF font is loaded with the 95 ASCII glyphs only, so the `text`
+  sample's Press Start 2P line shows `?` for its accents.
+
+**T6: TTF/OTF fonts with Latin accents (DONE, real-window checked by the owner).** raylib's
+`LoadFont` builds a TTF/OTF font with the 95 ASCII glyphs alone (`FONT_TTF_DEFAULT_NUMCHARS`,
+`rtext.c`), so `SetFont`/`LoadFont` drew every accented letter as `?` - seen on the `text`
+sample's Press Start 2P line (`ção, ñ`). `RaylibEngine` now loads a `.ttf`/`.otf` through one
+helper, `LoadFontFile`, with `LoadFontEx` and `TtfCodepoints()` (ASCII 32-126, Latin-1 160-255,
+Latin Extended-A 256-383: 319 glyphs), at raylib's own size (32) and with the point filtering
+`LoadFont` sets, so ASCII text is drawn as before. `.fnt` and other formats still go to
+`LoadFont`. `LoadFontEx` reads through `LoadFileData`, so mounts and the read filter still apply.
+`tests/test_raylibfontglyphs.cpp` pins the list (5 cases); cut to ASCII only, 2 of them fail.
 
 ## Out of scope for this plan
 
