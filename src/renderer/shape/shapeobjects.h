@@ -22,6 +22,7 @@
 #define __SHAPEOBJECTS_H__
 
 #include "tmx.h"
+#include "base/color.h"
 
 namespace SunLight  {
     namespace Renderer  {
@@ -35,6 +36,15 @@ namespace SunLight  {
              * @return Width in map units;
              */
             double LineWidthOf( tmx_object *pObject );
+
+            /**
+             * @brief A colour as libtmx stores one (a packed 0xAARRGGBB, e.g. an object group's
+             * color or a text object's), as an stColor - the conversion every drawing class
+             * shares (S1b of the master plan; TileMapRenderer::IntToColor too).
+             * @param nColor The packed colour;
+             * @return The colour;
+             */
+            SunLight :: Base :: stColor ColorOf( uint32_t nColor );
 
             /**
              * @brief Size of a point object, in map units: its point_size property, or one map unit when the object

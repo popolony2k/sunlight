@@ -37,6 +37,8 @@
 #include "renderer/shape/shapeprimitives.h"
 #include "renderer/shape/shaperenderer.h"
 #include "renderer/drawcontext.h"
+#include "renderer/text/fontregistry.h"
+#include "renderer/objects/objectrenderer.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
 #include "input/icontrollermanager.h"
@@ -115,7 +117,7 @@ namespace SunLight {
             // group ancestors', multiplied together, matching Tiled's own nesting rule) and
             // anchored at the map's parallaxoriginx/y. Set once per layer, of any type, at
             // the top of DrawAllLayers's own loop body - before dispatching to
-            // DrawLayer/DrawObjects/DrawImageLayer and before HandleSpriteUpdate, so every one
+            // DrawLayer/the object layers (ObjectRenderer)/DrawImageLayer and before HandleSpriteUpdate, so every one
             // of them (including a world-space sprite's own GetCameraOffset) reads the same,
             // already-correct value for whichever layer is currently being processed, with no
             // separate per-sprite layer tracking needed at all. A layer with no parallax
@@ -182,15 +184,8 @@ namespace SunLight {
             // Multi-pass frame (only used once an extra view exists - see RenderMap): the
             // sprites already advanced this frame (a sprite advances ONCE per frame, however
             // many views draw it), and the views of this frame's passes in draw order.
-            struct __stRegisteredFont  {
-                std :: string                                 strFamily;
-                bool                                          bBold;
-                bool                                          bItalic;
-                std :: unique_ptr<SunLight :: Font :: IFont>  pFont;   // owned here; released by ReleaseRegisteredFonts
-            };
-            std :: vector<__stRegisteredFont>          m_RegisteredFonts;
-            std :: set<std :: string>                  m_WarnedFonts;       // "family|bold|italic" keys already warned about
-            std :: set<unsigned int>                   m_WarnedOpacityObjects;   // object ids already warned about an invalid "opacity" property
+            FontRegistry                               m_Fonts;             // RegisterFont's fonts (S1b); released by ReleaseRegisteredFonts
+            ObjectRenderer                             m_ObjectRenderer;    // object layers: shapes, text, the opacity rule (S1b)
             std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvancedSprites;
             std :: set<SunLight :: Sprite :: Sprite*>  m_FramePendingSprites;       // reached by a pass, but not on screen there (yet)
             std :: vector<View*>                       m_PassViews;
@@ -242,24 +237,9 @@ namespace SunLight {
                            float fOpacity,
                            SunLight :: Base :: stColor tintColor = { 0xFF, 0xFF, 0xFF, 0xFF } );
 
-            // High level primitive map handlers
-            void DrawObjects( tmx_layer *pLayer );
-
-            // L2 of the master plan: an object's own effective opacity (0 to 1) - its own "opacity"
-            // property when it has a usable one, otherwise its layer's opacity, exactly as before L2.
-            // An unusable property (wrong type, or outside 0 to 1) warns once per object and falls
-            // back to the layer's opacity too, same as having none.
-            float ObjectOpacity( tmx_object *pObject, float fLayerOpacity );
-            void WarnInvalidOpacity( unsigned int nObjectId );
-
-            // Draws one text object (B1). See DrawTextObject's own comment for
-            // the placeholder used when its font is not registered.
-            void DrawTextObject( tmx_object *pObject, tmx_layer *pLayer );
-
-            // Draws one tile object (B2): the tile its gid names, at the object's position.
-            void DrawTileObject( tmx_object *pObject, tmx_layer *pLayer );
-            SunLight :: Font :: IFont* FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic );
-            void WarnMissingFont( const char *szFamily, bool bBold, bool bItalic );
+            // Draws one tile object (B2): the tile its gid names, at the object's position, with the
+            // opacity ObjectRenderer worked out for it (S1b hands tile objects back here).
+            void DrawTileObject( tmx_object *pObject, tmx_layer *pLayer, float fOpacity );
             void ReleaseRegisteredFonts( void );
             void DrawImageLayer( tmx_layer *pLayer );
             void DrawLayer( tmx_layer *pLayer );
@@ -416,10 +396,10 @@ namespace SunLight {
             int GetWindowWidth( void ) override;
             int GetWindowHeight( void ) override;
 
-            // IShapeSurface (M1 of the master plan): the same shape-drawing bodies DrawObjects
-            // already uses for Tiled shape objects, given a public, mapless door. Each override
-            // converts its own map-unit thickness/rotation into the existing private methods'
-            // own screen-pixel/point-array shape, then calls straight through - no drawing logic
+            // IShapeSurface (M1 of the master plan): the same ShapeRenderer (S1a) Tiled shape
+            // objects are drawn through, given a public, mapless door. Each override converts
+            // its own map-unit thickness into ShapeRenderer's screen-pixel line width (and its
+            // points into libtmx's point-array shape), then calls straight through - no drawing logic
             // is duplicated or reimplemented here.
             void DrawRectangle( double fX, double fY, double fWidth, double fHeight,
                                 SunLight :: Base :: stColor color,

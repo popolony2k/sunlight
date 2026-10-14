@@ -1774,8 +1774,8 @@ text, the map's tilesets or the registered fonts.
 | # | Item | Status |
 |---|------|--------|
 | S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | DONE |
-| S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch, tile objects, the per-object opacity rule and its warnings) | TODO |
-| S1c | `LoadedMap`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), release, and tile, layer and object lookups. `LayerRenderer`: tile, image and group layer drawing and culling | TODO |
+| S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch and the per-object opacity rule, `ObjectOpacity`, with its warnings). Tile objects are handed back to the renderer and move in S1c | DONE |
+| S1c | `LoadedMap`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), release, and tile, layer and object lookups. `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | TODO |
 | S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | TODO |
 | S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | TODO |
 
@@ -1809,6 +1809,23 @@ its shape objects and its `IShapeSurface` methods. `tilemaprenderer.cpp` 3,652 -
 the header 522 -> 487. `tests/test_shaperenderer.cpp` (8 cases) draws with no renderer at all;
 applying the camera after the zoom fails its context test, which none of the 600 earlier tests
 noticed. Full suite 608/608, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark no slower.
+
+**S1b: `FontRegistry`, `ObjectOpacity`, `TextObjectRenderer`, `ObjectRenderer` (DONE).** In
+`renderer/text/` and `renderer/objects/`, each knowing nothing about `TileMapRenderer`:
+`FontRegistry` (`Register`/`Find`/`WarnMissing`/`Clear`; `RegisterFont` keeps its public
+signature and its "not started" check), `ObjectOpacity` (the L2 rule and its once-per-object
+warning), `TextObjectRenderer` (the `DrawTextObject` body, reading a `DrawContext`; its comment
+corrected - rotation is applied, and the view's clip cuts the text) and `ObjectRenderer` (the
+`DrawObjects` dispatch, one `DrawContext` per layer). Tile objects need the map's tiles, their
+animation and `DrawTile`, so they are handed back to the renderer with their opacity and move in
+S1c. The libtmx colour conversion is shared as `Shape::ColorOf`. `tilemaprenderer.cpp` 3,437 ->
+3,084 lines, the header 487 -> 467. `tests/test_objectrenderers.cpp` (10 cases) uses objects
+libtmx parsed, no renderer. Full suite 618/618, ASan clean, `leaks` 0, Doxygen 0, the stress
+benchmark within its spread.
+- Found, not changed (S1 changes no behaviour): libtmx keeps an object group's objects in
+  reverse file order (it prepends them, `tmx_xml.c`), and records the group's `draworder`
+  (`topdown`/`index`), which sunlight never reads - objects are drawn in that reversed list order.
+  Whether to honour `draworder` is an open point for after S1.
 
 ## Docs, samples and tests
 
