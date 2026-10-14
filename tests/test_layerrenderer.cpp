@@ -287,7 +287,7 @@ TEST_SUITE( "renderer/LayerRenderer" )  {
         CheckColor( tile.color, 0x80, 0xFF, 0x80, 127 );
     }
 
-    TEST_CASE( "A resized tile object is stretched into its box, and cut at the viewport's edge" )  {
+    TEST_CASE( "A resized tile object is stretched into its box, with its layer's tint, and cut at the viewport's edge" )  {
 
         LoadedMap  map;
 
@@ -306,7 +306,7 @@ TEST_SUITE( "renderer/LayerRenderer" )  {
         CHECK( whole.srcY == 0 );
         CHECK( whole.srcW == TILE_W );
         CHECK( whole.srcH == TILE_H );
-        CHECK( whole.color.nAlpha == 0xFF );
+        CheckColor( whole.color, 0x80, 0xFF, 0x80, 0xFF );   // the layer's tint (it used to be drawn untinted)
 
         // A viewport ending at x = 240 keeps the box's left 30 of 64 pixels, and so 30 / 64 of the tile.
         DrawContext  narrow { { { 100, 200 }, { 140, 480 } }, 2.0f, { 5.0f, -3.0f } };

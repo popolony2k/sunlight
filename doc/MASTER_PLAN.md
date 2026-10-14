@@ -1865,9 +1865,10 @@ own size, stretched and cut at the viewport, and turned; dropping the camera fro
 fails 4 of them. Culling saves work only (`ClipRect` skips an off-viewport tile anyway), so it
 is not visible in draw calls; `test_tileculling` still pins that it loses no visible cell.
 Full suite 635/635, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark within its spread.
-- Found, not changed (S1 changes no behaviour): a resized tile object ignores its layer's
-  tint (it is drawn white, with its opacity), while one at its tile's size and a turned one
-  take it. An open point for after S1.
+- Found while moving it, fixed right after in its own PR (owner's call): a resized tile
+  object ignored its layer's tint (it was drawn white, with its opacity), while one at its
+  tile's size and a turned one took it. It now takes the tint too; `tests/test_layerrenderer.cpp`
+  checks it and fails on the old code.
 
 ## Docs, samples and tests
 
