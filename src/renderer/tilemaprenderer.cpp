@@ -148,15 +148,8 @@ namespace SunLight {
          * Unload all sprites from map and release all allocated data.
          */
         void TileMapRenderer :: UnloadSprites( void )  {
-            for( std :: pair<int, SpriteList*> spriteListPair : m_SpriteMap )  {
-                for( SunLight :: Sprite :: Sprite* pSprite : *spriteListPair.second )  {
-                    pSprite -> Unload();
-                }
-                spriteListPair.second -> clear();
-                delete spriteListPair.second;
-            }
 
-            m_SpriteMap.clear();
+            m_Sprites.UnloadAll();
         }
 
         /**
@@ -385,7 +378,7 @@ namespace SunLight {
                     }
 
                     /*
-                     * Runtime-added sprites (AddSprite/m_SpriteMap, keyed by
+                     * Runtime-added sprites (AddSprite/m_Sprites, keyed by
                      * this layer's own id) follow a parent-child visibility
                      * hierarchy with their container TMX layer, by design: if
                      * the layer itself is invisible, every sprite registered
@@ -448,8 +441,7 @@ namespace SunLight {
 
             View  *pDefault = m_pDefaultView.get();
 
-            m_FrameAdvancedSprites.clear();
-            m_FramePendingSprites.clear();
+            m_Sprites.BeginFrame();
             m_PassViews.clear();
 
             if( pDefault -> m_bVisible )
@@ -492,17 +484,14 @@ namespace SunLight {
             ActivateView( pDefault );
 
             // Sprites some pass reached but no pass had on screen: advanced once, exactly as a
-            // single view would (see HandleSpriteUpdate). They draw nothing.
-            for( SunLight :: Sprite :: Sprite *pSprite : m_FramePendingSprites )
-                pSprite -> Advance();
-
-            m_FramePendingSprites.clear();
+            // single view would (see SpriteRegistry::UpdateLayer). They draw nothing.
+            m_Sprites.EndFrame();
         }
 
         /**
          * @brief What one pass draws (M2 of the master plan): the map's own layers - each with its
          * sprites, in the map's layer order - when a map is loaded; otherwise every layer id
-         * sprites were registered under, in ascending id order (m_SpriteMap is a std::map), as
+         * sprites were registered under, in ascending id order (SpriteRegistry::LayerIds), as
          * the only layer order a mapless renderer has. The active view's layer mask applies the
          * same way in both cases (IView::ShowLayer keys on the same layer id), so a view can hide
          * a mapless sprite group exactly as it hides a map layer.
@@ -514,9 +503,9 @@ namespace SunLight {
                 return;
             }
 
-            for( const std :: pair<const int, SpriteList*> &layer : m_SpriteMap )  {
-                if( m_pActiveView -> IsLayerShown( layer.first ) )
-                    HandleSpriteUpdate( layer.first );
+            for( int nLayerId : m_Sprites.LayerIds() )  {
+                if( m_pActiveView -> IsLayerShown( nLayerId ) )
+                    HandleSpriteUpdate( nLayerId );
             }
         }
 
@@ -545,7 +534,7 @@ namespace SunLight {
             // with AddSprite (which has always accepted a mapless caller) - before M2 this whole
             // block was skipped without a map, so such a sprite's collider was updated every frame
             // but the sprite itself was never drawn.
-            if( Tmx() || !m_SpriteMap.empty() )  {
+            if( Tmx() || !m_Sprites.Empty() )  {
                 if( m_ExtraViews.empty() )  {
                     /*
                      * The single-view frame - every renderer that never calls CreateView -
@@ -622,58 +611,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: HandleSpriteUpdate( int nLayerId )  {
 
-            SpriteMap :: iterator  itSpriteMap = m_SpriteMap.find( nLayerId );
-
-            // Handle sprite animation
-            if( itSpriteMap != m_SpriteMap.end() )  {
-                // L3 of the master plan: a layer's own sprites draw in ascending z-order, stably -
-                // equal values (every sprite at the default 0, among others) keep the order they
-                // were added in (AddSprite's own push_back), so an all-zero layer's draw order is
-                // byte-identical to before this item existed. Re-sorted on every call rather than
-                // only when a z-order actually changed: stable_sort on an already-correctly-ordered
-                // deque reproduces that same order exactly, so sorting unconditionally is always
-                // correct, and SpriteList's raw pointers give it std::deque's own random-access
-                // iterators, keeping the sort itself cheap (O(n log n) comparisons) even at this
-                // frequency - a dirty-flag optimization was not worth the extra sprite-to-renderer
-                // wiring it would need (Sprite has no back-channel to its owning TileMapRenderer
-                // today) for a cost no test or real workload here has shown to matter.
-                std :: stable_sort( itSpriteMap -> second -> begin(), itSpriteMap -> second -> end(),
-                                     []( SunLight :: Sprite :: Sprite *pLeft, SunLight :: Sprite :: Sprite *pRight )  {
-                                         return pLeft -> GetZOrder() < pRight -> GetZOrder();
-                                     } );
-
-                for( SunLight :: Sprite :: Sprite* pSprite : *itSpriteMap -> second )  {
-                    if( m_ExtraViews.empty() )  {
-                        pSprite -> Update();
-                    }
-                    else  {
-                        /*
-                         * Several passes may draw this sprite in one frame (one per view
-                         * showing its layer): its animation state must still advance only
-                         * once per frame, in the FIRST pass in which it is on screen (a canvas
-                         * only steps while it is inside the viewport of the view being drawn, so
-                         * advancing in a pass that does not show it would waste the step while
-                         * a later view does), and every pass just draws the frame that settled
-                         * (Update() is exactly Advance() then Draw() - see Sprite::Advance/Draw).
-                         * A sprite reached by passes but on screen in none of them is advanced
-                         * once at the end of the frame (DrawViewPasses), as a single view
-                         * would have done: its frame choice still steps, its canvas stands still.
-                         */
-                        if( m_FrameAdvancedSprites.find( pSprite ) == m_FrameAdvancedSprites.end() )  {
-                            if( pSprite -> IsOnScreen() )  {
-                                pSprite -> Advance();
-                                m_FrameAdvancedSprites.insert( pSprite );
-                                m_FramePendingSprites.erase( pSprite );
-                            }
-                            else  {
-                                m_FramePendingSprites.insert( pSprite );
-                            }
-                        }
-
-                        pSprite -> Draw();
-                    }
-                }   
-            }
+            m_Sprites.UpdateLayer( nLayerId, !m_ExtraViews.empty() );
         }
 
         /**
@@ -795,7 +733,6 @@ namespace SunLight {
             m_pControllerManager          = std :: make_unique<SunLight :: Input :: ControllerManager>();
             m_pControllerManager -> SetInputDispatchMode( ToInputDispatchMode( config.viewControlMode ) );
             m_TileMapListenerList.clear();
-            m_SpriteMap.clear();
 
             memset( &m_CameraPos, 0, sizeof( m_CameraPos ) );
             memset( &m_EffectiveLayerCameraPos, 0, sizeof( m_EffectiveLayerCameraPos ) );
@@ -883,20 +820,18 @@ namespace SunLight {
 
             /*
              * Every sprite that still has this renderer as its parent (registered or removed with
-             * RemoveSprite - see m_ParentedSprites) is let go: after this destructor its parent pointer
+             * RemoveSprite - see m_Sprites) is let go: after this destructor its parent pointer
              * would point at a dead renderer, and so would that of its collider and of the canvases that
              * followed it (Sprite::SetParent moves them). A sprite that was destroyed earlier already
              * told us (ChildRemoved) and is not in the set. Iterated over a copy: SetParent calls back
              * into ChildRemoved, which erases from the set.
              */
-            std :: set<SunLight :: Sprite :: Sprite*>  parentedSprites = m_ParentedSprites;
-
-            for( SunLight :: Sprite :: Sprite *pSprite : parentedSprites )  {
+            for( SunLight :: Sprite :: Sprite *pSprite : m_Sprites.ParentedSprites() )  {
                 if( pSprite -> GetParent() == this )
                     pSprite -> SetParent( nullptr );
             }
 
-            m_ParentedSprites.clear();
+            m_Sprites.ClearParented();
 
             if( !m_pNullBackend )
                 s_nLiveDefaultBackendRenderers--;
@@ -947,23 +882,12 @@ namespace SunLight {
          */
         void TileMapRenderer :: ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild )  {
 
-            for( std :: set<SunLight :: Sprite :: Sprite*> :: iterator itSprite = m_ParentedSprites.begin(); itSprite != m_ParentedSprites.end(); itSprite++ )  {
-                SunLight :: Sprite :: Sprite  *pSprite = *itSprite;
+            std :: vector<int>              layerIds;
+            SunLight :: Sprite :: Sprite  *pSprite = m_Sprites.Forget( pChild, layerIds );
 
-                if( static_cast<SunLight :: Canvas :: BaseCanvas*>( pSprite ) == pChild )  {
-                    for( std :: pair<const int, SpriteList*> &layer : m_SpriteMap )  {
-                        SpriteList :: iterator itItem = std :: find( layer.second -> begin(), layer.second -> end(), pSprite );
-
-                        if( itItem != layer.second -> end() )  {
-                            m_CollisionManager.RemoveCollider( layer.first, &pSprite -> GetCollider() );
-                            layer.second -> erase( itItem );
-                        }
-                    }
-
-                    m_ParentedSprites.erase( itSprite );
-
-                    return;
-                }
+            if( pSprite )  {
+                for( int nLayerId : layerIds )
+                    m_CollisionManager.RemoveCollider( nLayerId, &pSprite -> GetCollider() );
             }
         }
 
@@ -2123,30 +2047,21 @@ namespace SunLight {
         bool TileMapRenderer :: AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
             if( m_bIsStarted && ( ( Tmx() == nullptr ) || GetLayer( nLayerId ) ) )  {
-                SpriteMap :: iterator itItemLayer = m_SpriteMap.find( nLayerId );
+                // Opened before the checks below, as it always was (see SpriteRegistry::OpenLayer).
+                m_Sprites.OpenLayer( nLayerId );
 
-                if( itItemLayer == m_SpriteMap.end() )  {
-                    itItemLayer = m_SpriteMap.insert( m_SpriteMap.end(), std :: make_pair( nLayerId, new SpriteList ) );
+                if( !m_Sprites.Contains( nLayerId, &sprite ) &&
+                    m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() ) )  {
+
+                    sprite.SetParent( this );
+                    // L1 of the master plan: so a world-space sprite's own GetCameraOffset
+                    // can later ask for THIS layer's parallax factor, at any time, with no
+                    // dependency on whether a render pass has ever run.
+                    sprite.SetParallaxLayerId( nLayerId );
+                    m_Sprites.MarkParented( &sprite );
+                    m_Sprites.Add( nLayerId, &sprite );
+                    return true;
                 }
-
-                if( itItemLayer != m_SpriteMap.end() )  {
-                    SpriteList :: iterator itItem = std :: find( itItemLayer -> second -> begin(),
-                                                                 itItemLayer -> second -> end(),
-                                                                 &sprite );
-
-                    if( ( itItem == itItemLayer -> second -> end() ) &&
-                        m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() ) )  {
-
-                        sprite.SetParent( this );
-                        // L1 of the master plan: so a world-space sprite's own GetCameraOffset
-                        // can later ask for THIS layer's parallax factor, at any time, with no
-                        // dependency on whether a render pass has ever run.
-                        sprite.SetParallaxLayerId( nLayerId );
-                        m_ParentedSprites.insert( &sprite );
-                        itItemLayer -> second -> push_back( &sprite );
-                        return true;
-                    }
-                }  
             }
 
             return false;
@@ -2160,21 +2075,11 @@ namespace SunLight {
          */
         bool TileMapRenderer :: RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
-            if( m_bIsStarted )  {
-                SpriteMap :: iterator itItemLayer = m_SpriteMap.find( nLayerId );
+            if( m_bIsStarted && m_Sprites.Contains( nLayerId, &sprite ) )  {
+                m_CollisionManager.RemoveCollider( nLayerId, &sprite.GetCollider() );
+                m_Sprites.Remove( nLayerId, &sprite );
 
-                if( itItemLayer != m_SpriteMap.end() )  {
-                    SpriteList :: iterator itItem = std :: find( itItemLayer -> second -> begin(),
-                                                                 itItemLayer -> second -> end(),
-                                                                 &sprite );
-
-                    if( itItem != itItemLayer -> second -> end() )  {
-                        m_CollisionManager.RemoveCollider( nLayerId, &sprite.GetCollider() );
-                        itItemLayer -> second -> erase( itItem );
-
-                        return true;
-                    }
-                }
+                return true;
             }
 
             return false;

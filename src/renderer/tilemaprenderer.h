@@ -41,6 +41,7 @@
 #include "renderer/objects/objectrenderer.h"
 #include "renderer/map/mapdata.h"
 #include "renderer/map/layerrenderer.h"
+#include "renderer/sprite/spriteregistry.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
 #include "input/icontrollermanager.h"
@@ -78,8 +79,6 @@ namespace SunLight {
                                  public SunLight :: DrawSurface :: IShapeSurface  {
 
             typedef std :: deque<SunLight :: TileMap :: ITileMapListener*> TileMapListenerList;
-            typedef std :: deque<SunLight :: Sprite :: Sprite*> SpriteList;
-            typedef std :: map<int, SpriteList*>                SpriteMap;
 
             // Non-null only for a RENDERER_BACKEND_NULL renderer: holds the
             // (shared, process-wide) null backend installed for as long as
@@ -93,12 +92,12 @@ namespace SunLight {
             // frame via Update() (see Run()). TileMapRenderer's own public input methods
             // (AddGamePad, SetUserKeyEventHandler, ...) delegate to this directly.
             std :: unique_ptr<SunLight :: Input :: IControllerManager>  m_pControllerManager;
-            SpriteMap                                  m_SpriteMap;
 
-            // Every sprite this renderer is the PARENT of (set by AddSprite, kept by RemoveSprite as it
-            // always was): the sprites whose parent pointer would dangle if this renderer went away, and
-            // the ones that must tell it when they are destroyed (ChildRemoved). A superset of m_SpriteMap.
-            std :: set<SunLight :: Sprite :: Sprite*>  m_ParentedSprites;
+            // The sprites registered per layer (AddSprite), every sprite this renderer is the PARENT of
+            // (set by AddSprite, kept by RemoveSprite as it always was: the ones whose parent pointer
+            // would dangle if this renderer went away, and that tell it when they are destroyed -
+            // ChildRemoved), and the once-per-frame sprite update across the view passes (S1d).
+            SpriteRegistry                             m_Sprites;
             TileMapListenerList                        m_TileMapListenerList;
             SunLight :: Collision :: CollisionManager  m_CollisionManager;
             ShapeRenderer                              m_ShapeRenderer;          // draws every shape (S1a): shape objects and IShapeSurface
@@ -166,11 +165,8 @@ namespace SunLight {
             ObjectRenderer                             m_ObjectRenderer;    // object layers: shapes, text, the opacity rule (S1b)
             LayerRenderer                              m_LayerRenderer;     // tile and image layers, tile objects (S1c2)
 
-            // Multi-pass frame (only used once an extra view exists - see RenderMap): the
-            // sprites already advanced this frame (a sprite advances ONCE per frame, however
-            // many views draw it), and the views of this frame's passes in draw order.
-            std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvancedSprites;
-            std :: set<SunLight :: Sprite :: Sprite*>  m_FramePendingSprites;       // reached by a pass, but not on screen there (yet)
+            // Multi-pass frame (only used once an extra view exists - see RenderMap): the views of
+            // this frame's passes in draw order.
             std :: vector<View*>                       m_PassViews;
 
             friend class View;
