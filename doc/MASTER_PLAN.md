@@ -2062,6 +2062,114 @@ Latin Extended-A 256-383: 319 glyphs), at raylib's own size (32) and with the po
 `LoadFont`. `LoadFontEx` reads through `LoadFileData`, so mounts and the read filter still apply.
 `tests/test_raylibfontglyphs.cpp` pins the list (5 cases); cut to ASCII only, 2 of them fail.
 
+## Phase H: handoff to Scarab
+
+sunlight's `feat/master_plan` is the integration base for three projects, not a branch about to
+merge to `main`: Scarab runs its own master plan on it next, then Caravellius does the same, and
+nothing goes to any `main` until that whole integration is done. This phase prepares the Scarab
+session to start: a code style guide taken from sunlight's own code (Scarab will align to it),
+sunlight's code aligned to that guide, and a brief that explains what changed, why, and how
+Scarab works through it.
+
+| # | Item | Status |
+|---|------|--------|
+| H1 | Code style guide: `doc/CODE_STYLE.md`, taken from sunlight's code and the owner's choices | TODO |
+| H2 | Align sunlight's code with the guide (formatting only) | TODO |
+| H3 | Write the Scarab handoff brief | TODO |
+| H4 | Review and refine the brief with the owner, as many rounds as needed | TODO |
+| H5 | On the owner's command, send the brief to the Scarab session | TODO |
+
+- H1: every rule is shown with an example from sunlight's own code; the owner reviews the guide.
+- H2: every object file's machine code is identical before and after; the full suite passes and
+  every sample builds.
+- H3 to H5: the owner approves the brief before it is sent; it is sent only on the owner's
+  command.
+
+**H1: code style guide.** sunlight was written entirely by the owner, and its code is the
+reference for Scarab's: Scarab started from some of the owner's code, but not all of it follows
+the owner's style any more. The guide is written from the code itself (the first commit,
+`e479bcd`, is the owner's alone), in English, each rule with an example:
+- File layout: the zlib header; one module per folder and namespace (`SunLight::<Module>`),
+  namespaces nested and indented; file names in lower case, matching the class
+  (`collisionmanager.cpp`); include guards `__COLLISIONMANAGER_H__`.
+- Spacing: `Class :: Method`, `std :: vector`, `p -> Method()`; `( void )` for an empty parameter
+  list; a space inside parentheses and none after the keyword (`if( x )`, `for( ... )`); a
+  4-space indent; a blank line after a function's opening brace; `else  {` on its own line.
+- Naming (Hungarian): members `m_`; `p` pointers, `n` integers, `f` floating point, `b` bool, `sz`
+  C strings, `str` `std::string`, `it` iterators, `h` handles; structs `st`, interfaces `I`;
+  enumerators in upper case with the type's prefix (`MAP_ALIGNMENT_TOP_LEFT`); a typedef for a
+  container type (`TextureSequenceList`).
+- Constants: `#define __UPPER_CASE value  // why`, aligned in columns; no magic numbers in new
+  code. Declarations aligned in columns.
+- Comments: Doxygen `/** @brief ... @param x Description; */` (each `@param` ends with `;`);
+  `/* ... */` blocks explain why; every claim in a comment is checked (`CLAUDE.md`).
+- Where the code varied, the owner chose (2026-10-14): two spaces before an opening brace on
+  every line that ends with one - control statements, functions, lambdas, `namespace`,
+  `class`, `struct`, `enum` (`if( x )  {`); `Type* pName`; `Type& name`; `#endif /* __X_H__ */`.
+- Code copied from elsewhere (the `DrawTextureTiled` body from raylib's example) is adapted to
+  the style: once in sunlight, it is sunlight's code.
+- Beyond formatting, the design rules this plan relied on: owning members are `unique_ptr`, a
+  raw pointer never owns; backends behind an interface and a factory, no raylib/SDL call
+  outside `backends/`; classes that do not know who uses them (S1); doctest coverage through
+  the mocks.
+
+**H2: sunlight aligned to the guide.** Measured before starting: about 300 `Type *p`, 530
+`Type &r`, 80 control/function braces and 300 `namespace`/`class`/`struct`/`enum` braces
+with one space, 65 `#endif  /*`, 16 `if (`/`while (`, and the copied raylib snippet. A script
+changes code lines only (never comments or strings), and only within a line, so no line number
+moves. Proof of no change in behaviour: every object file is built before and after with the
+same flags, and their machine code is compared - it must be identical. Then the full suite, and
+every sample builds.
+
+**H3: the Scarab handoff brief.** The message the Scarab session starts from:
+1. The integration: sunlight's `feat/master_plan` is the shared base; Scarab's own master plan,
+   on its own `master_plan` branch, built against it; then Caravellius; nothing to any `main`
+   until the whole integration is done.
+2. What changed in sunlight and why: a short tour of phases A to F, L, M, S and T with their motivation;
+   `doc/BREAKAGES.md` is the authoritative list, grouped by what Scarab has to do (its build
+   breaks, behaviour changes, nothing to do).
+3. How Scarab handles it: its first items build against the new sunlight and work through
+   `BREAKAGES.md` entry by entry; the Scarab session finds how Scarab pulls in sunlight today
+   and plans the switch to `feat/master_plan`.
+4. Code style: `doc/CODE_STYLE.md` is the reference; Scarab's plan has a style phase - an
+   audit of Scarab's code against the guide, then the alignment, one item and one PR at a time.
+5. Branch strategy, the same as here: a feature branch and PR per item; large phases staged on
+   `feat/complete_<phase>_plan`, closed by one PR into `master_plan`; squash merges; a staging
+   branch in CI while its phase runs, dropped afterwards.
+6. Working rules:
+   - Planning is the strongest phase of the whole plan: every phase and every item is designed
+     and discussed with the owner before any code is written, even inside a phase already
+     approved.
+   - Nothing is committed, pushed or opened as a PR without the owner's review - integration
+     branches and small config commits included. Merging on green CI is fine once the owner
+     approved the PR.
+   - Tests first, a regression test shown to fail on the old code; the full suite, ASan and the
+     leak check; comments whose claims are checked; real-window checks by the owner.
+7. Three requisites from sunlight's own experience (the first two are early items of Scarab's
+   plan, the third applies to every visual item):
+   - An AddressSanitizer job in Scarab's CI, at least on Linux, as sunlight's "AddressSanitizer
+     (Linux)" job. Linux only for CI time alone (a sanitized build and run on every runner would
+     slow every PR); Windows and macOS can be added later if needed. On Linux it also runs
+     LeakSanitizer, which macOS's AddressSanitizer does not (see `CLAUDE.md`).
+   - Unit tests for every module that can have them, as sunlight did (doctest, through mocks
+     and a null backend where a window or device is involved). Many of sunlight's memory bugs
+     were found only by writing such tests and running them under the sanitizer, for example:
+     a heap-buffer-overflow in the tile lookup (A6); `LoadMap` over a loaded map leaking the old
+     one (T2); listener lists walked while a callback appended to them, undefined behaviour
+     (T3); `Sprite::Unload` leaving a dangling sequence iterator, a use-after-free (S1d); and a
+     mapless `AddSprite` leak caught by CI's LeakSanitizer (M2).
+   - A sample for every new visual feature, as Scarab already has samples and as sunlight does
+     (each sample with its own `docs/README.md` and an entry in the README's list): a visual
+     feature cannot be fully checked by unit tests, so the owner checks it in a real window
+     through its sample before the item is closed.
+8. A sunlight problem found by Scarab goes to the owner, who decides where and when it is
+   fixed (this session holds after the handoff, see H5).
+9. Open points from sunlight, for context: objects ignore Tiled's `draworder` and are drawn in
+   reverse file order; the views still live in `TileMapRenderer`.
+
+**H5: the handoff.** The brief is sent to the Scarab session only on the owner's command. This
+session then holds: it starts nothing on its own, and acts only on the owner's later requests.
+
 ## Out of scope for this plan
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
