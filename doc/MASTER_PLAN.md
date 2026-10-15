@@ -1321,12 +1321,36 @@ merge into `feat/master_plan`.
 - A child of a group layer accumulates its own factor with every ancestor group's own
   factor (its own factor × the product of every parent's), matching Tiled's own nested-
   group behavior.
-- The formula is `effectiveCamera = (camera + origin) × factor - origin` (Tiled's own
-  documented model), computed by one shared helper,
+- The formula is `effectiveCamera = (camera + origin) × factor - origin` (believed to be
+  Tiled's own documented model - it was not: see the correction below), computed by one shared helper,
   `TileMapRenderer::GetEffectiveCameraForFactor`. A factor of exactly 1.0 is special-
   cased per axis to return the real camera position unchanged, rather than trust the
   general formula to reduce to it bit-for-bit (floating-point associativity does not
   guarantee that).
+- **Corrected 2026-10-15 (after Phase H's samples work; owner's report):** zooming the
+  `parallax` sample around Sunny slid the parallax layers away from the ground. Tiled measures
+  parallax from the **centre of the view**, not its top-left, and **adds** the map's parallax
+  origin: it shifts a layer by `(1 - factor) × (view centre + origin)` (`MapScene::parallaxOffset`
+  in Tiled's source, `viewCenter += map->parallaxOrigin()`; the origin is read unchanged by
+  `MapReaderPrivate::readMap`). Its manual describes the origin as subtracted, but the editor
+  draws with that code, and a map is authored by what the editor shows. The formula above
+  anchored at the top-left, which moves with every zoom about a fixed centre, so the layers
+  drifted, and it placed them where Tiled does not even without zooming. `Camera::ForParallax`
+  now returns `camera × factor + (1 - factor) × (half view + origin)` (the half view in map
+  pixels, each view its own); a factor of 1 is still the camera itself. `test_parallax`'s
+  values are recomputed from Tiled's placement, and two new cases (one per level: `Camera`,
+  and a renderer at zoom 1, 2 and 4 about a fixed centre) fail on the old formula.
+  `doc/BREAKAGES.md` entry 49.
+  `samples/parallax`, authored for the old placement, was adjusted with the owner (checked in a
+  real window): the map's parallax origin is minus the wrap rectangle's centre, (-640, -416), so
+  the layers line up with the ground where Sunny starts and the view never reaches past a parallax
+  layer's own rows (with (0, 0), near the top of the wrap rectangle it reached above the sky layer's
+  first row - a puff seemed to vanish after a wrap; a headless sweep of 265,482 frames had shown
+  the renderer drew every tile it should). The map gained a tile row at the top and the bottom,
+  each continuing its layer's pattern (the 512-pixel wrap jump times each factor is that layer's
+  repeating pattern, so the wrap rectangle itself cannot change), and `World::LimitZoomOut` stops
+  zooming out before the view can reach past the map's edge (zoom 2.5, computed from the map, the
+  markers and the viewport).
 - `GetTile`'s own camera computation uses its own layer's factor directly, not
   accumulated with ancestor groups - a narrow, documented, accepted limitation, since
   the only render path that matters (`DrawLayer`) never reads the field this affects;

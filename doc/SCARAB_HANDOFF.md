@@ -42,7 +42,7 @@ is described in full, with its reasons and tests, in `doc/MASTER_PLAN.md`):
 | H | This handoff: a code style guide, sunlight aligned to it, this brief | Scarab next |
 
 **[`doc/BREAKAGES.md`](BREAKAGES.md) is the authoritative list** of what affects Scarab and Caravellius:
-48 entries, each with what changed, what to check and what to do. The ones that hit code Scarab uses
+49 entries, each with what changed, what to check and what to do. The ones that hit code Scarab uses
 today, found by reading Scarab's `src/` (2026-10-14, read only):
 
 | Change | Where Scarab is hit |
@@ -54,7 +54,7 @@ today, found by reading Scarab's `src/` (2026-10-14, read only):
 | `Sprite::Unload()` leaves no sequence active (entry 47); the renderer's `Stop()` unloads every registered sprite | 3 `Unload` calls |
 | `AddSprite` | 2 calls |
 
-Scarab does not implement `IEngine`, does not call `SetPixel` and does not use the haptics, so those
+Scarab does not implement `IEngine`, does not call `SetPixel` and does not use the haptics or parallax, so those
 entries need nothing from it. Go through every entry anyway: this table is a starting point, not a
 substitute.
 

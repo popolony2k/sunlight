@@ -300,18 +300,38 @@ namespace SunLight  {
 
         /**
          * @brief The camera for a layer whose accumulated parallax factor is fFactorX/fFactorY (L1 of
-         * the master plan): this camera anchored at the map's parallax origin and scaled by the
-         * factor; exactly this camera, per axis, when that axis's factor is 1.0.
+         * the master plan), placed as Tiled places it; exactly this camera, per axis, when that axis's
+         * factor is 1.0.
+         *
+         * Tiled shifts a parallax layer by (1 - factor) x (view centre + parallax origin), in map pixels
+         * (`MapScene::parallaxOffset`, src/tiled/mapscene.cpp: `viewCenter += map->parallaxOrigin()`,
+         * then `(1.0 - parallaxFactor) * viewCenter`; the origin is read from the map as it is,
+         * `MapReaderPrivate::readMap`). Its manual describes the origin as subtracted ("the distance
+         * between the parallax origin and the center of the view"), but the editor draws with the
+         * code above, and a map is authored by what the editor shows. This camera is the negated
+         * map point at the view's top-left, so the view centre is -Position + half the view, and a
+         * map position p is drawn at p + Position + (1 - factor) x (-Position + half view + origin):
+         * the returned camera is Position x factor + (1 - factor) x (half view + origin).
+         *
+         * Before, this anchored at the view's top-left and subtracted the origin
+         * ((Position + origin) x factor - origin): the layers did not sit where Tiled shows them,
+         * and since the top-left moves with every zoom about a fixed centre, they slid away from
+         * the rest of the map while zooming (seen in samples/parallax).
          * @param fFactorX The layer's horizontal factor (its own and its groups', multiplied);
          * @param fFactorY The vertical factor;
          * @param fOriginX The map's parallaxoriginx (0 with no map);
          * @param fOriginY The map's parallaxoriginy;
+         * @param fHalfViewWidth Half the view's visible width, in map pixels (its width / zoom / 2);
+         * @param fHalfViewHeight Half the view's visible height, in map pixels;
          */
         SunLight :: Base :: stVector2D Camera :: ForParallax( double fFactorX, double fFactorY,
-                                                              double fOriginX, double fOriginY ) const  {
+                                                              double fOriginX, double fOriginY,
+                                                              double fHalfViewWidth, double fHalfViewHeight ) const  {
 
-            float  fX = ( fFactorX == 1.0 ) ? m_Position.x : ( float ) ( ( m_Position.x + fOriginX ) * fFactorX - fOriginX );
-            float  fY = ( fFactorY == 1.0 ) ? m_Position.y : ( float ) ( ( m_Position.y + fOriginY ) * fFactorY - fOriginY );
+            float  fX = ( fFactorX == 1.0 ) ? m_Position.x :
+                        ( float ) ( ( m_Position.x * fFactorX ) + ( ( 1.0 - fFactorX ) * ( fHalfViewWidth + fOriginX ) ) );
+            float  fY = ( fFactorY == 1.0 ) ? m_Position.y :
+                        ( float ) ( ( m_Position.y * fFactorY ) + ( ( 1.0 - fFactorY ) * ( fHalfViewHeight + fOriginY ) ) );
 
             return { fX, fY };
         }
