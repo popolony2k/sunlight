@@ -220,8 +220,8 @@ TEST_SUITE( "backends/sdl/SDLGamepadHaptics" )  {
 
         MockInputHandler                              dummyInputA;
         MockInputHandler                              dummyInputB;
-        SunLight :: Input :: SDL :: SDLGamepadHaptics *pA = new SunLight :: Input :: SDL :: SDLGamepadHaptics( dummyInputA );
-        SunLight :: Input :: SDL :: SDLGamepadHaptics *pB = new SunLight :: Input :: SDL :: SDLGamepadHaptics( dummyInputB );
+        SunLight :: Input :: SDL :: SDLGamepadHaptics* pA = new SunLight :: Input :: SDL :: SDLGamepadHaptics( dummyInputA );
+        SunLight :: Input :: SDL :: SDLGamepadHaptics* pB = new SunLight :: Input :: SDL :: SDLGamepadHaptics( dummyInputB );
 
         delete pA;
 

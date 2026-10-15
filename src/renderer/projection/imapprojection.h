@@ -62,7 +62,7 @@ namespace SunLight  {
                  * @param pMap The map, as libtmx parsed it;
                  * @return The map's pixel size;
                  */
-                virtual SunLight :: Base :: stSize2D MapPixelSize( tmx_map *pMap ) const = 0;
+                virtual SunLight :: Base :: stSize2D MapPixelSize( tmx_map* pMap ) const = 0;
 
                 /**
                  * @brief A tile layer cell's own top-left corner, in map pixel space (no camera, zoom or viewport
@@ -78,8 +78,8 @@ namespace SunLight  {
                  * @param nLayerOffsetY The layer's own y offset;
                  * @return The cell's top-left corner, in map pixels;
                  */
-                virtual SunLight :: Base :: stCoordinate2D TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                              tmx_map *pMap,
+                virtual SunLight :: Base :: stCoordinate2D TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                              tmx_map* pMap,
                                                                               int nTileWidth,
                                                                               int nTileHeight,
                                                                               int nLayerOffsetX,
@@ -95,10 +95,10 @@ namespace SunLight  {
                  * @param camera The active view's camera position;
                  * @return The cell's rectangle, in view space;
                  */
-                virtual SunLight :: Base :: stDimension2D TileViewRect( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                         tmx_map *pMap,
-                                                                         const SunLight :: Base :: stDimension2D &viewport,
-                                                                         const SunLight :: Base :: stVector2D &camera ) const = 0;
+                virtual SunLight :: Base :: stDimension2D TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                         tmx_map* pMap,
+                                                                         const SunLight :: Base :: stDimension2D& viewport,
+                                                                         const SunLight :: Base :: stVector2D& camera ) const = 0;
 
                 /**
                  * @brief The inverse of TileViewRect: which matrix cell a view-space coordinate falls in. Only
@@ -115,21 +115,21 @@ namespace SunLight  {
                  * @param pos Receives the matrix position, when the coordinate is inside the map's pixel bounds;
                  * @return Whether the coordinate is inside the map's pixel bounds;
                  */
-                virtual bool ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D &coord,
-                                               tmx_map *pMap,
-                                               const SunLight :: Base :: stDimension2D &viewport,
-                                               const SunLight :: Base :: stVector2D &camera,
+                virtual bool ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                               tmx_map* pMap,
+                                               const SunLight :: Base :: stDimension2D& viewport,
+                                               const SunLight :: Base :: stVector2D& camera,
                                                float fZoom,
                                                int nMapPixelWidth,
                                                int nMapPixelHeight,
-                                               SunLight :: TileMap :: stMatrixPosition &pos ) const = 0;
+                                               SunLight :: TileMap :: stMatrixPosition& pos ) const = 0;
 
                 /**
                  * @brief The scroll step a view starts with, when its own has not been set.
                  * @param pMap The map, as libtmx parsed it;
                  * @return The default step, in map pixels;
                  */
-                virtual SunLight :: Base :: stSize2D DefaultScrollStep( tmx_map *pMap ) const = 0;
+                virtual SunLight :: Base :: stSize2D DefaultScrollStep( tmx_map* pMap ) const = 0;
 
                 /**
                  * @brief Which tile matrix cells could touch a map-pixel rectangle, clamped to the map's own grid.
@@ -140,10 +140,10 @@ namespace SunLight  {
                  * @param mapPixelRect The rectangle to test, in map pixel space;
                  * @return The matrix range that could touch it;
                  */
-                virtual stTileRange VisibleTileRange( tmx_map *pMap,
-                                                      const SunLight :: Base :: stRectangle &mapPixelRect ) const = 0;
+                virtual stTileRange VisibleTileRange( tmx_map* pMap,
+                                                      const SunLight :: Base :: stRectangle& mapPixelRect ) const = 0;
             };
         }
     }
 }
-#endif  /* __IMAPPROJECTION_H__ */
+#endif /* __IMAPPROJECTION_H__ */

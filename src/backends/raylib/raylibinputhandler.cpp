@@ -23,7 +23,7 @@
 #include <array>
 
 
-namespace {
+namespace  {
 
     // One translation: our code and raylib's code for the same key, button or axis.
     struct CodePair  {
@@ -48,7 +48,7 @@ namespace {
         std :: array<bool, N> seenOurs {};
         std :: array<bool, N> seenRaylib {};
 
-        for( const CodePair &p : pairs )  {
+        for( const CodePair& p : pairs )  {
             if( ( p.nOurs < 0 ) || ( p.nOurs >= ( int ) N ) || ( p.nRaylib < 0 ) || ( p.nRaylib >= ( int ) N ) )
                 throw "a code is out of the table's range";
 
@@ -66,14 +66,14 @@ namespace {
 
     // Our code -> raylib's code. A code outside the table gives 0.
     template<std :: size_t N>
-    constexpr int ToRaylib( const CodeMap<N> &map, int nCode )  {
+    constexpr int ToRaylib( const CodeMap<N>& map, int nCode )  {
 
         return ( ( nCode >= 0 ) && ( nCode < ( int ) N ) ) ? map.toRaylib[nCode] : 0;
     }
 
     // raylib's code -> ours. A raylib code outside the table gives 0.
     template<std :: size_t N>
-    constexpr int FromRaylib( const CodeMap<N> &map, int nRaylibCode )  {
+    constexpr int FromRaylib( const CodeMap<N>& map, int nRaylibCode )  {
 
         return ( ( nRaylibCode >= 0 ) && ( nRaylibCode < ( int ) N ) ) ? map.fromRaylib[nRaylibCode] : 0;
     }

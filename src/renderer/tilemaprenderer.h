@@ -50,7 +50,7 @@
 #include "base/primitives.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Backends  {
         namespace Null  {
             class NullBackend;
@@ -58,7 +58,7 @@ namespace SunLight {
     }
 }
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         class View;
@@ -169,7 +169,7 @@ namespace SunLight {
 
             friend class View;
 
-            View* ActivateView( View *pView );
+            View* ActivateView( View* pView );
             Camera& ActiveCamera( void ) const;      // the active view's camera (S1e)
 
             // The loaded map (S1c1): its libtmx map (null when none is loaded), its size in map pixels
@@ -178,14 +178,14 @@ namespace SunLight {
             uint16_t MapPixelWidth( void ) const;
             uint16_t MapPixelHeight( void ) const;
             tmx_layer* GetLayer( int nLayerId );
-            tmx_layer* GetLayer( const char *szLayerName );
+            tmx_layer* GetLayer( const char* szLayerName );
 
             // Sprites miscelaneous
             void UnloadSprites( void );
 
             // Listener dispatch that tolerates a listener (un)registering listeners from it's own callback
             TileMapListenerList ListenersSnapshot( void ) const;
-            bool IsListenerRegistered( SunLight :: TileMap :: ITileMapListener *pListener ) const;
+            bool IsListenerRegistered( SunLight :: TileMap :: ITileMapListener* pListener ) const;
 
             // Color control
             SunLight :: Base :: stColor IntToColor( uint32_t color );
@@ -197,12 +197,12 @@ namespace SunLight {
             // shape the private DrawPolyline/DrawPolygon overloads (and libtmx itself) use, in
             // storage/ppRows only - nothing escapes this call. See IShapeSurface::DrawPolyline's
             // own doc comment for the full why.
-            void ToTmxPointArray( const SunLight :: Base :: stVector2D *pPoints,
+            void ToTmxPointArray( const SunLight :: Base :: stVector2D* pPoints,
                                   int nPointsCount,
-                                  std :: vector<double> &storage,
-                                  std :: vector<double*> &ppRows );
+                                  std :: vector<double>& storage,
+                                  std :: vector<double*>& ppRows );
             void ReleaseRegisteredFonts( void );
-            void DrawAllLayers( tmx_layer *pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0 );
+            void DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0 );
             void RenderMap( void );
 
             // L1 of the master plan: the effective camera for a layer whose own accumulated
@@ -216,13 +216,13 @@ namespace SunLight {
             inline void HandleTileMapUpdate( void );
             inline void HandleUserCollisions( void );
             inline void HandleSpriteUpdate( int nLayerId );
-            SunLight :: Base :: stColor BackgroundColorOf( View &view );
+            SunLight :: Base :: stColor BackgroundColorOf( View& view );
             void DrawViewPasses( void );
             void DrawPassContent( void );
 
             // Internal layer handlers
-            void CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer );
-            void CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer *pTmxLayer );
+            void CopyLayerToTmx( tmx_layer* pTmxLayer, SunLight :: TileMap :: stLayer& layer );
+            void CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer* pTmxLayer );
 
 
             public:
@@ -231,11 +231,11 @@ namespace SunLight {
                              float fHeight,
                              const char* szTitle,
                              int nTargetFps = -1 );
-            explicit TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config );
+            explicit TileMapRenderer( const SunLight :: Renderer :: RendererConfig& config );
             virtual ~TileMapRenderer( void );
 
             // A sprite that is destroyed, or moved to another parent, calls this on the parent it is leaving.
-            void ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild ) override;
+            void ChildRemoved( SunLight :: Canvas :: BaseCanvas* pChild ) override;
 
             // The camera of the view being drawn (the active view's), for world-space sprites -
             // scaled by nLayerId's own parallax factor (L1 of the master plan) when it names a
@@ -243,18 +243,18 @@ namespace SunLight {
             // added via AddSprite, gets the true, unscaled camera). Computed fresh on every call,
             // not from any per-frame draw-time state, so it answers correctly whether or not a
             // render pass has run yet.
-            void GetCameraOffset( float &fX, float &fY, int nLayerId = -1 ) override;
+            void GetCameraOffset( float& fX, float& fY, int nLayerId = -1 ) override;
 
             // Checked creation: validates the config (see
             // RendererConfig::Validate) and returns nullptr, with a message
             // in *pError, instead of building a renderer from a config that
             // can't work (e.g. a backend not compiled into this build).
-            static std :: unique_ptr<TileMapRenderer> Create( const SunLight :: Renderer :: RendererConfig &config,
-                                                              std :: string *pError = nullptr );
+            static std :: unique_ptr<TileMapRenderer> Create( const SunLight :: Renderer :: RendererConfig& config,
+                                                              std :: string* pError = nullptr );
 
             // World user listener interaction
-            void AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener );
-            void RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener );
+            void AddTileMapListener( SunLight :: TileMap :: ITileMapListener* pListener );
+            void RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener* pListener );
 
             // Window behavior
             void SetExitKey( SunLight :: Input :: KeyboardKey key ) override;
@@ -284,13 +284,13 @@ namespace SunLight {
             std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: Base :: stDimension2D& rect ) override;
             std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int nViewId ) override;
             bool RemoveView( int nViewId ) override;
-            bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView ) override;
+            bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView>& pView ) override;
             int GetViewCount( void ) override;
 
             // View port control
             void SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode );
             void SetScrollStepSize( int nStepWidth, int nStepHeight );
-            void GetScrollStepSize( int &nStepWidth, int &nStepHeight );
+            void GetScrollStepSize( int& nStepWidth, int& nStepHeight );
 
             // GamePad handling
             void AddGamePad( int nGamePadId ) override;
@@ -317,21 +317,21 @@ namespace SunLight {
             void MoveCameraLeft( void ) override;
             void MoveCameraRight( void ) override;
             void SetCameraPosition( int nX, int nY ) override;
-            void GetCameraPosition( int &nX, int &nY ) override;
+            void GetCameraPosition( int& nX, int& nY ) override;
 
             // Window management
-            void SetWindowTitle( const std :: string &strTitle ) override;
+            void SetWindowTitle( const std :: string& strTitle ) override;
             void SetScreenFade( float fAlpha ) override;
 
             // Text rendering
-            bool SetFont( const char *szFilePath ) override;
+            bool SetFont( const char* szFilePath ) override;
 
             // Register a font for text objects: a text object whose fontfamily
             // and bold/italic flags match these draws with it. Needs a started
             // renderer (a font needs the window's render context). Registering
             // the same family and style again replaces the earlier font.
-            bool RegisterFont( const char *szFamily, const char *szFilePath, bool bBold, bool bItalic );
-            void DrawText( const char *szText,
+            bool RegisterFont( const char* szFamily, const char* szFilePath, bool bBold, bool bItalic );
+            void DrawText( const char* szText,
                            int nPosX,
                            int nPosY,
                            int nFontSize,
@@ -347,7 +347,7 @@ namespace SunLight {
                                       unsigned char nGreen,
                                       unsigned char nBlue,
                                       unsigned char nAlpha ) override;
-            int MeasureText( const char *szText, int nFontSize ) override;
+            int MeasureText( const char* szText, int nFontSize ) override;
             int GetWindowWidth( void ) override;
             int GetWindowHeight( void ) override;
 
@@ -363,11 +363,11 @@ namespace SunLight {
                               SunLight :: Base :: stColor color,
                               double fThickness = 1.0, double fRotation = 0.0 ) override;
             void DrawPolyline( double fX, double fY,
-                               const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                               const SunLight :: Base :: stVector2D* pPoints, int nPointsCount,
                                SunLight :: Base :: stColor color,
                                double fThickness = 1.0, double fRotation = 0.0 ) override;
             void DrawPolygon( double fX, double fY,
-                              const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                              const SunLight :: Base :: stVector2D* pPoints, int nPointsCount,
                               SunLight :: Base :: stColor color,
                               double fThickness = 1.0, double fRotation = 0.0 ) override;
             void DrawPoint( double fX, double fY, SunLight :: Base :: stColor color,
@@ -375,9 +375,9 @@ namespace SunLight {
 
             // Layer management
             bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) override;
-            bool SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer ) override;
-            bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer ) override;
-            bool GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer ) override;
+            bool SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) override;
+            bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) override;
+            bool GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) override;
 
             // L1 of the master plan: set a layer's own parallax factor in code, overriding
             // whatever the TMX file itself declared (fFactorX/fFactorY 1.0 = no parallax).
@@ -385,7 +385,7 @@ namespace SunLight {
             // opacity/offset/visible - so, like those, the original TMX-authored value is not
             // recoverable once overridden.
             bool SetLayerParallax( int nLayerId, float fFactorX, float fFactorY );
-            bool SetLayerParallax( const char *szLayerName, float fFactorX, float fFactorY );
+            bool SetLayerParallax( const char* szLayerName, float fFactorX, float fFactorY );
 
             // Tile management
             bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
@@ -397,12 +397,12 @@ namespace SunLight {
                                       SunLight :: TileMap :: stMatrixPosition& pos ) override;
 
             // Map management
-            bool LoadMap( const char *szTxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment = MAP_ALIGNMENT_CENTER ) override;
+            bool LoadMap( const char* szTxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment = MAP_ALIGNMENT_CENTER ) override;
             bool UnloadMap( void ) override;
             bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo ) override;
 
             // Object management
-            bool GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object ) override;
+            bool GetObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) override;
 
             // Collision management
             SunLight :: Collision :: ICollisionManager& GetCollisionManager( void ) override;

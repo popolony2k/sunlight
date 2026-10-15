@@ -29,7 +29,7 @@
  /**
  * @brief World class implementation.
  */
-class World {
+class World  {
 
     std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
 

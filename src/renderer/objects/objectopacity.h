@@ -43,10 +43,10 @@ namespace SunLight  {
 
             public:
 
-            float Of( tmx_object *pObject, float fLayerOpacity );
+            float Of( tmx_object* pObject, float fLayerOpacity );
             void Reset( void );
         };
     }
 }
 
-#endif  /* __OBJECTOPACITY_H__ */
+#endif /* __OBJECTOPACITY_H__ */

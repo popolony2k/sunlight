@@ -26,7 +26,7 @@
 #include "base/primitives.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
 
         /**
@@ -61,8 +61,8 @@ namespace SunLight {
             bool                        m_bIsResetting;
             AnimationMode               m_AnimationMode;
 
-            bool GetScreenRect( SunLight :: Base :: stDimension2D &dm,
-                                SunLight :: Base :: stDimension2D &clip );
+            bool GetScreenRect( SunLight :: Base :: stDimension2D& dm,
+                                SunLight :: Base :: stDimension2D& clip );
 
 
             public:

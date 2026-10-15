@@ -38,8 +38,8 @@ namespace  {
         return SunLight :: Base :: stDimension2D { { nX, nY }, { nW, nH } };
     }
 
-    int PosX( const Camera &camera )  { int nX = 0, nY = 0; camera.GetPosition( nX, nY ); return nX; }
-    int PosY( const Camera &camera )  { int nX = 0, nY = 0; camera.GetPosition( nX, nY ); return nY; }
+    int PosX( const Camera& camera )  { int nX = 0, nY = 0; camera.GetPosition( nX, nY ); return nX; }
+    int PosY( const Camera& camera )  { int nX = 0, nY = 0; camera.GetPosition( nX, nY ); return nY; }
 }
 
 TEST_SUITE( "renderer/Camera" )  {

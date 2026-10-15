@@ -45,7 +45,7 @@ namespace SunLight  {
          * @param pSprite The sprite;
          * @return false if the sprite is already on that layer (nothing changes);
          */
-        bool SpriteRegistry :: Add( int nLayerId, SunLight :: Sprite :: Sprite *pSprite )  {
+        bool SpriteRegistry :: Add( int nLayerId, SunLight :: Sprite :: Sprite* pSprite )  {
 
             if( Contains( nLayerId, pSprite ) )
                 return false;
@@ -58,7 +58,7 @@ namespace SunLight  {
         /**
          * @brief Whether a sprite is registered on a layer.
          */
-        bool SpriteRegistry :: Contains( int nLayerId, SunLight :: Sprite :: Sprite *pSprite ) const  {
+        bool SpriteRegistry :: Contains( int nLayerId, SunLight :: Sprite :: Sprite* pSprite ) const  {
 
             std :: map<int, SpriteList> :: const_iterator  itLayer = m_Layers.find( nLayerId );
 
@@ -71,7 +71,7 @@ namespace SunLight  {
          * sprite keeps the renderer as its parent until it is destroyed or re-parented.
          * @return false if it was not on that layer;
          */
-        bool SpriteRegistry :: Remove( int nLayerId, SunLight :: Sprite :: Sprite *pSprite )  {
+        bool SpriteRegistry :: Remove( int nLayerId, SunLight :: Sprite :: Sprite* pSprite )  {
 
             std :: map<int, SpriteList> :: iterator  itLayer = m_Layers.find( nLayerId );
 
@@ -103,7 +103,7 @@ namespace SunLight  {
 
             std :: vector<int>  ids;
 
-            for( const std :: pair<const int, SpriteList> &layer : m_Layers )
+            for( const std :: pair<const int, SpriteList>& layer : m_Layers )
                 ids.push_back( layer.first );
 
             return ids;
@@ -113,7 +113,7 @@ namespace SunLight  {
          * @brief Record a sprite whose parent the renderer has become: one that must tell it when
          * it is destroyed or moves to another parent (Forget), on a layer or not any more.
          */
-        void SpriteRegistry :: MarkParented( SunLight :: Sprite :: Sprite *pSprite )  {
+        void SpriteRegistry :: MarkParented( SunLight :: Sprite :: Sprite* pSprite )  {
 
             m_Parented.insert( pSprite );
         }
@@ -127,13 +127,13 @@ namespace SunLight  {
          * collider out of each);
          * @return The sprite it was, or nullptr if it was not a parented sprite;
          */
-        SunLight :: Sprite :: Sprite* SpriteRegistry :: Forget( SunLight :: Canvas :: BaseCanvas *pChild, std :: vector<int> &layerIds )  {
+        SunLight :: Sprite :: Sprite* SpriteRegistry :: Forget( SunLight :: Canvas :: BaseCanvas* pChild, std :: vector<int>& layerIds )  {
 
             for( std :: set<SunLight :: Sprite :: Sprite*> :: iterator itSprite = m_Parented.begin(); itSprite != m_Parented.end(); itSprite++ )  {
                 SunLight :: Sprite :: Sprite  *pSprite = *itSprite;
 
                 if( static_cast<SunLight :: Canvas :: BaseCanvas*>( pSprite ) == pChild )  {
-                    for( std :: pair<const int, SpriteList> &layer : m_Layers )  {
+                    for( std :: pair<const int, SpriteList>& layer : m_Layers )  {
                         SpriteList :: iterator  itItem = std :: find( layer.second.begin(), layer.second.end(), pSprite );
 
                         if( itItem != layer.second.end() )  {
@@ -214,11 +214,11 @@ namespace SunLight  {
                 return;
 
             std :: stable_sort( itLayer -> second.begin(), itLayer -> second.end(),
-                                 []( SunLight :: Sprite :: Sprite *pLeft, SunLight :: Sprite :: Sprite *pRight )  {
+                                 []( SunLight :: Sprite :: Sprite* pLeft, SunLight :: Sprite :: Sprite* pRight )  {
                                      return pLeft -> GetZOrder() < pRight -> GetZOrder();
                                  } );
 
-            for( SunLight :: Sprite :: Sprite *pSprite : itLayer -> second )  {
+            for( SunLight :: Sprite :: Sprite* pSprite : itLayer -> second )  {
                 if( !bMultiView )  {
                     pSprite -> Update();
                     continue;
@@ -245,7 +245,7 @@ namespace SunLight  {
          */
         void SpriteRegistry :: EndFrame( void )  {
 
-            for( SunLight :: Sprite :: Sprite *pSprite : m_FramePending )
+            for( SunLight :: Sprite :: Sprite* pSprite : m_FramePending )
                 pSprite -> Advance();
 
             m_FramePending.clear();
@@ -257,8 +257,8 @@ namespace SunLight  {
          */
         void SpriteRegistry :: UnloadAll( void )  {
 
-            for( std :: pair<const int, SpriteList> &layer : m_Layers )  {
-                for( SunLight :: Sprite :: Sprite *pSprite : layer.second )
+            for( std :: pair<const int, SpriteList>& layer : m_Layers )  {
+                for( SunLight :: Sprite :: Sprite* pSprite : layer.second )
                     pSprite -> Unload();
             }
 

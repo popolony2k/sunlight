@@ -28,7 +28,7 @@
 #include "scripting/iscriptlistener.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Scripting  {
 
         /**
@@ -76,7 +76,7 @@ namespace SunLight {
              */
             size_t                                    m_nCurrentCommandIndex;
             uint64_t                                 m_nWaitMilli;
-            SunLight :: Scripting :: IScriptListener *m_pListener;
+            SunLight :: Scripting :: IScriptListener* m_pListener;
             bool                                     m_bWaitSpritesQueueEmpty;
 
             public:
@@ -84,7 +84,7 @@ namespace SunLight {
             ScriptProcessor( void );
             virtual ~ScriptProcessor( void );
 
-            void Add( SunLight :: Scripting :: BaseCommand *pCmd );
+            void Add( SunLight :: Scripting :: BaseCommand* pCmd );
             void AddNoParmCmd( SunLight :: Scripting :: Commands cmd );
             void AddOneParmCmd( SunLight :: Scripting :: Commands cmd, uint16_t nParm );
             void AddTwoParmsCmd( SunLight :: Scripting :: Commands cmd, uint16_t nParm1, uint16_t nParm2 );
@@ -93,7 +93,7 @@ namespace SunLight {
             bool Compile( void );
             bool Run( void );
 
-            void AddScriptListener( SunLight :: Scripting :: IScriptListener *pListener );
+            void AddScriptListener( SunLight :: Scripting :: IScriptListener* pListener );
             IScriptListener* GetScriptListener( void );
         };
     }

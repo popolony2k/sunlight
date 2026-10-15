@@ -78,16 +78,16 @@ namespace  {
         }
 
         // The first CLEAR of the frame - the window clear, before anything is drawn.
-        const Event *FirstClear( void )  {
-            for( const Event &evt : engine().events )
+        const Event* FirstClear( void )  {
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: CLEAR )
                     return &evt;
 
             return nullptr;
         }
 
-        const Event *FirstFill( void )  {
-            for( const Event &evt : engine().events )
+        const Event* FirstFill( void )  {
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: FILL )
                     return &evt;
 

@@ -25,7 +25,7 @@
 #include <vector>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Window  {
 
         /**
@@ -48,7 +48,7 @@ namespace SunLight {
 
             typedef std :: function<void( void )>  Handler;
 
-            int  Add( const Handler &handler );
+            int  Add( const Handler& handler );
             void Remove( int nId );
             void Fire( void );
 
@@ -65,4 +65,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __CLOSEHANDLERLIST_H__ */
+#endif /* __CLOSEHANDLERLIST_H__ */

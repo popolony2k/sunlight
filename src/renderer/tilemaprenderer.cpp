@@ -18,6 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "renderer/tilemaprenderer.h"
 #include "engines/enginefactory.h"
 #include "window/windowfactory.h"
 #include "backends/null/nullbackend.h"
@@ -33,7 +34,6 @@
 #include "base/primitives.h"
 #include "input/controllermanager.h"
 #include "filesystem/filesystemfactory.h"
-#include "tilemaprenderer.h"
 #include <memory.h>
 #include <cstring>
 #include "general/clock.h"
@@ -64,7 +64,7 @@
 
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         /*
@@ -138,7 +138,7 @@ namespace SunLight {
          * @param szLayerName The Layer name used to retrieve the layer;
          * @return The layer; nullptr when no map is loaded, or it has no such layer;
          */
-        tmx_layer* TileMapRenderer :: GetLayer( const char *szLayerName )  {
+        tmx_layer* TileMapRenderer :: GetLayer( const char* szLayerName )  {
 
             return m_pMap ? m_pMap -> FindLayer( szLayerName ) : nullptr;
         }
@@ -154,7 +154,7 @@ namespace SunLight {
         /**
          * Convert integer color representation to a SunLight::Base::stColor;
          */
-        SunLight :: Base :: stColor TileMapRenderer :: IntToColor( uint32_t color ) {
+        SunLight :: Base :: stColor TileMapRenderer :: IntToColor( uint32_t color )  {
 
             return Shape :: ColorOf( color );
         }
@@ -216,10 +216,10 @@ namespace SunLight {
          * caller for exactly as long as ppRows, which points into it;
          * @param ppRows Receives nPointsCount pointers, each into one pair inside storage;
          */
-        void TileMapRenderer :: ToTmxPointArray( const SunLight :: Base :: stVector2D *pPoints,
+        void TileMapRenderer :: ToTmxPointArray( const SunLight :: Base :: stVector2D* pPoints,
                                                  int nPointsCount,
-                                                 std :: vector<double> &storage,
-                                                 std :: vector<double*> &ppRows )  {
+                                                 std :: vector<double>& storage,
+                                                 std :: vector<double*>& ppRows )  {
 
             storage.resize( ( size_t ) nPointsCount * 2 );
             ppRows.resize( ( size_t ) nPointsCount );
@@ -232,7 +232,7 @@ namespace SunLight {
         }
 
         void TileMapRenderer :: DrawPolyline( double fX, double fY,
-                                              const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                                              const SunLight :: Base :: stVector2D* pPoints, int nPointsCount,
                                               SunLight :: Base :: stColor color,
                                               double fThickness, double fRotation )  {
 
@@ -248,7 +248,7 @@ namespace SunLight {
         }
 
         void TileMapRenderer :: DrawPolygon( double fX, double fY,
-                                             const SunLight :: Base :: stVector2D *pPoints, int nPointsCount,
+                                             const SunLight :: Base :: stVector2D* pPoints, int nPointsCount,
                                              SunLight :: Base :: stColor color,
                                              double fThickness, double fRotation )  {
 
@@ -320,9 +320,9 @@ namespace SunLight {
          * rule: a layer's effective factor is its own, times every parent group's own);
          * @param fParentParallaxY Same as fParentParallaxX, for the vertical axis;
          */
-        void TileMapRenderer :: DrawAllLayers( tmx_layer *pLayer, double fParentParallaxX, double fParentParallaxY ) {
+        void TileMapRenderer :: DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX, double fParentParallaxY )  {
 
-            while( pLayer ) {
+            while( pLayer )  {
 
                 /*
                  * The active view's layer mask (IView::ShowLayer): a layer it
@@ -332,7 +332,7 @@ namespace SunLight {
                  * view of the pass being drawn (RenderMap makes it so); an
                  * unmasked view shows every layer.
                  */
-                if( pLayer -> visible && m_pActiveView -> IsLayerShown( ( int ) pLayer -> id ) ) {
+                if( pLayer -> visible && m_pActiveView -> IsLayerShown( ( int ) pLayer -> id ) )  {
 
                     // L1 of the master plan: this layer's own effective camera, set once here
                     // regardless of layer type - LayerRenderer/ObjectRenderer (through the DrawContext) and the
@@ -352,7 +352,7 @@ namespace SunLight {
                         case L_OBJGR :
                             // S1b: shapes and text through the ObjectRenderer; tile objects come back here.
                             m_ObjectRenderer.Draw( CurrentDrawContext(), pLayer, m_Fonts,
-                                                   [this]( tmx_object *pObject, tmx_layer *pObjectLayer, float fOpacity )  {
+                                                   [this]( tmx_object* pObject, tmx_layer* pObjectLayer, float fOpacity )  {
                                                        m_LayerRenderer.DrawTileObject( CurrentDrawContext(), *m_pMap, pObject, pObjectLayer, fOpacity );
                                                    } );
                             break;
@@ -406,7 +406,7 @@ namespace SunLight {
          * The background color a view's clear uses: its explicit one, or the
          * loaded map's own, or the window background color when there is no map.
          */
-        SunLight :: Base :: stColor TileMapRenderer :: BackgroundColorOf( View &view )  {
+        SunLight :: Base :: stColor TileMapRenderer :: BackgroundColorOf( View& view )  {
 
             if( view.m_bExplicitBackground )
                 return view.m_Background;
@@ -443,15 +443,15 @@ namespace SunLight {
             if( pDefault -> m_bVisible )
                 m_PassViews.push_back( pDefault );
 
-            for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
                 if( pView -> m_bVisible )
                     m_PassViews.push_back( pView.get() );
             }
 
             std :: stable_sort( m_PassViews.begin(), m_PassViews.end(),
-                                []( View *pLeft, View *pRight ) { return pLeft -> m_nDrawOrder < pRight -> m_nDrawOrder; } );
+                                []( View* pLeft, View* pRight ) { return pLeft -> m_nDrawOrder < pRight -> m_nDrawOrder; } );
 
-            for( View *pView : m_PassViews )  {
+            for( View* pView : m_PassViews )  {
                 ActivateView( pView );
 
                 // The whole pass is cut to its view's rectangle (the engine's clip stack keeps any
@@ -508,7 +508,7 @@ namespace SunLight {
         /**
          * Render all map objects.
          */
-        void TileMapRenderer :: RenderMap( void ) {
+        void TileMapRenderer :: RenderMap( void )  {
 
             if( m_bClearBackground )  {
                 SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
@@ -588,7 +588,7 @@ namespace SunLight {
          * is never called. One added during the walk is not in the snapshot: it starts next frame.
          * @param pListener The listener to look for;
          */
-        bool TileMapRenderer :: IsListenerRegistered( SunLight :: TileMap :: ITileMapListener *pListener ) const  {
+        bool TileMapRenderer :: IsListenerRegistered( SunLight :: TileMap :: ITileMapListener* pListener ) const  {
 
             return std :: find( m_TileMapListenerList.begin(), m_TileMapListenerList.end(), pListener ) != m_TileMapListenerList.end();
         }
@@ -615,7 +615,7 @@ namespace SunLight {
          * @param pTmxLayer Pointer to Tmx that data will be copied to;
          * @param layer User struct whose layer data will be copied from;
          */
-        void TileMapRenderer :: CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
+        void TileMapRenderer :: CopyLayerToTmx( tmx_layer* pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
 
             // nOpacity is 0..__MAX_OPACITY_LEVEL (fully opaque), libtmx's own opacity 0.0..1.0 - the factor
             // LayerRenderer multiplies alpha by. It was "__MAX_OPACITY_LEVEL - nOpacity" here and "opacity +
@@ -635,7 +635,7 @@ namespace SunLight {
          * @param pTmxLayer Reference to user layer that data will be copied to;
          * @param layer Pointer whose tmx layer data will be copied from;
          */
-        void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer *pTmxLayer )  {
+        void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer* pTmxLayer )  {
 
             layer.nOpacity   = ( int ) std :: lround( pTmxLayer -> opacity * __MAX_OPACITY_LEVEL );
             layer.offset.x   = pTmxLayer -> offsetx;
@@ -661,9 +661,9 @@ namespace SunLight {
          */
         TileMapRenderer :: TileMapRenderer( float fWidth,
                                             float fHeight,
-                                            const char *szTitle,
+                                            const char* szTitle,
                                             int nTargetFps ) :
-                                            TileMapRenderer( [&]( void ) {
+                                            TileMapRenderer( [&]( void )  {
                                                 SunLight :: Renderer :: RendererConfig  config;
 
                                                 config.fWidth                = fWidth;
@@ -684,7 +684,7 @@ namespace SunLight {
          * what can be selected).
          * @param config The renderer configuration;
          */
-        TileMapRenderer :: TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config ) :
+        TileMapRenderer :: TileMapRenderer( const SunLight :: Renderer :: RendererConfig& config ) :
                                             m_CollisionManager( this )  {
 
             // Select the backend FIRST: everything below (the input
@@ -761,8 +761,8 @@ namespace SunLight {
          * @return The new renderer, or nullptr if the config is invalid
          * (e.g. a backend that isn't compiled into this build);
          */
-        std :: unique_ptr<TileMapRenderer> TileMapRenderer :: Create( const SunLight :: Renderer :: RendererConfig &config,
-                                                                      std :: string *pError )  {
+        std :: unique_ptr<TileMapRenderer> TileMapRenderer :: Create( const SunLight :: Renderer :: RendererConfig& config,
+                                                                      std :: string* pError )  {
 
             if( !config.Validate( pError ) )
                 return nullptr;
@@ -802,7 +802,7 @@ namespace SunLight {
              * that a held handle is inert afterwards instead of pointing
              * into freed memory.
              */
-            for( std :: shared_ptr<View> &pView : m_ExtraViews )
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )
                 pView -> Detach();
 
             m_pDefaultView -> Detach();
@@ -819,7 +819,7 @@ namespace SunLight {
              * told us (ChildRemoved) and is not in the set. Iterated over a copy: SetParent calls back
              * into ChildRemoved, which erases from the set.
              */
-            for( SunLight :: Sprite :: Sprite *pSprite : m_Sprites.ParentedSprites() )  {
+            for( SunLight :: Sprite :: Sprite* pSprite : m_Sprites.ParentedSprites() )  {
                 if( pSprite -> GetParent() == this )
                     pSprite -> SetParent( nullptr );
             }
@@ -851,7 +851,7 @@ namespace SunLight {
          * registered against a layer nested inside a parallax GROUP is the same narrow,
          * documented exception.
          */
-        void TileMapRenderer :: GetCameraOffset( float &fX, float &fY, int nLayerId )  {
+        void TileMapRenderer :: GetCameraOffset( float& fX, float& fY, int nLayerId )  {
 
             tmx_layer  *pTmxLayer = ( nLayerId >= 0 ) ? GetLayer( nLayerId ) : nullptr;
             stVector    offset    = pTmxLayer ? GetEffectiveCameraForFactor( pTmxLayer -> parallaxx, pTmxLayer -> parallaxy ) : ActiveCamera().Position();
@@ -873,7 +873,7 @@ namespace SunLight {
          * stale entry would resolve to nothing, but it is not left behind).
          * @param pChild The child leaving, as its BaseCanvas;
          */
-        void TileMapRenderer :: ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild )  {
+        void TileMapRenderer :: ChildRemoved( SunLight :: Canvas :: BaseCanvas* pChild )  {
 
             std :: vector<int>              layerIds;
             SunLight :: Sprite :: Sprite  *pSprite = m_Sprites.Forget( pChild, layerIds );
@@ -889,7 +889,7 @@ namespace SunLight {
          * All listeners will be called for each update step;
          * @param pListener Pointer to the @ref SunLight::TileMap::ITileMapListener object to add;
          */
-        void TileMapRenderer :: AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
+        void TileMapRenderer :: AddTileMapListener( SunLight :: TileMap :: ITileMapListener* pListener )  {
 
             TileMapListenerList :: iterator itItem = std :: find( m_TileMapListenerList.begin(),
                                                                   m_TileMapListenerList.end(),
@@ -903,7 +903,7 @@ namespace SunLight {
          * Remove a TileMap listener from internal listener list renderer.
          * @param pListener Pointer to the @ref SunLight::TileMap::ITileMapListener object to remove;
          */
-        void TileMapRenderer :: RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
+        void TileMapRenderer :: RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener* pListener )  {
 
             TileMapListenerList :: iterator itItem = std :: find( m_TileMapListenerList.begin(),
                                                                   m_TileMapListenerList.end(),
@@ -1141,7 +1141,7 @@ namespace SunLight {
          * back; activating the already-active view changes nothing.
          * @param pView The view to activate;
          */
-        View* TileMapRenderer :: ActivateView( View *pView )  {
+        View* TileMapRenderer :: ActivateView( View* pView )  {
 
             View  *pPrevious = m_pActiveView;
 
@@ -1207,7 +1207,7 @@ namespace SunLight {
             if( nViewId == 0 )
                 return m_pDefaultView;
 
-            for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
                 if( pView -> GetId() == nViewId )
                     return pView;
             }
@@ -1249,7 +1249,7 @@ namespace SunLight {
          * Same, by handle. Compared by object, not just by id: ids are per
          * renderer, so another renderer's view 1 is not this renderer's view 1.
          */
-        bool TileMapRenderer :: RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView )  {
+        bool TileMapRenderer :: RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView>& pView )  {
 
             if( !pView )
                 return false;
@@ -1303,7 +1303,7 @@ namespace SunLight {
          * still unresolved;
          * @param nStepHeight Receives the vertical step, same rule;
          */
-        void TileMapRenderer :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
+        void TileMapRenderer :: GetScrollStepSize( int& nStepWidth, int& nStepHeight )  {
 
             ActiveCamera().GetScrollStep( nStepWidth, nStepHeight );
         }
@@ -1365,7 +1365,7 @@ namespace SunLight {
         /**
          * Reset zoom to it's default state.
          */
-        void TileMapRenderer :: ResetZoom( void ) {
+        void TileMapRenderer :: ResetZoom( void )  {
 
             GetViewport().ResetZoom();
         }
@@ -1373,7 +1373,7 @@ namespace SunLight {
         /**
          * Performs Zoom In effect.
          */
-        void TileMapRenderer :: ZoomIn( void ) {
+        void TileMapRenderer :: ZoomIn( void )  {
 
             GetViewport().ZoomIn();
         }
@@ -1381,7 +1381,7 @@ namespace SunLight {
         /**
          * Performs Zoom Out effect.
          */
-        void TileMapRenderer :: ZoomOut( void ) {
+        void TileMapRenderer :: ZoomOut( void )  {
 
             GetViewport().ZoomOut();
         }
@@ -1483,7 +1483,7 @@ namespace SunLight {
          * @param nY Receives the world-space y coordinate (pixels)
          * currently shown at the viewport's top edge.
          */
-        void TileMapRenderer :: GetCameraPosition( int &nX, int &nY )  {
+        void TileMapRenderer :: GetCameraPosition( int& nX, int& nY )  {
 
             ActiveCamera().GetPosition( nX, nY );
         }
@@ -1499,7 +1499,7 @@ namespace SunLight {
          *
          * @param strTitle The new window title;
          */
-        void TileMapRenderer :: SetWindowTitle( const std :: string &strTitle )  {
+        void TileMapRenderer :: SetWindowTitle( const std :: string& strTitle )  {
 
             m_strTitle = strTitle;
 
@@ -1524,7 +1524,7 @@ namespace SunLight {
          * here (loading a font needs the render context IEngine's backend
          * already requires), so this is always forwarded directly.
          */
-        bool TileMapRenderer :: SetFont( const char *szFilePath )  {
+        bool TileMapRenderer :: SetFont( const char* szFilePath )  {
 
             return SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( szFilePath );
         }
@@ -1549,7 +1549,7 @@ namespace SunLight {
          * (nothing is registered, and an earlier font for the same family and
          * style is kept).
          */
-        bool TileMapRenderer :: RegisterFont( const char *szFamily, const char *szFilePath, bool bBold, bool bItalic )  {
+        bool TileMapRenderer :: RegisterFont( const char* szFamily, const char* szFilePath, bool bBold, bool bItalic )  {
 
             // Loading a font needs the render context, which Start() creates.
             if( !m_bIsStarted )
@@ -1563,7 +1563,7 @@ namespace SunLight {
          * @see IDrawSurface::DrawText). A thin pass-through to IEngine, same
          * shape as @see SetFont.
          */
-        void TileMapRenderer :: DrawText( const char *szText,
+        void TileMapRenderer :: DrawText( const char* szText,
                                           int nPosX,
                                           int nPosY,
                                           int nFontSize,
@@ -1599,7 +1599,7 @@ namespace SunLight {
          * @see IDrawSurface::MeasureText). A thin pass-through to IEngine,
          * same shape as @see DrawText.
          */
-        int TileMapRenderer :: MeasureText( const char *szText, int nFontSize )  {
+        int TileMapRenderer :: MeasureText( const char* szText, int nFontSize )  {
 
             return SunLight :: Engines :: EngineFactory :: GetEngine().MeasureText( szText, nFontSize );
         }
@@ -1630,9 +1630,9 @@ namespace SunLight {
          * @param nLayerId The layer id to set layer parameters;
          * @param layer reference to layer parameters structure to set;
          */
-        bool TileMapRenderer :: SetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer *pTmxLayer = GetLayer( nLayerId );
+            tmx_layer* pTmxLayer = GetLayer( nLayerId );
 
             if( pTmxLayer )  {
                 CopyLayerToTmx( pTmxLayer, layer );
@@ -1647,9 +1647,9 @@ namespace SunLight {
          * @param szLayerName The layer name to set layer parameters;
          * @param layer reference to layer parameters structure to set;
          */
-        bool TileMapRenderer :: SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer *pTmxLayer = GetLayer( szLayerName );
+            tmx_layer* pTmxLayer = GetLayer( szLayerName );
 
             if( pTmxLayer )  {
                 CopyLayerToTmx( pTmxLayer, layer );
@@ -1664,9 +1664,9 @@ namespace SunLight {
          * @param nLayerId The layer id to get layer parameters;
          * @param layer reference to layer parameters structure to get;
          */
-        bool TileMapRenderer :: GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: GetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer *pTmxLayer = GetLayer( nLayerId );
+            tmx_layer* pTmxLayer = GetLayer( nLayerId );
 
             if( pTmxLayer )  {
                 CopyTmxToLayer( layer, pTmxLayer );
@@ -1681,9 +1681,9 @@ namespace SunLight {
          * @param szLayerName The layer name to get layer parameters;
          * @param layer reference to layer parameters structure to get;
          */
-        bool TileMapRenderer :: GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer *pTmxLayer = GetLayer( szLayerName );
+            tmx_layer* pTmxLayer = GetLayer( szLayerName );
 
             if( pTmxLayer )  {
                 CopyTmxToLayer( layer, pTmxLayer );
@@ -1702,7 +1702,7 @@ namespace SunLight {
          */
         bool TileMapRenderer :: SetLayerParallax( int nLayerId, float fFactorX, float fFactorY )  {
 
-            tmx_layer *pTmxLayer = GetLayer( nLayerId );
+            tmx_layer* pTmxLayer = GetLayer( nLayerId );
 
             if( pTmxLayer )  {
                 pTmxLayer -> parallaxx = fFactorX;
@@ -1720,9 +1720,9 @@ namespace SunLight {
          * @param fFactorX The horizontal parallax factor (1.0 = no parallax);
          * @param fFactorY The vertical parallax factor (1.0 = no parallax);
          */
-        bool TileMapRenderer :: SetLayerParallax( const char *szLayerName, float fFactorX, float fFactorY )  {
+        bool TileMapRenderer :: SetLayerParallax( const char* szLayerName, float fFactorX, float fFactorY )  {
 
-            tmx_layer *pTmxLayer = GetLayer( szLayerName );
+            tmx_layer* pTmxLayer = GetLayer( szLayerName );
 
             if( pTmxLayer )  {
                 pTmxLayer -> parallaxx = fFactorX;
@@ -1743,7 +1743,7 @@ namespace SunLight {
          */
         bool TileMapRenderer :: GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
                                          const SunLight :: TileMap :: stLayer& layer,
-                                         SunLight :: TileMap :: stTile& tile ) {
+                                         SunLight :: TileMap :: stTile& tile )  {
 
             // The gid and tile (S1c1: MapData::TileAt, which also refuses a position off the map - A6 - and
             // a gid past libtmx's tiles[] table); the screen rectangle below needs the view, so stays here.
@@ -1797,7 +1797,7 @@ namespace SunLight {
          * @param szTmxMapFile Renderer map file;
          * @param alignment Map alignment according @ref SunLight::TileMap::ITileMap::MapAlignment enumerator;
          */
-        bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
+        bool TileMapRenderer :: LoadMap( const char* szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
 
             if( m_bIsStarted )  {
                 // S1c1: the map is read, parsed and given its projection by MapData::Load (which says
@@ -1829,7 +1829,7 @@ namespace SunLight {
                 // For every view: "-1" means the tile size of the map they now show.
                 m_pDefaultView -> m_Camera.ResolveScrollStep( defaultStep );
 
-                for( std :: shared_ptr<View> &pView : m_ExtraViews )
+                for( std :: shared_ptr<View>& pView : m_ExtraViews )
                     pView -> m_Camera.ResolveScrollStep( defaultStep );
 
                 return true;
@@ -1889,7 +1889,7 @@ namespace SunLight {
          * @return true if an object with this name was found, false
          * otherwise (including if no map is loaded).
          */
-        bool TileMapRenderer :: GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object )  {
+        bool TileMapRenderer :: GetObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object )  {
 
             if( !m_pMap )
                 return false;
@@ -2094,8 +2094,8 @@ namespace SunLight {
             if( m_bIsStarted )  {
                 SunLight :: Window :: IWindow  &window = SunLight :: Window :: WindowFactory :: GetWindow();
 
-                while ( !window.ShouldClose() && !m_bExitRequested &&
-                        ( ( m_nMaxFrames == 0 ) || ( m_nFramesRun < m_nMaxFrames ) ) ) {
+                while( !window.ShouldClose() && !m_bExitRequested &&
+                        ( ( m_nMaxFrames == 0 ) || ( m_nFramesRun < m_nMaxFrames ) ) )  {
                     SunLight :: Engines :: EngineFactory :: GetEngine().BeginRenderTarget( m_pRenderTexture );
                     if( GetVisible() )  {
                         RenderMap();

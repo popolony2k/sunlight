@@ -55,12 +55,12 @@ namespace SunLight  {
 
             public:
 
-            bool Register( const char *szFamily, const char *szFilePath, bool bBold, bool bItalic );
-            SunLight :: Font :: IFont* Find( const char *szFamily, bool bBold, bool bItalic ) const;
-            void WarnMissing( const char *szFamily, bool bBold, bool bItalic );
+            bool Register( const char* szFamily, const char* szFilePath, bool bBold, bool bItalic );
+            SunLight :: Font :: IFont* Find( const char* szFamily, bool bBold, bool bItalic ) const;
+            void WarnMissing( const char* szFamily, bool bBold, bool bItalic );
             void Clear( void );
         };
     }
 }
 
-#endif  /* __FONTREGISTRY_H__ */
+#endif /* __FONTREGISTRY_H__ */

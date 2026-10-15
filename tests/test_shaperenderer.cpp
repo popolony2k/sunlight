@@ -52,17 +52,17 @@ namespace  {
         return DrawContext { { { 100, 200 }, { 640, 480 } }, 2.0f, { 5.0f, -3.0f } };
     }
 
-    std :: vector<Event> EventsOf( const MockEngine &engine, Event :: Kind kind )  {
+    std :: vector<Event> EventsOf( const MockEngine& engine, Event :: Kind kind )  {
         std :: vector<Event>  found;
 
-        for( const Event &evt : engine.events )
+        for( const Event& evt : engine.events )
             if( evt.kind == kind )
                 found.push_back( evt );
 
         return found;
     }
 
-    void CheckLine( const Event &evt, float fX0, float fY0, float fX1, float fY1 )  {
+    void CheckLine( const Event& evt, float fX0, float fY0, float fX1, float fY1 )  {
         CHECK( evt.x == fX0 );
         CHECK( evt.y == fY0 );
         CHECK( evt.w == fX1 );
@@ -71,7 +71,7 @@ namespace  {
 
     // A shape is drawn inside exactly one clip of the context's viewport, one pixel in from its
     // top and left edges (Shape::PrimitiveClip): the first event opens it, the last closes it.
-    void CheckClippedOnce( const MockEngine &engine, const DrawContext &context )  {
+    void CheckClippedOnce( const MockEngine& engine, const DrawContext& context )  {
         REQUIRE( engine.events.size() >= 2 );
         CHECK( engine.events.front().kind == Event :: CLIP_BEGIN );
         CHECK( engine.events.front().x == ( float ) ( context.viewport.pos.x + 1 ) );

@@ -49,12 +49,12 @@ namespace SunLight  {
 
             SunLight :: Base :: stVector2D Position( void ) const;
             void SetPosition( int nX, int nY );
-            void GetPosition( int &nX, int &nY ) const;
+            void GetPosition( int& nX, int& nY ) const;
             void Reset( void );
 
             void SetScrollStep( int nStepWidth, int nStepHeight );
-            void GetScrollStep( int &nStepWidth, int &nStepHeight ) const;
-            void ResolveScrollStep( const SunLight :: Base :: stSize2D &defaultStep );
+            void GetScrollStep( int& nStepWidth, int& nStepHeight ) const;
+            void ResolveScrollStep( const SunLight :: Base :: stSize2D& defaultStep );
 
             void MoveUp( int nViewportHeight, float fZoom, int nMapHeight );
             void MoveDown( void );
@@ -62,7 +62,7 @@ namespace SunLight  {
             void MoveRight( void );
 
             void Align( int nAlignment, uint16_t nMapWidth, uint16_t nMapHeight,
-                        const SunLight :: Base :: stDimension2D &viewport, float fZoomFactor );
+                        const SunLight :: Base :: stDimension2D& viewport, float fZoomFactor );
 
             SunLight :: Base :: stVector2D ForParallax( double fFactorX, double fFactorY,
                                                         double fOriginX, double fOriginY ) const;
@@ -70,4 +70,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __CAMERA_H__ */
+#endif /* __CAMERA_H__ */

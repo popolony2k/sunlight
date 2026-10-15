@@ -24,7 +24,7 @@
 #include <stdint.h>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Scripting  {
 
         /**
@@ -89,4 +89,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __COMMAND_H__ */
+#endif /* __COMMAND_H__ */

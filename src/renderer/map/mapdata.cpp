@@ -62,7 +62,7 @@ namespace SunLight  {
              * libtmx's texture loader hook: loads a map's (or a tileset's) image through IEngine.
              * @param szFileName Texture file name;
              */
-            void* TextureLoaderCallback( const char *szFileName )  {
+            void* TextureLoaderCallback( const char* szFileName )  {
 
                 int  nWidth, nHeight;
 
@@ -85,7 +85,7 @@ namespace SunLight  {
              * libtmx's texture release hook: releases an image TextureLoaderCallback loaded.
              * @param pTexture The texture to release;
              */
-            void TextureFreeCallback( void *pTexture )  {
+            void TextureFreeCallback( void* pTexture )  {
 
                 SunLight :: Engines :: EngineFactory :: GetEngine().UnloadTexture( pTexture );
             }
@@ -99,7 +99,7 @@ namespace SunLight  {
              * @param object Reference to receive the object's data if found;
              * @return true if an object with this name was found;
              */
-            bool FindObjectInLayers( tmx_layer *pLayer, const char *szObjectName, SunLight :: TileMap :: stObject &object )  {
+            bool FindObjectInLayers( tmx_layer* pLayer, const char* szObjectName, SunLight :: TileMap :: stObject& object )  {
 
                 for( ; pLayer != nullptr; pLayer = pLayer -> next )  {
 
@@ -113,7 +113,7 @@ namespace SunLight  {
                     if( pLayer -> type != L_OBJGR )
                         continue;
 
-                    for( tmx_object *pObject = pLayer -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )  {
+                    for( tmx_object* pObject = pLayer -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )  {
 
                         if( ( pObject -> name != nullptr ) && ( ::strcmp( pObject -> name, szObjectName ) == 0 ) )  {
 
@@ -156,7 +156,7 @@ namespace SunLight  {
          * @return The loaded map; nullptr if the file cannot be read or parsed, or its
          * orientation has no projection - the reason is written to standard error;
          */
-        std :: unique_ptr<MapData> MapData :: Load( const char *szTmxMapFile )  {
+        std :: unique_ptr<MapData> MapData :: Load( const char* szTmxMapFile )  {
 
             std :: vector<unsigned char>  data;
 
@@ -197,13 +197,13 @@ namespace SunLight  {
 
                 pRcMgr = ::tmx_make_resource_manager();
 
-                for( const ExternalResources :: ExternalReference &reference : externalReferences )
+                for( const ExternalResources :: ExternalReference& reference : externalReferences )
                     ExternalResources :: PreloadExternalResource( pRcMgr, reference, strMapDir, loadedKeys, visited );
             }
 
             tmx_map  *pTmxMap = ::tmx_rcmgr_load_buffer_vpath( pRcMgr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
 
-            if( !pTmxMap ) {
+            if( !pTmxMap )  {
                 ::tmx_perror( "Cannot load map" );
 
                 if( pRcMgr )
@@ -266,7 +266,7 @@ namespace SunLight  {
          * reads of them every frame: the map's size in map pixels and whether every tileset
          * matches its grid.
          */
-        MapData :: MapData( tmx_map *pTmxMap, tmx_resource_manager *pTmxRcMgr, std :: unique_ptr<Projection :: IMapProjection> pProjection )
+        MapData :: MapData( tmx_map* pTmxMap, tmx_resource_manager* pTmxRcMgr, std :: unique_ptr<Projection :: IMapProjection> pProjection )
                 : m_pTmxMap( pTmxMap ),
                   m_pTmxRcMgr( pTmxRcMgr ),
                   m_pProjection( std :: move( pProjection ) )  {
@@ -283,7 +283,7 @@ namespace SunLight  {
             // only culls when it is exact, and falls back to visiting every cell otherwise.
             m_bUniformTileGrid = true;
 
-            for( tmx_tileset_list *pNode = m_pTmxMap -> ts_head; pNode != nullptr; pNode = pNode -> next )  {
+            for( tmx_tileset_list* pNode = m_pTmxMap -> ts_head; pNode != nullptr; pNode = pNode -> next )  {
                 if( ( pNode -> tileset -> tile_width != m_pTmxMap -> tile_width ) ||
                     ( pNode -> tileset -> tile_height != m_pTmxMap -> tile_height ) )  {
                     m_bUniformTileGrid = false;
@@ -349,7 +349,7 @@ namespace SunLight  {
         /**
          * @brief A layer by its name, nested in a group or not; nullptr when there is none.
          */
-        tmx_layer* MapData :: FindLayer( const char *szLayerName ) const  {
+        tmx_layer* MapData :: FindLayer( const char* szLayerName ) const  {
 
             return ::tmx_find_layer_by_name( m_pTmxMap, szLayerName );
         }
@@ -366,7 +366,7 @@ namespace SunLight  {
          * @param tile Receives the gid and the tile;
          * @return true if there is a tile there;
          */
-        bool MapData :: TileAt( const SunLight :: TileMap :: stMatrixPosition &pos, tmx_layer *pLayer, SunLight :: TileMap :: stTile &tile ) const  {
+        bool MapData :: TileAt( const SunLight :: TileMap :: stMatrixPosition& pos, tmx_layer* pLayer, SunLight :: TileMap :: stTile& tile ) const  {
 
             if( ( pos.nTileRow < 0 ) || ( pos.nTileRow >= ( int ) m_pTmxMap -> height ) ||
                 ( pos.nTileCol < 0 ) || ( pos.nTileCol >= ( int ) m_pTmxMap -> width ) )  {
@@ -402,7 +402,7 @@ namespace SunLight  {
          * @param object Receives the object's name, position and size;
          * @return true if an object with this name was found;
          */
-        bool MapData :: FindObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject &object ) const  {
+        bool MapData :: FindObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) const  {
 
             return FindObjectInLayers( m_pTmxMap -> ly_head, szObjectName, object );
         }
@@ -410,9 +410,9 @@ namespace SunLight  {
         /**
          * @brief Which tmx_tileset_list contains a tileset (its firstgid is there).
          */
-        tmx_tileset_list* MapData :: TilesetListOf( tmx_tileset *pTileset ) const  {
+        tmx_tileset_list* MapData :: TilesetListOf( tmx_tileset* pTileset ) const  {
 
-            for( tmx_tileset_list *pItem = m_pTmxMap -> ts_head; pItem != NULL; pItem = pItem -> next )  {
+            for( tmx_tileset_list* pItem = m_pTmxMap -> ts_head; pItem != NULL; pItem = pItem -> next )  {
                 if( pItem -> tileset == pTileset )  {
                     return pItem;
                 }
@@ -430,7 +430,7 @@ namespace SunLight  {
          * @param nGID The gid that named pBase;
          * @return The tile to draw now; pBase when there is no other to show;
          */
-        tmx_tile* MapData :: AnimatedFrameOf( tmx_tile *pBase, unsigned int nGID )  {
+        tmx_tile* MapData :: AnimatedFrameOf( tmx_tile* pBase, unsigned int nGID )  {
 
             tmx_tile  *pTile = pBase;
 

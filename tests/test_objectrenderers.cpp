@@ -88,8 +88,8 @@ namespace  {
             return pMap -> ly_head;
         }
 
-        tmx_object* Object( const char *szName )  {
-            for( tmx_object *pObject = Layer() -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )
+        tmx_object* Object( const char* szName )  {
+            for( tmx_object* pObject = Layer() -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )
                 if( ( pObject -> name != nullptr ) && ( std :: strcmp( pObject -> name, szName ) == 0 ) )
                     return pObject;
 
@@ -110,10 +110,10 @@ namespace  {
         return DrawContext { { { 100, 200 }, { 640, 480 } }, 2.0f, { 5.0f, -3.0f } };
     }
 
-    std :: vector<Event> EventsOf( const MockEngine &engine, Event :: Kind kind )  {
+    std :: vector<Event> EventsOf( const MockEngine& engine, Event :: Kind kind )  {
         std :: vector<Event>  found;
 
-        for( const Event &evt : engine.events )
+        for( const Event& evt : engine.events )
             if( evt.kind == kind )
                 found.push_back( evt );
 
@@ -270,7 +270,7 @@ TEST_SUITE( "renderer/ObjectRenderer" )  {
 
         fonts.Register( "Sans", "sans.fnt", false, false );
 
-        renderer.Draw( PlainContext(), objects.Layer(), fonts, [&]( tmx_object *pObject, tmx_layer *pLayer, float fOpacity )  {
+        renderer.Draw( PlainContext(), objects.Layer(), fonts, [&]( tmx_object* pObject, tmx_layer* pLayer, float fOpacity )  {
             CHECK( pLayer == objects.Layer() );
             tileObjects.push_back( { pObject, fOpacity } );
         } );

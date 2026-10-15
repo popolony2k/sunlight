@@ -47,7 +47,7 @@ namespace SunLight  {
              */
             SDLGamepadHaptics :: ~SDLGamepadHaptics( void )  {
 
-                for( const std :: pair<const int, OpenController> &entry : m_Controllers )
+                for( const std :: pair<const int, OpenController>& entry : m_Controllers )
                     m_pApi -> Close( entry.second.hController );
 
                 m_Controllers.clear();

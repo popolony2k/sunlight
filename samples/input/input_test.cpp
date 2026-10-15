@@ -26,7 +26,7 @@
  * The input sample loads no resources, so unlike the other samples it needs no base path:
  * one given as argv[1] (as the IDE launch configuration passes) is accepted and ignored.
  */
-int main( int argc, char **argv ) {
+int main( int argc, char** argv )  {
 
     World  world;
 

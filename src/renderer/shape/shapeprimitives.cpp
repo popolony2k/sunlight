@@ -76,7 +76,7 @@ namespace SunLight  {
                  * across-axis edges include -h but not +h, the cap edges include -e but not length + e - so every width
                  * gives exactly that many rows or columns, and no pixel centre sits on a tie that could go either way.
                  */
-                bool InsideStroke( const StrokeGeometry &g, double cx, double cy )  {
+                bool InsideStroke( const StrokeGeometry& g, double cx, double cy )  {
 
                     double  across = g.nx * ( cx - g.ax ) + g.ny * ( cy - g.ay );
                     double  along  = g.ux * ( cx - g.ax ) + g.uy * ( cy - g.ay );
@@ -86,7 +86,7 @@ namespace SunLight  {
                 }
 
                 // Narrows [xLow, xHigh] to the t for which c * t lies in [lo, hi). An empty result is left as xLow > xHigh.
-                void NarrowRange( double c, double lo, double hi, double &xLow, double &xHigh )  {
+                void NarrowRange( double c, double lo, double hi, double& xLow, double& xHigh )  {
 
                     if( std :: fabs( c ) < __AXIS_EPSILON )  {
                         if( !( ( lo <= __ORIGIN ) && ( __ORIGIN < hi ) ) )  {
@@ -107,7 +107,7 @@ namespace SunLight  {
                 }
 
                 // The stroke of one segment of a path, with the segment's endpoints as end centres.
-                bool MakeStroke( const ScreenPoint &a, const ScreenPoint &b, double h, double eBack, double eFront, StrokeGeometry &g )  {
+                bool MakeStroke( const ScreenPoint& a, const ScreenPoint& b, double h, double eBack, double eFront, StrokeGeometry& g )  {
 
                     double  dx = ( double ) ( b.nX - a.nX );
                     double  dy = ( double ) ( b.nY - a.nY );
@@ -136,7 +136,7 @@ namespace SunLight  {
                 };
 
                 // A pixel centre is in the join when it is inside the disc (strictly, with the boundary tolerance).
-                bool InsideJoint( const Joint &j, double h, double cx, double cy )  {
+                bool InsideJoint( const Joint& j, double h, double cx, double cy )  {
 
                     double  r  = h - __BOUNDARY_EPSILON;
                     double  dx = cx - j.vx;
@@ -157,7 +157,7 @@ namespace SunLight  {
                  * DrawFilledRectangle. The spans are exactly the pixels that some segment or join accepts. The
                  * engine's clip cuts them at the viewport, so nothing is clipped here.
                  */
-                void DrawPathSpans( const std :: vector<ScreenPoint> &points, bool bClosed, int nWidth, SunLight :: Base :: stColor color )  {
+                void DrawPathSpans( const std :: vector<ScreenPoint>& points, bool bClosed, int nWidth, SunLight :: Base :: stColor color )  {
 
                     size_t  nCount = points.size();
                     bool    bLoop  = bClosed && ( nCount >= __MIN_JOIN_VERTICES );
@@ -203,13 +203,13 @@ namespace SunLight  {
                         bFirst = false;
                     };
 
-                    for( const StrokeGeometry &g : segments )  {
+                    for( const StrokeGeometry& g : segments )  {
                         for( double fAlong : { -g.eBack, g.length + g.eFront } )
                             for( double fAcross : { -g.h, g.h } )
                                 Include( g.ay + g.uy * fAlong + g.ny * fAcross );
                     }
 
-                    for( const Joint &j : joints )  {
+                    for( const Joint& j : joints )  {
                         Include( j.vy - h );
                         Include( j.vy + h );
                     }
@@ -222,7 +222,7 @@ namespace SunLight  {
                         double  cy = nRow + __HALF;
                         std :: vector<Run>  runs;
 
-                        for( const StrokeGeometry &g : segments )  {
+                        for( const StrokeGeometry& g : segments )  {
                             double  fLow  = -std :: numeric_limits<double> :: max();
                             double  fHigh =  std :: numeric_limits<double> :: max();
 
@@ -252,7 +252,7 @@ namespace SunLight  {
                                 runs.push_back( Run { nLeft, nRight } );
                         }
 
-                        for( const Joint &j : joints )  {
+                        for( const Joint& j : joints )  {
                             double  dy = cy - j.vy;
 
                             if( std :: fabs( dy ) >= h )
@@ -275,7 +275,7 @@ namespace SunLight  {
                                 runs.push_back( Run { nLeft, nRight } );
                         }
 
-                        std :: sort( runs.begin(), runs.end(), []( const Run &a, const Run &b ) { return a.nFirst < b.nFirst; } );
+                        std :: sort( runs.begin(), runs.end(), []( const Run& a, const Run& b ) { return a.nFirst < b.nFirst; } );
 
                         size_t  nIdx = 0;
 
@@ -320,7 +320,7 @@ namespace SunLight  {
                     bool    bHasInner;
                 };
 
-                bool InRing( const Ring &ring, double fX, double fY )  {
+                bool InRing( const Ring& ring, double fX, double fY )  {
 
                     if( !InsideEllipse( fX, fY, ring.fCenterX, ring.fCenterY, ring.fOuterX, ring.fOuterY, ring.fCos, ring.fSin ) )
                         return false;
@@ -330,7 +330,7 @@ namespace SunLight  {
                 }
             }
 
-            PrimitiveClip :: PrimitiveClip( const SunLight :: Base :: stDimension2D &vp )  {
+            PrimitiveClip :: PrimitiveClip( const SunLight :: Base :: stDimension2D& vp )  {
                 SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
                     ( float ) ( vp.pos.x + __PRIMITIVE_EDGE_INSET ), ( float ) ( vp.pos.y + __PRIMITIVE_EDGE_INSET ),
                     ( float ) ( vp.size.nWidth - __PRIMITIVE_EDGE_INSET ), ( float ) ( vp.size.nHeight - __PRIMITIVE_EDGE_INSET ) } );
@@ -347,7 +347,7 @@ namespace SunLight  {
                 return ( nWidth < __MIN_SCREEN_WIDTH ) ? __MIN_SCREEN_WIDTH : nWidth;
             }
 
-            void DrawStrokedPath( const std :: vector<ScreenPoint> &points, bool bClosed, int nWidth, SunLight :: Base :: stColor color )  {
+            void DrawStrokedPath( const std :: vector<ScreenPoint>& points, bool bClosed, int nWidth, SunLight :: Base :: stColor color )  {
 
                 if( points.size() < __MIN_JOIN_VERTICES - __ONE_PIXEL )
                     return;

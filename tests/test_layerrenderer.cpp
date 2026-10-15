@@ -84,7 +84,7 @@ namespace  {
     const int  TILE_H         = 8;
     const int  FILLED_GROUND  = ( 8 * 6 ) - 1;     // every "ground" cell but the empty one
 
-    Bytes ToBytes( const char *sz )  {
+    Bytes ToBytes( const char* sz )  {
         std :: string  str( sz );
         return Bytes( str.begin(), str.end() );
     }
@@ -115,14 +115,14 @@ namespace  {
 
         MockEngine& engine( void )  { return engineFixture.engine; }
 
-        tmx_layer* Layer( const char *szName )  {
+        tmx_layer* Layer( const char* szName )  {
             tmx_layer  *pLayer = pMap -> FindLayer( szName );
             REQUIRE( pLayer != nullptr );
             return pLayer;
         }
 
-        tmx_object* Object( const char *szName )  {
-            for( tmx_object *pObject = Layer( "things" ) -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )
+        tmx_object* Object( const char* szName )  {
+            for( tmx_object* pObject = Layer( "things" ) -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )
                 if( ( pObject -> name != nullptr ) && ( std :: strcmp( pObject -> name, szName ) == 0 ) )
                     return pObject;
 
@@ -133,7 +133,7 @@ namespace  {
         std :: vector<Event> EventsOf( Event :: Kind kind ) const  {
             std :: vector<Event>  found;
 
-            for( const Event &evt : engineFixture.engine.events )
+            for( const Event& evt : engineFixture.engine.events )
                 if( evt.kind == kind )
                     found.push_back( evt );
 
@@ -142,7 +142,7 @@ namespace  {
 
         // The TILE event drawn at a screen position, or a failure.
         Event TileAt( float fX, float fY ) const  {
-            for( const Event &evt : EventsOf( Event :: TILE ) )
+            for( const Event& evt : EventsOf( Event :: TILE ) )
                 if( ( evt.x == fX ) && ( evt.y == fY ) )
                     return evt;
 
@@ -151,7 +151,7 @@ namespace  {
         }
     };
 
-    void CheckColor( const SunLight :: Base :: stColor &color, int nRed, int nGreen, int nBlue, int nAlpha )  {
+    void CheckColor( const SunLight :: Base :: stColor& color, int nRed, int nGreen, int nBlue, int nAlpha )  {
         CHECK( color.nRed == nRed );
         CHECK( color.nGreen == nGreen );
         CHECK( color.nBlue == nBlue );
@@ -183,7 +183,7 @@ TEST_SUITE( "renderer/LayerRenderer" )  {
         CHECK( map.TileAt( ScreenX( 7 * TILE_W ), ScreenY( 5 * TILE_H ) ).srcX == 0 );   // the last cell, gid 1
 
         // Column 2 of row 0 is empty: nothing is drawn there.
-        for( const Event &evt : map.EventsOf( Event :: TILE ) )
+        for( const Event& evt : map.EventsOf( Event :: TILE ) )
             CHECK_FALSE( ( ( evt.x == ScreenX( 2 * TILE_W ) ) && ( evt.y == ScreenY( 0 ) ) ) );
     }
 
@@ -233,7 +233,7 @@ TEST_SUITE( "renderer/LayerRenderer" )  {
         CHECK( tiles.size() > 0 );
         CHECK( tiles.size() < FILLED_GROUND );
 
-        for( const Event &evt : tiles )  {
+        for( const Event& evt : tiles )  {
             CHECK( evt.x < 3 * TILE_W * 2 );
             CHECK( evt.y < 3 * TILE_H * 2 );
         }

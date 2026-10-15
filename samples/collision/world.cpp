@@ -121,7 +121,7 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
  * simply blocks movement by undoing the step that caused the overlap,
  * giving the obstacle solid, wall-like collision.
  */
-void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: Collision :: Collider *pSecond )  {
+void World :: OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: Collision :: Collider* pSecond )  {
 
     SunLight :: Base :: stCoordinate2D  revert = { -m_LastStep.x, -m_LastStep.y };
 
@@ -132,13 +132,13 @@ void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :
  * @brief Unused in this sample - only a collider-to-collider rule is
  * registered (see LoadSprites()), no collider-to-tile-layer rule.
  */
-void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: TileMap :: stTile *pSecond )  {
+void World :: OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: TileMap :: stTile* pSecond )  {
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) &&
-        m_pCanvasObstacle -> Load( __OBSTACLE_IMAGE ) ) {
+        m_pCanvasObstacle -> Load( __OBSTACLE_IMAGE ) )  {
         SunLight :: Base :: stDimension2D    dimSunny;
         SunLight :: Base :: stDimension2D    dimObstacle;
 

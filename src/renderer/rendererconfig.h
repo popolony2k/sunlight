@@ -28,7 +28,7 @@
 #include "tilemap/tilemapdefs.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         /**
@@ -145,9 +145,9 @@ namespace SunLight {
              * problem found, if any (may be null);
              * @return true if valid, false otherwise;
              */
-            bool Validate( std :: string *pError = nullptr ) const;
+            bool Validate( std :: string* pError = nullptr ) const;
         };
     }
 }
 
-#endif  /* __RENDERERCONFIG_H__ */
+#endif /* __RENDERERCONFIG_H__ */

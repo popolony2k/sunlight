@@ -428,21 +428,21 @@ TEST_SUITE( "base/Viewport" )  {
         // same answer - that is what keeps Caravellius/Scarab (10, 10, 1250, 910 -> 10, 10,
         // 1240, 900) pixel-identical. A deterministic sweep, not random noise.
         struct Legacy  {
-            static bool Clip( int px, int py, int farX, int farY, float fZoom, SunLight :: Base :: stDimension2D src, SunLight :: Base :: stDimension2D &dst )  {
+            static bool Clip( int px, int py, int farX, int farY, float fZoom, SunLight :: Base :: stDimension2D src, SunLight :: Base :: stDimension2D& dst )  {
 
                 float    fClippingX;
                 float    fClippingY;
                 int32_t  nPos;
 
-                if( ( src.pos.x > farX ) || ( src.pos.y > farY ) || ( src.pos.x < 0 ) || ( src.pos.y < 0 ) ) {
+                if( ( src.pos.x > farX ) || ( src.pos.y > farY ) || ( src.pos.x < 0 ) || ( src.pos.y < 0 ) )  {
 
-                    if( src.pos.x < 0 ) {
+                    if( src.pos.x < 0 )  {
                         nPos = std :: abs( src.pos.x );
                         src.size.nWidth -= ( nPos < src.size.nWidth ? nPos : src.size.nWidth );
                         src.pos.x = 0;
                     }
 
-                    if( src.pos.y < 0 ) {
+                    if( src.pos.y < 0 )  {
                         nPos = std :: abs( src.pos.y );
                         src.size.nHeight -= ( nPos < src.size.nHeight ? nPos : src.size.nHeight );
                         src.pos.y = 0;
@@ -486,7 +486,7 @@ TEST_SUITE( "base/Viewport" )  {
         long nMismatches = 0;
         long nVisible    = 0;
 
-        for( const auto &v : aViewports )  {
+        for( const auto& v : aViewports )  {
             Viewport       vp;
             SunLight :: Base :: stDimension2D  viewportDim { { v[0], v[1] }, { v[2], v[3] } };
 

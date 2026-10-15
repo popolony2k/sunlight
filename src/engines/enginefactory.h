@@ -24,7 +24,7 @@
 #include "engines/iengine.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Engines  {
 
         /**
@@ -50,9 +50,9 @@ namespace SunLight {
              * @param pOverride The replacement engine, or nullptr to reset
              * back to the default backend;
              */
-            static void SetEngine( IEngine *pOverride );
+            static void SetEngine( IEngine* pOverride );
         };
     }
 }
 
-#endif  /* __ENGINEFACTORY_H__ */
+#endif /* __ENGINEFACTORY_H__ */

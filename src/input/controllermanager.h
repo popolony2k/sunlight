@@ -29,7 +29,7 @@
 #include <utility>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -98,4 +98,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __CONTROLLERMANAGER_H__ */
+#endif /* __CONTROLLERMANAGER_H__ */

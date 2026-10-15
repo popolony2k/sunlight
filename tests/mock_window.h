@@ -79,7 +79,7 @@ class MockWindow : public SunLight :: Window :: IWindow  {
     bool                                bLastCreateFullscreen      = false;
     SunLight :: Window :: FullscreenStrategy lastCreateStrategy = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL;
 
-    bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
+    bool Create( int nWidth, int nHeight, const char* szTitle, bool bResizeable,
                  bool bFullscreenAtCreate = false,
                  SunLight :: Window :: FullscreenStrategy strategy = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL )  {
         nCreateCalls++;
@@ -101,7 +101,7 @@ class MockWindow : public SunLight :: Window :: IWindow  {
         nCloseCalls++;
     }
 
-    int AddCloseHandler( const std :: function<void( void )> &handler )  {
+    int AddCloseHandler( const std :: function<void( void )>& handler )  {
         return closeHandlers.Add( handler );
     }
 
@@ -162,7 +162,7 @@ class MockWindow : public SunLight :: Window :: IWindow  {
         nLastTargetFps = nTargetFps;
     }
 
-    void SetWindowTitle( const char *szTitle )  {
+    void SetWindowTitle( const char* szTitle )  {
         nSetWindowTitleCalls++;
         strLastWindowTitle = szTitle;
     }

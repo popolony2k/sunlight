@@ -67,7 +67,7 @@ namespace  {
 
     const char  *g_szTruncated = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><map version=\"1.0\" orientation=\"orthogonal\" width=\"3\"";
 
-    Bytes ToBytes( const char *sz )  {
+    Bytes ToBytes( const char* sz )  {
         std :: string  str( sz );
         return Bytes( str.begin(), str.end() );
     }

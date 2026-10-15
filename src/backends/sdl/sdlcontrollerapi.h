@@ -24,7 +24,7 @@
 #include "backends/sdl/isdlcontrollerapi.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
         namespace SDL  {
 
@@ -57,4 +57,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __SDLCONTROLLERAPI_H__ */
+#endif /* __SDLCONTROLLERAPI_H__ */

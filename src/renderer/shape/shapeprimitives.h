@@ -41,7 +41,7 @@ namespace SunLight  {
 
                 public:
 
-                explicit PrimitiveClip( const SunLight :: Base :: stDimension2D &vp );
+                explicit PrimitiveClip( const SunLight :: Base :: stDimension2D& vp );
                 ~PrimitiveClip( void );
             };
 
@@ -89,7 +89,7 @@ namespace SunLight  {
              * @param nWidth Width in screen pixels, at least 2;
              * @param color Line color;
              */
-            void DrawStrokedPath( const std :: vector<ScreenPoint> &points, bool bClosed, int nWidth, SunLight :: Base :: stColor color );
+            void DrawStrokedPath( const std :: vector<ScreenPoint>& points, bool bClosed, int nWidth, SunLight :: Base :: stColor color );
 
             /**
              * @brief Draw a filled square: a point object, at its screen position with its top-left corner there. The
@@ -117,4 +117,4 @@ namespace SunLight  {
         }
     }
 }
-#endif  /* __SHAPEPRIMITIVES_H__ */
+#endif /* __SHAPEPRIMITIVES_H__ */

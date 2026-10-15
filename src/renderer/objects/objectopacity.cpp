@@ -36,7 +36,7 @@ namespace SunLight  {
          * @param fLayerOpacity Its layer's own opacity, used when the object has none of its own;
          * @return The effective opacity to draw this object with, 0 to 1;
          */
-        float ObjectOpacity :: Of( tmx_object *pObject, float fLayerOpacity )  {
+        float ObjectOpacity :: Of( tmx_object* pObject, float fLayerOpacity )  {
 
             double  fValue;
 

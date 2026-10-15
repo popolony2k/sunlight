@@ -35,7 +35,7 @@
  * always-higher value, moving it to the front of the stack live - proving the renderer
  * re-sorts a layer's own sprites by z-order every frame, not just once at load time.
  */
-class World {
+class World  {
 
     public :
 

@@ -51,7 +51,7 @@ namespace  {
 
     // Null-backend renderer, viewport + zoom as given, a 640 x 640 map (40 x 40 tiles of 16)
     // loaded with the given alignment.
-    std :: unique_ptr<TileMapRenderer> MakeRenderer( const VpCase &v, int nAlignment )  {
+    std :: unique_ptr<TileMapRenderer> MakeRenderer( const VpCase& v, int nAlignment )  {
 
         RendererConfig  config;
 
@@ -84,7 +84,7 @@ namespace  {
      * GetCameraPosition reports it.
      */
     void LegacyAlignment( int nAlignment, int nMapW, int nMapH, int nPosX, int nPosY,
-                          int nFarX, int nFarY, float fZoomFactor, int &nCamX, int &nCamY )  {
+                          int nFarX, int nFarY, float fZoomFactor, int& nCamX, int& nCamY )  {
 
         float  fCamX = 0.0f;
         float  fCamY = 0.0f;
@@ -163,7 +163,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
 
-        for( const auto &e : expected )  {
+        for( const auto& e : expected )  {
             VpCase                              v { 10, 10, 1240, 900, 60 };
             std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, e.nAlignment );
             int                                 nX = 12345, nY = 12345;
@@ -190,7 +190,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         long    nCompared   = 0;
         long    nMismatches = 0;
 
-        for( const VpCase &v : aCases )  {
+        for( const VpCase& v : aCases )  {
             for( int nAlignment : g_Alignments )  {
                 std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, nAlignment );
                 int                                 nX = 0, nY = 0, nExpX = 0, nExpY = 0;
@@ -266,7 +266,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         long        nMovedX   = 0;
         long        nMovedY   = 0;
 
-        for( const VpCase &v : aCases )  {
+        for( const VpCase& v : aCases )  {
             std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, ITM :: MAP_ALIGNMENT_TOP_LEFT );
             float                               fZoom     = pRenderer -> GetViewport().GetZoomProperties().fZoomFactor;
             int                                 nFarX     = v.nPosX + v.nWidth;
@@ -376,7 +376,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         const std :: vector<MockEngine :: Event>  &events = engineFixture.engine.events;
         const MockEngine :: Event                 *pShapeClip = nullptr;
 
-        for( const MockEngine :: Event &evt : events )
+        for( const MockEngine :: Event& evt : events )
             if( ( evt.kind == MockEngine :: Event :: CLIP_BEGIN ) && ( evt.x == 11.0f ) )
                 pShapeClip = &evt;
 
@@ -392,7 +392,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         // The rectangle's top-left corner is drawn at screen (60, 60), where the clip starts cutting it.
         bool bCornerDrawn = false;
 
-        for( const MockEngine :: Event &evt : events )
+        for( const MockEngine :: Event& evt : events )
             if( ( evt.kind == MockEngine :: Event :: LINE ) && ( evt.x == 60.0f ) && ( evt.y == 60.0f ) )
                 bCornerDrawn = true;
 

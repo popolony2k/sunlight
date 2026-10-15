@@ -80,7 +80,7 @@ namespace  {
         "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"5\" height=\"3\" tilewidth=\"16\" tileheight=\"8\">"
         "<layer id=\"1\" name=\"ground\" width=\"5\"";
 
-    Bytes ToBytes( const char *sz )  {
+    Bytes ToBytes( const char* sz )  {
         std :: string  str( sz );
         return Bytes( str.begin(), str.end() );
     }
@@ -122,11 +122,11 @@ namespace  {
 
         MockEngine& engine( void )  { return engineFixture.engine; }
 
-        bool Load( const char *szMap )  {
+        bool Load( const char* szMap )  {
             return pRenderer -> LoadMap( szMap, ITM :: MAP_ALIGNMENT_TOP_LEFT );
         }
 
-        bool MapInfo( SunLight :: TileMap :: stMapInfo &info )  {
+        bool MapInfo( SunLight :: TileMap :: stMapInfo& info )  {
             info = {};
             return pRenderer -> GetMapInfo( info );
         }
@@ -138,10 +138,10 @@ namespace  {
             pRenderer -> Run();
         }
 
-        int DrawsOf( void *handle )  {
+        int DrawsOf( void* handle )  {
             int  nCount = 0;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( ( evt.kind == Event :: TILE ) && ( evt.handle == handle ) )
                     nCount++;
 
@@ -156,7 +156,7 @@ namespace  {
         SunLight :: Canvas :: TextureCanvas  canvas;
         Scene                                &m_Scene;
 
-        SpriteRig( Scene &scene ) : m_Scene( scene )  {
+        SpriteRig( Scene& scene ) : m_Scene( scene )  {
 
             scene.engine().hLoadTextureResult = SPRITE;
             scene.engine().nLoadTextureWidth  = 16;

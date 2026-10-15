@@ -54,16 +54,16 @@ namespace SunLight  {
 
                 public:
 
-                bool Init( const char *szArgv0 ) override;
+                bool Init( const char* szArgv0 ) override;
                 void Shutdown( void ) override;
 
-                bool Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath ) override;
-                bool Exists( const std :: string &strVirtualPath ) override;
-                bool ReadFile( const std :: string &strVirtualPath, std :: vector<unsigned char> &outData ) override;
+                bool Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath ) override;
+                bool Exists( const std :: string& strVirtualPath ) override;
+                bool ReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData ) override;
                 void SetReadFilter( ReadFilterCallback callback ) override;
             };
         }
     }
 }
 
-#endif  /* __PHYSFSFILESYSTEM_H__ */
+#endif /* __PHYSFSFILESYSTEM_H__ */

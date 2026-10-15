@@ -26,13 +26,13 @@
 #include "base/color.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
         /**
          * @brief Canvas class implementation.
          * 
          */
-        class Canvas : public SunLight :: Canvas :: BaseCanvas {
+        class Canvas : public SunLight :: Canvas :: BaseCanvas  {
 
             SunLight :: Collision :: Collider  m_Collider;
             SunLight :: Base :: stColor        m_Color;
@@ -43,7 +43,7 @@ namespace SunLight {
             Canvas( void );
             virtual ~Canvas( void );
 
-            void SetParent( BaseCanvas *pParent );
+            void SetParent( BaseCanvas* pParent );
             void SetDimension2DPtr( SunLight :: Base :: stDimension2D* pDimension );
 
             void SetColor( SunLight :: Base :: stColor color );

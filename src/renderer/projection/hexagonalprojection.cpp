@@ -44,7 +44,7 @@ namespace SunLight  {
 
                 // libtmx's own default for a missing "staggeraxis" attribute (SA_Y), applied the same way to
                 // a hand-built tmx_map.
-                tmx_stagger_axis EffectiveAxis( tmx_map *pMap )  {
+                tmx_stagger_axis EffectiveAxis( tmx_map* pMap )  {
 
                     return ( pMap -> stagger_axis == SA_X ) ? SA_X : SA_Y;
                 }
@@ -61,7 +61,7 @@ namespace SunLight  {
                 // (col, row) -> the cell's own top-left corner, in map pixels. The non-staggered axis's
                 // formula is identical to StaggeredProjection's (confirmed hexsidelength-independent in E3a);
                 // the staggered axis uses StaggerPitch instead of a fixed half-tile step.
-                SunLight :: Base :: stCoordinate2D CellTopLeft( int nCol, int nRow, tmx_map *pMap )  {
+                SunLight :: Base :: stCoordinate2D CellTopLeft( int nCol, int nRow, tmx_map* pMap )  {
 
                     float  fHalfW = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
                     float  fHalfH = ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR;
@@ -82,7 +82,7 @@ namespace SunLight  {
                 }
             }
 
-            SunLight :: Base :: stSize2D HexagonalProjection :: MapPixelSize( tmx_map *pMap ) const  {
+            SunLight :: Base :: stSize2D HexagonalProjection :: MapPixelSize( tmx_map* pMap ) const  {
 
                 float  fHalfW = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
                 float  fHalfH = ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR;
@@ -102,8 +102,8 @@ namespace SunLight  {
                                                        ( int ) ( pMap -> height * pMap -> tile_height + fHalfH ) };
             }
 
-            SunLight :: Base :: stCoordinate2D HexagonalProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                                         tmx_map *pMap,
+            SunLight :: Base :: stCoordinate2D HexagonalProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                                         tmx_map* pMap,
                                                                                          int /* nTileWidth */,
                                                                                          int /* nTileHeight */,
                                                                                          int nLayerOffsetX,
@@ -114,10 +114,10 @@ namespace SunLight  {
                 return SunLight :: Base :: stCoordinate2D { cell.x + nLayerOffsetX, cell.y + nLayerOffsetY };
             }
 
-            SunLight :: Base :: stDimension2D HexagonalProjection :: TileViewRect( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                                    tmx_map *pMap,
-                                                                                    const SunLight :: Base :: stDimension2D &viewport,
-                                                                                    const SunLight :: Base :: stVector2D &camera ) const  {
+            SunLight :: Base :: stDimension2D HexagonalProjection :: TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                                    tmx_map* pMap,
+                                                                                    const SunLight :: Base :: stDimension2D& viewport,
+                                                                                    const SunLight :: Base :: stVector2D& camera ) const  {
 
                 SunLight :: Base :: stCoordinate2D  cell = CellTopLeft( pos.nTileCol, pos.nTileRow, pMap );
                 SunLight :: Base :: stDimension2D   tile;
@@ -130,14 +130,14 @@ namespace SunLight  {
                 return tile;
             }
 
-            bool HexagonalProjection :: ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D &coord,
-                                                          tmx_map *pMap,
-                                                          const SunLight :: Base :: stDimension2D &viewport,
-                                                          const SunLight :: Base :: stVector2D &camera,
+            bool HexagonalProjection :: ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                                          tmx_map* pMap,
+                                                          const SunLight :: Base :: stDimension2D& viewport,
+                                                          const SunLight :: Base :: stVector2D& camera,
                                                           float fZoom,
                                                           int nMapPixelWidth,
                                                           int nMapPixelHeight,
-                                                          SunLight :: TileMap :: stMatrixPosition &pos ) const  {
+                                                          SunLight :: TileMap :: stMatrixPosition& pos ) const  {
 
                 int  nCoordX = ( int ) ( coord.x / fZoom );
                 int  nCoordY = ( int ) ( coord.y / fZoom );
@@ -176,13 +176,13 @@ namespace SunLight  {
                 return true;
             }
 
-            SunLight :: Base :: stSize2D HexagonalProjection :: DefaultScrollStep( tmx_map *pMap ) const  {
+            SunLight :: Base :: stSize2D HexagonalProjection :: DefaultScrollStep( tmx_map* pMap ) const  {
 
                 return SunLight :: Base :: stSize2D { ( int ) pMap -> tile_width, ( int ) pMap -> tile_height };
             }
 
-            stTileRange HexagonalProjection :: VisibleTileRange( tmx_map *pMap,
-                                                                  const SunLight :: Base :: stRectangle &mapPixelRect ) const  {
+            stTileRange HexagonalProjection :: VisibleTileRange( tmx_map* pMap,
+                                                                  const SunLight :: Base :: stRectangle& mapPixelRect ) const  {
 
                 float  fHalfW  = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
                 float  fHalfH  = ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR;

@@ -27,7 +27,7 @@
 #include "tilemap/tilemapdefs.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace TileMap  {
 
         /**
@@ -121,7 +121,7 @@ namespace SunLight {
              * top-left).
              */
             virtual void SetCameraPosition( int nX, int nY ) = 0;
-            virtual void GetCameraPosition( int &nX, int &nY ) = 0;
+            virtual void GetCameraPosition( int& nX, int& nY ) = 0;
 
             /**
              * @brief Set this view's scroll step size (see
@@ -143,7 +143,7 @@ namespace SunLight {
              * @param nStepWidth Output parameter receiving the horizontal step;
              * @param nStepHeight Output parameter receiving the vertical step;
              */
-            virtual void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) = 0;
+            virtual void GetScrollStepSize( int& nStepWidth, int& nStepHeight ) = 0;
 
             /**
              * @brief Whether this view has been removed from its renderer
@@ -191,7 +191,7 @@ namespace SunLight {
              */
             virtual void SetClearBackground( bool bClear ) = 0;
             virtual bool GetClearBackground( void ) = 0;
-            virtual void SetBackgroundColor( const SunLight :: Base :: stColor &color ) = 0;
+            virtual void SetBackgroundColor( const SunLight :: Base :: stColor& color ) = 0;
 
             /**
              * @brief Go back to the default background color: the loaded
@@ -223,13 +223,13 @@ namespace SunLight {
              * @return false (and nothing changed) when no layer of the loaded
              * map has that name, or no map is loaded.
              */
-            virtual bool ShowLayer( const char *szLayerName, bool bShow ) = 0;
+            virtual bool ShowLayer( const char* szLayerName, bool bShow ) = 0;
 
             /**
              * @brief Show ONLY the given layers (by id); every other layer -
              * including any added to the map later - is masked out.
              */
-            virtual void ShowOnlyLayers( const std :: vector<int> &layerIds ) = 0;
+            virtual void ShowOnlyLayers( const std :: vector<int>& layerIds ) = 0;
 
             /**
              * @brief Clear the mask: every layer is shown again.
@@ -268,4 +268,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __IVIEW_H__ */
+#endif /* __IVIEW_H__ */

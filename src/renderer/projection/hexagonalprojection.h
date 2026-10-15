@@ -57,35 +57,35 @@ namespace SunLight  {
 
                 public:
 
-                SunLight :: Base :: stSize2D MapPixelSize( tmx_map *pMap ) const override;
+                SunLight :: Base :: stSize2D MapPixelSize( tmx_map* pMap ) const override;
 
-                SunLight :: Base :: stCoordinate2D TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                      tmx_map *pMap,
+                SunLight :: Base :: stCoordinate2D TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                      tmx_map* pMap,
                                                                       int nTileWidth,
                                                                       int nTileHeight,
                                                                       int nLayerOffsetX,
                                                                       int nLayerOffsetY ) const override;
 
-                SunLight :: Base :: stDimension2D TileViewRect( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                 tmx_map *pMap,
-                                                                 const SunLight :: Base :: stDimension2D &viewport,
-                                                                 const SunLight :: Base :: stVector2D &camera ) const override;
+                SunLight :: Base :: stDimension2D TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                 tmx_map* pMap,
+                                                                 const SunLight :: Base :: stDimension2D& viewport,
+                                                                 const SunLight :: Base :: stVector2D& camera ) const override;
 
-                bool ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D &coord,
-                                      tmx_map *pMap,
-                                      const SunLight :: Base :: stDimension2D &viewport,
-                                      const SunLight :: Base :: stVector2D &camera,
+                bool ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                      tmx_map* pMap,
+                                      const SunLight :: Base :: stDimension2D& viewport,
+                                      const SunLight :: Base :: stVector2D& camera,
                                       float fZoom,
                                       int nMapPixelWidth,
                                       int nMapPixelHeight,
-                                      SunLight :: TileMap :: stMatrixPosition &pos ) const override;
+                                      SunLight :: TileMap :: stMatrixPosition& pos ) const override;
 
-                SunLight :: Base :: stSize2D DefaultScrollStep( tmx_map *pMap ) const override;
+                SunLight :: Base :: stSize2D DefaultScrollStep( tmx_map* pMap ) const override;
 
-                stTileRange VisibleTileRange( tmx_map *pMap,
-                                              const SunLight :: Base :: stRectangle &mapPixelRect ) const override;
+                stTileRange VisibleTileRange( tmx_map* pMap,
+                                              const SunLight :: Base :: stRectangle& mapPixelRect ) const override;
             };
         }
     }
 }
-#endif  /* __HEXAGONALPROJECTION_H__ */
+#endif /* __HEXAGONALPROJECTION_H__ */

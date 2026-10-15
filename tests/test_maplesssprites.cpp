@@ -89,7 +89,7 @@ namespace  {
         std :: vector<void*>  TileHandles( void )  {
             std :: vector<void*>  handles;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: TILE )
                     handles.push_back( evt.handle );
 
@@ -104,7 +104,7 @@ namespace  {
         MaplessScene                         &m_Scene;
         int                                  m_nLayerId;
 
-        SpriteRig( MaplessScene &scene, int nLayerId, void *handle ) : m_Scene( scene ), m_nLayerId( nLayerId )  {
+        SpriteRig( MaplessScene& scene, int nLayerId, void* handle ) : m_Scene( scene ), m_nLayerId( nLayerId )  {
 
             scene.engine().hLoadTextureResult = handle;
             scene.engine().nLoadTextureWidth  = 16;
@@ -200,7 +200,7 @@ TEST_SUITE( "renderer/mapless_sprites" )  {
 
         int  nClips = 0;
 
-        for( const Event &evt : scene.engine().events )
+        for( const Event& evt : scene.engine().events )
             if( evt.kind == Event :: CLIP_BEGIN )
                 nClips++;
 

@@ -61,7 +61,7 @@ namespace SunLight  {
              * called at all, and @see ReadFile behaves exactly as it
              * always has.
              */
-            typedef std :: function<bool( const std :: vector<unsigned char> &in, std :: vector<unsigned char> &out )>  ReadFilterCallback;
+            typedef std :: function<bool( const std :: vector<unsigned char>& in, std :: vector<unsigned char>& out )>  ReadFilterCallback;
 
             virtual ~IFileSystem( void )  {}
 
@@ -126,7 +126,7 @@ namespace SunLight  {
              * @param strRealPath Real, OS-native path to convert;
              * @return strRealPath's own equivalent, legal virtual path;
              */
-            static std :: string ToVirtualPath( const std :: string &strRealPath );
+            static std :: string ToVirtualPath( const std :: string& strRealPath );
 
             /**
              * @brief Must be implemented to perform whatever one-time
@@ -139,7 +139,7 @@ namespace SunLight  {
              * platform-specific support files;
              * @return true on success, false on failure;
              */
-            virtual bool Init( const char *szArgv0 ) = 0;
+            virtual bool Init( const char* szArgv0 ) = 0;
 
             /**
              * @brief Must be implemented to release whatever @see Init
@@ -167,7 +167,7 @@ namespace SunLight  {
              * doesn't exist, or isn't a directory/archive the backend
              * recognizes);
              */
-            virtual bool Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath ) = 0;
+            virtual bool Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath ) = 0;
 
             /**
              * @brief Must be implemented to report whether a file exists
@@ -177,7 +177,7 @@ namespace SunLight  {
              * @return true if a readable file exists there, false
              * otherwise (including when nothing has been mounted yet);
              */
-            virtual bool Exists( const std :: string &strVirtualPath ) = 0;
+            virtual bool Exists( const std :: string& strVirtualPath ) = 0;
 
             /**
              * @brief Must be implemented to read an entire file's
@@ -190,9 +190,9 @@ namespace SunLight  {
              * @return true on success, false if the file doesn't exist or
              * couldn't be read;
              */
-            virtual bool ReadFile( const std :: string &strVirtualPath, std :: vector<unsigned char> &outData ) = 0;
+            virtual bool ReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData ) = 0;
         };
     }
 }
 
-#endif  /* __IFILESYSTEM_H__ */
+#endif /* __IFILESYSTEM_H__ */

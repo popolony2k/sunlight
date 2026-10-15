@@ -36,7 +36,7 @@
  * Shapes and the HUD are drawn every frame from OnUpdate, which Run() calls inside the frame's
  * render target, after the sprites.
  */
-class World : public SunLight :: TileMap :: ITileMapListener {
+class World : public SunLight :: TileMap :: ITileMapListener  {
 
     std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteSunny;

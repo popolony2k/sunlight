@@ -106,9 +106,9 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> ResetZoom();
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
-    if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) ) {
+    if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) )  {
         SunLight :: Base :: stDimension2D    dim;
 
         dim.pos.x = 100;

@@ -36,4 +36,4 @@ namespace SunLight  {
         }
     }
 }
-#endif  /* __MAPORIENTATION_H__ */
+#endif /* __MAPORIENTATION_H__ */

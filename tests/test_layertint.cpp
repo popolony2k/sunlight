@@ -51,7 +51,7 @@ namespace  {
     // One 2x1 tile layer, "tinted" - its own tintcolor is substituted per test via a
     // placeholder, and one 2x1 "untinted" layer with no tintcolor attribute at all (the
     // default-omitted case).
-    Bytes MakeLayerTintTmx( const char *szTintAttr )  {
+    Bytes MakeLayerTintTmx( const char* szTintAttr )  {
 
         std :: ostringstream  tmx;
 
@@ -78,7 +78,7 @@ namespace  {
         MemoryFileSystemFixture             fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        Scene( const char *szTintAttr )  {
+        Scene( const char* szTintAttr )  {
             fsFixture.fs.files["maps/tint.tmx"] = MakeLayerTintTmx( szTintAttr );
 
             RendererConfig  config;
@@ -111,7 +111,7 @@ namespace  {
         std :: vector<Event> TileEvents( void )  {
             std :: vector<Event>  tiles;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: TILE )
                     tiles.push_back( evt );
 
@@ -132,7 +132,7 @@ TEST_SUITE( "renderer/layer_tint" )  {
 
         REQUIRE( tiles.size() == 4 );   // both layers, 2 tiles each
 
-        for( const Event &tile : tiles )  {
+        for( const Event& tile : tiles )  {
             CHECK( tile.color.nRed   == 0xFF );
             CHECK( tile.color.nGreen == 0xFF );
             CHECK( tile.color.nBlue  == 0xFF );

@@ -38,7 +38,7 @@ namespace  {
         return pRenderer;
     }
 
-    bool HasMap( TileMapRenderer &renderer )  {
+    bool HasMap( TileMapRenderer& renderer )  {
 
         SunLight :: TileMap :: stMapInfo  info {};
 

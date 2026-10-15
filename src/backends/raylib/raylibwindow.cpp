@@ -58,7 +58,7 @@ namespace SunLight  {
              * going through the same window-size switch SetFullscreen does, and
              * FLAG_BORDERLESS_WINDOWED_MODE is not applied at creation at all.
              */
-            bool RaylibWindow :: Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
+            bool RaylibWindow :: Create( int nWidth, int nHeight, const char* szTitle, bool bResizeable,
                                          bool bFullscreen, SunLight :: Window :: FullscreenStrategy strategy )  {
 
                 bool          bHideWhileSwitching = ( bFullscreen &&
@@ -106,7 +106,7 @@ namespace SunLight  {
              * @brief Register a handler fired by Close() (see
              * IWindow::AddCloseHandler).
              */
-            int RaylibWindow :: AddCloseHandler( const std :: function<void( void )> &handler )  {
+            int RaylibWindow :: AddCloseHandler( const std :: function<void( void )>& handler )  {
 
                 return m_CloseHandlers.Add( handler );
             }
@@ -274,7 +274,7 @@ namespace SunLight  {
              * desktop backend), so this is only meaningful once the
              * window already exists.
              */
-            void RaylibWindow :: SetWindowTitle( const char *szTitle )  {
+            void RaylibWindow :: SetWindowTitle( const char* szTitle )  {
 
                 ::SetWindowTitle( szTitle );
             }

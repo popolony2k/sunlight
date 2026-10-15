@@ -25,7 +25,7 @@
 #include "base/viewport.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
         /**
          * @brief Base canvas implementation.
@@ -55,13 +55,13 @@ namespace SunLight {
             BaseCanvas( void );
             virtual ~BaseCanvas( void );
 
-            virtual void SetParent( BaseCanvas *pParent );
+            virtual void SetParent( BaseCanvas* pParent );
             BaseCanvas* GetParent( void );
 
             // Called by a child on its parent when the child is DESTROYED or given a different parent, so
             // that a parent which keeps raw pointers to its children (TileMapRenderer's registered
             // sprites) can forget it. Does nothing by default.
-            virtual void ChildRemoved( BaseCanvas *pChild );
+            virtual void ChildRemoved( BaseCanvas* pChild );
 
             // WORLD SPACE. By default a canvas' position is relative to the view that draws it (a sprite is
             // drawn at position x zoom from the view's origin and ignores the view's camera). A world-space
@@ -81,7 +81,7 @@ namespace SunLight {
             // regardless of what it was called with; only TileMapRenderer's own override gives the
             // parameter any meaning (a layer's parallax factor). Defaulted so every existing 2-argument
             // call site keeps compiling unchanged.
-            virtual void GetCameraOffset( float &fX, float &fY, int nLayerId = -1 );
+            virtual void GetCameraOffset( float& fX, float& fY, int nLayerId = -1 );
 
             // L1 of the master plan: which renderer layer (if any) this canvas should be treated as
             // belonging to for parallax purposes - set by TileMapRenderer::AddSprite, -1 (GetCameraOffset's
@@ -92,7 +92,7 @@ namespace SunLight {
             virtual void SetVisible( bool bVisible );
             virtual bool GetVisible( void );
 
-            void SetViewport( SunLight :: Base :: Viewport *pViewport );
+            void SetViewport( SunLight :: Base :: Viewport* pViewport );
             SunLight :: Base :: Viewport& GetViewport( void );
         };
     }

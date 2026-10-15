@@ -25,7 +25,7 @@
 #include <map>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -59,4 +59,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __ACTIONMAP_H__ */
+#endif /* __ACTIONMAP_H__ */

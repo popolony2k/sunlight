@@ -35,7 +35,7 @@ typedef MockEngine :: Event              Event;
 namespace  {
 
     // A tileset of two 16 x 16 tiles (gids 1 and 2), and a map holding one object group with the given objects.
-    Bytes MakeTmx( const std :: string &strObjects )  {
+    Bytes MakeTmx( const std :: string& strObjects )  {
 
         std :: ostringstream  tmx;
 
@@ -60,7 +60,7 @@ namespace  {
         MemoryFileSystemFixture  fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        explicit Frame( const std :: string &strObjects )  {
+        explicit Frame( const std :: string& strObjects )  {
 
             fsFixture.fs.files["maps/rotated.tmx"] = MakeTmx( strObjects );
 
@@ -92,7 +92,7 @@ namespace  {
         std :: vector<Event>  Of( Event :: Kind kind ) const  {
             std :: vector<Event>  found;
 
-            for( const Event &evt : engineFixture.engine.events )
+            for( const Event& evt : engineFixture.engine.events )
                 if( evt.kind == kind )
                     found.push_back( evt );
 

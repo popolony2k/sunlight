@@ -31,13 +31,13 @@ namespace SunLight  {
                 const int  __NO_GRID_CELLS  = 0;   // the near edge of every map's grid
             }
 
-            SunLight :: Base :: stSize2D OrthogonalProjection :: MapPixelSize( tmx_map *pMap ) const  {
+            SunLight :: Base :: stSize2D OrthogonalProjection :: MapPixelSize( tmx_map* pMap ) const  {
 
                 return SunLight :: Base :: stSize2D { ( int ) ( pMap -> width * pMap -> tile_width ),
                                                        ( int ) ( pMap -> height * pMap -> tile_height ) };
             }
 
-            SunLight :: Base :: stCoordinate2D OrthogonalProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition &pos,
+            SunLight :: Base :: stCoordinate2D OrthogonalProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition& pos,
                                                                                           tmx_map * /* pMap */,
                                                                                           int nTileWidth,
                                                                                           int nTileHeight,
@@ -48,10 +48,10 @@ namespace SunLight  {
                                                              ( pos.nTileRow * nTileHeight ) + nLayerOffsetY };
             }
 
-            SunLight :: Base :: stDimension2D OrthogonalProjection :: TileViewRect( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                                     tmx_map *pMap,
-                                                                                     const SunLight :: Base :: stDimension2D &viewport,
-                                                                                     const SunLight :: Base :: stVector2D &camera ) const  {
+            SunLight :: Base :: stDimension2D OrthogonalProjection :: TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                                     tmx_map* pMap,
+                                                                                     const SunLight :: Base :: stDimension2D& viewport,
+                                                                                     const SunLight :: Base :: stVector2D& camera ) const  {
 
                 SunLight :: Base :: stDimension2D  tile;
 
@@ -63,14 +63,14 @@ namespace SunLight  {
                 return tile;
             }
 
-            bool OrthogonalProjection :: ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D &coord,
-                                                           tmx_map *pMap,
-                                                           const SunLight :: Base :: stDimension2D &viewport,
-                                                           const SunLight :: Base :: stVector2D &camera,
+            bool OrthogonalProjection :: ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                                           tmx_map* pMap,
+                                                           const SunLight :: Base :: stDimension2D& viewport,
+                                                           const SunLight :: Base :: stVector2D& camera,
                                                            float fZoom,
                                                            int nMapPixelWidth,
                                                            int nMapPixelHeight,
-                                                           SunLight :: TileMap :: stMatrixPosition &pos ) const  {
+                                                           SunLight :: TileMap :: stMatrixPosition& pos ) const  {
 
                 int  nCoordX = ( int ) ( coord.x / fZoom );
                 int  nCoordY = ( int ) ( coord.y / fZoom );
@@ -85,13 +85,13 @@ namespace SunLight  {
                 return true;
             }
 
-            SunLight :: Base :: stSize2D OrthogonalProjection :: DefaultScrollStep( tmx_map *pMap ) const  {
+            SunLight :: Base :: stSize2D OrthogonalProjection :: DefaultScrollStep( tmx_map* pMap ) const  {
 
                 return SunLight :: Base :: stSize2D { ( int ) pMap -> tile_width, ( int ) pMap -> tile_height };
             }
 
-            stTileRange OrthogonalProjection :: VisibleTileRange( tmx_map *pMap,
-                                                                   const SunLight :: Base :: stRectangle &mapPixelRect ) const  {
+            stTileRange OrthogonalProjection :: VisibleTileRange( tmx_map* pMap,
+                                                                   const SunLight :: Base :: stRectangle& mapPixelRect ) const  {
 
                 stTileRange  range;
 

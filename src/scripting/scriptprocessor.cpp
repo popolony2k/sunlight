@@ -23,7 +23,7 @@
 
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Scripting  {
 
         /**
@@ -50,7 +50,7 @@ namespace SunLight {
          * 
          * @param pCmd Pointer to command that will be added;
          */
-        void ScriptProcessor :: Add( SunLight :: Scripting :: BaseCommand *pCmd )  {
+        void ScriptProcessor :: Add( SunLight :: Scripting :: BaseCommand* pCmd )  {
 
             m_CommandQueue.push_back( pCmd );
         }
@@ -59,9 +59,9 @@ namespace SunLight {
          * @brief Allocates a no parameter command object and add it to processor;
          * @param cmd Command to be added;
          */
-        void ScriptProcessor :: AddNoParmCmd( SunLight :: Scripting :: Commands cmd ) {
+        void ScriptProcessor :: AddNoParmCmd( SunLight :: Scripting :: Commands cmd )  {
 
-            BaseCommand *pCmd = new BaseCommand();
+            BaseCommand* pCmd = new BaseCommand();
 
             pCmd -> cmd = cmd;
             Add( pCmd );
@@ -73,7 +73,7 @@ namespace SunLight {
          * @param cmd Command to be added;
          * @param nParm Parameter to be added;
          */
-        void ScriptProcessor :: AddOneParmCmd( SunLight :: Scripting :: Commands cmd, uint16_t nParm ) {
+        void ScriptProcessor :: AddOneParmCmd( SunLight :: Scripting :: Commands cmd, uint16_t nParm )  {
 
             OneParmCommand  *pCmd = new OneParmCommand();
 
@@ -200,7 +200,7 @@ namespace SunLight {
                             CommandLabelMap :: iterator     itLoopCmd  = m_CommandLabelMap.find( pParm ->nParm );
 
                             if( itLoopCmd != m_CommandLabelMap.end() )  {
-                                TwoParmsCommand *pLoopParm = ( TwoParmsCommand * ) m_CommandQueue[itLoopCmd -> second];
+                                TwoParmsCommand* pLoopParm = ( TwoParmsCommand * ) m_CommandQueue[itLoopCmd -> second];
 
                                 if( pLoopParm -> data.nCounter > 0 )  {
                                     pLoopParm -> data.nCounter--;
@@ -268,7 +268,7 @@ namespace SunLight {
          * 
          * @param pListener A pointer to listener object;
          */
-        void ScriptProcessor :: AddScriptListener( SunLight :: Scripting :: IScriptListener *pListener )  {
+        void ScriptProcessor :: AddScriptListener( SunLight :: Scripting :: IScriptListener* pListener )  {
 
             m_pListener = pListener;
         }

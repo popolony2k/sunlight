@@ -240,7 +240,7 @@ TEST_SUITE( "input/ControllerManager" )  {
         ControllerManager                     manager;
         std :: vector<std :: pair<int, bool>>  events;
 
-        manager.SetGamepadConnectionHandler( [&]( int nGamePadId, bool bConnected ) {
+        manager.SetGamepadConnectionHandler( [&]( int nGamePadId, bool bConnected )  {
             events.push_back( { nGamePadId, bConnected } );
         } );
 
@@ -268,7 +268,7 @@ TEST_SUITE( "input/ControllerManager" )  {
         fixture.pLastCreated -> availableGamepads.insert( 3 );
         manager.Update();   // establish id 3 as already-connected baseline
 
-        manager.SetGamepadConnectionHandler( [&]( int nGamePadId, bool bConnected ) {
+        manager.SetGamepadConnectionHandler( [&]( int nGamePadId, bool bConnected )  {
             events.push_back( { nGamePadId, bConnected } );
         } );
 

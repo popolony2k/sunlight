@@ -47,7 +47,7 @@ namespace SunLight  {
          * @param fOpacity opacity level to be applied on texture;
          * @param tintColor tint color to be applied on texture;
          */
-        void LayerRenderer :: DrawTile( const DrawContext &context,
+        void LayerRenderer :: DrawTile( const DrawContext& context,
                                         SunLight :: Base :: TextureHandle pImage,
                                         int32_t nSourceX,
                                         int32_t nSourceY,
@@ -68,7 +68,7 @@ namespace SunLight  {
             if( SunLight :: Base :: Viewport :: ClipRect( context.viewport, context.fZoom, dm, clip ) )  {
 
                 float                                 fZoomFactor = context.fZoom;
-                const SunLight :: Base :: stDimension2D &vpDm   = context.viewport;
+                const SunLight :: Base :: stDimension2D& vpDm   = context.viewport;
                 // Study: the whole tile is drawn at its zoomed size; the view pass's clip cuts it.
                 //
                 // The destination rect is rounded to the nearest whole screen pixel, half-up
@@ -134,7 +134,7 @@ namespace SunLight  {
          * @param fOpacity The opacity to draw it with - its own "opacity" property, or its
          * layer's (ObjectRenderer works it out, ObjectOpacity);
          */
-        void LayerRenderer :: DrawTileObject( const DrawContext &context, MapData &map, tmx_object *pObject, tmx_layer *pLayer, float fOpacity ) const  {
+        void LayerRenderer :: DrawTileObject( const DrawContext& context, MapData& map, tmx_object* pObject, tmx_layer* pLayer, float fOpacity ) const  {
 
             unsigned int  nGID = pObject -> content.gid & TMX_FLIP_BITS_REMOVAL;
 
@@ -239,7 +239,7 @@ namespace SunLight  {
          * @param context The view and layer to draw for;
          * @param pLayer The image layer to draw;
          */
-        void LayerRenderer :: DrawImageLayer( const DrawContext &context, tmx_layer *pLayer ) const  {
+        void LayerRenderer :: DrawImageLayer( const DrawContext& context, tmx_layer* pLayer ) const  {
 
             tmx_image                             *pTmxImage = pLayer -> content.image;
             void                                   *pImage    = pTmxImage -> resource_image;
@@ -252,7 +252,7 @@ namespace SunLight  {
             if( SunLight :: Base :: Viewport :: ClipRect( context.viewport, context.fZoom, dm, clip ) )  {
 
                 float                                 fZoomFactor = context.fZoom;
-                const SunLight :: Base :: stDimension2D &vpDm   = context.viewport;
+                const SunLight :: Base :: stDimension2D& vpDm   = context.viewport;
 
                 // Rounded to the nearest whole screen pixel, half-up - see DrawTile's own
                 // identical rounding and its doc comment for why (a non-integer zoom can land
@@ -281,7 +281,7 @@ namespace SunLight  {
          * @param map The loaded map;
          * @param pLayer The tile layer to draw;
          */
-        void LayerRenderer :: DrawTileLayer( const DrawContext &context, MapData &map, tmx_layer *pLayer ) const  {
+        void LayerRenderer :: DrawTileLayer( const DrawContext& context, MapData& map, tmx_layer* pLayer ) const  {
 
             float                              fOpacity  = ( float ) pLayer -> opacity;
             SunLight :: Base :: stColor  tintColor = Shape :: ColorOf( pLayer -> tintcolor );
@@ -313,8 +313,8 @@ namespace SunLight  {
                 range = Projection :: stTileRange { 0, ( int ) pTmxMap -> height, 0, ( int ) pTmxMap -> width };
             }
 
-            for( int i = range.nRowStart; i < range.nRowEnd; i++ ) {
-                for( int j = range.nColStart; j < range.nColEnd; j++ ) {
+            for( int i = range.nRowStart; i < range.nRowEnd; i++ )  {
+                for( int j = range.nColStart; j < range.nColEnd; j++ )  {
                     SunLight :: TileMap :: stTile            tile;
                     SunLight :: TileMap :: stMatrixPosition  pos   = { i, j };
 
@@ -332,10 +332,10 @@ namespace SunLight  {
 
                         pTs = pTile -> tileset;
 
-                        if( pIm ) {
+                        if( pIm )  {
                             pImage = pIm -> resource_image;
                         }
-                        else {
+                        else  {
                             pImage = pTs -> image -> resource_image;
                         }
 

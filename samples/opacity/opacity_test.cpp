@@ -43,7 +43,7 @@ namespace  {
     const int  __START_CAMERA_Y  = 100;
 }
 
-int main( int argc, char **argv ) {
+int main( int argc, char** argv )  {
 
     if( argc < 2 )  {
         fprintf( stderr, "Invalid command line arguments: opacity_test <sample directory>\n" );

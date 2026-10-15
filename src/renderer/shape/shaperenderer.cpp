@@ -46,14 +46,14 @@ namespace SunLight  {
          */
         std :: vector<Shape :: ScreenPoint> ShapeRenderer :: ScreenPointsOf( double fOriginX,
                                                                              double fOriginY,
-                                                                             double **fPoints,
+                                                                             double** fPoints,
                                                                              int nPointsCount,
                                                                              double fZoom,
                                                                              double fRotation ) const  {
             std :: vector<Shape :: ScreenPoint>  points;
 
             // Each point turns about the shape's stored point in map units, before the zoom is applied.
-            for( int i = 0; i < nPointsCount; i++ ) {
+            for( int i = 0; i < nPointsCount; i++ )  {
                 Shape :: MapPoint  turned = Shape :: Rotate( Shape :: MapPoint { fPoints[i][0], fPoints[i][1] }, fRotation );
 
                 points.push_back( Shape :: ScreenPoint { ( int ) ( fOriginX + ( turned.fX * fZoom ) ),
@@ -74,10 +74,10 @@ namespace SunLight  {
          * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
          * @param color The colour;
          */
-        void ShapeRenderer :: DrawPolyline( const DrawContext &context,
+        void ShapeRenderer :: DrawPolyline( const DrawContext& context,
                                             double fOffset_x,
                                             double fOffset_y,
-                                            double **fPoints,
+                                            double** fPoints,
                                             int nPointsCount,
                                             double fRotation,
                                             int nLineWidth,
@@ -89,12 +89,12 @@ namespace SunLight  {
 
             std :: vector<Shape :: ScreenPoint>  points = ScreenPointsOf( fOffset_x, fOffset_y, fPoints, nPointsCount, context.fZoom, fRotation );
 
-            if( nLineWidth > __HAIRLINE_WIDTH ) {
+            if( nLineWidth > __HAIRLINE_WIDTH )  {
                 Shape :: DrawStrokedPath( points, false, nLineWidth, color );
                 return;
             }
 
-            for( int i=1; i < nPointsCount; i++ ) {
+            for( int i=1; i < nPointsCount; i++ )  {
 
                 DrawEdge( points[i-1].nX, points[i-1].nY, points[i].nX, points[i].nY, nLineWidth, color );
             }
@@ -111,17 +111,17 @@ namespace SunLight  {
          * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
          * @param color The colour;
          */
-        void ShapeRenderer :: DrawPolygon( const DrawContext &context,
+        void ShapeRenderer :: DrawPolygon( const DrawContext& context,
                                            double fOffset_x,
                                            double fOffset_y,
-                                           double **fPoints,
+                                           double** fPoints,
                                            int nPointsCount,
                                            double fRotation,
                                            int nLineWidth,
                                            SunLight :: Base :: stColor color ) const  {
             Shape :: PrimitiveClip  primitiveClip( context.viewport );
 
-            if( nLineWidth > __HAIRLINE_WIDTH ) {
+            if( nLineWidth > __HAIRLINE_WIDTH )  {
                 Shape :: DrawStrokedPath( ScreenPointsOf( ( ( fOffset_x + context.camera.x ) * context.fZoom ) + context.viewport.pos.x,
                                                           ( ( fOffset_y + context.camera.y ) * context.fZoom ) + context.viewport.pos.y,
                                                           fPoints, nPointsCount, context.fZoom, fRotation ),
@@ -138,7 +138,7 @@ namespace SunLight  {
                           __HAIRLINE_WIDTH,
                           color );
 
-            if( nPointsCount > 2 ) {
+            if( nPointsCount > 2 )  {
 
                 fOffset_x = ( ( fOffset_x + context.camera.x ) * context.fZoom ) + context.viewport.pos.x;
                 fOffset_y = ( ( fOffset_y + context.camera.y ) * context.fZoom ) + context.viewport.pos.y;
@@ -160,7 +160,7 @@ namespace SunLight  {
          * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
          * @param color The colour;
          */
-        void ShapeRenderer :: DrawRectangle( const DrawContext &context,
+        void ShapeRenderer :: DrawRectangle( const DrawContext& context,
                                              double fOffset_x,
                                              double fOffset_y,
                                              double fWidth,
@@ -174,7 +174,7 @@ namespace SunLight  {
             Shape :: MapPoint  local[] = { { 0.0, 0.0 }, { fWidth, 0.0 }, { fWidth, fHeight }, { 0.0, fHeight } };
             std :: vector<Shape :: ScreenPoint>  corners;
 
-            for( const Shape :: MapPoint &point : local )  {
+            for( const Shape :: MapPoint& point : local )  {
                 Shape :: MapPoint  turned = Shape :: Rotate( point, fRotation );
 
                 corners.push_back( Shape :: ScreenPoint { ( int ) ( ( ( fOffset_x + turned.fX + context.camera.x ) * context.fZoom ) + context.viewport.pos.x ),
@@ -182,7 +182,7 @@ namespace SunLight  {
             }
 
             // A wide edge is the closed path of the four corners, so each corner is a round join.
-            if( nLineWidth > __HAIRLINE_WIDTH ) {
+            if( nLineWidth > __HAIRLINE_WIDTH )  {
                 Shape :: DrawStrokedPath( corners, true, nLineWidth, color );
                 return;
             }
@@ -203,7 +203,7 @@ namespace SunLight  {
          * @param fSize Size of the point, in map units;
          * @param color The colour;
          */
-        void ShapeRenderer :: DrawPoint( const DrawContext &context,
+        void ShapeRenderer :: DrawPoint( const DrawContext& context,
                                          double fOffset_x,
                                          double fOffset_y,
                                          double fSize,
@@ -227,7 +227,7 @@ namespace SunLight  {
          * @param nLineWidth Line width in screen pixels (already scaled by the zoom);
          * @param color The colour;
          */
-        void ShapeRenderer :: DrawEllipse( const DrawContext &context,
+        void ShapeRenderer :: DrawEllipse( const DrawContext& context,
                                            double fOffset_x,
                                            double fOffset_y,
                                            double fWidth,

@@ -80,7 +80,7 @@ namespace SunLight  {
              * if it doesn't exist/couldn't be read (same failure shape as
              * raylib's own default LoadFileData);
              */
-            static unsigned char* FileSystemLoadFileDataCallback( const char *szFileName, int *pDataSize )  {
+            static unsigned char* FileSystemLoadFileDataCallback( const char* szFileName, int* pDataSize )  {
 
                 std :: vector<unsigned char>  data;
                 std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
@@ -132,7 +132,7 @@ namespace SunLight  {
              * read (same failure shape as raylib's own default
              * LoadFileText);
              */
-            static char* FileSystemLoadFileTextCallback( const char *szFileName )  {
+            static char* FileSystemLoadFileTextCallback( const char* szFileName )  {
 
                 std :: vector<unsigned char>  data;
                 std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
@@ -165,7 +165,7 @@ namespace SunLight  {
              * @return The font; invalid (::IsFontValid false), with nothing allocated, if it
              * could not be loaded;
              */
-            static ::Font LoadFontFile( const char *szFilePath )  {
+            static ::Font LoadFontFile( const char* szFilePath )  {
 
                 if( ::IsFileExtension( szFilePath, ".ttf;.otf" ) )  {
                     const std :: vector<int>  &codepoints = TtfCodepoints();
@@ -216,21 +216,22 @@ namespace SunLight  {
              * @brief Draw part of a texture (defined by a rectangle) with rotation and scale tiled into dest
              * This routines is planned to be removed after raylib 4.2.0 and was moved to a samples project directory
              * found at https://github.com/raysan5/raylib/blob/master/examples/textures/textures_draw_tiled.c
+             * (raylib's example, adapted to sunlight's code style).
              *
-             * @param hTexture
-             * @param sourceIn
-             * @param destIn
-             * @param originIn
-             * @param rotation
-             * @param scale
-             * @param tintIn
+             * @param hTexture The texture to draw from;
+             * @param sourceIn The part of the texture to repeat;
+             * @param destIn The rectangle to fill with it;
+             * @param originIn The rotation origin, relative to each drawn tile;
+             * @param fRotation The rotation, in degrees;
+             * @param fScale The scale of each tile;
+             * @param tintIn The tint to draw with;
              */
             void RaylibEngine :: DrawTextureTiled( SunLight :: Base :: TextureHandle hTexture,
                                                    SunLight :: Base :: stRectangle sourceIn,
                                                    SunLight :: Base :: stRectangle destIn,
                                                    SunLight :: Base :: stVector2D originIn,
-                                                   float rotation,
-                                                   float scale,
+                                                   float fRotation,
+                                                   float fScale,
                                                    SunLight :: Base :: stColor tintIn )  {
 
                 Texture2D  texture = *reinterpret_cast<Texture2D*>( hTexture );
@@ -239,170 +240,167 @@ namespace SunLight  {
                 Vector2    origin  { originIn.x, originIn.y };
                 Color      tint    { tintIn.nRed, tintIn.nGreen, tintIn.nBlue, tintIn.nAlpha };
 
-                if ((texture.id <= 0) || (scale <= 0.0f)) return;  // Wanna see a infinite loop?!...just delete this line!
-                if ((source.width == 0) || (source.height == 0)) return;
+                // A zero-sized tile would never advance the loops below: they would never end.
+                if( ( texture.id <= 0 ) || ( fScale <= 0.0f ) )
+                    return;
 
-                int tileWidth = (int)(source.width*scale), tileHeight = (int)(source.height*scale);
-                if ((dest.width < tileWidth) && (dest.height < tileHeight))
-                {
+                if( ( source.width == 0 ) || ( source.height == 0 ) )
+                    return;
+
+                int  nTileWidth  = ( int ) ( source.width * fScale );
+                int  nTileHeight = ( int ) ( source.height * fScale );
+
+                if( ( dest.width < nTileWidth ) && ( dest.height < nTileHeight ) )  {
                     // Can fit only one tile
-                    ::DrawTexturePro( texture, 
-                                      Rectangle{ source.x, source.y, 
-                                                 ((float)dest.width/tileWidth)*source.width, 
-                                                 ((float)dest.height/tileHeight)*source.height },
-                                      Rectangle { dest.x, 
-                                                  dest.y, 
+                    ::DrawTexturePro( texture,
+                                      Rectangle { source.x, source.y,
+                                                  ( ( float ) dest.width / nTileWidth ) * source.width,
+                                                  ( ( float ) dest.height / nTileHeight ) * source.height },
+                                      Rectangle { dest.x,
+                                                  dest.y,
                                                   dest.width,
-                                                  dest.height }, 
-                                      origin, 
-                                      rotation, 
+                                                  dest.height },
+                                      origin,
+                                      fRotation,
                                       tint );
                 }
-                else if (dest.width <= tileWidth)
-                {
+                else if( dest.width <= nTileWidth )  {
                     // Tiled vertically (one column)
-                    int dy = 0;
-                    for (;dy+tileHeight < dest.height; dy += tileHeight)
-                    {
-                        ::DrawTexturePro( texture, 
-                                          Rectangle{ source.x, 
-                                                     source.y, 
-                                                     ((float)dest.width/tileWidth)*source.width, 
-                                                     source.height }, 
-                                          Rectangle{ dest.x, 
-                                                     dest.y + dy, 
-                                                     dest.width, 
-                                                     (float)tileHeight }, 
-                                          origin, 
-                                          rotation, 
+                    int  nDy = 0;
+
+                    for( ; nDy + nTileHeight < dest.height; nDy += nTileHeight )  {
+                        ::DrawTexturePro( texture,
+                                          Rectangle { source.x,
+                                                      source.y,
+                                                      ( ( float ) dest.width / nTileWidth ) * source.width,
+                                                      source.height },
+                                          Rectangle { dest.x,
+                                                      dest.y + nDy,
+                                                      dest.width,
+                                                      ( float ) nTileHeight },
+                                          origin,
+                                          fRotation,
                                           tint );
                     }
 
                     // Fit last tile
-                    if (dy < dest.height)
-                    {
-                        ::DrawTexturePro( texture, 
-                                          Rectangle{ source.x, 
-                                                     source.y, 
-                                                     ((float)dest.width/tileWidth)*source.width, 
-                                                     ((float)(dest.height - dy)/tileHeight)*source.height },
-                                          Rectangle{ dest.x, 
-                                                     dest.y + dy, 
-                                                     dest.width, 
-                                                     dest.height - dy }, 
-                                          origin, 
-                                          rotation, 
+                    if( nDy < dest.height )  {
+                        ::DrawTexturePro( texture,
+                                          Rectangle { source.x,
+                                                      source.y,
+                                                      ( ( float ) dest.width / nTileWidth ) * source.width,
+                                                      ( ( float ) ( dest.height - nDy ) / nTileHeight ) * source.height },
+                                          Rectangle { dest.x,
+                                                      dest.y + nDy,
+                                                      dest.width,
+                                                      dest.height - nDy },
+                                          origin,
+                                          fRotation,
                                           tint );
                     }
                 }
-                else if (dest.height <= tileHeight)
-                {
+                else if( dest.height <= nTileHeight )  {
                     // Tiled horizontally (one row)
-                    int dx = 0;
-                    for (;dx+tileWidth < dest.width; dx += tileWidth)
-                    {
-                        ::DrawTexturePro( texture, 
-                                          Rectangle{ source.x, 
-                                                     source.y, 
-                                                     source.width, 
-                                                     ((float)dest.height/tileHeight)*source.height }, 
-                                          Rectangle{ dest.x + dx, 
-                                                     dest.y, 
-                                                     (float)tileWidth, 
-                                                     dest.height }, 
-                                          origin, 
-                                          rotation, 
+                    int  nDx = 0;
+
+                    for( ; nDx + nTileWidth < dest.width; nDx += nTileWidth )  {
+                        ::DrawTexturePro( texture,
+                                          Rectangle { source.x,
+                                                      source.y,
+                                                      source.width,
+                                                      ( ( float ) dest.height / nTileHeight ) * source.height },
+                                          Rectangle { dest.x + nDx,
+                                                      dest.y,
+                                                      ( float ) nTileWidth,
+                                                      dest.height },
+                                          origin,
+                                          fRotation,
                                           tint );
                     }
 
                     // Fit last tile
-                    if (dx < dest.width)
-                    {
-                        ::DrawTexturePro( texture, 
-                                          Rectangle{ source.x, 
-                                                     source.y, 
-                                                     ((float)(dest.width - dx)/tileWidth)*source.width, 
-                                                     ((float)dest.height/tileHeight)*source.height },
-                                          Rectangle{ dest.x + dx, 
-                                                     dest.y, 
-                                                     dest.width - dx,
-                                                     dest.height }, 
-                                          origin, 
-                                          rotation, 
+                    if( nDx < dest.width )  {
+                        ::DrawTexturePro( texture,
+                                          Rectangle { source.x,
+                                                      source.y,
+                                                      ( ( float ) ( dest.width - nDx ) / nTileWidth ) * source.width,
+                                                      ( ( float ) dest.height / nTileHeight ) * source.height },
+                                          Rectangle { dest.x + nDx,
+                                                      dest.y,
+                                                      dest.width - nDx,
+                                                      dest.height },
+                                          origin,
+                                          fRotation,
                                           tint );
                     }
                 }
-                else
-                {
+                else  {
                     // Tiled both horizontally and vertically (rows and columns)
-                    int dx = 0;
-                    for (;dx+tileWidth < dest.width; dx += tileWidth)
-                    {
-                        int dy = 0;
-                        for (;dy+tileHeight < dest.height; dy += tileHeight)
-                        {
-                            ::DrawTexturePro( texture, 
-                                              source, 
-                                              Rectangle{ dest.x + dx, 
-                                                         dest.y + dy, 
-                                                         (float)tileWidth, 
-                                                         (float)tileHeight }, 
-                                              origin, 
-                                              rotation, 
+                    int  nDx = 0;
+
+                    for( ; nDx + nTileWidth < dest.width; nDx += nTileWidth )  {
+                        int  nDy = 0;
+
+                        for( ; nDy + nTileHeight < dest.height; nDy += nTileHeight )  {
+                            ::DrawTexturePro( texture,
+                                              source,
+                                              Rectangle { dest.x + nDx,
+                                                          dest.y + nDy,
+                                                          ( float ) nTileWidth,
+                                                          ( float ) nTileHeight },
+                                              origin,
+                                              fRotation,
                                               tint );
                         }
 
-                        if (dy < dest.height)
-                        {
-                            ::DrawTexturePro( texture, 
-                                              Rectangle{ source.x, 
-                                                         source.y, 
-                                                         source.width, 
-                                                         ((float)(dest.height - dy)/tileHeight)*source.height },
-                                              Rectangle{ dest.x + dx, 
-                                                         dest.y + dy, 
-                                                         (float)tileWidth, 
-                                                         dest.height - dy }, 
-                                              origin, 
-                                              rotation, 
+                        if( nDy < dest.height )  {
+                            ::DrawTexturePro( texture,
+                                              Rectangle { source.x,
+                                                          source.y,
+                                                          source.width,
+                                                          ( ( float ) ( dest.height - nDy ) / nTileHeight ) * source.height },
+                                              Rectangle { dest.x + nDx,
+                                                          dest.y + nDy,
+                                                          ( float ) nTileWidth,
+                                                          dest.height - nDy },
+                                              origin,
+                                              fRotation,
                                               tint );
                         }
                     }
 
                     // Fit last column of tiles
-                    if (dx < dest.width)
-                    {
-                        int dy = 0;
-                        for (;dy+tileHeight < dest.height; dy += tileHeight)
-                        {
-                            ::DrawTexturePro( texture, 
-                                              Rectangle{ source.x, 
-                                                         source.y, 
-                                                         ((float)(dest.width - dx)/tileWidth)*source.width, 
-                                                         source.height },
-                                              Rectangle{ dest.x + dx, 
-                                                         dest.y + dy, 
-                                                         dest.width - dx, 
-                                                         (float)tileHeight}, 
-                                              origin, 
-                                              rotation, 
+                    if( nDx < dest.width )  {
+                        int  nDy = 0;
+
+                        for( ; nDy + nTileHeight < dest.height; nDy += nTileHeight )  {
+                            ::DrawTexturePro( texture,
+                                              Rectangle { source.x,
+                                                          source.y,
+                                                          ( ( float ) ( dest.width - nDx ) / nTileWidth ) * source.width,
+                                                          source.height },
+                                              Rectangle { dest.x + nDx,
+                                                          dest.y + nDy,
+                                                          dest.width - nDx,
+                                                          ( float ) nTileHeight },
+                                              origin,
+                                              fRotation,
                                               tint );
                         }
 
                         // Draw final tile in the bottom right corner
-                        if (dy < dest.height)
-                        {
-                            ::DrawTexturePro( texture, 
-                                              Rectangle{ source.x, 
-                                                         source.y, 
-                                                         ((float)(dest.width - dx)/tileWidth)*source.width, 
-                                                         ((float)(dest.height - dy)/tileHeight)*source.height },
-                                              Rectangle{ dest.x + dx, 
-                                                         dest.y + dy, 
-                                                         dest.width - dx, 
-                                                         dest.height - dy }, 
-                                              origin, 
-                                              rotation, 
+                        if( nDy < dest.height )  {
+                            ::DrawTexturePro( texture,
+                                              Rectangle { source.x,
+                                                          source.y,
+                                                          ( ( float ) ( dest.width - nDx ) / nTileWidth ) * source.width,
+                                                          ( ( float ) ( dest.height - nDy ) / nTileHeight ) * source.height },
+                                              Rectangle { dest.x + nDx,
+                                                          dest.y + nDy,
+                                                          dest.width - nDx,
+                                                          dest.height - nDy },
+                                              origin,
+                                              fRotation,
                                               tint );
                         }
                     }
@@ -465,7 +463,7 @@ namespace SunLight  {
              * after the new one is confirmed valid, so a failed load never
              * leaves DrawText without a usable font.
              */
-            bool RaylibEngine :: SetFont( const char *szFilePath )  {
+            bool RaylibEngine :: SetFont( const char* szFilePath )  {
 
                 ::Font  newFont = LoadFontFile( szFilePath );
 
@@ -502,7 +500,7 @@ namespace SunLight  {
              * @see SetFont: @see LoadFontFile, which returns an
              * all-zero Font on failure, nothing allocated to free.
              */
-            std :: unique_ptr<SunLight :: Font :: IFont> RaylibEngine :: LoadFont( const char *szFilePath )  {
+            std :: unique_ptr<SunLight :: Font :: IFont> RaylibEngine :: LoadFont( const char* szFilePath )  {
 
                 ::Font  newFont = LoadFontFile( szFilePath );
 
@@ -580,7 +578,7 @@ namespace SunLight  {
              * is currently active - the backend's built-in default until
              * @see SetFont is called (see @see IEngine::DrawText).
              */
-            void RaylibEngine :: DrawText( const char *szText,
+            void RaylibEngine :: DrawText( const char* szText,
                                            int nPosX,
                                            int nPosY,
                                            int nFontSize,
@@ -595,7 +593,7 @@ namespace SunLight  {
              * @brief Measure a line of text's rendered width, using the same
              * font as @see DrawText (see @see IEngine::MeasureText).
              */
-            int RaylibEngine :: MeasureText( const char *szText, int nFontSize )  {
+            int RaylibEngine :: MeasureText( const char* szText, int nFontSize )  {
 
                 Vector2  size = ::MeasureTextEx( GetActiveFont(), szText, ( float ) nFontSize, __DEFAULT_TEXT_SPACING );
 
@@ -627,7 +625,7 @@ namespace SunLight  {
 
                 // Each live font is released here and marked invalid, so the
                 // RaylibFont that owns it does not release it a second time.
-                for( std :: weak_ptr<__stRaylibFont> &pWeak : m_LiveFonts )  {
+                for( std :: weak_ptr<__stRaylibFont>& pWeak : m_LiveFonts )  {
                     std :: shared_ptr<__stRaylibFont>  pState = pWeak.lock();
 
                     if( pState && pState -> bValid )  {
@@ -646,11 +644,11 @@ namespace SunLight  {
              * @param nHeight Output parameter receiving the loaded texture height;
              * @return An opaque handle to the loaded texture, or nullptr on failure;
              */
-            SunLight :: Base :: TextureHandle RaylibEngine :: LoadTexture( const char *szFileName,
+            SunLight :: Base :: TextureHandle RaylibEngine :: LoadTexture( const char* szFileName,
                                                                             int& nWidth,
                                                                             int& nHeight )  {
 
-                Texture2D *pTexture = new Texture2D;
+                Texture2D* pTexture = new Texture2D;
 
                 *pTexture = ::LoadTexture( szFileName );
 
@@ -674,7 +672,7 @@ namespace SunLight  {
              */
             void RaylibEngine :: UnloadTexture( SunLight :: Base :: TextureHandle hTexture )  {
 
-                Texture2D *pTexture = reinterpret_cast<Texture2D*>( hTexture );
+                Texture2D* pTexture = reinterpret_cast<Texture2D*>( hTexture );
 
                 ::UnloadTexture( *pTexture );
                 delete pTexture;
@@ -692,7 +690,7 @@ namespace SunLight  {
                                               int nPosY,
                                               SunLight :: Base :: stColor tint )  {
 
-                Texture2D *pTexture = reinterpret_cast<Texture2D*>( hTexture );
+                Texture2D* pTexture = reinterpret_cast<Texture2D*>( hTexture );
 
                 ::DrawTexture( *pTexture, nPosX, nPosY, Color{ tint.nRed, tint.nGreen, tint.nBlue, tint.nAlpha } );
             }
@@ -707,7 +705,7 @@ namespace SunLight  {
              */
             std :: string RaylibEngine :: GetApplicationDirectory( void )  {
 
-                const char *szDirectory = ::GetApplicationDirectory();
+                const char* szDirectory = ::GetApplicationDirectory();
 
                 return ( szDirectory ? std :: string( szDirectory ) : std :: string() );
             }
@@ -746,7 +744,7 @@ namespace SunLight  {
              */
             SunLight :: Base :: TextureHandle RaylibEngine :: LoadRenderTarget( int nWidth, int nHeight )  {
 
-                RenderTexture2D *pRenderTarget = new RenderTexture2D;
+                RenderTexture2D* pRenderTarget = new RenderTexture2D;
 
                 *pRenderTarget = ::LoadRenderTexture( nWidth, nHeight );
 
@@ -762,7 +760,7 @@ namespace SunLight  {
              */
             void RaylibEngine :: UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
 
-                RenderTexture2D *pRenderTarget = reinterpret_cast<RenderTexture2D*>( hRenderTarget );
+                RenderTexture2D* pRenderTarget = reinterpret_cast<RenderTexture2D*>( hRenderTarget );
 
                 ::UnloadRenderTexture( *pRenderTarget );
                 delete pRenderTarget;
@@ -816,7 +814,7 @@ namespace SunLight  {
                                   Color{ tint.nRed, tint.nGreen, tint.nBlue, tint.nAlpha } );
             }
 
-            void RaylibEngine :: DrawTextRotated( const char *szText,
+            void RaylibEngine :: DrawTextRotated( const char* szText,
                                                   int nPosX,
                                                   int nPosY,
                                                   int nFontSize,

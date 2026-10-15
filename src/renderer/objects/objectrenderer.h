@@ -58,14 +58,14 @@ namespace SunLight  {
              */
             typedef std :: function<void( tmx_object*, tmx_layer*, float )> TILE_OBJECT_DRAWER;
 
-            void Draw( const DrawContext &context,
-                       tmx_layer *pLayer,
-                       FontRegistry &fonts,
-                       const TILE_OBJECT_DRAWER &drawTileObject );
+            void Draw( const DrawContext& context,
+                       tmx_layer* pLayer,
+                       FontRegistry& fonts,
+                       const TILE_OBJECT_DRAWER& drawTileObject );
 
             void ResetWarnings( void );
         };
     }
 }
 
-#endif  /* __OBJECTRENDERER_H__ */
+#endif /* __OBJECTRENDERER_H__ */

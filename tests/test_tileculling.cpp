@@ -124,7 +124,7 @@ namespace  {
         MemoryFileSystemFixture  fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        Frame( const Bytes &tmx, int nViewportWidth, int nViewportHeight )  {
+        Frame( const Bytes& tmx, int nViewportWidth, int nViewportHeight )  {
 
             fsFixture.fs.files["maps/culling.tmx"] = tmx;
 
@@ -155,7 +155,7 @@ namespace  {
         int CountTiles( void ) const  {
             int  nCount = 0;
 
-            for( const Event &evt : engineFixture.engine.events )
+            for( const Event& evt : engineFixture.engine.events )
                 if( evt.kind == Event :: TILE )
                     nCount++;
 

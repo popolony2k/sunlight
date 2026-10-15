@@ -22,7 +22,7 @@ typedef MockEngine :: Event              Event;
 namespace  {
 
     // A 4 x 4 map of 16 px tiles with one object group holding the given objects XML.
-    Bytes MakeMapWithObjects( const std :: string &strObjects )  {
+    Bytes MakeMapWithObjects( const std :: string& strObjects )  {
 
         std :: ostringstream  tmx;
 
@@ -38,7 +38,7 @@ namespace  {
     }
 
     // One text object. Attributes and text are given as XML by the caller.
-    std :: string TextObject( int nId, int nX, int nY, int nW, int nH, const std :: string &strAttrs, const std :: string &strText )  {
+    std :: string TextObject( int nId, int nX, int nY, int nW, int nH, const std :: string& strAttrs, const std :: string& strText )  {
 
         std :: ostringstream  xml;
 
@@ -55,7 +55,7 @@ namespace  {
         MemoryFileSystemFixture             fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        explicit Scene( const std :: string &strObjects )  {
+        explicit Scene( const std :: string& strObjects )  {
 
             fsFixture.fs.files["maps/labels.tmx"] = MakeMapWithObjects( strObjects );
 
@@ -98,7 +98,7 @@ namespace  {
         std :: vector<Event> Texts( void )  {
             std :: vector<Event>  texts;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: TEXT )
                     texts.push_back( evt );
 
@@ -337,7 +337,7 @@ TEST_SUITE( "renderer/text objects" )  {
         scene.RunFrames( 1 );
 
         // The clip is the viewport (10, 10, 890, 790), and the text lies between its begin and end.
-        const std :: vector<Event> &events = scene.engine().events;
+        const std :: vector<Event>& events = scene.engine().events;
         int                         nBegin = -1, nText = -1, nEnd = -1;
 
         for( int nIdx = 0; nIdx < ( int ) events.size(); nIdx++ )  {

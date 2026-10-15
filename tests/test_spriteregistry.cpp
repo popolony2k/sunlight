@@ -56,7 +56,7 @@ namespace  {
         SunLight :: Canvas :: TextureCanvas  first;
         SunLight :: Canvas :: TextureCanvas  second;
 
-        TestSprite( MockEngine &engine, void *hFirst, void *hSecond = nullptr, int nZOrder = 0 )  {
+        TestSprite( MockEngine& engine, void* hFirst, void* hSecond = nullptr, int nZOrder = 0 )  {
             sprite.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 640, 480 } } );
 
             engine.nLoadTextureWidth  = 16;
@@ -72,7 +72,7 @@ namespace  {
             sprite.SetZOrder( nZOrder );
         }
 
-        void Load( MockEngine &engine, SunLight :: Canvas :: TextureCanvas &canvas, void *hTexture )  {
+        void Load( MockEngine& engine, SunLight :: Canvas :: TextureCanvas& canvas, void* hTexture )  {
             engine.hLoadTextureResult = hTexture;
             REQUIRE( canvas.Load( "sprite.png" ) == true );
             canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { ON_SCREEN, ON_SCREEN }, { 16, 16 } } );
@@ -87,10 +87,10 @@ namespace  {
     };
 
     // The texture handle of every TILE event, in draw order.
-    std :: vector<void*> Drawn( MockEngine &engine )  {
+    std :: vector<void*> Drawn( MockEngine& engine )  {
         std :: vector<void*>  handles;
 
-        for( const Event &evt : engine.events )
+        for( const Event& evt : engine.events )
             if( evt.kind == Event :: TILE )
                 handles.push_back( evt.handle );
 
@@ -237,7 +237,7 @@ TEST_SUITE( "renderer/SpriteRegistry" )  {
 
                 std :: vector<float>  sources;
 
-                for( const Event &evt : fixture.engine.events )
+                for( const Event& evt : fixture.engine.events )
                     if( evt.kind == Event :: TILE )
                         sources.push_back( evt.srcX );
 

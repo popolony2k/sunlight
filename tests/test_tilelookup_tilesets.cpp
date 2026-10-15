@@ -99,7 +99,7 @@ namespace  {
         int Count( Event :: Kind kind )  {
             int  nCount = 0;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == kind )
                     nCount++;
 

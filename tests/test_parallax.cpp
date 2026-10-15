@@ -124,7 +124,7 @@ namespace  {
         // "ground" draws all 16 cells first (layer id 1, declared first); "bg" (layer id 2)
         // draws its own single tile right after - the 17th TILE event in a single-view pass.
         const Event& GroundTile0( void )  {
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: TILE )
                     return evt;
             FAIL( "no TILE event" );
@@ -134,7 +134,7 @@ namespace  {
         const Event& BgTile( void )  {
             int  nTileIndex = 0;
 
-            for( const Event &evt : engine().events )  {
+            for( const Event& evt : engine().events )  {
                 if( evt.kind == Event :: TILE )  {
                     nTileIndex++;
                     if( nTileIndex == 17 )
@@ -219,7 +219,7 @@ TEST_SUITE( "renderer/parallax" )  {
         int  nTileIndex = 0;
         int  nBgEventsFound = 0;
 
-        for( const Event &evt : scene.engine().events )  {
+        for( const Event& evt : scene.engine().events )  {
             if( evt.kind != Event :: TILE )
                 continue;
 
@@ -272,8 +272,8 @@ TEST_SUITE( "renderer/parallax" )  {
 
     // A sprite's own draw is recognised by its distinctive texture handle, 0x77 - never shared
     // with any map tile/image draw (those use the mock's own default handle, 0x1).
-    const Event* FindSpriteDraw( Scene &scene )  {
-        for( const Event &evt : scene.engine().events )
+    const Event* FindSpriteDraw( Scene& scene )  {
+        for( const Event& evt : scene.engine().events )
             if( ( evt.kind == Event :: TILE ) && ( evt.handle == ( void * ) 0x77 ) )
                 return &evt;
         return nullptr;

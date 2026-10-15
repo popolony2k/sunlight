@@ -47,7 +47,7 @@ class MockFont : public SunLight :: Font :: IFont  {
 
     MockEngine  *pOwner;
 
-    explicit MockFont( MockEngine *pEngine ) : pOwner( pEngine )  {}
+    explicit MockFont( MockEngine* pEngine ) : pOwner( pEngine )  {}
 
     ~MockFont( void ) override;
 
@@ -55,15 +55,15 @@ class MockFont : public SunLight :: Font :: IFont  {
         return true;
     }
 
-    int MeasureText( const char *szText, int nFontSize ) override;
+    int MeasureText( const char* szText, int nFontSize ) override;
 
-    void DrawText( const char *szText,
+    void DrawText( const char* szText,
                    int nPosX,
                    int nPosY,
                    int nFontSize,
                    SunLight :: Base :: stColor color ) override;
 
-    void DrawTextRotated( const char *szText,
+    void DrawTextRotated( const char* szText,
                           int nPosX,
                           int nPosY,
                           int nFontSize,
@@ -151,7 +151,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     SunLight :: Base :: stRectangle     lastDrawTextureScaledSource { 0, 0, 0, 0 };
     SunLight :: Base :: stRectangle     lastDrawTextureScaledDest   { 0, 0, 0, 0 };
 
-    SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName, int& nWidth, int& nHeight )  {
+    SunLight :: Base :: TextureHandle LoadTexture( const char* szFileName, int& nWidth, int& nHeight )  {
         nLoadTextureCalls++;
         strLastLoadTextureFileName = szFileName;
         nWidth  = nLoadTextureWidth;
@@ -209,13 +209,13 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return strApplicationDirectoryResult;
     }
 
-    bool SetFont( const char *szFilePath )  {
+    bool SetFont( const char* szFilePath )  {
         nSetFontCalls++;
         strLastSetFontPath = szFilePath;
         return bSetFontResult;
     }
 
-    std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath );   // defined after MockFont
+    std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath );   // defined after MockFont
 
     void BeginClip( SunLight :: Base :: stRectangle rect )  {
         nBeginClipCalls++;
@@ -230,7 +230,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     }
 
     // Records a TEXT event. font is the MockFont drawing it, or nullptr for the active font.
-    void RecordText( const void *font, const char *szText, int nPosX, int nPosY, int nFontSize,
+    void RecordText( const void* font, const char* szText, int nPosX, int nPosY, int nFontSize,
                      SunLight :: Base :: stColor color )  {
         nDrawTextCalls++;
         strLastDrawnText = szText;
@@ -240,7 +240,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
 
     // By default the width is nMeasureTextResult. With bMeasureByLength set, it is
     // the string's length x size / 2, so a test can make wrapping depend on the text.
-    int RecordMeasure( const void *font, const char *szText, int nFontSize )  {
+    int RecordMeasure( const void* font, const char* szText, int nFontSize )  {
         nMeasureTextCalls++;
         hLastMeasuredFont = font;
 
@@ -250,11 +250,11 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return nMeasureTextResult;
     }
 
-    void DrawText( const char *szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
+    void DrawText( const char* szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
         RecordText( nullptr, szText, nPosX, nPosY, nFontSize, color );
     }
 
-    int MeasureText( const char *szText, int nFontSize )  {
+    int MeasureText( const char* szText, int nFontSize )  {
         return RecordMeasure( nullptr, szText, nFontSize );
     }
 
@@ -317,7 +317,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     }
 
     // Records a TEXT_ROTATED event. font is the MockFont drawing it, or nullptr for the active font.
-    void RecordTextRotated( const void *font, const char *szText, int nPosX, int nPosY, int nFontSize, float rotation,
+    void RecordTextRotated( const void* font, const char* szText, int nPosX, int nPosY, int nFontSize, float rotation,
                             SunLight :: Base :: stColor color )  {
         nDrawTextRotatedCalls++;
         strLastDrawnText = szText;
@@ -325,7 +325,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
                                   szText, font, nFontSize } );
     }
 
-    void DrawTextRotated( const char *szText, int nPosX, int nPosY, int nFontSize, float rotation, SunLight :: Base :: stColor color )  {
+    void DrawTextRotated( const char* szText, int nPosX, int nPosY, int nFontSize, float rotation, SunLight :: Base :: stColor color )  {
         RecordTextRotated( nullptr, szText, nPosX, nPosY, nFontSize, rotation, color );
     }
 };
@@ -335,7 +335,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
  * MockEngine instance for the fixture's lifetime, restoring the default
  * (real) backend on destruction.
  */
-inline std :: unique_ptr<SunLight :: Font :: IFont> MockEngine :: LoadFont( const char *szFilePath )  {
+inline std :: unique_ptr<SunLight :: Font :: IFont> MockEngine :: LoadFont( const char* szFilePath )  {
 
     nLoadFontCalls++;
     strLastLoadFontPath = szFilePath;
@@ -355,15 +355,15 @@ inline MockFont :: ~MockFont( void )  {
         pOwner -> nFontsDestroyed++;
 }
 
-inline int MockFont :: MeasureText( const char *szText, int nFontSize )  {
+inline int MockFont :: MeasureText( const char* szText, int nFontSize )  {
     return pOwner -> RecordMeasure( this, szText, nFontSize );
 }
 
-inline void MockFont :: DrawText( const char *szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
+inline void MockFont :: DrawText( const char* szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
     pOwner -> RecordText( this, szText, nPosX, nPosY, nFontSize, color );
 }
 
-inline void MockFont :: DrawTextRotated( const char *szText, int nPosX, int nPosY, int nFontSize, float rotation, SunLight :: Base :: stColor color )  {
+inline void MockFont :: DrawTextRotated( const char* szText, int nPosX, int nPosY, int nFontSize, float rotation, SunLight :: Base :: stColor color )  {
     pOwner -> RecordTextRotated( this, szText, nPosX, nPosY, nFontSize, rotation, color );
 }
 

@@ -56,15 +56,15 @@ namespace SunLight  {
 
                 public:
 
-                NullWindow( SunLight :: General :: VirtualClock &clock, bool bRealTimePacing );
+                NullWindow( SunLight :: General :: VirtualClock& clock, bool bRealTimePacing );
 
-                bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
+                bool Create( int nWidth, int nHeight, const char* szTitle, bool bResizeable,
                              bool bFullscreen = false,
                              SunLight :: Window :: FullscreenStrategy strategy = SunLight :: Window :: FULLSCREEN_STRATEGY_REAL ) override;
                 void Close( void ) override;
                 bool ShouldClose( void ) override;
                 void SetExitKey( SunLight :: Input :: KeyboardKey key ) override;
-                int AddCloseHandler( const std :: function<void( void )> &handler ) override;
+                int AddCloseHandler( const std :: function<void( void )>& handler ) override;
                 void RemoveCloseHandler( int nId ) override;
                 void BeginFrame( void ) override;
                 void EndFrame( void ) override;
@@ -79,7 +79,7 @@ namespace SunLight  {
 
                 void SetWindowResizeable( bool bResizeable ) override;
                 void SetTargetFPS( int nTargetFps ) override;
-                void SetWindowTitle( const char *szTitle ) override;
+                void SetWindowTitle( const char* szTitle ) override;
 
                 int GetScreenWidth( void ) override;
                 int GetScreenHeight( void ) override;
@@ -108,4 +108,4 @@ namespace SunLight  {
         }
     }
 }
-#endif  /* __NULLWINDOW_H__ */
+#endif /* __NULLWINDOW_H__ */

@@ -31,7 +31,7 @@
 #define MAX_COLLIDER_LAYERS   255
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
 
         /**
@@ -60,11 +60,11 @@ namespace SunLight {
             CollisionListenerList             m_Listeners;
 
 
-            void FireOnCollision( SunLight :: Collision :: Collider *pFirst,
-                                  SunLight :: Collision :: Collider *pSecond );
-            void FireOnCollision( SunLight :: Collision :: Collider *pFirst,
+            void FireOnCollision( SunLight :: Collision :: Collider* pFirst,
+                                  SunLight :: Collision :: Collider* pSecond );
+            void FireOnCollision( SunLight :: Collision :: Collider* pFirst,
                                   SunLight :: TileMap :: stTile* pSecond );
-            bool IsColliderRegistered( ColliderList *pColliderList,
+            bool IsColliderRegistered( ColliderList* pColliderList,
                                        const ColliderHandle& handle );
 
             public:
@@ -83,7 +83,7 @@ namespace SunLight {
                                             int nSecondColliderLayerId );
             bool AddColliderToTileRule( int nColliderLayerId,
                                         int nTileLayerId );
-            void AddCollisionListener( SunLight :: Collision :: ICollisionListener *pListener );
+            void AddCollisionListener( SunLight :: Collision :: ICollisionListener* pListener );
 
             void Update( void );
         };

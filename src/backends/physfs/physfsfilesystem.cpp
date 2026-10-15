@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "physfsfilesystem.h"
+#include "backends/physfs/physfsfilesystem.h"
 
 #include <physfs.h>
 
@@ -33,7 +33,7 @@ namespace SunLight  {
              * idempotent-on-repeat convention (eg. TileMapRenderer's own
              * one-shot setup steps).
              */
-            bool PhysFsFileSystem :: Init( const char *szArgv0 )  {
+            bool PhysFsFileSystem :: Init( const char* szArgv0 )  {
 
                 if( m_bInitialized )
                     return true;
@@ -66,7 +66,7 @@ namespace SunLight  {
              * strRealPath is a loose directory or a real archive file -
              * nothing here needs to branch on that.
              */
-            bool PhysFsFileSystem :: Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath )  {
+            bool PhysFsFileSystem :: Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath )  {
 
                 // A mount can be the first call a consumer makes, before any read, so PhysFS is
                 // set up here too. Init does nothing when it is already set up (Scarab calls it first).
@@ -134,7 +134,7 @@ namespace SunLight  {
                     Mount( ".", "/", true );
             }
 
-            bool PhysFsFileSystem :: Exists( const std :: string &strVirtualPath )  {
+            bool PhysFsFileSystem :: Exists( const std :: string& strVirtualPath )  {
 
                 EnsureReady();
 
@@ -148,7 +148,7 @@ namespace SunLight  {
              * same "load it all up front" assumption raylib's own
              * LoadFileData() already makes.
              */
-            bool PhysFsFileSystem :: ReadFile( const std :: string &strVirtualPath, std :: vector<unsigned char> &outData )  {
+            bool PhysFsFileSystem :: ReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData )  {
 
                 EnsureReady();
 

@@ -25,12 +25,12 @@ namespace SunLight  {
     namespace Engines  {
         namespace Null  {
 
-            static unsigned ReadBigEndian32( const unsigned char *p )  {
+            static unsigned ReadBigEndian32( const unsigned char* p )  {
 
                 return ( ( unsigned ) p[0] << 24 ) | ( ( unsigned ) p[1] << 16 ) | ( ( unsigned ) p[2] << 8 ) | ( unsigned ) p[3];
             }
 
-            static unsigned ReadBigEndian16( const unsigned char *p )  {
+            static unsigned ReadBigEndian16( const unsigned char* p )  {
 
                 return ( ( unsigned ) p[0] << 8 ) | ( unsigned ) p[1];
             }
@@ -40,7 +40,7 @@ namespace SunLight  {
              * (4-byte length, "IHDR", width u32 BE, height u32 BE) - so
              * width/height sit at offsets 16 and 20.
              */
-            static bool ReadPngSize( const unsigned char *pData, size_t nSize, int &nWidth, int &nHeight )  {
+            static bool ReadPngSize( const unsigned char* pData, size_t nSize, int& nWidth, int& nHeight )  {
 
                 static const unsigned char  szSignature[8] = { 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A };
 
@@ -77,7 +77,7 @@ namespace SunLight  {
              * skipped by its own length; standalone markers (SOI, EOI,
              * RSTn, TEM) have none.
              */
-            static bool ReadJpegSize( const unsigned char *pData, size_t nSize, int &nWidth, int &nHeight )  {
+            static bool ReadJpegSize( const unsigned char* pData, size_t nSize, int& nWidth, int& nHeight )  {
 
                 if( ( nSize < 4 ) || ( pData[0] != 0xFF ) || ( pData[1] != 0xD8 ) )
                     return false;
@@ -142,7 +142,7 @@ namespace SunLight  {
             /**
              * Recognise the format by magic bytes, then read its size.
              */
-            bool ReadImageSize( const unsigned char *pData, size_t nSize, int &nWidth, int &nHeight )  {
+            bool ReadImageSize( const unsigned char* pData, size_t nSize, int& nWidth, int& nHeight )  {
 
                 if( ( pData == nullptr ) || ( nSize < 2 ) )
                     return false;

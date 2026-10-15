@@ -63,15 +63,15 @@ namespace SunLight  {
 
                 bool IsValid( void ) const override;
 
-                int MeasureText( const char *szText, int nFontSize ) override;
+                int MeasureText( const char* szText, int nFontSize ) override;
 
-                void DrawText( const char *szText,
+                void DrawText( const char* szText,
                                int nPosX,
                                int nPosY,
                                int nFontSize,
                                SunLight :: Base :: stColor color ) override;
 
-                void DrawTextRotated( const char *szText,
+                void DrawTextRotated( const char* szText,
                                       int nPosX,
                                       int nPosY,
                                       int nFontSize,

@@ -225,7 +225,7 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
         REQUIRE( fs.Init( "sunlight_tests" ) );
         REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );
 
-        fs.SetReadFilter( []( const std :: vector<unsigned char> &in, std :: vector<unsigned char> &out )  {
+        fs.SetReadFilter( []( const std :: vector<unsigned char>& in, std :: vector<unsigned char>& out )  {
             out.assign( in.rbegin(), in.rend() );  // trivial, verifiable transform: reverse the bytes
             return true;
         } );
@@ -290,7 +290,7 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
         REQUIRE( fs.Init( "sunlight_tests" ) );
         REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );
 
-        fs.SetReadFilter( []( const std :: vector<unsigned char> &, std :: vector<unsigned char> &out )  {
+        fs.SetReadFilter( []( const std :: vector<unsigned char> &, std :: vector<unsigned char>& out )  {
             out = { 'X' };
             return true;
         } );

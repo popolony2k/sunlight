@@ -27,7 +27,7 @@
 #include <memory>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -69,4 +69,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __GAMEPADHAPTICSFACTORY_H__ */
+#endif /* __GAMEPADHAPTICSFACTORY_H__ */

@@ -45,7 +45,7 @@ namespace  {
     }
 
     // Null-backend renderer with the default view's viewport set; optionally with a 640 x 640 map (40 x 40 tiles of 16) loaded.
-    std :: unique_ptr<TileMapRenderer> MakeRenderer( const SunLight :: Base :: stDimension2D &viewport, unsigned nZoomPos, bool bLoadMap )  {
+    std :: unique_ptr<TileMapRenderer> MakeRenderer( const SunLight :: Base :: stDimension2D& viewport, unsigned nZoomPos, bool bLoadMap )  {
 
         RendererConfig  config;
 

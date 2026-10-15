@@ -71,7 +71,7 @@ namespace  {
     }
 }
 
-int main( int argc, char **argv )  {
+int main( int argc, char** argv )  {
 
     if( argc < 2 )  {
         fprintf( stderr, "usage: %s <this sample's directory> (e.g. samples/multiview/)\n", argv[0] );

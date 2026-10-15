@@ -46,4 +46,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __DRAWCONTEXT_H__ */
+#endif /* __DRAWCONTEXT_H__ */

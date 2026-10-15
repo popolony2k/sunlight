@@ -25,7 +25,7 @@
 #include <map>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -50,4 +50,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __PLAYERSLOTMANAGER_H__ */
+#endif /* __PLAYERSLOTMANAGER_H__ */

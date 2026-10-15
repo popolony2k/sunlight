@@ -35,7 +35,7 @@ namespace  {
 
     // A path under the system temp directory, never the project tree (test files are not
     // scratch tools, but there's no reason to litter the repo either).
-    std :: filesystem :: path TempBindingsPath( const char *szName )  {
+    std :: filesystem :: path TempBindingsPath( const char* szName )  {
 
         return std :: filesystem :: temp_directory_path() / szName;
     }

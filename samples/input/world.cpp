@@ -137,7 +137,7 @@ namespace  {
         return sampleKeys.count( key ) > 0;
     }
 
-    void Clamp( float &fValue, float fMin, float fMax )  {
+    void Clamp( float& fValue, float fMin, float fMax )  {
         fValue = std :: max( fMin, std :: min( fMax, fValue ) );
     }
 }
@@ -256,7 +256,7 @@ void World :: HandleSaveLoad( void )  {
  */
 void World :: HandleSlots( void )  {
 
-    for( const SI :: stGamepadInfo &pad : m_pRenderer -> GetControllerManager().GetConnectedGamepads() )  {
+    for( const SI :: stGamepadInfo& pad : m_pRenderer -> GetControllerManager().GetConnectedGamepads() )  {
         bool  bClaim   = ButtonPressedOnce( pad.nGamePadId, SI :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN );
         bool  bRelease = ButtonPressedOnce( pad.nGamePadId, SI :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT );
         int   nSlot    = m_Slots.GetSlotForGamepad( pad.nGamePadId );
@@ -295,7 +295,7 @@ void World :: HandleDeadzone( void )  {
     m_fDeadzone += ( bRaise ? __DEADZONE_STEP : 0.0f ) - ( bLower ? __DEADZONE_STEP : 0.0f );
     Clamp( m_fDeadzone, __DEADZONE_MIN, __DEADZONE_MAX );
 
-    for( const SI :: stGamepadInfo &pad : m_pRenderer -> GetControllerManager().GetConnectedGamepads() )
+    for( const SI :: stGamepadInfo& pad : m_pRenderer -> GetControllerManager().GetConnectedGamepads() )
         ApplyDeadzone( pad.nGamePadId );
 
     char  szStatus[64];
@@ -335,7 +335,7 @@ void World :: MovePlayers( void )  {
     Clamp( m_KeyboardPlayer.fX, 0.0f, fMaxX );
     Clamp( m_KeyboardPlayer.fY, 0.0f, fMaxY );
 
-    for( std :: pair<const int, stPlayer> &slotPlayer : m_SlotPlayers )  {
+    for( std :: pair<const int, stPlayer>& slotPlayer : m_SlotPlayers )  {
         int    nPad    = m_Slots.GetGamepadForSlot( slotPlayer.first );
         float  fDeadX  = manager.GetAxisDeadzone( nPad, SI :: GAMEPAD_AXIS_LEFT_X );
         float  fDeadY  = manager.GetAxisDeadzone( nPad, SI :: GAMEPAD_AXIS_LEFT_Y );
@@ -354,7 +354,7 @@ void World :: MovePlayers( void )  {
  * each one to the console too.
  * @param strEvent The event, as shown;
  */
-void World :: LogEvent( const std :: string &strEvent )  {
+void World :: LogEvent( const std :: string& strEvent )  {
 
     printf( "%s\n", strEvent.c_str() );
     m_EventLog.push_back( strEvent );
@@ -371,12 +371,12 @@ void World :: DrawPlayers( void )  {
     SunLight :: DrawSurface :: IDrawSurface  &surface = *m_pRenderer;
     std :: set<int>                           connected;
 
-    for( const SI :: stGamepadInfo &pad : m_pRenderer -> GetControllerManager().GetConnectedGamepads() )
+    for( const SI :: stGamepadInfo& pad : m_pRenderer -> GetControllerManager().GetConnectedGamepads() )
         connected.insert( pad.nGamePadId );
 
     surface.DrawFilledRectangle( __AREA_X, __AREA_Y, __AREA_W, __AREA_H, __AREA_COLOR.nRed, __AREA_COLOR.nGreen, __AREA_COLOR.nBlue, __OPAQUE );
 
-    auto  drawPlayer = [&]( const stPlayer &player, const stRgb &color, const char *szLabel )  {
+    auto  drawPlayer = [&]( const stPlayer& player, const stRgb& color, const char* szLabel )  {
         int  nX = __AREA_X + ( int ) player.fX;
         int  nY = __AREA_Y + ( int ) player.fY;
 
@@ -386,7 +386,7 @@ void World :: DrawPlayers( void )  {
 
     drawPlayer( m_KeyboardPlayer, __KEYBOARD_COLOR, "K" );
 
-    for( const std :: pair<const int, stPlayer> &slotPlayer : m_SlotPlayers )  {
+    for( const std :: pair<const int, stPlayer>& slotPlayer : m_SlotPlayers )  {
         int          nPad    = m_Slots.GetGamepadForSlot( slotPlayer.first );
         const stRgb  &color  = connected.count( nPad ) ? __SLOT_COLORS[slotPlayer.first - __FIRST_SLOT] : __OFFLINE_COLOR;
         std :: string strLabel = "P" + std :: to_string( slotPlayer.first );
@@ -405,7 +405,7 @@ void World :: DrawPanel( void )  {
     int                                      nY       = __PANEL_Y;
     char                                     szLine[128];
 
-    auto  line = [&]( const std :: string &strText, const stRgb &color )  {
+    auto  line = [&]( const std :: string& strText, const stRgb& color )  {
         surface.DrawText( strText.c_str(), __PANEL_X, nY, __FONT_SIZE, color.nRed, color.nGreen, color.nBlue, __OPAQUE );
         nY += __LINE_HEIGHT;
     };
@@ -435,7 +435,7 @@ void World :: DrawPanel( void )  {
     if( pads.empty() )
         line( "  none connected", __TEXT_COLOR );
 
-    for( const SI :: stGamepadInfo &pad : pads )  {
+    for( const SI :: stGamepadInfo& pad : pads )  {
         std :: string  strName = pad.szName ? pad.szName : "?";
 
         if( strName.size() > __MAX_PAD_NAME )
@@ -456,7 +456,7 @@ void World :: DrawPanel( void )  {
         if( nPad == NO_SLOT_ASSOCIATION )
             snprintf( szLine, sizeof( szLine ), "  P%d: free", nSlot );
         else  {
-            bool  bConnected = std :: any_of( pads.begin(), pads.end(), [nPad]( const SI :: stGamepadInfo &pad ) { return pad.nGamePadId == nPad; } );
+            bool  bConnected = std :: any_of( pads.begin(), pads.end(), [nPad]( const SI :: stGamepadInfo& pad ) { return pad.nGamePadId == nPad; } );
 
             snprintf( szLine, sizeof( szLine ), "  P%d: pad %d%s", nSlot, nPad, bConnected ? "" : " (unplugged)" );
         }
@@ -475,7 +475,7 @@ void World :: DrawPanel( void )  {
     nY += __SECTION_GAP;
     line( "Pad events:", __TITLE_COLOR );
 
-    for( const std :: string &strEvent : m_EventLog )
+    for( const std :: string& strEvent : m_EventLog )
         line( "  " + strEvent, __TEXT_COLOR );
 }
 

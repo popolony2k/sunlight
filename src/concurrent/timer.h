@@ -29,7 +29,7 @@
 #include "base/object.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Concurrent  {
 
         /**
@@ -55,7 +55,7 @@ namespace SunLight {
          * example a timed log or a watchdog). Anything that must happen at a given point
          * of the game belongs in the frame loop, driven by the game clock.
          */
-        class Timer : public SunLight :: Base :: Object {
+        class Timer : public SunLight :: Base :: Object  {
 
             private:
 
@@ -73,10 +73,10 @@ namespace SunLight {
             Timer( int nTimerId );
             ~Timer( void );
             
-            bool Start( const Interval &nInterval, const SLEEP_TIMER_HANDLER &handler );
+            bool Start( const Interval& nInterval, const SLEEP_TIMER_HANDLER& handler );
             bool Stop( void );
         };
     }
 }
 
-#endif  /* __TIMER_H__ */
+#endif /* __TIMER_H__ */

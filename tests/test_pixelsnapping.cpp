@@ -118,7 +118,7 @@ namespace  {
         std :: vector<Event> TileEvents( void )  {
             std :: vector<Event>  tiles;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: TILE )
                     tiles.push_back( evt );
 
@@ -148,7 +148,7 @@ TEST_SUITE( "renderer/pixel_snapping" )  {
         std :: vector<Event>  tiles( allTiles.begin(), allTiles.begin() + 4 );
         const Event           &image = allTiles[4];
 
-        for( const Event &tile : tiles )  {
+        for( const Event& tile : tiles )  {
             CHECK( std :: floor( tile.x ) == tile.x );            // whole pixel, not fractional
             CHECK( std :: floor( tile.w ) == tile.w );
         }
@@ -211,7 +211,7 @@ TEST_SUITE( "renderer/pixel_snapping" )  {
 
         const Event  *pSprite = nullptr;
 
-        for( const Event &evt : scene.engine().events )
+        for( const Event& evt : scene.engine().events )
             if( ( evt.kind == Event :: TILE ) && ( evt.handle == ( void * ) 0x77 ) )
                 pSprite = &evt;
 

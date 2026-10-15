@@ -21,7 +21,7 @@
 #include "concurrent/timer.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Concurrent  {
 
         /**
@@ -49,11 +49,11 @@ namespace SunLight {
          * @return true if operation was successfull;
          * @return false if operation has failed;
          */
-        bool Timer :: Start( const Interval &nInterval, const SLEEP_TIMER_HANDLER &handler )  {
+        bool Timer :: Start( const Interval& nInterval, const SLEEP_TIMER_HANDLER& handler )  {
             if( !m_bRunning )  {
                 m_bRunning = true;
                 m_Thread   = std :: thread( [this, nInterval, handler] {
-                    while( m_bRunning ) {
+                    while( m_bRunning )  {
                         std :: this_thread :: sleep_for( nInterval );
 
                         /*

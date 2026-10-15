@@ -328,7 +328,7 @@ TEST_SUITE( "sprite/Sprite" )  {
 
             TextureCanvas  *aCanvases[] = { &canvasA, &canvasB, &canvasC };
 
-            for( TextureCanvas *pCanvas : aCanvases )  {
+            for( TextureCanvas* pCanvas : aCanvases )  {
                 pCanvas -> Load( "sheet.png" );
                 pCanvas -> SetTileSize( 16 );
                 pCanvas -> SetAnimationMode( TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
@@ -336,7 +336,7 @@ TEST_SUITE( "sprite/Sprite" )  {
 
             clockFixture.clock.nNow = 1000;
 
-            for( TextureCanvas *pCanvas : aCanvases )
+            for( TextureCanvas* pCanvas : aCanvases )
                 sprite.AddTextureSequence( 0, pCanvas, 20 );
 
             sprite.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 800, 600 } } );
