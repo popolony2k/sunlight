@@ -38,6 +38,7 @@
  */
 
 #include "renderer/tilemaprenderer.h"
+#include "../shared/zoomkeys.h"
 #include "sprite/sprite.h"
 #include "canvas/texturecanvas.h"
 #include <algorithm>
@@ -163,12 +164,21 @@ int main( int argc, char** argv )  {
 
         pCloseUp -> GetCameraPosition( nCamX, nCamY );
 
-        if( nSunnyX - nCamX < __FOLLOW_MARGIN )
+        // Zoomed in far enough, the close-up shows less than Sunny and a margin on each side
+        // (__SUNNY_SIZE + 2 x __FOLLOW_MARGIN map pixels, a zoom of about 3.44 for this 300 px view): no
+        // camera keeps both margins, and the two rules below would move it back and forth on every call -
+        // Sunny trembled while a zoom key was held. Sunny is centred on that axis instead; at exactly that
+        // size the margin rules centre her too, so the two cases meet without a jump.
+        if( nVisW < __SUNNY_SIZE + ( 2 * __FOLLOW_MARGIN ) )
+            nCamX = nSunnyX + ( ( __SUNNY_SIZE - nVisW ) / 2 );
+        else if( nSunnyX - nCamX < __FOLLOW_MARGIN )
             nCamX = nSunnyX - __FOLLOW_MARGIN;
         else if( nSunnyX + __SUNNY_SIZE - nCamX > nVisW - __FOLLOW_MARGIN )
             nCamX = nSunnyX + __SUNNY_SIZE + __FOLLOW_MARGIN - nVisW;
 
-        if( nSunnyY - nCamY < __FOLLOW_MARGIN )
+        if( nVisH < __SUNNY_SIZE + ( 2 * __FOLLOW_MARGIN ) )
+            nCamY = nSunnyY + ( ( __SUNNY_SIZE - nVisH ) / 2 );
+        else if( nSunnyY - nCamY < __FOLLOW_MARGIN )
             nCamY = nSunnyY - __FOLLOW_MARGIN;
         else if( nSunnyY + __SUNNY_SIZE - nCamY > nVisH - __FOLLOW_MARGIN )
             nCamY = nSunnyY + __SUNNY_SIZE + __FOLLOW_MARGIN - nVisH;
@@ -206,6 +216,13 @@ int main( int argc, char** argv )  {
     // Page Up / Page Down: zoom the close-up out / in (its camera then re-follows Sunny).
     bind( SunLight :: Input :: KEY_PAGE_UP,   [&]() { pCloseUp -> ZoomOut();  followSunny(); } );
     bind( SunLight :: Input :: KEY_PAGE_DOWN, [&]() { pCloseUp -> ZoomIn();   followSunny(); } );
+
+    // + / - / =: zoom the close-up in / out / back to its preferred zoom, on the keyboard and on the keypad -
+    // the same keys in every sample that zooms (samples/shared/zoomkeys.h). Its camera then re-follows Sunny.
+    Samples :: InstallZoomKeys( renderer,
+                                [&]() { pCloseUp -> ZoomIn();    followSunny(); },
+                                [&]() { pCloseUp -> ZoomOut();   followSunny(); },
+                                [&]() { pCloseUp -> ResetZoom(); followSunny(); } );
 
     // 1 / 2: show or hide the minimap / the close-up. 3: mask the "sky" layer (id 1) out of the MAIN view.
     bind( SunLight :: Input :: KEY_ONE,   [&]() { pMinimap -> SetVisible( !pMinimap -> GetVisible() ); } );

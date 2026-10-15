@@ -26,6 +26,7 @@
 #include "filesystem/filesystemfactory.h"
 #include "input/defaultcontrollerbindings.h"
 #include "renderer/tilemaprenderer.h"
+#include "../shared/zoomkeys.h"
 
 using namespace SunLight :: Renderer;
 typedef SunLight :: TileMap :: ITileMap  ITM;
@@ -107,6 +108,13 @@ int main( int argc, char** argv )  {
     // The arrow keys scroll and PageUp/PageDown/Home/End zoom and reset - the renderer no longer
     // installs these itself (F0b of the master plan), so a sample that wants them asks for them.
     SunLight :: Input :: DefaultControllerBindings :: Install( *pRenderer, pRenderer -> GetControllerManager() );
+
+    // + zooms in, - zooms out and = resets the zoom, on the keyboard and on the keypad - the same in every
+    // sample that zooms (samples/shared/zoomkeys.h), next to Page Up / Page Down / Home.
+    Samples :: InstallZoomKeys( *pRenderer,
+                                [&pRenderer]() { pRenderer -> ZoomIn(); },
+                                [&pRenderer]() { pRenderer -> ZoomOut(); },
+                                [&pRenderer]() { pRenderer -> ResetZoom(); } );
 
     printf( "Each numbered row is one tile object case. Arrows scroll the map, Esc quits.\n" );
 

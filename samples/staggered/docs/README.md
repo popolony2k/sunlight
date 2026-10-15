@@ -29,8 +29,8 @@ This produces the `staggered_test` executable under `build/samples/staggered/`, 
 | `S` / `Down Arrow` | One cell down-left (SW) |
 | `A` / `Left Arrow` | One cell up-left (NW) |
 | `D` / `Right Arrow` | One cell down-right (SE) |
-| `=` / `-` | Zoom in / out |
-| `Home` | Reset the zoom |
+| `+` / `-` (keyboard or keypad) | Zoom in / out |
+| `=` (keyboard or keypad) or `Home` | Reset the zoom |
 | `Esc` | Quit |
 
 ## What to look for

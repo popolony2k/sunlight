@@ -28,6 +28,7 @@ This produces the `text_test` executable under `build/samples/text/`, along with
 | Arrow keys | Scroll the map |
 | `Page Up` / `Page Down` | Zoom in / out |
 | `Home` | Reset the zoom |
+| `+` / `-` / `=` (keyboard or keypad) | Zoom in / out / reset the zoom |
 | `End` | Move the camera back to the map's origin |
 | `Esc` | Quit |
 

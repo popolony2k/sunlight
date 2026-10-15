@@ -29,12 +29,15 @@ For example, `shapes_test samples/shapes/ thick.tmx 0 60 2` opens the thick-line
 | Keys | Action |
 | --- | --- |
 | Arrow keys | Scroll the map |
-| `=` / `-` or `Page Up` / `Page Down` | Zoom in / out |
-| `Home` | Reset the zoom |
+| `+` / `-` or `Page Up` / `Page Down` | Zoom in / out |
+| `=` or `Home` | Reset the zoom |
+| Keypad `+` / `-` / `=` | Zoom in / out / reset |
 | `End` | Move the camera back to the map's origin |
 | `Esc` | Quit |
 
 The arrow keys, `Page Up`/`Page Down`, `Home` and `End` are `DefaultControllerBindings`, installed by the sample with `DefaultControllerBindings::Install`.
+
+`+` and `=` are one key on the keyboard (`+` is Shift and `=`), and raylib reports the physical key, so the sample tells them apart by whether a Shift key is held.
 
 ## The maps
 

@@ -32,6 +32,7 @@ This produces the `sprite_test` executable under `build/samples/sprite/`, along 
 | `Page Up` | Zoom out |
 | `Page Down` | Zoom in |
 | `Home` | Reset zoom to the default level |
+| `+` / `-` / `=` (keyboard or keypad) | Zoom in / out / reset the zoom |
 
 The current FPS is drawn in the corner of the window.
 

@@ -31,8 +31,8 @@ Connect a gamepad that can vibrate (gamepad 0) to feel the rumble. Without one, 
 | `S` / `Down Arrow` | D-pad down / left stick down | One cell down-left (row + 1) |
 | `A` / `Left Arrow` | D-pad left / left stick left | One cell up-left (column - 1) |
 | `D` / `Right Arrow` | D-pad right / left stick right | One cell down-right (column + 1) |
-| `=` / `-` | | Zoom in / out |
-| `Home` | | Reset the zoom |
+| `+` / `-` (keyboard or keypad) | | Zoom in / out |
+| `=` (keyboard or keypad) or `Home` | | Reset the zoom |
 | `Esc` | | Quit |
 
 ## What to look for

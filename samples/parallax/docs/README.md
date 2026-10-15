@@ -31,6 +31,7 @@ This produces the `parallax_test` executable under `build/samples/parallax/`, al
 | `D` / `Right Arrow` | Walk right |
 | `Page Up` / `Page Down` | Zoom out / in |
 | `Home` | Reset the zoom |
+| `+` / `-` / `=` (keyboard or keypad) | Zoom in / out / reset the zoom |
 | `Esc` | Quit |
 
 Holding a key keeps walking (4 map pixels per frame).

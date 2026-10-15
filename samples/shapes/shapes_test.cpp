@@ -27,6 +27,7 @@
 #include "filesystem/filesystemfactory.h"
 #include "input/defaultcontrollerbindings.h"
 #include "renderer/tilemaprenderer.h"
+#include "../shared/zoomkeys.h"
 #include "base/viewport.h"
 
 using namespace SunLight :: Renderer;
@@ -136,17 +137,18 @@ int main( int argc, char** argv )  {
 
     printf( "zoom %.4f\n", pRenderer -> GetViewport().GetZoomProperties().fZoomFactor );
 
-    // = zooms in and - zooms out, so the widths can be checked at several zoom levels.
-    pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_EQUAL,
-                                         [&pRenderer]( SunLight :: Input :: ControllerType, int ) { pRenderer -> ZoomIn(); } );
-    pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_MINUS,
-                                         [&pRenderer]( SunLight :: Input :: ControllerType, int ) { pRenderer -> ZoomOut(); } );
+    // + zooms in, - zooms out and = resets the zoom, on the keyboard and on the keypad, so the widths can be
+    // checked at several zoom levels - the same keys in every sample that zooms (samples/shared/zoomkeys.h).
+    Samples :: InstallZoomKeys( *pRenderer,
+                                [&pRenderer]() { pRenderer -> ZoomIn(); },
+                                [&pRenderer]() { pRenderer -> ZoomOut(); },
+                                [&pRenderer]() { pRenderer -> ResetZoom(); } );
 
     // The arrow keys scroll (and PageUp/PageDown/Home/End zoom and reset) - the renderer no longer
     // installs these itself (F0b of the master plan), so a sample that wants them asks for them.
     SunLight :: Input :: DefaultControllerBindings :: Install( *pRenderer, pRenderer -> GetControllerManager() );
 
-    printf( "Each numbered shape is drawn by the backend. Arrows scroll the map, = and - zoom, Esc quits.\n" );
+    printf( "Each numbered shape is drawn by the backend. Arrows scroll the map, + and - zoom, = resets the zoom, Esc quits.\n" );
 
     if( frames > 0 )  {
         auto  start = std :: chrono :: steady_clock :: now();
