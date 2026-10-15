@@ -63,9 +63,23 @@ substitute.
 Scarab's own master plan, planned with the owner before anything is written (see 6). Its first items
 are expected to be:
 
-1. **Build against `feat/master_plan`.** Scarab's `FetchContent` pins `GIT_TAG v${SCARAB_SUNLIGHT_VERSION}`,
-   and `scarab --version` prints that number. Pointing it at a branch (or a commit of it) means
-   deciding what `--version` prints while there is no sunlight release to name.
+1. **Build against `feat/master_plan`, pinned to one commit.** Scarab's `FetchContent` pins
+   `GIT_TAG v${SCARAB_SUNLIGHT_VERSION}` today. `GIT_TAG` also takes a commit hash, and that is the
+   way agreed with the owner:
+   - **Pin the exact commit given in the handoff message** - the full 40-character hash of
+     `feat/master_plan` when this brief was sent (it cannot be written here: a commit cannot hold its
+     own hash). Confirm it in the local checkout first (`git -C ../sunlight log -1 <hash>`).
+     Reproducible: every build and CI run gets the same sunlight. When sunlight's branch moves, the
+     new hash comes through the owner, and Scarab bumps its pin on purpose, in its own reviewed
+     commit - as it bumps the version today.
+   - Not the branch name (`GIT_TAG feat/master_plan`): every configure would fetch whatever the
+     branch holds that day, so the same Scarab commit could build different sunlight code.
+   - For local work against sunlight changes not yet pushed:
+     `cmake -B build -S . -DFETCHCONTENT_SOURCE_DIR_SUNLIGHT=../sunlight` builds against the local
+     checkout, with no fetch (a standard `FetchContent` option).
+   - `scarab --version` prints `sunlight v<version>` from the same variable. With a commit pinned
+     there is no release to name, so it should print the branch and the short hash
+     (`sunlight feat/master_plan@<short hash>`) - how, is part of planning this item.
 2. **Work through `BREAKAGES.md`**, entry by entry, each one fixed or marked as not applying.
 3. **The requisites in 7**: an AddressSanitizer CI job and the first unit tests.
 4. **The code style phase (4).**
