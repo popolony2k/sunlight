@@ -66,7 +66,7 @@ void World :: BringToFront( int nCardIndex, SunLight :: Input :: ControllerType 
     m_Sprites[nCardIndex] -> SetZOrder( m_nNextZOrder++ );
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
     for( int nIdx = 0; nIdx < __CARD_COUNT; nIdx++ )  {
         if( !m_Canvases[nIdx] -> Load( __CARD_IMAGES[nIdx] ) )

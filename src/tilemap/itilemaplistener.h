@@ -24,7 +24,7 @@
 #include "tilemap/itilemap.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace TileMap  {
 
         /**

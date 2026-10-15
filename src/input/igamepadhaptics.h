@@ -22,7 +22,7 @@
 #define __IGAMEPADHAPTICS_H__
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -81,4 +81,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __IGAMEPADHAPTICS_H__ */
+#endif /* __IGAMEPADHAPTICS_H__ */

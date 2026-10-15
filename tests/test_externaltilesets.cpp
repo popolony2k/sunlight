@@ -74,7 +74,7 @@ namespace  {
         "<object gid=\"1\" width=\"16\" height=\"16\"/>"
         "</template>";
 
-    Bytes ToBytes( const char *sz )  {
+    Bytes ToBytes( const char* sz )  {
         std :: string  str( sz );
         return Bytes( str.begin(), str.end() );
     }
@@ -249,10 +249,10 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
         fs :: create_directories( scratch / "maps" );
         fs :: create_directories( scratch / "tilesets" );
 
-        auto  writeScrambled = [&]( const fs :: path &file, const char *szContent )  {
+        auto  writeScrambled = [&]( const fs :: path& file, const char* szContent )  {
             std :: string  str( szContent );
 
-            for( char &c : str )
+            for( char& c : str )
                 c = ( char ) ( c ^ 0x5A );
 
             std :: ofstream( file, std :: ios :: binary ) << str;
@@ -271,10 +271,10 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
 
             REQUIRE( packFs.Init( "sunlight_tests" ) );
             REQUIRE( packFs.Mount( zipPath.string(), "/", true ) );
-            packFs.SetReadFilter( []( const std :: vector<unsigned char> &in, std :: vector<unsigned char> &out )  {
+            packFs.SetReadFilter( []( const std :: vector<unsigned char>& in, std :: vector<unsigned char>& out )  {
                 out = in;
 
-                for( unsigned char &c : out )
+                for( unsigned char& c : out )
                     c = ( unsigned char ) ( c ^ 0x5A );
 
                 return true;

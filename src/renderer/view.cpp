@@ -22,7 +22,7 @@
 #include "renderer/tilemaprenderer.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         /**
@@ -34,7 +34,7 @@ namespace SunLight {
          * GetViewport() and the default view's are one object); nullptr for
          * any other view, which then owns a fresh Viewport;
          */
-        View :: View( TileMapRenderer *pRenderer, int nId, SunLight :: Base :: Viewport *pExistingViewport ) :
+        View :: View( TileMapRenderer* pRenderer, int nId, SunLight :: Base :: Viewport* pExistingViewport ) :
                       m_pRenderer( pRenderer ),
                       m_nId( nId )  {
 
@@ -176,7 +176,7 @@ namespace SunLight {
             Run( [this, nX, nY]() { m_pRenderer -> SetCameraPosition( nX, nY ); } );
         }
 
-        void View :: GetCameraPosition( int &nX, int &nY )  {
+        void View :: GetCameraPosition( int& nX, int& nY )  {
 
             // Detached: the last position it had.
             if( !m_pRenderer )  {
@@ -193,7 +193,7 @@ namespace SunLight {
             Run( [this, nStepWidth, nStepHeight]() { m_pRenderer -> SetScrollStepSize( nStepWidth, nStepHeight ); } );
         }
 
-        void View :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
+        void View :: GetScrollStepSize( int& nStepWidth, int& nStepHeight )  {
 
             if( !m_pRenderer )  {
                 m_Camera.GetScrollStep( nStepWidth, nStepHeight );
@@ -245,7 +245,7 @@ namespace SunLight {
             return m_bClear;
         }
 
-        void View :: SetBackgroundColor( const SunLight :: Base :: stColor &color )  {
+        void View :: SetBackgroundColor( const SunLight :: Base :: stColor& color )  {
 
             m_Background          = color;
             m_bExplicitBackground = true;
@@ -265,7 +265,7 @@ namespace SunLight {
                 m_MaskIds.erase( nLayerId );
         }
 
-        bool View :: ShowLayer( const char *szLayerName, bool bShow )  {
+        bool View :: ShowLayer( const char* szLayerName, bool bShow )  {
 
             tmx_layer  *pLayer = ( szLayerName && m_pRenderer && m_pRenderer -> Tmx() ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
 
@@ -277,7 +277,7 @@ namespace SunLight {
             return true;
         }
 
-        void View :: ShowOnlyLayers( const std :: vector<int> &layerIds )  {
+        void View :: ShowOnlyLayers( const std :: vector<int>& layerIds )  {
 
             m_bMaskIsWhitelist = true;
             m_MaskIds          = std :: set<int>( layerIds.begin(), layerIds.end() );

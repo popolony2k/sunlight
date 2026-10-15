@@ -27,7 +27,7 @@
 #include "input/iinputhandler.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace DrawSurface  {
 
         /**
@@ -55,7 +55,7 @@ namespace SunLight {
          * grouping key, drawn in ascending id order) - so a game built on
          * the window canvas alone needs no map at all.
          */
-        class IDrawSurface {
+        class IDrawSurface  {
 
             public:
 
@@ -67,7 +67,7 @@ namespace SunLight {
              *
              * @param strTitle The new window title;
              */
-            virtual void SetWindowTitle( const std :: string &strTitle ) = 0;
+            virtual void SetWindowTitle( const std :: string& strTitle ) = 0;
 
             /**
              * @brief Set a whole-screen fade overlay, drawn on top of every
@@ -270,7 +270,7 @@ namespace SunLight {
              * active font, false if it failed to load (the previously
              * active font, if any, is left untouched).
              */
-            virtual bool SetFont( const char *szFilePath ) = 0;
+            virtual bool SetFont( const char* szFilePath ) = 0;
 
             /**
              * @brief Draw a line of text on screen, in screen space (no
@@ -286,7 +286,7 @@ namespace SunLight {
              * @param nBlue Text color blue channel (0-255);
              * @param nAlpha Text color alpha channel (0-255);
              */
-            virtual void DrawText( const char *szText,
+            virtual void DrawText( const char* szText,
                                    int nPosX,
                                    int nPosY,
                                    int nFontSize,
@@ -338,7 +338,7 @@ namespace SunLight {
              * @param nFontSize Font size, in pixels;
              * @return The text's rendered width, in pixels;
              */
-            virtual int MeasureText( const char *szText, int nFontSize ) = 0;
+            virtual int MeasureText( const char* szText, int nFontSize ) = 0;
 
             /**
              * @brief Return the engine's own fixed design/render

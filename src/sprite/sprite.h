@@ -27,7 +27,7 @@
 #include "sprite/texturemap.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sprite  {
         /**
          * @brief Sunlight sprite management class implementation.
@@ -93,7 +93,7 @@ namespace SunLight {
             SunLight :: Canvas :: TextureCanvas* GetActiveTexture( void );
 
             // Also tells the previous parent (ChildRemoved) and moves the canvases that were following it.
-            void SetParent( SunLight :: Canvas :: BaseCanvas *pParent );
+            void SetParent( SunLight :: Canvas :: BaseCanvas* pParent );
 
             void SetVisible( bool bVisible );
 

@@ -31,7 +31,7 @@
  /**
  * @brief World class implementation.
  */
-class World : public SunLight :: Collision :: ICollisionListener {
+class World : public SunLight :: Collision :: ICollisionListener  {
 
     std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteSunny;
@@ -57,8 +57,8 @@ class World : public SunLight :: Collision :: ICollisionListener {
     bool Run( void );
 
     // SunLight :: Collision :: ICollisionListener
-    void OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: Collision :: Collider *pSecond );
-    void OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: TileMap :: stTile *pSecond );
+    void OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: Collision :: Collider* pSecond );
+    void OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: TileMap :: stTile* pSecond );
 };
 
  #endif // __WORLD_H__

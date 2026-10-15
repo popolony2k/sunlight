@@ -35,13 +35,13 @@
 #define MAX_GAMEPAD_COUNT       10
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
          /**
          * @brief Keyboard enumeration
          */
-        enum KeyboardKey {
+        enum KeyboardKey  {
             KEY_NULL            = 0,            // Key: NULL, used for no key pressed
             // Alphanumeric keys
             KEY_APOSTROPHE      = 39,           // Key: '
@@ -162,7 +162,7 @@ namespace SunLight {
          * @brief Gamepad buttons enumeration
          * 
          */
-        enum GamepadButton {
+        enum GamepadButton  {
             GAMEPAD_BUTTON_UNKNOWN = 0,         // Unknown button, just for error checking
             GAMEPAD_BUTTON_LEFT_FACE_UP,        // Gamepad left DPAD up button
             GAMEPAD_BUTTON_LEFT_FACE_RIGHT,     // Gamepad left DPAD right button
@@ -187,7 +187,7 @@ namespace SunLight {
          * @brief Gamepad axis enumeration
          * 
          */
-        enum GamepadAxis {
+        enum GamepadAxis  {
             GAMEPAD_AXIS_LEFT_X        = 0,     // Gamepad left stick X axis
             GAMEPAD_AXIS_LEFT_Y        = 1,     // Gamepad left stick Y axis
             GAMEPAD_AXIS_RIGHT_X       = 2,     // Gamepad right stick X axis
@@ -327,4 +327,4 @@ namespace SunLight {
         };
     }
 }
-#endif  /* __IINPUTHANDLER_H__ */
+#endif /* __IINPUTHANDLER_H__ */

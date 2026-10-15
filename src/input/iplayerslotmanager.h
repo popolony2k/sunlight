@@ -28,7 +28,7 @@
 #define NO_SLOT_ASSOCIATION   -1
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -85,4 +85,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __IPLAYERSLOTMANAGER_H__ */
+#endif /* __IPLAYERSLOTMANAGER_H__ */

@@ -52,7 +52,7 @@ namespace SunLight  {
              * @param nHeight Output parameter receiving the loaded texture height;
              * @return Opaque handle to the loaded texture, or nullptr if operation failed;
              */
-            virtual SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName,
+            virtual SunLight :: Base :: TextureHandle LoadTexture( const char* szFileName,
                                                                     int& nWidth,
                                                                     int& nHeight ) = 0;
 
@@ -178,7 +178,7 @@ namespace SunLight  {
              * active font, false if it failed to load (the previously
              * active font, if any, is left untouched).
              */
-            virtual bool SetFont( const char *szFilePath ) = 0;
+            virtual bool SetFont( const char* szFilePath ) = 0;
 
             /**
              * @brief Must be implemented to load a font file for use with
@@ -195,7 +195,7 @@ namespace SunLight  {
              * @param szFilePath Path to the font file to load;
              * @return The loaded font, or nullptr if it failed to load;
              */
-            virtual std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath ) = 0;
+            virtual std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) = 0;
 
             /**
              * @brief Must be implemented to restrict everything drawn after
@@ -233,7 +233,7 @@ namespace SunLight  {
              * @param nFontSize Font size, in pixels;
              * @param color Text color;
              */
-            virtual void DrawText( const char *szText,
+            virtual void DrawText( const char* szText,
                                    int nPosX,
                                    int nPosY,
                                    int nFontSize,
@@ -248,7 +248,7 @@ namespace SunLight  {
              * @param nFontSize Font size, in pixels;
              * @return The text's rendered width, in pixels;
              */
-            virtual int MeasureText( const char *szText, int nFontSize ) = 0;
+            virtual int MeasureText( const char* szText, int nFontSize ) = 0;
 
             /**
              * @brief Must be implemented to return the directory the running
@@ -397,7 +397,7 @@ namespace SunLight  {
              * @param rotation Clockwise rotation in degrees;
              * @param color Text color;
              */
-            virtual void DrawTextRotated( const char *szText,
+            virtual void DrawTextRotated( const char* szText,
                                           int nPosX,
                                           int nPosY,
                                           int nFontSize,
@@ -407,4 +407,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __IENGINE_H__ */
+#endif /* __IENGINE_H__ */

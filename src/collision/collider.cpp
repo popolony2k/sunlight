@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "collider.h"
+#include "collision/collider.h"
 #include "colliderregistry.h"
 #include <cstring>
 
@@ -28,7 +28,7 @@
 // #endif
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
 
         /**
@@ -54,7 +54,7 @@ namespace SunLight {
             if( ( ( fRect1X + fRect1Width ) >= fRect2X )  &&    // r1 right edge past r2 left
                 ( fRect1X <= ( fRect2X + fRect2Width ) )  &&    // r1 left edge past r2 right
                 ( ( fRect1Y + fRect1Height ) >= fRect2Y ) &&    // r1 top edge past r2 bottom
-                ( fRect1Y <= ( fRect2Y + fRect2Height ) ) ) {   // r1 bottom edge past r2 top
+                ( fRect1Y <= ( fRect2Y + fRect2Height ) ) )  {   // r1 bottom edge past r2 top
 
                 return true;
             }
@@ -98,7 +98,7 @@ namespace SunLight {
          * @param fWidth Receives the effective rectangle's width;
          * @param fHeight Receives the effective rectangle's height;
          */
-        void Collider :: GetEffectiveRect( float &fX, float &fY, float &fWidth, float &fHeight )  {
+        void Collider :: GetEffectiveRect( float& fX, float& fY, float& fWidth, float& fHeight )  {
 
             SunLight :: Base :: stDimension2D&  self = GetDimension2D();
             float                                 fInsetLeftPx   = self.size.nWidth  * m_fInsetLeft;
@@ -116,7 +116,7 @@ namespace SunLight {
          * Check if collider object area has been hit by tile passed as parameter.
          * @param tile Reference to the tile struct containing all tile information;
          */
-        bool Collider :: Hit( SunLight :: TileMap :: stTile &tile )  {
+        bool Collider :: Hit( SunLight :: TileMap :: stTile& tile )  {
 
             SunLight :: Base :: stDimension2D&  viewport    = GetViewport().GetDimension2D();
             tmx_object                           *pCollision = tile.pTile -> collision;
@@ -175,7 +175,7 @@ namespace SunLight {
          * parameter.
          * @param dimension Reference to a struct containing the area to be checked;
          */
-        bool Collider :: Hit( SunLight :: Base :: stDimension2D &dimension )  {
+        bool Collider :: Hit( SunLight :: Base :: stDimension2D& dimension )  {
 
             float  fSelfX, fSelfY, fSelfWidth, fSelfHeight;
 
@@ -210,7 +210,7 @@ namespace SunLight {
          * second collider in it's own collision_add_rule pairing).
          * @param other The other collider to test against;
          */
-        bool Collider :: Hit( Collider &other )  {
+        bool Collider :: Hit( Collider& other )  {
 
             float  fSelfX, fSelfY, fSelfWidth, fSelfHeight;
             float  fOtherX, fOtherY, fOtherWidth, fOtherHeight;

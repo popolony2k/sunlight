@@ -34,7 +34,7 @@
 #define DEFAULT_AXIS_DEADZONE   0.1f
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -175,4 +175,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __ICONTROLLERMANAGER_H__ */
+#endif /* __ICONTROLLERMANAGER_H__ */

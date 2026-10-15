@@ -337,13 +337,13 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
  * AddColliderToTileRule stays demonstrated as genuinely wired up and working (see
  * tests/test_collisionmanager.cpp for the rigorous, non-animated proof of that).
  */
-void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: TileMap :: stTile *pSecond )  {
+void World :: OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: TileMap :: stTile* pSecond )  {
 }
 
 /**
  * @brief Unused in this sample - only a collider-to-tile rule is registered (see LoadSprites()).
  */
-void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: Collision :: Collider *pSecond )  {
+void World :: OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: Collision :: Collider* pSecond )  {
 }
 
 /**
@@ -391,7 +391,7 @@ void World :: OnUpdate( SunLight :: TileMap :: ITileMap& tileMap )  {
 void World :: OnStop( void )  {
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) )  {
         SunLight :: Base :: stDimension2D  dimSunny;

@@ -150,7 +150,7 @@ namespace  {
         int       nDraws;
         float     fSrcX, fSrcW, fDstX, fDstW;
 
-        bool operator == ( const Observed &o ) const  {
+        bool operator == ( const Observed& o ) const  {
             return ( nTile == o.nTile ) && ( nDraws == o.nDraws ) && ( fSrcX == o.fSrcX ) && ( fSrcW == o.fSrcW ) &&
                    ( fDstX == o.fDstX ) && ( fDstW == o.fDstW );
         }

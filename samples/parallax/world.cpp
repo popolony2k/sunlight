@@ -202,9 +202,9 @@ void World :: RecenterSunnyOnScreen( void )  {
     m_pCanvasSunny -> SetDimension2D( dim );
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
-    if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) ) {
+    if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) )  {
         SunLight :: Base :: stDimension2D    dim;
 
         dim.pos.x = 0;      // set for real by RecenterSunnyOnScreen below

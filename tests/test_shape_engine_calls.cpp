@@ -39,7 +39,7 @@ namespace  {
     const float  kEdgeThickness  = 1.0f;     // __EDGE_LINE_THICKNESS in tilemaprenderer.cpp
 
     // A one-object map: the object's XML (its shape child, if any) is spliced in as given.
-    Bytes MakeShapeTmx( const std :: string &strObject )  {
+    Bytes MakeShapeTmx( const std :: string& strObject )  {
 
         std :: string  str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                              "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"4\" height=\"4\""
@@ -57,7 +57,7 @@ namespace  {
         MemoryFileSystemFixture  fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        explicit Frame( const std :: string &strObject )  {
+        explicit Frame( const std :: string& strObject )  {
 
             fsFixture.fs.files["maps/shape.tmx"] = MakeShapeTmx( strObject );
 
@@ -89,7 +89,7 @@ namespace  {
         std :: vector<MockEngine :: Event>  Of( MockEngine :: Event :: Kind kind ) const  {
             std :: vector<MockEngine :: Event>  found;
 
-            for( const MockEngine :: Event &evt : engineFixture.engine.events )
+            for( const MockEngine :: Event& evt : engineFixture.engine.events )
                 if( evt.kind == kind )
                     found.push_back( evt );
 
@@ -118,7 +118,7 @@ TEST_SUITE( "Shape engine calls" )  {
         CHECK( lines[2].x == x0 );  CHECK( lines[2].y == y0 );  CHECK( lines[2].w == x0 );  CHECK( lines[2].h == y1 );  // left
         CHECK( lines[3].x == x1 );  CHECK( lines[3].y == y0 );  CHECK( lines[3].w == x1 );  CHECK( lines[3].h == y1 );  // right
 
-        for( const MockEngine :: Event &line : lines )
+        for( const MockEngine :: Event& line : lines )
             CHECK( line.scale == kEdgeThickness );
     }
 

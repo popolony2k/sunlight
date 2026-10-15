@@ -23,8 +23,8 @@
 namespace SunLight  {
     namespace Input  {
 
-        void DefaultControllerBindings :: Install( SunLight :: TileMap :: ITileMap &map,
-                                                    SunLight :: Input :: IControllerManager &controllerManager )  {
+        void DefaultControllerBindings :: Install( SunLight :: TileMap :: ITileMap& map,
+                                                    SunLight :: Input :: IControllerManager& controllerManager )  {
 
             // Keyboard
             controllerManager.SetUserKeyEventHandler( KEY_UP, [&map]( ControllerType, int ) { map.MoveCameraUp(); } );

@@ -56,7 +56,7 @@ namespace SunLight  {
              * @brief Width of a line in this font, or 0 once it is invalid
              * (see @see IFont::MeasureText).
              */
-            int RaylibFont :: MeasureText( const char *szText, int nFontSize )  {
+            int RaylibFont :: MeasureText( const char* szText, int nFontSize )  {
 
                 if( !m_pState -> bValid )
                     return 0;
@@ -66,7 +66,7 @@ namespace SunLight  {
                 return ( int ) size.x;
             }
 
-            void RaylibFont :: DrawTextRotated( const char *szText,
+            void RaylibFont :: DrawTextRotated( const char* szText,
                                                 int nPosX,
                                                 int nPosY,
                                                 int nFontSize,
@@ -85,7 +85,7 @@ namespace SunLight  {
              * @brief Draw a line in this font, or nothing once it is invalid
              * (see @see IFont::DrawText).
              */
-            void RaylibFont :: DrawText( const char *szText,
+            void RaylibFont :: DrawText( const char* szText,
                                          int nPosX,
                                          int nPosY,
                                          int nFontSize,

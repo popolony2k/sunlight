@@ -25,7 +25,7 @@
 #include "isound.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sound  {
         namespace RayLib  {
 

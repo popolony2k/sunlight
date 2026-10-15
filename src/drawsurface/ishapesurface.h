@@ -25,7 +25,7 @@
 #include "base/color.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace DrawSurface  {
 
         /**
@@ -48,7 +48,7 @@ namespace SunLight {
          * already use), converted to screen pixels internally (Shape::ScreenLineWidth) - a caller
          * never computes that conversion itself.
          */
-        class IShapeSurface {
+        class IShapeSurface  {
 
             public:
 
@@ -114,7 +114,7 @@ namespace SunLight {
              */
             virtual void DrawPolyline( double fX,
                                        double fY,
-                                       const SunLight :: Base :: stVector2D *pPoints,
+                                       const SunLight :: Base :: stVector2D* pPoints,
                                        int nPointsCount,
                                        SunLight :: Base :: stColor color,
                                        double fThickness = 1.0,
@@ -135,7 +135,7 @@ namespace SunLight {
              */
             virtual void DrawPolygon( double fX,
                                       double fY,
-                                      const SunLight :: Base :: stVector2D *pPoints,
+                                      const SunLight :: Base :: stVector2D* pPoints,
                                       int nPointsCount,
                                       SunLight :: Base :: stColor color,
                                       double fThickness = 1.0,
@@ -157,4 +157,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __ISHAPESURFACE_H__ */
+#endif /* __ISHAPESURFACE_H__ */

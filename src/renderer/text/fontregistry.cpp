@@ -36,7 +36,7 @@ namespace SunLight  {
          * @return true if the font loaded and is registered; false otherwise, and an earlier
          * font for the same family and style is kept;
          */
-        bool FontRegistry :: Register( const char *szFamily, const char *szFilePath, bool bBold, bool bItalic )  {
+        bool FontRegistry :: Register( const char* szFamily, const char* szFilePath, bool bBold, bool bItalic )  {
 
             if( ( szFamily == nullptr ) || ( szFilePath == nullptr ) )
                 return false;
@@ -46,7 +46,7 @@ namespace SunLight  {
             if( pFont == nullptr )
                 return false;
 
-            for( __stRegisteredFont &registered : m_Fonts )  {
+            for( __stRegisteredFont& registered : m_Fonts )  {
                 if( ( registered.strFamily == szFamily ) && ( registered.bBold == bBold ) && ( registered.bItalic == bItalic ) )  {
                     // Assigning destroys the old font, which releases it.
                     registered.pFont = std :: move( pFont );
@@ -64,9 +64,9 @@ namespace SunLight  {
          * @brief The font registered for a family and style.
          * @return The font; nullptr when none is registered for exactly that family and style;
          */
-        SunLight :: Font :: IFont* FontRegistry :: Find( const char *szFamily, bool bBold, bool bItalic ) const  {
+        SunLight :: Font :: IFont* FontRegistry :: Find( const char* szFamily, bool bBold, bool bItalic ) const  {
 
-            for( const __stRegisteredFont &registered : m_Fonts )  {
+            for( const __stRegisteredFont& registered : m_Fonts )  {
                 if( ( registered.strFamily == szFamily ) && ( registered.bBold == bBold ) && ( registered.bItalic == bItalic ) )
                     return registered.pFont.get();
             }
@@ -78,7 +78,7 @@ namespace SunLight  {
          * @brief Log, once per family and style, that a text object's font is not registered.
          * Standard error, like the map-load refusals.
          */
-        void FontRegistry :: WarnMissing( const char *szFamily, bool bBold, bool bItalic )  {
+        void FontRegistry :: WarnMissing( const char* szFamily, bool bBold, bool bItalic )  {
 
             std :: string  strKey = std :: string( szFamily ) + ( bBold ? "|bold" : "|regular" ) + ( bItalic ? "|italic" : "|upright" );
 

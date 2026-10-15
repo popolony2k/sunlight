@@ -18,12 +18,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "texturemap.h"
+#include "sprite/texturemap.h"
 #include "general/clock.h"
 
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sprite  {
         /**
          * Destructor. Finalize all class data.
@@ -46,7 +46,7 @@ namespace SunLight {
          * @param nDelayMilli Time in millisecond to be used in texture
          * animation sequence;
          */
-        void TextureMap :: AddTexture( SunLight :: Canvas :: TextureCanvas *pTexture,
+        void TextureMap :: AddTexture( SunLight :: Canvas :: TextureCanvas* pTexture,
                                        int64_t nDelayMilli )  {
 
             std :: unique_ptr<stTextureData>  pData = std :: make_unique<stTextureData>();
@@ -77,9 +77,9 @@ namespace SunLight {
          * animation cursor (@see First and @see Next do).
          * @param visit Called with each texture;
          */
-        void TextureMap :: ForEachTexture( const std :: function<void( SunLight :: Canvas :: TextureCanvas* )> &visit ) const  {
+        void TextureMap :: ForEachTexture( const std :: function<void( SunLight :: Canvas :: TextureCanvas* )>& visit ) const  {
 
-            for( const std :: unique_ptr<stTextureData> &pData : m_TextureList )
+            for( const std :: unique_ptr<stTextureData>& pData : m_TextureList )
                 visit( pData -> pTexture );
         }
 
@@ -106,7 +106,7 @@ namespace SunLight {
 
             bool  bChanged = false;
 
-            for( std :: unique_ptr<stTextureData> &pData : m_TextureList )  {
+            for( std :: unique_ptr<stTextureData>& pData : m_TextureList )  {
                 if( pData -> nDelayMilli != nDelayMilli )  {
                     pData -> nDelayMilli = nDelayMilli;
                     bChanged = true;

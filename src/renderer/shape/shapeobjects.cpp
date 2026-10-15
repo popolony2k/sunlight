@@ -39,9 +39,9 @@ namespace SunLight  {
                 const double        __ROTATION_EPSILON     = 1e-12;   // a cosine or sine this close to zero is zero
 
                 // A numeric property of the object (Tiled stores it as an int or a float), or the default when it has none.
-                double NumberPropertyOf( tmx_object *pObject, const char *szName, double fDefault )  {
+                double NumberPropertyOf( tmx_object* pObject, const char* szName, double fDefault )  {
 
-                    tmx_property *pProperty = pObject -> properties ? tmx_get_property( pObject -> properties, szName ) : nullptr;
+                    tmx_property* pProperty = pObject -> properties ? tmx_get_property( pObject -> properties, szName ) : nullptr;
 
                     if( pProperty == nullptr )
                         return fDefault;
@@ -66,7 +66,7 @@ namespace SunLight  {
                 return *( ( SunLight :: Base :: stColor * ) &res );
             }
 
-            double LineWidthOf( tmx_object *pObject )  {
+            double LineWidthOf( tmx_object* pObject )  {
 
                 return NumberPropertyOf( pObject, __LINE_WIDTH_PROPERTY, __DEFAULT_LINE_WIDTH );
             }
@@ -85,19 +85,19 @@ namespace SunLight  {
                 return MapPoint { ( point.fX * fCos ) - ( point.fY * fSin ), ( point.fX * fSin ) + ( point.fY * fCos ) };
             }
 
-            double RotationOf( tmx_object *pObject )  {
+            double RotationOf( tmx_object* pObject )  {
 
                 return pObject -> rotation;
             }
 
-            double PointSizeOf( tmx_object *pObject )  {
+            double PointSizeOf( tmx_object* pObject )  {
 
                 return NumberPropertyOf( pObject, __POINT_SIZE_PROPERTY, __DEFAULT_POINT_SIZE );
             }
 
-            OpacityProperty ObjectOpacityOf( tmx_object *pObject, double &fValue )  {
+            OpacityProperty ObjectOpacityOf( tmx_object* pObject, double& fValue )  {
 
-                tmx_property *pProperty = pObject -> properties ? tmx_get_property( pObject -> properties, __OPACITY_PROPERTY ) : nullptr;
+                tmx_property* pProperty = pObject -> properties ? tmx_get_property( pObject -> properties, __OPACITY_PROPERTY ) : nullptr;
 
                 if( pProperty == nullptr )
                     return OpacityProperty :: NONE;

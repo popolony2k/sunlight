@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "texturecanvas.h"
+#include "canvas/texturecanvas.h"
 #include <cmath>
 #include <cstring>
 #include "engines/enginefactory.h"
@@ -26,7 +26,7 @@
 #include "general/helper.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
         /**
          * Constructor. Initialize all class data.
@@ -66,7 +66,7 @@ namespace SunLight {
 
             if( m_hTexture != nullptr )  {
                 if( ( dimension.size.nWidth == 0 ) &&
-                    ( dimension.size.nHeight == 0 )  ) {
+                    ( dimension.size.nHeight == 0 )  )  {
                     dimension.size.nHeight = m_nTextureHeight;
                     dimension.size.nWidth  = m_nTextureWidth;
                 }
@@ -116,7 +116,7 @@ namespace SunLight {
         /**
          * Get texture frame split size.
          */
-        unsigned int TextureCanvas :: GetTileSize( void ) {
+        unsigned int TextureCanvas :: GetTileSize( void )  {
 
             return m_nTileSize;
         }
@@ -195,8 +195,8 @@ namespace SunLight {
          * @param clip Receives the visible, scaled part;
          * @return false if none of it is inside the viewport;
          */
-        bool TextureCanvas :: GetScreenRect( SunLight :: Base :: stDimension2D &dm,
-                                             SunLight :: Base :: stDimension2D &clip )  {
+        bool TextureCanvas :: GetScreenRect( SunLight :: Base :: stDimension2D& dm,
+                                             SunLight :: Base :: stDimension2D& clip )  {
 
             dm = GetDimension2D();
 
@@ -244,7 +244,7 @@ namespace SunLight {
                 SunLight :: Base :: stDimension2D  dm;
                 SunLight :: Base :: stDimension2D  clip;
 
-                if( GetScreenRect( dm, clip ) ) {
+                if( GetScreenRect( dm, clip ) )  {
 
                     switch( m_AnimationMode )  {
                         case TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR :
@@ -361,7 +361,7 @@ namespace SunLight {
                 SunLight :: Base :: stDimension2D  dm;
                 SunLight :: Base :: stDimension2D  clip;
 
-                if( GetScreenRect( dm, clip ) ) {
+                if( GetScreenRect( dm, clip ) )  {
 
                     /*
                     * All cut operations are calculated considering the

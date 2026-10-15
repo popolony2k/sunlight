@@ -107,7 +107,7 @@ namespace  {
         std :: vector<void*>  TileHandles( void )  {
             std :: vector<void*>  handles;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: TILE )
                     handles.push_back( evt.handle );
 
@@ -123,7 +123,7 @@ namespace  {
         Scene                                &m_Scene;
         int                                   m_nLayerId;
 
-        SpriteRig( Scene &scene, int nLayerId, SunLight :: Base :: TextureHandle handle, int nZOrder = 0 )
+        SpriteRig( Scene& scene, int nLayerId, SunLight :: Base :: TextureHandle handle, int nZOrder = 0 )
             : m_Scene( scene ), m_nLayerId( nLayerId )  {
 
             scene.engine().hLoadTextureResult = handle;

@@ -49,9 +49,9 @@ namespace SunLight  {
              * @return true if the size was read, false if the data isn't a
              * recognised, well-formed PNG/JPEG header (outputs untouched);
              */
-            bool ReadImageSize( const unsigned char *pData, size_t nSize, int &nWidth, int &nHeight );
+            bool ReadImageSize( const unsigned char* pData, size_t nSize, int& nWidth, int& nHeight );
         }
     }
 }
 
-#endif  /* __NULLIMAGEHEADER_H__ */
+#endif /* __NULLIMAGEHEADER_H__ */

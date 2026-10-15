@@ -43,7 +43,7 @@ namespace  {
     const int  __START_CAMERA_Y  = 100;
 }
 
-int main( int argc, char **argv ) {
+int main( int argc, char** argv )  {
 
     if( argc < 2 )  {
         fprintf( stderr, "Invalid command line arguments: text_test <sample directory>\n" );
@@ -102,7 +102,7 @@ int main( int argc, char **argv ) {
     // Mono: all four faces of Anonymous Pro. Pixel: Press Start 2P (regular only).
     // "Sans italic" and "Serif" are deliberately not registered, so their labels show
     // ?????? (and a warning on stderr) - that is the behaviour under test.
-    const struct  { const char *szFamily; const char *szFile; bool bBold; bool bItalic; }  faces[] = {
+    const struct  { const char* szFamily; const char* szFile; bool bBold; bool bItalic; }  faces[] = {
         { "Sans",  "/shared/fonts/caravellius8x8.fnt",           false, false },
         { "Sans",  "/shared/fonts/caravellius8x8_bold.fnt",      true,  false },
         { "Mono",  "/shared/fonts/AnonymousPro-Regular.ttf",     false, false },
@@ -112,7 +112,7 @@ int main( int argc, char **argv ) {
         { "Pixel", "/shared/fonts/pressstart2p-regular.ttf",    false, false },
     };
 
-    for( const auto &face : faces )  {
+    for( const auto& face : faces )  {
         if( !pRenderer -> RegisterFont( face.szFamily, face.szFile, face.bBold, face.bItalic ) )
             fprintf( stderr, "Cannot load %s (%s)\n", face.szFile, face.szFamily );
     }

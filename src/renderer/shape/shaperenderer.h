@@ -50,7 +50,7 @@ namespace SunLight  {
             // from an origin already in screen pixels.
             std :: vector<Shape :: ScreenPoint> ScreenPointsOf( double fOriginX,
                                                                 double fOriginY,
-                                                                double **fPoints,
+                                                                double** fPoints,
                                                                 int nPointsCount,
                                                                 double fZoom,
                                                                 double fRotation ) const;
@@ -60,23 +60,23 @@ namespace SunLight  {
 
             public:
 
-            void DrawPolyline( const DrawContext &context,
+            void DrawPolyline( const DrawContext& context,
                                double fOffset_x,
                                double fOffset_y,
-                               double **fPoints,
+                               double** fPoints,
                                int nPointsCount,
                                double fRotation,
                                int nLineWidth,
                                SunLight :: Base :: stColor color ) const;
-            void DrawPolygon( const DrawContext &context,
+            void DrawPolygon( const DrawContext& context,
                               double fOffset_x,
                               double fOffset_y,
-                              double **fPoints,
+                              double** fPoints,
                               int nPointsCount,
                               double fRotation,
                               int nLineWidth,
                               SunLight :: Base :: stColor color ) const;
-            void DrawRectangle( const DrawContext &context,
+            void DrawRectangle( const DrawContext& context,
                                 double fOffset_x,
                                 double fOffset_y,
                                 double fWidth,
@@ -84,7 +84,7 @@ namespace SunLight  {
                                 double fRotation,
                                 int nLineWidth,
                                 SunLight :: Base :: stColor color ) const;
-            void DrawEllipse( const DrawContext &context,
+            void DrawEllipse( const DrawContext& context,
                               double fOffset_x,
                               double fOffset_y,
                               double fWidth,
@@ -92,7 +92,7 @@ namespace SunLight  {
                               double fRotation,
                               int nLineWidth,
                               SunLight :: Base :: stColor color ) const;
-            void DrawPoint( const DrawContext &context,
+            void DrawPoint( const DrawContext& context,
                             double fOffset_x,
                             double fOffset_y,
                             double fSize,
@@ -101,4 +101,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __SHAPERENDERER_H__ */
+#endif /* __SHAPERENDERER_H__ */

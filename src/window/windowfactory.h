@@ -24,7 +24,7 @@
 #include "window/iwindow.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Window  {
 
         /**
@@ -65,9 +65,9 @@ namespace SunLight {
              * @param pOverride The replacement window, or nullptr to reset
              * back to the default backend;
              */
-            static void SetWindow( IWindow *pOverride );
+            static void SetWindow( IWindow* pOverride );
         };
     }
 }
 
-#endif  /* __WINDOWFACTORY_H__ */
+#endif /* __WINDOWFACTORY_H__ */

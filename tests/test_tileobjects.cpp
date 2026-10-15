@@ -34,7 +34,7 @@ namespace  {
 
     // A tileset of two tiles (gids 1 and 2), and a map with one object group holding the
     // given objects. No tile layer: every TILE event is one of the objects.
-    Bytes MakeTmx( const std :: string &strObjects )  {
+    Bytes MakeTmx( const std :: string& strObjects )  {
 
         std :: ostringstream  tmx;
 
@@ -75,7 +75,7 @@ namespace  {
         MemoryFileSystemFixture             fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        explicit Scene( const std :: string &strObjects )  {
+        explicit Scene( const std :: string& strObjects )  {
 
             fsFixture.fs.files["maps/sprites.tmx"] = MakeTmx( strObjects );
 
@@ -119,7 +119,7 @@ namespace  {
         std :: vector<Event> Scaled( void )  {
             std :: vector<Event>  scaled;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: SCALED )
                     scaled.push_back( evt );
 
@@ -137,7 +137,7 @@ namespace  {
         std :: vector<Event> Tiles( void )  {
             std :: vector<Event>  tiles;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == Event :: TILE )
                     tiles.push_back( evt );
 

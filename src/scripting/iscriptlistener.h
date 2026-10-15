@@ -26,7 +26,7 @@
 #include "scripting/command.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Scripting  {
 
         /**
@@ -55,4 +55,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __ISCRIPTLISTENER_H__ */
+#endif /* __ISCRIPTLISTENER_H__ */

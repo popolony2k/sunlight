@@ -42,7 +42,7 @@ namespace SunLight  {
         /**
          * @brief Install (or, with nullptr, remove) a replacement clock.
          */
-        void Clock :: SetClock( IClock *pClock )  {
+        void Clock :: SetClock( IClock* pClock )  {
 
             s_pClock = pClock;
         }

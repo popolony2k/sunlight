@@ -131,7 +131,7 @@ TEST_SUITE( "Staggered projection" )  {
             { 1, 1, 96,  24 },                    // E
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -155,7 +155,7 @@ TEST_SUITE( "Staggered projection" )  {
             { 1, 1, 64,  24 },                    // E
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -179,7 +179,7 @@ TEST_SUITE( "Staggered projection" )  {
             { 1, 1, 32, 72 },                     // E
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -203,7 +203,7 @@ TEST_SUITE( "Staggered projection" )  {
             { 1, 1, 32, 48 },                     // E
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -522,10 +522,10 @@ TEST_SUITE( "Staggered rendering (renderer integration)" )  {
             { 0, 0 }, { 64, 0 }, { 128, 0 }, { 32, 24 }, { 96, 24 }, { 160, 24 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             bool  bFound = false;
 
-            for( const Event &evt : engineFixture.engine.events )  {
+            for( const Event& evt : engineFixture.engine.events )  {
                 if( ( evt.kind == Event :: TILE ) && ( ( int ) evt.x == e.nX ) && ( ( int ) evt.y == e.nY ) )  {
                     bFound = true;
                     break;

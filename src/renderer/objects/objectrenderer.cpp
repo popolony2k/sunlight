@@ -33,16 +33,16 @@ namespace SunLight  {
          * @param fonts The fonts text objects are drawn with;
          * @param drawTileObject Draws a tile object (see TILE_OBJECT_DRAWER);
          */
-        void ObjectRenderer :: Draw( const DrawContext &context,
-                                     tmx_layer *pLayer,
-                                     FontRegistry &fonts,
-                                     const TILE_OBJECT_DRAWER &drawTileObject )  {
+        void ObjectRenderer :: Draw( const DrawContext& context,
+                                     tmx_layer* pLayer,
+                                     FontRegistry& fonts,
+                                     const TILE_OBJECT_DRAWER& drawTileObject )  {
 
-            tmx_object *head = pLayer ->  content.objgr -> head;
+            tmx_object* head = pLayer ->  content.objgr -> head;
             SunLight :: Base :: stColor  baseColor = Shape :: ColorOf( pLayer ->  content.objgr -> color );
 
-            while( head ) {
-                if( head -> visible ) {
+            while( head )  {
+                if( head -> visible )  {
                     // L2: the object's own "opacity" property, or its layer's, multiplies into the
                     // object group's own stored colour alpha - shapes have no separate alpha control
                     // of their own to begin with, the same reasoning as a text object's.

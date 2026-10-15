@@ -24,7 +24,7 @@
 #include "collision/icollisionlistener.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
         /**
          * @brief Collision manager base interface.
@@ -87,7 +87,7 @@ namespace SunLight {
              * Add an ICollisionListener event object to manager;
              * @param pListener Pointer to the listener object to add;
              */
-            virtual void AddCollisionListener( SunLight :: Collision :: ICollisionListener *pListener ) = 0;
+            virtual void AddCollisionListener( SunLight :: Collision :: ICollisionListener* pListener ) = 0;
 
             /**
              * Check if there are collisions between objects managed by
@@ -101,4 +101,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __ICOLLISIONMANAGER_H__ */
+#endif /* __ICOLLISIONMANAGER_H__ */

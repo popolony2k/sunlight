@@ -28,11 +28,11 @@ namespace SunLight  {
          * @brief See this method's own declaration (ifilesystem.h) for
          * the full rationale.
          */
-        std :: string IFileSystem :: ToVirtualPath( const std :: string &strRealPath )  {
+        std :: string IFileSystem :: ToVirtualPath( const std :: string& strRealPath )  {
 
             std :: string  strVirtual = strRealPath;
 
-            for( char &c : strVirtual )  {
+            for( char& c : strVirtual )  {
                 if( c == '\\' )
                     c = '/';
             }

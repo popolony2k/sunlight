@@ -55,7 +55,7 @@ namespace SunLight  {
         /**
          * Internal zoom properties.
          */
-        struct stZoomProperties {
+        struct stZoomProperties  {
             unsigned       nCurrentZoomPos;
             unsigned       nPreferredZoomPos;
             float          fZoomFactor;
@@ -79,7 +79,7 @@ namespace SunLight  {
          * 900) now. Origin-anchored viewports, pos (0, 0), mean the same
          * in both.)
          */
-        class Viewport : public SunLight :: Base :: GraphicObject {
+        class Viewport : public SunLight :: Base :: GraphicObject  {
 
             typedef std :: vector<float> ZoomFactorList;
             typedef std :: pair<unsigned, unsigned> ZoomBorderLimits;
@@ -100,14 +100,14 @@ namespace SunLight  {
             virtual void SetPreferredZoom( unsigned nZoomPos );
             virtual void SetMinZoom( unsigned nMinPos );
             virtual void SetMaxZoom( unsigned nMaxPos );
-            virtual void GetZoomLimits( unsigned &nMinPos, unsigned &nMaxPos );
+            virtual void GetZoomLimits( unsigned& nMinPos, unsigned& nMaxPos );
             virtual void SetZoom( unsigned nZoomPos );
             virtual void ResetZoom( void );
             virtual void ZoomIn( void );
             virtual void ZoomOut( void );
             virtual float GetZoomFactor( unsigned int nZoomPos );
 
-            void SetZoomPropertiesPtr( stZoomProperties *pProps );
+            void SetZoomPropertiesPtr( stZoomProperties* pProps );
             stZoomProperties& GetZoomProperties( void );
 
             virtual bool GetClippedRect( SunLight :: Base :: stDimension2D src,
@@ -115,7 +115,7 @@ namespace SunLight  {
 
             // GetClippedRect's arithmetic for any viewport rectangle and zoom factor (S1c2 of the
             // master plan): a drawing class with a DrawContext - not a Viewport - runs the same test.
-            static bool ClipRect( const SunLight :: Base :: stDimension2D &viewport,
+            static bool ClipRect( const SunLight :: Base :: stDimension2D& viewport,
                                   float fZoomFactor,
                                   SunLight :: Base :: stDimension2D src,
                                   SunLight :: Base :: stDimension2D& dst );

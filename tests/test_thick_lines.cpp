@@ -44,7 +44,7 @@ namespace  {
     const int  kObjectY        = 100;
 
     // A one-object map. The object's XML (its properties and shape) is spliced in as given.
-    Bytes MakeLineTmx( const std :: string &strObject )  {
+    Bytes MakeLineTmx( const std :: string& strObject )  {
 
         std :: string  str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                              "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"4\" height=\"4\""
@@ -55,7 +55,7 @@ namespace  {
     }
 
     // The polyline object XML for a line with the given points and line_width (an int, Tiled's int property).
-    std :: string PolylineObject( const std :: string &strPoints, int nLineWidth )  {
+    std :: string PolylineObject( const std :: string& strPoints, int nLineWidth )  {
 
         return "<object id=\"1\" x=\"" + std :: to_string( kObjectX ) + "\" y=\"" + std :: to_string( kObjectY ) + "\" width=\"0\" height=\"0\">"
                "<properties><property name=\"line_width\" type=\"int\" value=\"" + std :: to_string( nLineWidth ) + "\"/></properties>"
@@ -70,7 +70,7 @@ namespace  {
         MemoryFileSystemFixture  fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        Frame( const std :: string &strObject, unsigned nZoomPos = 15u )  {
+        Frame( const std :: string& strObject, unsigned nZoomPos = 15u )  {
 
             fsFixture.fs.files["maps/line.tmx"] = MakeLineTmx( strObject );
 
@@ -102,7 +102,7 @@ namespace  {
         std :: vector<MockEngine :: Event>  Of( MockEngine :: Event :: Kind kind ) const  {
             std :: vector<MockEngine :: Event>  found;
 
-            for( const MockEngine :: Event &evt : engineFixture.engine.events )
+            for( const MockEngine :: Event& evt : engineFixture.engine.events )
                 if( evt.kind == kind )
                     found.push_back( evt );
 
@@ -113,7 +113,7 @@ namespace  {
         std :: set<std :: pair<int, int>>  Covered( void ) const  {
             std :: set<std :: pair<int, int>>  pixels;
 
-            for( const MockEngine :: Event &span : Of( MockEngine :: Event :: FILL ) )
+            for( const MockEngine :: Event& span : Of( MockEngine :: Event :: FILL ) )
                 for( int nX = ( int ) span.x; nX < ( int ) ( span.x + span.w ); nX++ )
                     for( int nY = ( int ) span.y; nY < ( int ) ( span.y + span.h ); nY++ )
                         pixels.insert( std :: make_pair( nX, nY ) );
@@ -127,7 +127,7 @@ namespace  {
         int nX, nY, nWidth;
     };
 
-    bool SameSpans( const std :: vector<MockEngine :: Event> &found, const std :: vector<Span> &expected )  {
+    bool SameSpans( const std :: vector<MockEngine :: Event>& found, const std :: vector<Span>& expected )  {
 
         if( found.size() != expected.size() )
             return false;
@@ -232,7 +232,7 @@ TEST_SUITE( "Thick lines" )  {
         std :: set<int>                     rows;
         long                                nPixels = 0;
 
-        for( const MockEngine :: Event &span : spans )  {
+        for( const MockEngine :: Event& span : spans )  {
             CHECK( span.h == 1.0f );
             rows.insert( ( int ) span.y );
             nPixels += ( long ) span.w;
@@ -246,7 +246,7 @@ TEST_SUITE( "Thick lines" )  {
 
         const char * const  aLines[] = { "0,0 60,40", "0,60 60,0", "0,0 0,50", "5,5 45,35" };
 
-        for( const char *szLine : aLines )  {
+        for( const char* szLine : aLines )  {
             for( int nWidth = 2; nWidth <= 5; nWidth++ )  {
 
                 INFO( "line " << szLine << " width " << nWidth );
@@ -311,7 +311,7 @@ TEST_SUITE( "Thick lines" )  {
 namespace  {
 
     // The polygon object XML for a closed shape with the given points and line_width (an int).
-    std :: string PolygonObject( const std :: string &strPoints, int nLineWidth )  {
+    std :: string PolygonObject( const std :: string& strPoints, int nLineWidth )  {
 
         return "<object id=\"1\" x=\"" + std :: to_string( kObjectX ) + "\" y=\"" + std :: to_string( kObjectY ) + "\" width=\"0\" height=\"0\">"
                "<properties><property name=\"line_width\" type=\"int\" value=\"" + std :: to_string( nLineWidth ) + "\"/></properties>"
@@ -321,7 +321,7 @@ namespace  {
     // The reference for a path: a pixel is in it when its centre is inside a segment's stroke, or inside the round
     // join of a vertex that has two segments (every vertex of a closed path with more than two points; the
     // interior vertices of an open one). The join is a disc of half the width, strictly inside, as in the renderer.
-    std :: set<std :: pair<int, int>>  ReferencePath( const std :: vector<std :: pair<double, double>> &points, bool bClosed, int nWidth )  {
+    std :: set<std :: pair<int, int>>  ReferencePath( const std :: vector<std :: pair<double, double>>& points, bool bClosed, int nWidth )  {
 
         const double  eps = 1e-9;
         bool          bLoop = bClosed && ( points.size() > 2 );
@@ -367,11 +367,11 @@ namespace  {
     }
 
     // The screen points of object-relative offsets, at zoom 1 with the viewport at (10, 10) and the object at (100, 100).
-    std :: vector<std :: pair<double, double>>  ScreenOf( const std :: vector<std :: pair<int, int>> &offsets )  {
+    std :: vector<std :: pair<double, double>>  ScreenOf( const std :: vector<std :: pair<int, int>>& offsets )  {
 
         std :: vector<std :: pair<double, double>>  points;
 
-        for( const std :: pair<int, int> &offset : offsets )
+        for( const std :: pair<int, int>& offset : offsets )
             points.push_back( std :: make_pair( kViewportOrigin + kObjectX + offset.first, kViewportOrigin + kObjectY + offset.second ) );
 
         return points;
@@ -591,7 +591,7 @@ TEST_SUITE( "Points" )  {
 
         bool  bClipStartsInside = false;
 
-        for( const MockEngine :: Event &evt : frame.engineFixture.engine.events )
+        for( const MockEngine :: Event& evt : frame.engineFixture.engine.events )
             if( ( evt.kind == MockEngine :: Event :: CLIP_BEGIN ) && ( evt.x == 11.0f ) && ( evt.y == 11.0f ) )
                 bClipStartsInside = true;
 
@@ -603,7 +603,7 @@ TEST_SUITE( "Points" )  {
 namespace  {
 
     // A shape object XML at object (100, 100), turned by nRotation degrees (Tiled's rotation attribute).
-    std :: string RotatedObject( const std :: string &strShape, int nRotation )  {
+    std :: string RotatedObject( const std :: string& strShape, int nRotation )  {
 
         return "<object id=\"1\" x=\"100\" y=\"100\" rotation=\"" + std :: to_string( nRotation ) + "\">" + strShape + "</object>";
     }

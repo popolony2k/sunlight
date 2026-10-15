@@ -35,7 +35,7 @@ namespace SunLight  {
              * @param pObject The object, as libtmx parsed it;
              * @return Width in map units;
              */
-            double LineWidthOf( tmx_object *pObject );
+            double LineWidthOf( tmx_object* pObject );
 
             /**
              * @brief A colour as libtmx stores one (a packed 0xAARRGGBB, e.g. an object group's
@@ -52,7 +52,7 @@ namespace SunLight  {
              * @param pObject The object, as libtmx parsed it;
              * @return Size in map units;
              */
-            double PointSizeOf( tmx_object *pObject );
+            double PointSizeOf( tmx_object* pObject );
 
             /**
              * @brief Outcome of reading an object's own "opacity" property (L2 of the master plan).
@@ -71,7 +71,7 @@ namespace SunLight  {
              * @param fValue Set to the property's own value (0 to 1) only when the return is VALID;
              * @return Which of the three outcomes above;
              */
-            OpacityProperty ObjectOpacityOf( tmx_object *pObject, double &fValue );
+            OpacityProperty ObjectOpacityOf( tmx_object* pObject, double& fValue );
 
             /**
              * @brief A point in map units, relative to an object's stored point.
@@ -96,8 +96,8 @@ namespace SunLight  {
              * @param pObject The object, as libtmx parsed it;
              * @return Degrees;
              */
-            double RotationOf( tmx_object *pObject );
+            double RotationOf( tmx_object* pObject );
         }
     }
 }
-#endif  /* __SHAPEOBJECTS_H__ */
+#endif /* __SHAPEOBJECTS_H__ */

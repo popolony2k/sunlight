@@ -50,4 +50,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __OBJECT_H__ */
+#endif /* __OBJECT_H__ */

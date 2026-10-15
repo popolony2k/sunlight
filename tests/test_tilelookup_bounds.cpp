@@ -47,7 +47,7 @@ namespace  {
         return pRenderer;
     }
 
-    bool Lookup( TileMapRenderer &renderer, int nX, int nY, MatrixPos &pos )  {
+    bool Lookup( TileMapRenderer& renderer, int nX, int nY, MatrixPos& pos )  {
 
         Coord  coord = { nX, nY };
 
@@ -182,7 +182,7 @@ TEST_SUITE( "renderer/tile lookup bounds" )  {
         // Each of these used to index gids[] with a row or column outside 0..3.
         const MatrixPos  outside[] = { { 4, 0 }, { 0, 4 }, { 4, 4 }, { -1, 0 }, { 0, -1 }, { 3, 4 } };
 
-        for( const MatrixPos &pos : outside )  {
+        for( const MatrixPos& pos : outside )  {
             Tile  tile;
 
             tile.nGID  = 12345;

@@ -46,7 +46,7 @@ namespace  {
     // opacity given directly, so a test's expected alpha is never at the mercy of libtmx's own
     // zero-filled default (an <objectgroup> with no color attribute parses to alpha 0, fully
     // transparent - useless as an opacity baseline).
-    Bytes MakeTmx( const std :: string &strGroupAttrs, const std :: string &strObjects )  {
+    Bytes MakeTmx( const std :: string& strGroupAttrs, const std :: string& strObjects )  {
 
         std :: ostringstream  tmx;
 
@@ -71,7 +71,7 @@ namespace  {
         MemoryFileSystemFixture  fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        Frame( const std :: string &strGroupAttrs, const std :: string &strObjects )  {
+        Frame( const std :: string& strGroupAttrs, const std :: string& strObjects )  {
 
             fsFixture.fs.files["maps/opacity.tmx"] = MakeTmx( strGroupAttrs, strObjects );
 
@@ -103,7 +103,7 @@ namespace  {
         std :: vector<Event>  Of( Event :: Kind kind ) const  {
             std :: vector<Event>  found;
 
-            for( const Event &evt : engineFixture.engine.events )
+            for( const Event& evt : engineFixture.engine.events )
                 if( evt.kind == kind )
                     found.push_back( evt );
 
@@ -113,11 +113,11 @@ namespace  {
 
     // A hairline rectangle (width 1, the default): drawn as four engine LINE calls, each carrying
     // the object's own effective colour, including its opacity-derived alpha.
-    std :: string RectObject( const std :: string &strPropertyXml = "" )  {
+    std :: string RectObject( const std :: string& strPropertyXml = "" )  {
         return "<object id=\"1\" x=\"100\" y=\"100\" width=\"16\" height=\"16\">" + strPropertyXml + "</object>";
     }
 
-    std :: string OpacityProperty( const std :: string &strType, const std :: string &strValue )  {
+    std :: string OpacityProperty( const std :: string& strType, const std :: string& strValue )  {
         return "<properties><property name=\"opacity\" type=\"" + strType + "\" value=\"" + strValue + "\"/></properties>";
     }
 }
@@ -133,7 +133,7 @@ TEST_SUITE( "renderer/object_opacity" )  {
 
         REQUIRE( lines.size() == 4 );   // four hairline edges
 
-        for( const Event &line : lines )
+        for( const Event& line : lines )
             CHECK( line.color.nAlpha == 127 );
     }
 
@@ -150,7 +150,7 @@ TEST_SUITE( "renderer/object_opacity" )  {
 
         REQUIRE( lines.size() == 4 );
 
-        for( const Event &line : lines )
+        for( const Event& line : lines )
             CHECK( line.color.nAlpha == 64 );
     }
 
@@ -162,7 +162,7 @@ TEST_SUITE( "renderer/object_opacity" )  {
 
         REQUIRE( lines.size() == 4 );
 
-        for( const Event &line : lines )
+        for( const Event& line : lines )
             CHECK( line.color.nAlpha == 127 );   // the layer's own 0.5, not the invalid 2.5
     }
 
@@ -174,7 +174,7 @@ TEST_SUITE( "renderer/object_opacity" )  {
 
         REQUIRE( lines.size() == 4 );
 
-        for( const Event &line : lines )
+        for( const Event& line : lines )
             CHECK( line.color.nAlpha == 127 );
     }
 

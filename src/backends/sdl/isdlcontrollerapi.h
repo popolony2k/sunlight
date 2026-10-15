@@ -24,7 +24,7 @@
 #include <cstdint>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
         namespace SDL  {
 
@@ -62,4 +62,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __ISDLCONTROLLERAPI_H__ */
+#endif /* __ISDLCONTROLLERAPI_H__ */

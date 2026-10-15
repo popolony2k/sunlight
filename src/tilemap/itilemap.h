@@ -28,7 +28,7 @@
 #include "collision/icollisionmanager.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace TileMap  {
 
         /**
@@ -46,7 +46,7 @@ namespace SunLight {
          * the one concrete class implementing ITileMap, now also
          * implements IDrawSurface directly.
          */
-        class ITileMap : public SunLight :: Canvas :: BaseCanvas {
+        class ITileMap : public SunLight :: Canvas :: BaseCanvas  {
 
             public:
 
@@ -167,7 +167,7 @@ namespace SunLight {
              * already removed view or an empty pointer removes nothing).
              * @return true if it was removed;
              */
-            virtual bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView ) = 0;
+            virtual bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView>& pView ) = 0;
 
             /**
              * @brief The number of views, the default view included (so at
@@ -247,35 +247,35 @@ namespace SunLight {
              * @param nY Receives the world-space y coordinate (pixels)
              * currently shown at the viewport's top edge.
              */
-            virtual void GetCameraPosition( int &nX, int &nY ) = 0;
+            virtual void GetCameraPosition( int& nX, int& nY ) = 0;
 
             /**
              * Set layer parameters.
              * @param nLayerId The layer id to set layer parameters;
              * @param layer reference to layer parameters structure to set;
              */
-            virtual bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer ) = 0;
+            virtual bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
              * Set layer parameters.
              * @param szLayerName The layer name to set layer parameters;
              * @param layer reference to layer parameters structure to set;
              */
-            virtual bool SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer ) = 0;
+            virtual bool SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
              * Get the layer parameters.
              * @param nLayerId The layer id to get layer parameters;
              * @param layer reference to layer parameters structure to get;
              */
-            virtual bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer ) = 0;
+            virtual bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
              * Get the layer parameters.
              * @param szLayerName The layer name to get layer parameters;
              * @param layer reference to layer parameters structure to get;
              */
-            virtual bool GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer ) = 0;
+            virtual bool GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
              * Get a tile based row and column on specified map layer;
@@ -317,7 +317,7 @@ namespace SunLight {
              * @return true if an object with this name was found (searched
              * across every object-group layer), false otherwise.
              */
-            virtual bool GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object ) = 0;
+            virtual bool GetObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) = 0;
 
             /**
              * Return the reference to internal renderer collision manager.
@@ -357,7 +357,7 @@ namespace SunLight {
              * @param szTxMapFile Renderer map file;
              * @param alignment Map alignment according @ref MapAlignment enumerator;
              */
-            virtual bool LoadMap( const char *szTxMapFile, 
+            virtual bool LoadMap( const char* szTxMapFile, 
                                   SunLight :: TileMap :: ITileMap :: MapAlignment alignment = SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER ) = 0;
 
             /**

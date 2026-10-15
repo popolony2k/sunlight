@@ -22,7 +22,7 @@
 #include <algorithm>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Window  {
 
         /**
@@ -30,7 +30,7 @@ namespace SunLight {
          * @param handler The handler to call on every Fire();
          * @return An id to pass to Remove() (always > 0);
          */
-        int CloseHandlerList :: Add( const Handler &handler )  {
+        int CloseHandlerList :: Add( const Handler& handler )  {
 
             int  nId = m_nNextId++;
 
@@ -46,7 +46,7 @@ namespace SunLight {
         void CloseHandlerList :: Remove( int nId )  {
 
             m_Entries.erase( std :: remove_if( m_Entries.begin(), m_Entries.end(),
-                                               [nId]( const Entry &entry ) { return entry.nId == nId; } ),
+                                               [nId]( const Entry& entry ) { return entry.nId == nId; } ),
                              m_Entries.end() );
         }
 
@@ -57,11 +57,11 @@ namespace SunLight {
 
             std :: vector<Entry>  snapshot = m_Entries;
 
-            for( const Entry &entry : snapshot )  {
+            for( const Entry& entry : snapshot )  {
                 // Skip a handler an earlier handler in this same Fire()
                 // just removed.
                 bool  bStillRegistered = std :: any_of( m_Entries.begin(), m_Entries.end(),
-                                                        [&entry]( const Entry &live ) { return live.nId == entry.nId; } );
+                                                        [&entry]( const Entry& live ) { return live.nId == entry.nId; } );
 
                 if( bStillRegistered )
                     entry.handler();

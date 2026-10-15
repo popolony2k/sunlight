@@ -18,11 +18,11 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "basecanvas.h"
+#include "canvas/basecanvas.h"
 #include <stdio.h>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
         /**
          * Constructor. Initialize all class data.
@@ -46,7 +46,7 @@ namespace SunLight {
          * Set parent object.
          * @param pParent The new parent object of this object;
          */
-        void BaseCanvas :: SetParent( BaseCanvas *pParent )  {
+        void BaseCanvas :: SetParent( BaseCanvas* pParent )  {
 
             m_pParent = pParent;
         }
@@ -56,7 +56,7 @@ namespace SunLight {
          * do here, a parent that keeps pointers to its children overrides this.
          * @param pChild The child that is leaving;
          */
-        void BaseCanvas :: ChildRemoved( BaseCanvas *pChild )  {
+        void BaseCanvas :: ChildRemoved( BaseCanvas* pChild )  {
 
         }
 
@@ -90,7 +90,7 @@ namespace SunLight {
          * GetParallaxLayerId() up to the parent - whatever nLayerId it was called
          * with is irrelevant here (see the header's own comment).
          */
-        void BaseCanvas :: GetCameraOffset( float &fX, float &fY, int nLayerId )  {
+        void BaseCanvas :: GetCameraOffset( float& fX, float& fY, int nLayerId )  {
 
             if( m_pParent )  {
                 m_pParent -> GetCameraOffset( fX, fY, m_nParallaxLayerId );
@@ -139,7 +139,7 @@ namespace SunLight {
          * Set a new viewport object to this canvas.
          * @param pViewport The new viewport object to set;
          */
-        void BaseCanvas :: SetViewport( SunLight :: Base :: Viewport *pViewport )  {
+        void BaseCanvas :: SetViewport( SunLight :: Base :: Viewport* pViewport )  {
 
             m_pViewport = pViewport;
         }

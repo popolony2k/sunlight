@@ -147,7 +147,7 @@ TEST_SUITE( "Hexagonal projection" )  {
             { 1, 1, 90,  35 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -171,7 +171,7 @@ TEST_SUITE( "Hexagonal projection" )  {
             { 1, 1, 60,  35 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -197,7 +197,7 @@ TEST_SUITE( "Hexagonal projection" )  {
             { 1, 1, 90, 30 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -221,7 +221,7 @@ TEST_SUITE( "Hexagonal projection" )  {
             { 1, 1, 35,  90 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -245,7 +245,7 @@ TEST_SUITE( "Hexagonal projection" )  {
             { 1, 1, 35,  60 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -269,7 +269,7 @@ TEST_SUITE( "Hexagonal projection" )  {
             { 1, 1, 30, 90 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -627,10 +627,10 @@ TEST_SUITE( "Hexagonal rendering (renderer integration)" )  {
             { 0, 0 }, { 60, 0 }, { 120, 0 }, { 30, 35 }, { 90, 35 }, { 150, 35 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             bool  bFound = false;
 
-            for( const Event &evt : engineFixture.engine.events )  {
+            for( const Event& evt : engineFixture.engine.events )  {
                 if( ( evt.kind == Event :: TILE ) && ( ( int ) evt.x == e.nX ) && ( ( int ) evt.y == e.nY ) )  {
                     bFound = true;
                     break;

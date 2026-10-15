@@ -69,7 +69,7 @@ namespace  {
         std :: map<void*, int32_t>          m_Open;          // each open handle and its device's instance id
 
         const FakeDevice* Find( int32_t nInstanceId ) const  {
-            for( const FakeDevice &device : devices )
+            for( const FakeDevice& device : devices )
                 if( device.nInstanceId == nInstanceId )
                     return &device;
 
@@ -81,12 +81,12 @@ namespace  {
         std :: vector<FakeDevice>  devices;
         bool                       bOpenFails = false;
 
-        explicit FakeControllerApi( FakeLog &log ) : m_Log( log )  {}
+        explicit FakeControllerApi( FakeLog& log ) : m_Log( log )  {}
 
         ~FakeControllerApi( void ) override  {
             CHECK( m_Open.empty() );                     // every controller closed before the API goes
 
-            for( std :: pair<void* const, int32_t> &entry : m_Open )
+            for( std :: pair<void* const, int32_t>& entry : m_Open )
                 delete static_cast<int*>( entry.first );
         }
 

@@ -84,7 +84,7 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     void MoveCameraRight( void )  { nMoveCameraRightCalls++; }
     void SetCameraPosition( int, int )  {}
 
-    void GetCameraPosition( int &nX, int &nY )  {
+    void GetCameraPosition( int& nX, int& nY )  {
         nX = 0;
         nY = 0;
     }

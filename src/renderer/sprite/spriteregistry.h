@@ -53,14 +53,14 @@ namespace SunLight  {
             public:
 
             void OpenLayer( int nLayerId );
-            bool Add( int nLayerId, SunLight :: Sprite :: Sprite *pSprite );
-            bool Contains( int nLayerId, SunLight :: Sprite :: Sprite *pSprite ) const;
-            bool Remove( int nLayerId, SunLight :: Sprite :: Sprite *pSprite );
+            bool Add( int nLayerId, SunLight :: Sprite :: Sprite* pSprite );
+            bool Contains( int nLayerId, SunLight :: Sprite :: Sprite* pSprite ) const;
+            bool Remove( int nLayerId, SunLight :: Sprite :: Sprite* pSprite );
             bool Empty( void ) const;
             std :: vector<int> LayerIds( void ) const;
 
-            void MarkParented( SunLight :: Sprite :: Sprite *pSprite );
-            SunLight :: Sprite :: Sprite* Forget( SunLight :: Canvas :: BaseCanvas *pChild, std :: vector<int> &layerIds );
+            void MarkParented( SunLight :: Sprite :: Sprite* pSprite );
+            SunLight :: Sprite :: Sprite* Forget( SunLight :: Canvas :: BaseCanvas* pChild, std :: vector<int>& layerIds );
             std :: set<SunLight :: Sprite :: Sprite*> ParentedSprites( void ) const;
             void ClearParented( void );
 
@@ -73,4 +73,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __SPRITEREGISTRY_H__ */
+#endif /* __SPRITEREGISTRY_H__ */

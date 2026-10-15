@@ -18,11 +18,11 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "canvas.h"
+#include "canvas/canvas.h"
 #include <cstring>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
         /**
          * Constructor. Initialize all class data.
@@ -44,7 +44,7 @@ namespace SunLight {
          * Set parent object.
          * @param pParent The new parent object of this object;
          */
-        void Canvas :: SetParent( BaseCanvas *pParent )  {
+        void Canvas :: SetParent( BaseCanvas* pParent )  {
 
             BaseCanvas :: SetParent( pParent );
             m_Collider.SetParent( pParent );

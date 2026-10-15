@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "filesystemfactory.h"
+#include "filesystem/filesystemfactory.h"
 
 #ifndef DEFAULT_FILESYSTEM
     #error "Unexpected value of DEFAULT_FILESYSTEM"
@@ -33,7 +33,7 @@
 #endif
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace FileSystem  {
 
         static IFileSystem  *s_pOverrideFileSystem = nullptr;
@@ -56,7 +56,7 @@ namespace SunLight {
         /**
          * @brief Override the filesystem returned by @see GetFileSystem().
          */
-        void FileSystemFactory :: SetFileSystem( IFileSystem *pOverride )  {
+        void FileSystemFactory :: SetFileSystem( IFileSystem* pOverride )  {
 
             s_pOverrideFileSystem = pOverride;
         }

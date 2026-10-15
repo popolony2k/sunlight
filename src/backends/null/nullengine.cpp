@@ -75,7 +75,7 @@ namespace SunLight  {
              * @return A handle, or nullptr (with 0x0) if the file can't be
              * read or isn't a recognised PNG/JPEG;
              */
-            SunLight :: Base :: TextureHandle NullEngine :: LoadTexture( const char *szFileName,
+            SunLight :: Base :: TextureHandle NullEngine :: LoadTexture( const char* szFileName,
                                                                          int& nWidth,
                                                                          int& nHeight )  {
 
@@ -164,7 +164,7 @@ namespace SunLight  {
              * @brief Succeeds iff the font file exists (nothing is loaded -
              * MeasureText's metric doesn't depend on the font).
              */
-            bool NullEngine :: SetFont( const char *szFilePath )  {
+            bool NullEngine :: SetFont( const char* szFilePath )  {
 
                 if( ( szFilePath == nullptr ) || ( szFilePath[0] == '\0' ) )
                     return false;
@@ -173,7 +173,7 @@ namespace SunLight  {
                            SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFilePath ) );
             }
 
-            static int NullTextWidth( const char *szText, int nFontSize );
+            static int NullTextWidth( const char* szText, int nFontSize );
 
             /**
              * @brief A font LoadFont returned. It only remembers that its file
@@ -188,7 +188,7 @@ namespace SunLight  {
                     return true;
                 }
 
-                int MeasureText( const char *szText, int nFontSize ) override  {
+                int MeasureText( const char* szText, int nFontSize ) override  {
                     return NullTextWidth( szText, nFontSize );
                 }
 
@@ -202,7 +202,7 @@ namespace SunLight  {
             /**
              * @brief Succeeds iff the font file exists (see @see IEngine::LoadFont).
              */
-            std :: unique_ptr<SunLight :: Font :: IFont> NullEngine :: LoadFont( const char *szFilePath )  {
+            std :: unique_ptr<SunLight :: Font :: IFont> NullEngine :: LoadFont( const char* szFilePath )  {
 
                 if( !SetFont( szFilePath ) )
                     return nullptr;
@@ -230,14 +230,14 @@ namespace SunLight  {
              * that positions things from this value behaves identically on
              * every machine. The font is not consulted (see LoadFont).
              */
-            static int NullTextWidth( const char *szText, int nFontSize )  {
+            static int NullTextWidth( const char* szText, int nFontSize )  {
 
                 if( szText == nullptr )
                     return 0;
 
                 long  nCharacters = 0;
 
-                for( const unsigned char *p = ( const unsigned char * ) szText; *p; p++ )  {
+                for( const unsigned char* p = ( const unsigned char * ) szText; *p; p++ )  {
                     // Count every byte that isn't a UTF-8 continuation (10xxxxxx).
                     if( ( *p & 0xC0 ) != 0x80 )
                         nCharacters++;
@@ -250,7 +250,7 @@ namespace SunLight  {
              * @brief The active font's width for a line - the same fixed metric
              * the loaded fonts use (see @see IEngine::MeasureText).
              */
-            int NullEngine :: MeasureText( const char *szText, int nFontSize )  {
+            int NullEngine :: MeasureText( const char* szText, int nFontSize )  {
 
                 return NullTextWidth( szText, nFontSize );
             }

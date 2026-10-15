@@ -26,7 +26,7 @@
 #include "colliderhandle.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
 
         class Collider;
@@ -110,7 +110,7 @@ namespace SunLight {
              * @param pCollider The collider being registered. Must not be
              * null;
              */
-            ColliderHandle Register( Collider *pCollider );
+            ColliderHandle Register( Collider* pCollider );
 
             /**
              * Retire a handle: the Collider it referred to is no longer

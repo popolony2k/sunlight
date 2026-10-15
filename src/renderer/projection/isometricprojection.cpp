@@ -40,7 +40,7 @@ namespace SunLight  {
                 // MAP's own declared tile size (pMap->tile_width/height), never a resolved tile's own image size -
                 // confirmed by a probe map whose tile images (32x32) were smaller than its declared grid step
                 // (64x32): every cell still landed on this lattice, regardless of its own tile image's size.
-                SunLight :: Base :: stCoordinate2D CellTopLeft( int nCol, int nRow, tmx_map *pMap )  {
+                SunLight :: Base :: stCoordinate2D CellTopLeft( int nCol, int nRow, tmx_map* pMap )  {
 
                     float  fHalfW = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
                     float  fHalfH = ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR;
@@ -51,7 +51,7 @@ namespace SunLight  {
                 }
             }
 
-            SunLight :: Base :: stSize2D IsometricProjection :: MapPixelSize( tmx_map *pMap ) const  {
+            SunLight :: Base :: stSize2D IsometricProjection :: MapPixelSize( tmx_map* pMap ) const  {
 
                 int  nCells = ( int ) pMap -> width + ( int ) pMap -> height;
 
@@ -59,8 +59,8 @@ namespace SunLight  {
                                                        ( int ) ( nCells * ( ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR ) ) };
             }
 
-            SunLight :: Base :: stCoordinate2D IsometricProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                                          tmx_map *pMap,
+            SunLight :: Base :: stCoordinate2D IsometricProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                                          tmx_map* pMap,
                                                                                           int /* nTileWidth */,
                                                                                           int /* nTileHeight */,
                                                                                           int nLayerOffsetX,
@@ -71,10 +71,10 @@ namespace SunLight  {
                 return SunLight :: Base :: stCoordinate2D { cell.x + nLayerOffsetX, cell.y + nLayerOffsetY };
             }
 
-            SunLight :: Base :: stDimension2D IsometricProjection :: TileViewRect( const SunLight :: TileMap :: stMatrixPosition &pos,
-                                                                                     tmx_map *pMap,
-                                                                                     const SunLight :: Base :: stDimension2D &viewport,
-                                                                                     const SunLight :: Base :: stVector2D &camera ) const  {
+            SunLight :: Base :: stDimension2D IsometricProjection :: TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                                     tmx_map* pMap,
+                                                                                     const SunLight :: Base :: stDimension2D& viewport,
+                                                                                     const SunLight :: Base :: stVector2D& camera ) const  {
 
                 SunLight :: Base :: stCoordinate2D  cell = CellTopLeft( pos.nTileCol, pos.nTileRow, pMap );
                 SunLight :: Base :: stDimension2D   tile;
@@ -87,14 +87,14 @@ namespace SunLight  {
                 return tile;
             }
 
-            bool IsometricProjection :: ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D &coord,
-                                                          tmx_map *pMap,
-                                                          const SunLight :: Base :: stDimension2D &viewport,
-                                                          const SunLight :: Base :: stVector2D &camera,
+            bool IsometricProjection :: ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                                          tmx_map* pMap,
+                                                          const SunLight :: Base :: stDimension2D& viewport,
+                                                          const SunLight :: Base :: stVector2D& camera,
                                                           float fZoom,
                                                           int nMapPixelWidth,
                                                           int nMapPixelHeight,
-                                                          SunLight :: TileMap :: stMatrixPosition &pos ) const  {
+                                                          SunLight :: TileMap :: stMatrixPosition& pos ) const  {
 
                 int  nCoordX = ( int ) ( coord.x / fZoom );
                 int  nCoordY = ( int ) ( coord.y / fZoom );
@@ -121,13 +121,13 @@ namespace SunLight  {
                 return true;
             }
 
-            SunLight :: Base :: stSize2D IsometricProjection :: DefaultScrollStep( tmx_map *pMap ) const  {
+            SunLight :: Base :: stSize2D IsometricProjection :: DefaultScrollStep( tmx_map* pMap ) const  {
 
                 return SunLight :: Base :: stSize2D { ( int ) pMap -> tile_width, ( int ) pMap -> tile_height };
             }
 
-            stTileRange IsometricProjection :: VisibleTileRange( tmx_map *pMap,
-                                                                  const SunLight :: Base :: stRectangle &mapPixelRect ) const  {
+            stTileRange IsometricProjection :: VisibleTileRange( tmx_map* pMap,
+                                                                  const SunLight :: Base :: stRectangle& mapPixelRect ) const  {
 
                 float  fHalfW = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
                 float  fHalfH = ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR;

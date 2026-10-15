@@ -155,10 +155,10 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> ResetZoom();
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) &&
-        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) ) {
+        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) )  {
         SunLight :: Base :: stDimension2D    dimSunny;
         SunLight :: Base :: stDimension2D    dimMonkey;
 

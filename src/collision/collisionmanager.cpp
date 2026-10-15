@@ -18,13 +18,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "collisionmanager.h"
+#include "collision/collisionmanager.h"
 #include "collision/colliderregistry.h"
 #include <algorithm>
 #include <vector>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
 
         /**
@@ -32,8 +32,8 @@ namespace SunLight {
          * @param pFirst The first collider involved in the collision;
          * @param pSecond The second collider involved in the collision;
          */
-        void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider *pFirst, 
-                                                  SunLight :: Collision :: Collider *pSecond )  {
+        void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider* pFirst, 
+                                                  SunLight :: Collision :: Collider* pSecond )  {
 
             /*
              * A listener may call AddCollisionListener from OnCollision, which appends to
@@ -54,7 +54,7 @@ namespace SunLight {
          * @param pFirst The collider involved in the collision;
          * @param pSecond The layer tile object involved in the collision;
          */
-        void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider *pFirst, 
+        void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider* pFirst, 
                                                   SunLight :: TileMap :: stTile* pSecond )  {
 
             // By index, as above.
@@ -70,7 +70,7 @@ namespace SunLight {
          * @param pParent Pointer to the TileMap that this collision
          * manager is attached;
          */
-        CollisionManager :: CollisionManager( SunLight :: TileMap :: ITileMap *pParent )  {
+        CollisionManager :: CollisionManager( SunLight :: TileMap :: ITileMap* pParent )  {
 
             m_pParent = pParent;
 
@@ -115,7 +115,7 @@ namespace SunLight {
          * @param pCollider Pointer to collider to remove;
          */
         bool CollisionManager :: RemoveCollider( int nColliderLayerId,
-                                                 SunLight :: Collision :: Collider *pCollider )  {
+                                                 SunLight :: Collision :: Collider* pCollider )  {
 
             if( nColliderLayerId < m_ColliderLayerList.size() )  {
                 ColliderList   *pColliderList = m_ColliderLayerList[nColliderLayerId].get();
@@ -185,10 +185,10 @@ namespace SunLight {
                                                                             m_ColliderToColliderRuleList.end(),
                                                                             [nFirstColliderLayerId,
                                                                              nSecondColliderLayerId,
-                                                                             &colliderLayerListRef]( const std :: unique_ptr<ColliderPair>& pPair ) {
+                                                                             &colliderLayerListRef]( const std :: unique_ptr<ColliderPair>& pPair )  {
 
-                                ColliderList *pFirst  = colliderLayerListRef[nFirstColliderLayerId].get();
-                                ColliderList *pSecond = colliderLayerListRef[nSecondColliderLayerId].get();
+                                ColliderList* pFirst  = colliderLayerListRef[nFirstColliderLayerId].get();
+                                ColliderList* pSecond = colliderLayerListRef[nSecondColliderLayerId].get();
 
                                 return ( ( pPair -> first == pFirst ) && ( pPair -> second == pSecond ) );
                             } );
@@ -243,7 +243,7 @@ namespace SunLight {
          * Add an ICollisionListener event object to manager;
          * @param pListener Pointer to the listener object to add;
          */
-        void CollisionManager :: AddCollisionListener( SunLight :: Collision :: ICollisionListener *pListener )  {
+        void CollisionManager :: AddCollisionListener( SunLight :: Collision :: ICollisionListener* pListener )  {
 
             m_Listeners.push_back( pListener );
         }
@@ -260,7 +260,7 @@ namespace SunLight {
          * @param pColliderList The live layer list to check against;
          * @param handle The collider handle to look for;
          */
-        bool CollisionManager :: IsColliderRegistered( ColliderList *pColliderList,
+        bool CollisionManager :: IsColliderRegistered( ColliderList* pColliderList,
                                                         const ColliderHandle& handle )  {
 
             return std :: find( pColliderList -> begin(), pColliderList -> end(), handle ) != pColliderList -> end();
@@ -358,7 +358,7 @@ namespace SunLight {
                         SunLight :: Base :: stDimension2D&    spritePos = pFirst -> GetDimension2D();
                         SunLight :: TileMap :: stMatrixPosition  tilePos   = { 0, 0 };
 
-                        if( m_pParent -> TileMapToTileMatrix( spritePos.pos, tilePos ) ) {
+                        if( m_pParent -> TileMapToTileMatrix( spritePos.pos, tilePos ) )  {
                             if( m_pParent -> GetTile( tilePos, layer, tile ) &&
                                 pFirst -> Hit( tile ) &&
                                 IsColliderRegistered( pPair -> first, firstHandle ) )  {

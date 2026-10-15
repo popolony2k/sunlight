@@ -18,15 +18,15 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "sprite.h"
+#include "sprite/sprite.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sprite  {
         /**
          * Constructor. Initialize all class data.
          */
-        Sprite :: Sprite( void ) {
+        Sprite :: Sprite( void )  {
 
             m_itActiveSequence = m_Sequences.begin();
             m_bIsValidActiveSequence = ( m_itActiveSequence != m_Sequences.end() );
@@ -83,7 +83,7 @@ namespace SunLight {
          * parented to the sprite itself is left alone.
          * @param pParent The new parent, or nullptr for none;
          */
-        void Sprite :: SetParent( SunLight :: Canvas :: BaseCanvas *pParent )  {
+        void Sprite :: SetParent( SunLight :: Canvas :: BaseCanvas* pParent )  {
 
             SunLight :: Canvas :: BaseCanvas  *pOldParent = GetParent();
 
@@ -93,8 +93,8 @@ namespace SunLight {
             Canvas :: SetParent( pParent );
 
             if( pOldParent && ( pOldParent != pParent ) )  {
-                for( auto &pair : m_Sequences )  {
-                    pair.second -> ForEachTexture( [this, pOldParent, pParent]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+                for( auto& pair : m_Sequences )  {
+                    pair.second -> ForEachTexture( [this, pOldParent, pParent]( SunLight :: Canvas :: TextureCanvas* pTexture )  {
                         if( pTexture -> GetParent() == pOldParent )
                             pTexture -> SetParent( pParent ? pParent : this );
                     } );
@@ -110,8 +110,8 @@ namespace SunLight {
          * animation sequence;
          */
         void Sprite :: AddTextureSequence( int nSequence,
-                                           SunLight :: Canvas :: TextureCanvas *pTexture,
-                                           int64_t nDelayMilli ) {
+                                           SunLight :: Canvas :: TextureCanvas* pTexture,
+                                           int64_t nDelayMilli )  {
 
             TextureSequenceList :: iterator       itItem     = m_Sequences.find( nSequence );
             SunLight :: Base :: stDimension2D& spritePos  = GetDimension2D();
@@ -195,7 +195,7 @@ namespace SunLight {
             if( itItem == m_Sequences.end() )
                 return false;
 
-            itItem -> second -> ForEachTexture( [this]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+            itItem -> second -> ForEachTexture( [this]( SunLight :: Canvas :: TextureCanvas* pTexture )  {
                 if( pTexture -> GetParent() && ( ( pTexture -> GetParent() == this ) || ( pTexture -> GetParent() == GetParent() ) ) )
                     pTexture -> SetParent( nullptr );
             } );
@@ -277,8 +277,8 @@ namespace SunLight {
 
             Canvas :: SetWorldSpace( bWorldSpace );
 
-            for( auto &pair : m_Sequences )  {
-                pair.second -> ForEachTexture( [bWorldSpace]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+            for( auto& pair : m_Sequences )  {
+                pair.second -> ForEachTexture( [bWorldSpace]( SunLight :: Canvas :: TextureCanvas* pTexture )  {
                     pTexture -> SetWorldSpace( bWorldSpace );
                 } );
             }
@@ -292,8 +292,8 @@ namespace SunLight {
 
             Canvas :: SetParallaxLayerId( nLayerId );
 
-            for( auto &pair : m_Sequences )  {
-                pair.second -> ForEachTexture( [nLayerId]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+            for( auto& pair : m_Sequences )  {
+                pair.second -> ForEachTexture( [nLayerId]( SunLight :: Canvas :: TextureCanvas* pTexture )  {
                     pTexture -> SetParallaxLayerId( nLayerId );
                 } );
             }
@@ -370,7 +370,7 @@ namespace SunLight {
             if( GetVisible() && m_bIsValidActiveSequence )  {
                 m_bFrameHeld = !m_itActiveSequence -> second -> Next();
 
-                SunLight :: Canvas :: TextureCanvas *pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
+                SunLight :: Canvas :: TextureCanvas* pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
                 unsigned int  nTileSize;
 
                 if( m_bFrameHeld )  {
@@ -394,7 +394,7 @@ namespace SunLight {
         void Sprite :: Draw( void )  {
 
             if( GetVisible() && m_bIsValidActiveSequence )  {
-                SunLight :: Canvas :: TextureCanvas *pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
+                SunLight :: Canvas :: TextureCanvas* pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
                 unsigned int  nTileSize;
 
                 if( m_bFrameHeld )  {

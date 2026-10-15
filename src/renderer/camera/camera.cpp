@@ -95,7 +95,7 @@ namespace SunLight  {
          * @param nY Receives the world-space y coordinate (pixels)
          * currently shown at the viewport's top edge.
          */
-        void Camera :: GetPosition( int &nX, int &nY ) const  {
+        void Camera :: GetPosition( int& nX, int& nY ) const  {
 
             nX = ( int ) -m_Position.x;
             nY = ( int ) -m_Position.y;
@@ -127,7 +127,7 @@ namespace SunLight  {
          * Read the scroll step size back: what SetScrollStep stored, or the map tile size once
          * ResolveScrollStep resolved a -1; -1 while it is still unresolved.
          */
-        void Camera :: GetScrollStep( int &nStepWidth, int &nStepHeight ) const  {
+        void Camera :: GetScrollStep( int& nStepWidth, int& nStepHeight ) const  {
 
             nStepWidth  = m_nScrollStepWidth;
             nStepHeight = m_nScrollStepHeight;
@@ -139,7 +139,7 @@ namespace SunLight  {
          * explicitly is kept.
          * @param defaultStep The loaded map's default step;
          */
-        void Camera :: ResolveScrollStep( const SunLight :: Base :: stSize2D &defaultStep )  {
+        void Camera :: ResolveScrollStep( const SunLight :: Base :: stSize2D& defaultStep )  {
 
             if( m_nScrollStepWidth < 0 )
                 m_nScrollStepWidth = defaultStep.nWidth;
@@ -234,7 +234,7 @@ namespace SunLight  {
          * @param fZoomFactor The zoom factor;
          */
         void Camera :: Align( int nAlignment, uint16_t nMapWidth, uint16_t nMapHeight,
-                              const SunLight :: Base :: stDimension2D &viewport, float fZoomFactor )  {
+                              const SunLight :: Base :: stDimension2D& viewport, float fZoomFactor )  {
 
             const SunLight :: Base :: stDimension2D  &vp = viewport;
 

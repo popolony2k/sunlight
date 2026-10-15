@@ -86,7 +86,7 @@ namespace  {
         std :: vector<Event>  Of( Event :: Kind kind ) const  {
             std :: vector<Event>  found;
 
-            for( const Event &evt : engineFixture.engine.events )
+            for( const Event& evt : engineFixture.engine.events )
                 if( evt.kind == kind )
                     found.push_back( evt );
 
@@ -97,7 +97,7 @@ namespace  {
     // A one-object TMX map (the polyline object XML spliced in as given), loaded and rendered -
     // the same fixture shape tests/test_thick_lines.cpp already uses, for the regression guard
     // below (it needs a real TMX object to compare the public API's own spans against).
-    Bytes MakeLineTmx( const std :: string &strObject )  {
+    Bytes MakeLineTmx( const std :: string& strObject )  {
 
         std :: string  str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                              "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"4\" height=\"4\""
@@ -114,7 +114,7 @@ namespace  {
         MemoryFileSystemFixture             fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        explicit TmxScene( const std :: string &strObject )  {
+        explicit TmxScene( const std :: string& strObject )  {
 
             fsFixture.fs.files["maps/line.tmx"] = MakeLineTmx( strObject );
 
@@ -141,7 +141,7 @@ namespace  {
         std :: vector<Event>  Of( Event :: Kind kind ) const  {
             std :: vector<Event>  found;
 
-            for( const Event &evt : engineFixture.engine.events )
+            for( const Event& evt : engineFixture.engine.events )
                 if( evt.kind == kind )
                     found.push_back( evt );
 
@@ -149,7 +149,7 @@ namespace  {
         }
     };
 
-    bool SameFillSpans( const std :: vector<Event> &left, const std :: vector<Event> &right )  {
+    bool SameFillSpans( const std :: vector<Event>& left, const std :: vector<Event>& right )  {
 
         if( left.size() != right.size() )
             return false;

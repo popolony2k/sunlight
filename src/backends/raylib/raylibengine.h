@@ -43,7 +43,7 @@ namespace SunLight  {
                 RaylibEngine( void );
                 ~RaylibEngine( void );
 
-                SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName,
+                SunLight :: Base :: TextureHandle LoadTexture( const char* szFileName,
                                                                 int& nWidth,
                                                                 int& nHeight ) override;
                 void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) override;
@@ -57,8 +57,8 @@ namespace SunLight  {
                                        SunLight :: Base :: stRectangle source,
                                        SunLight :: Base :: stRectangle dest,
                                        SunLight :: Base :: stVector2D origin,
-                                       float rotation,
-                                       float scale,
+                                       float fRotation,
+                                       float fScale,
                                        SunLight :: Base :: stColor tint ) override;
 
                 void DrawFilledRectangle( int nPosX,
@@ -80,20 +80,20 @@ namespace SunLight  {
                                          float fRadiusY,
                                          SunLight :: Base :: stColor color ) override;
 
-                bool SetFont( const char *szFilePath ) override;
+                bool SetFont( const char* szFilePath ) override;
 
-                std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char *szFilePath ) override;
+                std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) override;
 
                 void BeginClip( SunLight :: Base :: stRectangle rect ) override;
                 void EndClip( void ) override;
 
-                void DrawText( const char *szText,
+                void DrawText( const char* szText,
                                int nPosX,
                                int nPosY,
                                int nFontSize,
                                SunLight :: Base :: stColor color ) override;
 
-                int MeasureText( const char *szText, int nFontSize ) override;
+                int MeasureText( const char* szText, int nFontSize ) override;
 
                 std :: string GetApplicationDirectory( void ) override;
 
@@ -118,7 +118,7 @@ namespace SunLight  {
                                          float rotation,
                                          SunLight :: Base :: stColor tint ) override;
 
-                void DrawTextRotated( const char *szText,
+                void DrawTextRotated( const char* szText,
                                       int nPosX,
                                       int nPosY,
                                       int nFontSize,
@@ -164,5 +164,5 @@ namespace SunLight  {
         }
     }
 }
-#endif  /* __RAYLIBENGINE_H__ */
+#endif /* __RAYLIBENGINE_H__ */
 

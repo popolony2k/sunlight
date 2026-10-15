@@ -39,13 +39,13 @@ namespace SunLight  {
 
             public:
 
-            void Draw( const DrawContext &context,
-                       tmx_object *pObject,
-                       tmx_layer *pLayer,
-                       FontRegistry &fonts,
-                       ObjectOpacity &opacity ) const;
+            void Draw( const DrawContext& context,
+                       tmx_object* pObject,
+                       tmx_layer* pLayer,
+                       FontRegistry& fonts,
+                       ObjectOpacity& opacity ) const;
         };
     }
 }
 
-#endif  /* __TEXTOBJECTRENDERER_H__ */
+#endif /* __TEXTOBJECTRENDERER_H__ */

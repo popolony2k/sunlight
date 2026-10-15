@@ -38,4 +38,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __HELPER_H__ */
+#endif /* __HELPER_H__ */

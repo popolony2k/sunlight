@@ -25,7 +25,7 @@
 #include "colliderhandle.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
 
         /**
@@ -37,7 +37,7 @@ namespace SunLight {
          * of a raw pointer as its long-lived identity - see
          * ColliderRegistry for why that matters.
          */
-        class Collider : public SunLight :: Canvas :: BaseCanvas {
+        class Collider : public SunLight :: Canvas :: BaseCanvas  {
 
             float  m_fInsetLeft;
             float  m_fInsetTop;
@@ -55,19 +55,19 @@ namespace SunLight {
                         float fRect2Width,
                         float fRect2Height );
 
-            void GetEffectiveRect( float &fX,
-                                   float &fY,
-                                   float &fWidth,
-                                   float &fHeight );
+            void GetEffectiveRect( float& fX,
+                                   float& fY,
+                                   float& fWidth,
+                                   float& fHeight );
 
             public:
 
             Collider( void );
             virtual ~Collider( void );
 
-            bool Hit( SunLight :: TileMap :: stTile &tile );
-            bool Hit( SunLight :: Base :: stDimension2D &dimension );
-            bool Hit( Collider &other );
+            bool Hit( SunLight :: TileMap :: stTile& tile );
+            bool Hit( SunLight :: Base :: stDimension2D& dimension );
+            bool Hit( Collider& other );
 
             /**
              * @brief Shrinks the rectangle actually used for this collider's

@@ -25,7 +25,7 @@
 #include "tilemap/itilemap.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -49,10 +49,10 @@ namespace SunLight {
              * @param map The map whose camera/zoom methods the bindings call;
              * @param controllerManager The controller manager to register the bindings into;
              */
-            static void Install( SunLight :: TileMap :: ITileMap &map,
-                                 SunLight :: Input :: IControllerManager &controllerManager );
+            static void Install( SunLight :: TileMap :: ITileMap& map,
+                                 SunLight :: Input :: IControllerManager& controllerManager );
         };
     }
 }
 
-#endif  /* __DEFAULTCONTROLLERBINDINGS_H__ */
+#endif /* __DEFAULTCONTROLLERBINDINGS_H__ */

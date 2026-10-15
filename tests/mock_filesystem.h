@@ -42,9 +42,9 @@ class MemoryFileSystem : public SunLight :: FileSystem :: IFileSystem  {
     bool Init( const char * ) override { return true; }
     void Shutdown( void ) override {}
     bool Mount( const std :: string &, const std :: string &, bool ) override { return true; }
-    bool Exists( const std :: string &strPath ) override { return files.count( strPath ) > 0; }
+    bool Exists( const std :: string& strPath ) override { return files.count( strPath ) > 0; }
 
-    bool ReadFile( const std :: string &strPath, Bytes &out ) override {
+    bool ReadFile( const std :: string& strPath, Bytes& out ) override  {
         auto  it = files.find( strPath );
 
         if( it == files.end() )
@@ -75,7 +75,7 @@ class MemoryFileSystemFixture  {
  */
 inline Bytes MakeSquareTmx( int nTiles, int nTileSize, bool bWithRectangleObject = false,
                             int nObjX = 0, int nObjY = 0, int nObjW = 0, int nObjH = 0,
-                            const char *szOrientation = "orthogonal" )  {
+                            const char* szOrientation = "orthogonal" )  {
 
     std :: ostringstream  tmx;
 

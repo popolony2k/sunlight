@@ -37,7 +37,7 @@ namespace SunLight  {
                  * The value of attribute szName inside one tag's text (everything between '<' and
                  * '>'), for either quote style, or false if it has no such attribute.
                  */
-                bool FindTagAttribute( const std :: string &strTag, const char *szName, std :: string &strValue )  {
+                bool FindTagAttribute( const std :: string& strTag, const char* szName, std :: string& strValue )  {
 
                     size_t  nNameLength = strlen( szName );
                     size_t  nPos        = 0;
@@ -76,7 +76,7 @@ namespace SunLight  {
             /**
              * Whether a tag's text starts with the element name szElement (and nothing longer).
              */
-            bool TagIsElement( const std :: string &strTag, const char *szElement )  {
+            bool TagIsElement( const std :: string& strTag, const char* szElement )  {
 
                 size_t  nLength = strlen( szElement );
 
@@ -88,7 +88,7 @@ namespace SunLight  {
             /**
              * Directory part of a virtual path, trailing '/' included ("" if it has none).
              */
-            std :: string DirectoryOfVirtualPath( const std :: string &strPath )  {
+            std :: string DirectoryOfVirtualPath( const std :: string& strPath )  {
 
                 std :: string  str = strPath;
 
@@ -104,7 +104,7 @@ namespace SunLight  {
              * segments are collapsed LEXICALLY (the FileSystem rejects them). A ".." that would
              * climb above the root gives "" - not a legal virtual path.
              */
-            std :: string JoinVirtualPath( const std :: string &strDir, const std :: string &strRelative )  {
+            std :: string JoinVirtualPath( const std :: string& strDir, const std :: string& strRelative )  {
 
                 std :: string  joined = strDir + strRelative;
 
@@ -151,7 +151,7 @@ namespace SunLight  {
              * `<object template="...">`. (A plain scan for those two tags - the documents are Tiled's own
              * output; anything it misses is left for libtmx's own lookup, anything extra is harmless.)
              */
-            void ScanExternalReferences( const std :: string &strXml, std :: vector<ExternalReference> &references )  {
+            void ScanExternalReferences( const std :: string& strXml, std :: vector<ExternalReference>& references )  {
 
                 size_t  nPos = 0;
 
@@ -183,11 +183,11 @@ namespace SunLight  {
              * (a template's tileset must be known before the template is parsed), each resolved against
              * the directory of the file that names it. A file the FileSystem doesn't have is skipped.
              */
-            void PreloadExternalResource( tmx_resource_manager *pRcMgr,
-                                          const ExternalReference &reference,
-                                          const std :: string &strReferencingDir,
-                                          std :: map<std :: string, std :: string> &loadedKeys,
-                                          std :: set<std :: string> &visited )  {
+            void PreloadExternalResource( tmx_resource_manager* pRcMgr,
+                                          const ExternalReference& reference,
+                                          const std :: string& strReferencingDir,
+                                          std :: map<std :: string, std :: string>& loadedKeys,
+                                          std :: set<std :: string>& visited )  {
 
                 std :: string  strPath = JoinVirtualPath( strReferencingDir, reference.strKey );
 
@@ -213,7 +213,7 @@ namespace SunLight  {
 
                 ScanExternalReferences( strText, nested );
 
-                for( const ExternalReference &inner : nested )
+                for( const ExternalReference& inner : nested )
                     PreloadExternalResource( pRcMgr, inner, strDir, loadedKeys, visited );
 
                 // The images this file names are relative to ITS directory; libtmx hands them to the

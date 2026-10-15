@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "raylibfontglyphs.h"
+#include "backends/raylib/raylibfontglyphs.h"
 
 
 namespace  {
@@ -39,7 +39,7 @@ namespace  {
                                             { __LATIN_EXTENDED_A_FIRST, __LATIN_EXTENDED_A_LAST } };
         std :: vector<int>  codepoints;
 
-        for( const auto &range : ranges )
+        for( const auto& range : ranges )
             for( int nCodepoint = range[0]; nCodepoint <= range[1]; nCodepoint++ )
                 codepoints.push_back( nCodepoint );
 

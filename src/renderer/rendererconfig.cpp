@@ -25,7 +25,7 @@
 #endif
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         /**
@@ -66,7 +66,7 @@ namespace SunLight {
         /**
          * @brief Check the config can produce a renderer.
          */
-        bool RendererConfig :: Validate( std :: string *pError ) const  {
+        bool RendererConfig :: Validate( std :: string* pError ) const  {
 
             std :: string  strError;
 

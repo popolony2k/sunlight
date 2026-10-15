@@ -88,7 +88,7 @@ TEST_SUITE( "Isometric projection" )  {
             { 0, 1, 0,  16 }, { 1, 1, 32, 32 }, { 2, 1, 64, 48 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -113,7 +113,7 @@ TEST_SUITE( "Isometric projection" )  {
             { 0, 3, 0,  48 }, { 1, 3, 32,  64 }, { 2, 3, 64,  80 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             INFO( "col=" << e.nCol << " row=" << e.nRow );
 
             stMatrixPosition  pos { e.nRow, e.nCol };
@@ -333,10 +333,10 @@ TEST_SUITE( "Isometric rendering (renderer integration)" )  {
             { 32, 0 }, { 64, 16 }, { 96, 32 }, { 0, 16 }, { 32, 32 }, { 64, 48 },
         };
 
-        for( const stExpected &e : expected )  {
+        for( const stExpected& e : expected )  {
             bool  bFound = false;
 
-            for( const Event &evt : engineFixture.engine.events )  {
+            for( const Event& evt : engineFixture.engine.events )  {
                 if( ( evt.kind == Event :: TILE ) && ( ( int ) evt.x == e.nX ) && ( ( int ) evt.y == e.nY ) )  {
                     bFound = true;
                     break;

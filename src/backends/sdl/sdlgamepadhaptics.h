@@ -29,7 +29,7 @@
 #include <memory>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
         namespace SDL  {
 
@@ -105,4 +105,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __SDLGAMEPADHAPTICS_H__ */
+#endif /* __SDLGAMEPADHAPTICS_H__ */

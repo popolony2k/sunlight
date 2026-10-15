@@ -176,7 +176,7 @@ void World :: OnUpdate( SunLight :: TileMap :: ITileMap& tileMap )  {
 void World :: OnStop( void )  {
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
     if( !m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) )
         return false;

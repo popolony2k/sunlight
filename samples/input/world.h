@@ -41,7 +41,7 @@
  * and a stick dead zone changed live (SetAxisDeadzone). Everything is polled and drawn from
  * OnUpdate, which Run() calls once per frame inside the frame's render target.
  */
-class World : public SunLight :: TileMap :: ITileMapListener {
+class World : public SunLight :: TileMap :: ITileMapListener  {
 
     // A square moved by actions: the keyboard player, or the player of one slot.
     struct stPlayer  {
@@ -78,7 +78,7 @@ class World : public SunLight :: TileMap :: ITileMapListener {
     void HandleSaveLoad( void );
     void MovePlayers( void );
     void ApplyDeadzone( int nGamePadId );
-    void LogEvent( const std :: string &strEvent );
+    void LogEvent( const std :: string& strEvent );
 
     void DrawPlayers( void );
     void DrawPanel( void );

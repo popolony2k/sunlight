@@ -63,13 +63,13 @@ namespace SunLight  {
             bool                                                    m_bUniformTileGrid;
             std :: deque<std :: unique_ptr<__stTileAnimInfo>>       m_AnimInfoList;
 
-            MapData( tmx_map *pTmxMap, tmx_resource_manager *pTmxRcMgr, std :: unique_ptr<Projection :: IMapProjection> pProjection );
+            MapData( tmx_map* pTmxMap, tmx_resource_manager* pTmxRcMgr, std :: unique_ptr<Projection :: IMapProjection> pProjection );
 
-            tmx_tileset_list* TilesetListOf( tmx_tileset *pTileset ) const;
+            tmx_tileset_list* TilesetListOf( tmx_tileset* pTileset ) const;
 
             public:
 
-            static std :: unique_ptr<MapData> Load( const char *szTmxMapFile );
+            static std :: unique_ptr<MapData> Load( const char* szTmxMapFile );
 
             ~MapData( void );
             MapData( const MapData& ) = delete;
@@ -83,12 +83,12 @@ namespace SunLight  {
             SunLight :: Base :: stSize2D DefaultScrollStep( void ) const;
 
             tmx_layer* FindLayer( int nLayerId ) const;
-            tmx_layer* FindLayer( const char *szLayerName ) const;
-            bool TileAt( const SunLight :: TileMap :: stMatrixPosition &pos, tmx_layer *pLayer, SunLight :: TileMap :: stTile &tile ) const;
-            bool FindObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject &object ) const;
-            tmx_tile* AnimatedFrameOf( tmx_tile *pBase, unsigned int nGID );
+            tmx_layer* FindLayer( const char* szLayerName ) const;
+            bool TileAt( const SunLight :: TileMap :: stMatrixPosition& pos, tmx_layer* pLayer, SunLight :: TileMap :: stTile& tile ) const;
+            bool FindObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) const;
+            tmx_tile* AnimatedFrameOf( tmx_tile* pBase, unsigned int nGID );
         };
     }
 }
 
-#endif  /* __MAPDATA_H__ */
+#endif /* __MAPDATA_H__ */

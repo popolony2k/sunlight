@@ -28,7 +28,7 @@
 #include "renderer/camera/camera.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         class TileMapRenderer;
@@ -80,7 +80,7 @@ namespace SunLight {
 
             public:
 
-            View( TileMapRenderer *pRenderer, int nId, SunLight :: Base :: Viewport *pExistingViewport );
+            View( TileMapRenderer* pRenderer, int nId, SunLight :: Base :: Viewport* pExistingViewport );
             virtual ~View( void );
 
             int GetId( void ) override;
@@ -96,10 +96,10 @@ namespace SunLight {
             void MoveCameraLeft( void ) override;
             void MoveCameraRight( void ) override;
             void SetCameraPosition( int nX, int nY ) override;
-            void GetCameraPosition( int &nX, int &nY ) override;
+            void GetCameraPosition( int& nX, int& nY ) override;
 
             void SetScrollStepSize( int nStepWidth, int nStepHeight ) override;
-            void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) override;
+            void GetScrollStepSize( int& nStepWidth, int& nStepHeight ) override;
 
             bool IsRemoved( void ) override;
             void SetVisible( bool bVisible ) override;
@@ -108,11 +108,11 @@ namespace SunLight {
             int GetDrawOrder( void ) override;
             void SetClearBackground( bool bClear ) override;
             bool GetClearBackground( void ) override;
-            void SetBackgroundColor( const SunLight :: Base :: stColor &color ) override;
+            void SetBackgroundColor( const SunLight :: Base :: stColor& color ) override;
             void UseMapBackgroundColor( void ) override;
             void ShowLayer( int nLayerId, bool bShow ) override;
-            bool ShowLayer( const char *szLayerName, bool bShow ) override;
-            void ShowOnlyLayers( const std :: vector<int> &layerIds ) override;
+            bool ShowLayer( const char* szLayerName, bool bShow ) override;
+            void ShowOnlyLayers( const std :: vector<int>& layerIds ) override;
             void ShowAllLayers( void ) override;
             bool IsLayerShown( int nLayerId ) override;
             bool FitToMap( void ) override;
@@ -123,4 +123,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __VIEW_H__ */
+#endif /* __VIEW_H__ */

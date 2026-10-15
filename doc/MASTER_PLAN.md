@@ -2073,8 +2073,8 @@ Scarab works through it.
 
 | # | Item | Status |
 |---|------|--------|
-| H1 | Code style guide: `doc/CODE_STYLE.md`, taken from sunlight's code and the owner's choices | TODO |
-| H2 | Align sunlight's code with the guide (formatting only) | TODO |
+| H1 | Code style guide: `doc/CODE_STYLE.md`, taken from sunlight's code and the owner's choices | DONE |
+| H2 | Align sunlight's code with the guide (formatting only) | DONE |
 | H3 | Write the Scarab handoff brief | TODO |
 | H4 | Review and refine the brief with the owner, as many rounds as needed | TODO |
 | H5 | On the owner's command, send the brief to the Scarab session | TODO |
@@ -2085,7 +2085,7 @@ Scarab works through it.
 - H3 to H5: the owner approves the brief before it is sent; it is sent only on the owner's
   command.
 
-**H1: code style guide.** sunlight was written entirely by the owner, and its code is the
+**H1: code style guide (DONE).** sunlight was written entirely by the owner, and its code is the
 reference for Scarab's: Scarab started from some of the owner's code, but not all of it follows
 the owner's style any more. The guide is written from the code itself (the first commit,
 `e479bcd`, is the owner's alone), in English, each rule with an example:
@@ -2113,13 +2113,24 @@ the owner's style any more. The guide is written from the code itself (the first
   outside `backends/`; classes that do not know who uses them (S1); doctest coverage through
   the mocks.
 
-**H2: sunlight aligned to the guide.** Measured before starting: about 300 `Type *p`, 530
+**H2: sunlight aligned to the guide (DONE).** Measured before starting: about 300 `Type *p`, 530
 `Type &r`, 80 control/function braces and 300 `namespace`/`class`/`struct`/`enum` braces
 with one space, 65 `#endif  /*`, 16 `if (`/`while (`, and the copied raylib snippet. A script
 changes code lines only (never comments or strings), and only within a line, so no line number
 moves. Proof of no change in behaviour: every object file is built before and after with the
 same flags, and their machine code is compared - it must be identical. Then the full suite, and
 every sample builds.
+- Done with a script kept outside the repository: 1,298 changes in 229 files - 542 references
+  (`Type& r`), 481 pointers (`Type* p`), 175 braces, 65 `#endif /*`, 19 own headers included by
+  their path from `src/`, 16 `if (`/`while (` - each within its line (1,117 lines changed, none
+  added or removed). The braces were 175, not the 380 estimated above: that count also matched
+  braces that already had two spaces. By hand (these do move lines): `tilemaprenderer.cpp` includes its own header first, and the
+  `DrawTextureTiled` body from raylib's example is in the guide's style (braces, spacing, casts,
+  one declaration per line, Hungarian names, its `@param`s described).
+- The 164 object files of the library, the tests and the samples, built before and after with
+  the same flags (`-O3 -g0`), are identical byte for byte - 160 of them recompiled after the
+  change. Afterwards no form the guide replaced is left in code (comments keep their prose).
+  Full suite 657/657, Doxygen 0.
 
 **H3: the Scarab handoff brief.** The message the Scarab session starts from:
 1. The integration: sunlight's `feat/master_plan` is the shared base; Scarab's own master plan,

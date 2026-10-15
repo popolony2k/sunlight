@@ -43,30 +43,30 @@ namespace SunLight  {
             /**
              * Directory part of a virtual path, trailing '/' included ("" if it has none).
              */
-            std :: string DirectoryOfVirtualPath( const std :: string &strPath );
+            std :: string DirectoryOfVirtualPath( const std :: string& strPath );
 
             /**
              * strDir + strRelative as one virtual path: backslashes become '/', and "." and ".."
              * segments are collapsed LEXICALLY (the FileSystem rejects them). A ".." that would
              * climb above the root gives "" - not a legal virtual path.
              */
-            std :: string JoinVirtualPath( const std :: string &strDir, const std :: string &strRelative );
+            std :: string JoinVirtualPath( const std :: string& strDir, const std :: string& strRelative );
 
             /**
              * Finds the external tilesets and templates that one XML document names, in order.
              */
-            void ScanExternalReferences( const std :: string &strXml, std :: vector<ExternalReference> &references );
+            void ScanExternalReferences( const std :: string& strXml, std :: vector<ExternalReference>& references );
 
             /**
              * Reads one external file through the FileSystem and hands it to libtmx's Resource Manager under
              * the key the map used. Preloads what that file names first, then the file itself. Each file is
              * loaded once, and a key already provided is not provided again.
              */
-            void PreloadExternalResource( tmx_resource_manager *pRcMgr,
-                                          const ExternalReference &reference,
-                                          const std :: string &strReferencingDir,
-                                          std :: map<std :: string, std :: string> &loadedKeys,
-                                          std :: set<std :: string> &visited );
+            void PreloadExternalResource( tmx_resource_manager* pRcMgr,
+                                          const ExternalReference& reference,
+                                          const std :: string& strReferencingDir,
+                                          std :: map<std :: string, std :: string>& loadedKeys,
+                                          std :: set<std :: string>& visited );
 
             /**
              * The directory whose images the external file being preloaded names, or "" outside a preload.
@@ -75,4 +75,4 @@ namespace SunLight  {
         }
     }
 }
-#endif  /* __EXTERNALRESOURCES_H__ */
+#endif /* __EXTERNALRESOURCES_H__ */

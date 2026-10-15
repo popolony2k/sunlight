@@ -23,9 +23,9 @@
 
 #include "base/color.h"
 
-namespace SunLight {
+namespace SunLight  {
 
-    namespace Font {
+    namespace Font  {
 
         /**
          * @brief A font an @see IEngine loaded with LoadFont. Its size is passed
@@ -57,7 +57,7 @@ namespace SunLight {
              * @param szText The text to measure;
              * @param nFontSize Font size, in pixels;
              */
-            virtual int MeasureText( const char *szText, int nFontSize ) = 0;
+            virtual int MeasureText( const char* szText, int nFontSize ) = 0;
 
             /**
              * @brief Draw a line of text in screen space with this font.
@@ -68,7 +68,7 @@ namespace SunLight {
              * @param nFontSize Font size, in pixels;
              * @param color Text color;
              */
-            virtual void DrawText( const char *szText,
+            virtual void DrawText( const char* szText,
                                    int nPosX,
                                    int nPosY,
                                    int nFontSize,
@@ -85,7 +85,7 @@ namespace SunLight {
              * @param rotation Clockwise rotation in degrees;
              * @param color Text color;
              */
-            virtual void DrawTextRotated( const char *szText,
+            virtual void DrawTextRotated( const char* szText,
                                           int nPosX,
                                           int nPosY,
                                           int nFontSize,

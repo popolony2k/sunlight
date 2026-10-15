@@ -392,10 +392,10 @@ void World :: BuildScript( void )  {
     m_Script.Compile();
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IMAGE ) &&
-        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) ) {
+        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) )  {
 
         m_pCanvasSunny -> SetTileSize( 32 );
         m_pCanvasSunny -> SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );

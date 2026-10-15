@@ -24,7 +24,7 @@
 #include "iinputhandler.h"
 #include "base/object.h"
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
         namespace RayLib  {
             /**
@@ -59,4 +59,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __RAYLIBINPUTHANDLER_H__ */
+#endif /* __RAYLIBINPUTHANDLER_H__ */

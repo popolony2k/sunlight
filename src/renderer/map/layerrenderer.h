@@ -41,7 +41,7 @@ namespace SunLight  {
          */
         class LayerRenderer  {
 
-            void DrawTile( const DrawContext &context,
+            void DrawTile( const DrawContext& context,
                            SunLight :: Base :: TextureHandle pImage,
                            int32_t nSourceX,
                            int32_t nSourceY,
@@ -54,11 +54,11 @@ namespace SunLight  {
 
             public:
 
-            void DrawTileLayer( const DrawContext &context, MapData &map, tmx_layer *pLayer ) const;
-            void DrawImageLayer( const DrawContext &context, tmx_layer *pLayer ) const;
-            void DrawTileObject( const DrawContext &context, MapData &map, tmx_object *pObject, tmx_layer *pLayer, float fOpacity ) const;
+            void DrawTileLayer( const DrawContext& context, MapData& map, tmx_layer* pLayer ) const;
+            void DrawImageLayer( const DrawContext& context, tmx_layer* pLayer ) const;
+            void DrawTileObject( const DrawContext& context, MapData& map, tmx_object* pObject, tmx_layer* pLayer, float fOpacity ) const;
         };
     }
 }
 
-#endif  /* __LAYERRENDERER_H__ */
+#endif /* __LAYERRENDERER_H__ */

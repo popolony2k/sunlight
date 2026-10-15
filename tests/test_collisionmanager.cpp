@@ -40,11 +40,11 @@ namespace  {
         std :: vector<std :: pair<Collider*, Collider*>>  colliderHits;
         std :: vector<Collider*>                          tileHits;
 
-        void OnCollision( Collider *pFirst, Collider *pSecond )  {
+        void OnCollision( Collider* pFirst, Collider* pSecond )  {
             colliderHits.push_back( { pFirst, pSecond } );
         }
 
-        void OnCollision( Collider *pFirst, stTile *pSecond )  {
+        void OnCollision( Collider* pFirst, stTile* pSecond )  {
             tileHits.push_back( pFirst );
         }
     };
@@ -67,11 +67,11 @@ namespace  {
 
         std :: vector<std :: pair<Collider*, Collider*>>  colliderHits;
 
-        RemovingCollisionListener( CollisionManager &manager, int nLayerIdToRemoveFrom, Collider *pColliderToRemove )
+        RemovingCollisionListener( CollisionManager& manager, int nLayerIdToRemoveFrom, Collider* pColliderToRemove )
             : m_Manager( manager ), m_nLayerIdToRemoveFrom( nLayerIdToRemoveFrom ), m_pColliderToRemove( pColliderToRemove )  {
         }
 
-        void OnCollision( Collider *pFirst, Collider *pSecond )  {
+        void OnCollision( Collider* pFirst, Collider* pSecond )  {
 
             colliderHits.push_back( { pFirst, pSecond } );
 
@@ -81,7 +81,7 @@ namespace  {
             }
         }
 
-        void OnCollision( Collider *pFirst, stTile *pSecond )  {
+        void OnCollision( Collider* pFirst, stTile* pSecond )  {
         }
     };
 
@@ -103,7 +103,7 @@ namespace  {
 
         std :: vector<std :: pair<Collider*, Collider*>>  colliderHits;
 
-        void OnCollision( Collider *pFirst, Collider *pSecond )  {
+        void OnCollision( Collider* pFirst, Collider* pSecond )  {
 
             colliderHits.push_back( { pFirst, pSecond } );
 
@@ -113,7 +113,7 @@ namespace  {
             }
         }
 
-        void OnCollision( Collider *pFirst, stTile *pSecond )  {
+        void OnCollision( Collider* pFirst, stTile* pSecond )  {
         }
     };
 }

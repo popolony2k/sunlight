@@ -25,7 +25,7 @@
 #include <vector>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -63,4 +63,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __GAMEPADIDENTITYMATCHER_H__ */
+#endif /* __GAMEPADIDENTITYMATCHER_H__ */

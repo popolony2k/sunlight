@@ -122,10 +122,10 @@ namespace  {
             pRenderer -> Run();
         }
 
-        int DrawsOf( void *handle )  {
+        int DrawsOf( void* handle )  {
             int  nCount = 0;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( ( evt.kind == Event :: TILE ) && ( evt.handle == handle ) )
                     nCount++;
 
@@ -156,15 +156,15 @@ namespace  {
         std :: vector<std :: pair<Collider*, Collider*>>                  colliderHits;
         std :: vector<std :: pair<Collider*, SunLight :: TileMap :: stTile*>>  tileHits;
 
-        void OnCollision( Collider *pFirst, Collider *pSecond ) override                       { colliderHits.push_back( { pFirst, pSecond } ); }
-        void OnCollision( Collider *pFirst, SunLight :: TileMap :: stTile *pSecond ) override  { tileHits.push_back( { pFirst, pSecond } ); }
+        void OnCollision( Collider* pFirst, Collider* pSecond ) override                       { colliderHits.push_back( { pFirst, pSecond } ); }
+        void OnCollision( Collider* pFirst, SunLight :: TileMap :: stTile* pSecond ) override  { tileHits.push_back( { pFirst, pSecond } ); }
     };
 
     // Two colliders on layers 0 and 1, in a collider-to-collider rule, overlapping.
     struct CollidingPair  {
         Collider  first, second;
 
-        CollidingPair( Scene &scene )  {
+        CollidingPair( Scene& scene )  {
             first.SetDimension2D( Rect( 0, 0, 50, 50 ) );
             second.SetDimension2D( Rect( 25, 25, 50, 50 ) );
 
@@ -180,7 +180,7 @@ namespace  {
         SunLight :: Canvas :: TextureCanvas  canvas;
         Scene                                &m_Scene;
 
-        SpriteRig( Scene &scene ) : m_Scene( scene )  {
+        SpriteRig( Scene& scene ) : m_Scene( scene )  {
 
             scene.engine().hLoadTextureResult = SPRITE;
             scene.engine().nLoadTextureWidth  = 16;
@@ -316,7 +316,7 @@ TEST_SUITE( "renderer/Run dispatch" )  {
             std :: vector<std :: string>  order;
             size_t                       nAtUpdate = 0, nAtCollision = 0;
 
-            OrderListener( Scene &s ) : scene( s )  {}
+            OrderListener( Scene& s ) : scene( s )  {}
 
             void OnUpdate( SunLight :: TileMap :: ITileMap& ) override  { order.push_back( "update" ); nAtUpdate = scene.engine().events.size(); }
             void OnStop( void ) override  {}
@@ -403,9 +403,9 @@ TEST_SUITE( "renderer/Run dispatch" )  {
             SunLight :: Collision :: ICollisionManager  &manager;
             int                                         nHits = 0;
 
-            Despawner( SunLight :: Collision :: ICollisionManager &m ) : manager( m )  {}
+            Despawner( SunLight :: Collision :: ICollisionManager& m ) : manager( m )  {}
 
-            void OnCollision( Collider*, Collider *pSecond ) override  { nHits++; manager.RemoveCollider( 1, pSecond ); }
+            void OnCollision( Collider*, Collider* pSecond ) override  { nHits++; manager.RemoveCollider( 1, pSecond ); }
             void OnCollision( Collider*, SunLight :: TileMap :: stTile* ) override  {}
         };
 
@@ -427,11 +427,11 @@ TEST_SUITE( "renderer/Run dispatch" )  {
 
         struct Remover : public SunLight :: TileMap :: ITileMapListener  {
             TileMapRenderer                        &renderer;
-            SunLight :: TileMap :: ITileMapListener *pVictim;
+            SunLight :: TileMap :: ITileMapListener* pVictim;
 
             int                                    nUpdates = 0;
 
-            Remover( TileMapRenderer &r, SunLight :: TileMap :: ITileMapListener *pV ) : renderer( r ), pVictim( pV )  {}
+            Remover( TileMapRenderer& r, SunLight :: TileMap :: ITileMapListener* pV ) : renderer( r ), pVictim( pV )  {}
 
             void OnUpdate( SunLight :: TileMap :: ITileMap& ) override  { nUpdates++; renderer.RemoveTileMapListener( pVictim ); }
             void OnStop( void ) override  {}
@@ -468,11 +468,11 @@ TEST_SUITE( "renderer/Run dispatch" )  {
             std :: vector<UpdateCounter>     &spawned;
             bool                             bDone = false;
 
-            Spawner( TileMapRenderer &r, std :: vector<UpdateCounter> &s ) : renderer( r ), spawned( s )  {}
+            Spawner( TileMapRenderer& r, std :: vector<UpdateCounter>& s ) : renderer( r ), spawned( s )  {}
 
             void OnUpdate( SunLight :: TileMap :: ITileMap& ) override  {
                 if( !bDone )
-                    for( UpdateCounter &counter : spawned )
+                    for( UpdateCounter& counter : spawned )
                         renderer.AddTileMapListener( &counter );
                 bDone = true;
             }
@@ -493,7 +493,7 @@ TEST_SUITE( "renderer/Run dispatch" )  {
         CHECK( spawned.front().nUpdates == 1 );
         CHECK( spawned.back().nUpdates == 1 );
 
-        for( UpdateCounter &counter : spawned )
+        for( UpdateCounter& counter : spawned )
             scene.pRenderer -> RemoveTileMapListener( &counter );
         scene.pRenderer -> RemoveTileMapListener( &spawner );
     }
@@ -502,9 +502,9 @@ TEST_SUITE( "renderer/Run dispatch" )  {
 
         struct StopRemover : public SunLight :: TileMap :: ITileMapListener  {
             TileMapRenderer                        &renderer;
-            SunLight :: TileMap :: ITileMapListener *pVictim;
+            SunLight :: TileMap :: ITileMapListener* pVictim;
 
-            StopRemover( TileMapRenderer &r, SunLight :: TileMap :: ITileMapListener *pV ) : renderer( r ), pVictim( pV )  {}
+            StopRemover( TileMapRenderer& r, SunLight :: TileMap :: ITileMapListener* pV ) : renderer( r ), pVictim( pV )  {}
 
             void OnUpdate( SunLight :: TileMap :: ITileMap& ) override  {}
             void OnStop( void ) override  { renderer.RemoveTileMapListener( pVictim ); }
@@ -533,11 +533,11 @@ TEST_SUITE( "renderer/Run dispatch" )  {
             std :: vector<CollisionRecorder>            &spawned;
             bool                                        bDone = false;
 
-            Spawner( SunLight :: Collision :: ICollisionManager &m, std :: vector<CollisionRecorder> &s ) : manager( m ), spawned( s )  {}
+            Spawner( SunLight :: Collision :: ICollisionManager& m, std :: vector<CollisionRecorder>& s ) : manager( m ), spawned( s )  {}
 
             void OnCollision( Collider*, Collider* ) override  {
                 if( !bDone )
-                    for( CollisionRecorder &recorder : spawned )
+                    for( CollisionRecorder& recorder : spawned )
                         manager.AddCollisionListener( &recorder );
                 bDone = true;
             }
@@ -570,7 +570,7 @@ TEST_SUITE( "renderer/Run dispatch" )  {
 
         scene.pRenderer -> SetUserKeyEventHandler( SI :: KEY_ENTER, [&]( SI :: ControllerType, int )  {
             if( !bDone )
-                for( Counter &counter : added )
+                for( Counter& counter : added )
                     scene.pRenderer -> SetUserKeyEventHandler( SI :: KEY_ENTER, counter.Handler() );
             bDone = true;
         } );

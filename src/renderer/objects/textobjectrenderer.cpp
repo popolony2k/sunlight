@@ -64,11 +64,11 @@ namespace SunLight  {
          * @param fonts The fonts registered by family and style;
          * @param opacity The per-object opacity rule (and its warnings);
          */
-        void TextObjectRenderer :: Draw( const DrawContext &context,
-                                         tmx_object *pObject,
-                                         tmx_layer *pLayer,
-                                         FontRegistry &fonts,
-                                         ObjectOpacity &opacity ) const  {
+        void TextObjectRenderer :: Draw( const DrawContext& context,
+                                         tmx_object* pObject,
+                                         tmx_layer* pLayer,
+                                         FontRegistry& fonts,
+                                         ObjectOpacity& opacity ) const  {
 
             if( !pObject -> content.text )
                 return;
@@ -117,14 +117,14 @@ namespace SunLight  {
             SunLight :: Engines :: IEngine&  engine = SunLight :: Engines :: EngineFactory :: GetEngine();
             bool                             bWrap  = ( pText -> wrap != 0 ) && ( fBoxW > 0 );
 
-            auto  Width = [&]( const std :: string &strLine ) {
+            auto  Width = [&]( const std :: string& strLine )  {
                 return pFont ? pFont -> MeasureText( strLine.c_str(), nScreenSize )
                              : engine.MeasureText( strLine.c_str(), nScreenSize );
             };
 
             // One paragraph (text between newlines): greedy word wrap, a word
             // wider than the box stays whole on its own line.
-            auto  WrapParagraph = [&]( const std :: string &strParagraph, std :: vector<std :: string> &lines ) {
+            auto  WrapParagraph = [&]( const std :: string& strParagraph, std :: vector<std :: string>& lines )  {
                 std :: vector<std :: string>  words;
                 size_t                        nPos = 0;
 
@@ -142,7 +142,7 @@ namespace SunLight  {
 
                 std :: string  strCurrent;
 
-                for( const std :: string &strWord : words )  {
+                for( const std :: string& strWord : words )  {
                     std :: string  strCandidate = strCurrent.empty() ? strWord : strCurrent + " " + strWord;
 
                     if( bWrap && !strCurrent.empty() && ( Width( strCandidate ) > fBoxW ) )  {

@@ -60,7 +60,7 @@ namespace  {
  * prints the average time per frame. Pass fps 0 to lift the frame cap, so the time measures
  * the work rather than the pacing.
  */
-int main( int argc, char **argv ) {
+int main( int argc, char** argv )  {
 
     if( argc <= __ARG_DIRECTORY )  {
         fprintf( stderr, "Invalid command line arguments: shapes_test <sample directory> [map file] [frames] [fps] [zoom]\n" );

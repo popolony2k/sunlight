@@ -24,7 +24,7 @@
 #include "input/igamepadhaptics.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -47,4 +47,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __NULLGAMEPADHAPTICS_H__ */
+#endif /* __NULLGAMEPADHAPTICS_H__ */

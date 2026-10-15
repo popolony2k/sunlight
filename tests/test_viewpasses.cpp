@@ -119,10 +119,10 @@ namespace  {
         }
 
         // Number of tile draws that landed inside the rectangle (their top-left is inside it).
-        int TilesIn( const SunLight :: Base :: stDimension2D &rect )  {
+        int TilesIn( const SunLight :: Base :: stDimension2D& rect )  {
             int  nCount = 0;
 
-            for( const Event &evt : engine().events )  {
+            for( const Event& evt : engine().events )  {
                 if( ( evt.kind == Event :: TILE ) &&
                     ( evt.x >= rect.pos.x ) && ( evt.x < rect.pos.x + rect.size.nWidth ) &&
                     ( evt.y >= rect.pos.y ) && ( evt.y < rect.pos.y + rect.size.nHeight ) )
@@ -135,7 +135,7 @@ namespace  {
         int Count( Event :: Kind kind )  {
             int  nCount = 0;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == kind )
                     nCount++;
 
@@ -204,7 +204,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         int                   nDepth  = 0;
         int                   nMaxDepth = 0;
 
-        for( const Event &evt : scene.engine().events )  {
+        for( const Event& evt : scene.engine().events )  {
             if( evt.kind == Event :: CLIP_BEGIN )  {
                 begins.push_back( evt );
                 nBegins++;
@@ -302,7 +302,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         int  nScaled = 0;
         int  nPlain  = 0;
 
-        for( const Event &evt : scene.engine().events )  {
+        for( const Event& evt : scene.engine().events )  {
             if( evt.kind != Event :: TILE )
                 continue;
 
@@ -329,9 +329,9 @@ TEST_SUITE( "renderer/viewpasses" )  {
         // DrawTexture at the screen origin, unmistakable on its own counter. The sky image's
         // own distinctive size (32x32, unlike this map's 16x16 tiles) isolates its own draw(s)
         // from ordinary tile draws now that both share the same event kind.
-        auto  nImageDraws = [&]() {
+        auto  nImageDraws = [&]()  {
             int  n = 0;
-            for( const Event &evt : scene.engine().events )
+            for( const Event& evt : scene.engine().events )
                 if( ( evt.kind == Event :: TILE ) && ( evt.w == 32.0f ) && ( evt.h == 32.0f ) )
                     n++;
             return n;
@@ -450,7 +450,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
         int  nSide = 0;
 
-        for( const Event &evt : engineFixture.engine.events )
+        for( const Event& evt : engineFixture.engine.events )
             if( ( evt.kind == Event :: TILE ) && ( evt.x >= 200.0f ) )
                 nSide++;
 
@@ -703,7 +703,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         SunLight :: Sprite :: Sprite       sprite;
         SunLight :: Canvas :: TextureCanvas  canvas;
 
-        SpriteRig( Scene &scene, int nLayerId ) : m_Scene( scene ), m_nLayerId( nLayerId )  {
+        SpriteRig( Scene& scene, int nLayerId ) : m_Scene( scene ), m_nLayerId( nLayerId )  {
             scene.engine().hLoadTextureResult = ( SunLight :: Base :: TextureHandle ) 0x77;
             scene.engine().nLoadTextureWidth  = 64;
             scene.engine().nLoadTextureHeight = 16;
@@ -728,7 +728,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     };
 
     // The sprite's per-frame draws: for each of nFrames frames, the source x of every sprite draw in it.
-    std :: vector<std :: vector<float>> SpriteFrames( Scene &scene, int nFrames )  {
+    std :: vector<std :: vector<float>> SpriteFrames( Scene& scene, int nFrames )  {
         std :: vector<std :: vector<float>>  frames;
 
         for( int nFrame = 0; nFrame < nFrames; nFrame++ )  {
@@ -736,7 +736,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
             std :: vector<float>  draws;
 
-            for( const Event &evt : scene.engine().events )
+            for( const Event& evt : scene.engine().events )
                 if( ( evt.kind == Event :: TILE ) && ( evt.handle == ( void * ) 0x77 ) )
                     draws.push_back( evt.srcX );
 
@@ -807,7 +807,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         bool   bSprite = false, bTile = false;
         float  fSpriteX = 0, fSpriteY = 0, fTileX = 0, fTileY = 0;
 
-        for( const Event &evt : scene.engine().events )  {
+        for( const Event& evt : scene.engine().events )  {
             if( ( evt.kind != Event :: TILE ) || ( evt.x < 200.0f ) )
                 continue;                                                  // only the extra view
 
@@ -854,10 +854,10 @@ TEST_SUITE( "renderer/viewpasses" )  {
     // The sprite's draws for one frame, as (dest x, dest y, source x), texture handle 0x77 (see SpriteRig).
     struct SpriteDraw  { float x, y, srcX; };
 
-    std :: vector<SpriteDraw> SpriteDraws( Scene &scene )  {
+    std :: vector<SpriteDraw> SpriteDraws( Scene& scene )  {
         std :: vector<SpriteDraw>  draws;
 
-        for( const Event &evt : scene.engine().events )
+        for( const Event& evt : scene.engine().events )
             if( ( evt.kind == Event :: TILE ) && ( evt.handle == ( void * ) 0x77 ) )
                 draws.push_back( SpriteDraw { evt.x, evt.y, evt.srcX } );
 
@@ -866,8 +866,8 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
     // Where the map's own tile whose corner is at MAP point (nMapX, nMapY) was drawn - the only tile draws with
     // that destination in the given screen rectangle.
-    bool TileAt( Scene &scene, float fX, float fY )  {
-        for( const Event &evt : scene.engine().events )
+    bool TileAt( Scene& scene, float fX, float fY )  {
+        for( const Event& evt : scene.engine().events )
             if( ( evt.kind == Event :: TILE ) && ( evt.handle != ( void * ) 0x77 ) && ( evt.x == fX ) && ( evt.y == fY ) )
                 return true;
 
@@ -975,7 +975,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         std :: vector<std :: vector<float>>  reference;
         std :: vector<std :: vector<float>>  multi;
 
-        auto  frames = []( Scene &scene, int nFrames )  {
+        auto  frames = []( Scene& scene, int nFrames )  {
             std :: vector<std :: vector<float>>  result;
 
             for( int nFrame = 0; nFrame < nFrames; nFrame++ )  {
@@ -983,7 +983,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
                 std :: vector<float>  draws;
 
-                for( const SpriteDraw &draw : SpriteDraws( scene ) )
+                for( const SpriteDraw& draw : SpriteDraws( scene ) )
                     draws.push_back( draw.srcX );
 
                 result.push_back( draws );

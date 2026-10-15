@@ -56,4 +56,4 @@ namespace SunLight  {
         }
     }
 }
-#endif  /* __NULLINPUTHANDLER_H__ */
+#endif /* __NULLINPUTHANDLER_H__ */

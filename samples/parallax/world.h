@@ -60,7 +60,7 @@
  * at the same factor, so the same effective shift) - the actual requirement for every layer to
  * loop seamlessly at once, not just the one whose factor happens to be 1.
  */
-class World {
+class World  {
 
     std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteSunny;
