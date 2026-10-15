@@ -2075,8 +2075,8 @@ Scarab works through it.
 |---|------|--------|
 | H1 | Code style guide: `doc/CODE_STYLE.md`, taken from sunlight's code and the owner's choices | DONE |
 | H2 | Align sunlight's code with the guide (formatting only) | DONE |
-| H3 | Write the Scarab handoff brief | TODO |
-| H4 | Review and refine the brief with the owner, as many rounds as needed | TODO |
+| H3 | Write the Scarab handoff brief | DONE |
+| H4 | Review and refine the brief with the owner, as many rounds as needed | DONE |
 | H5 | On the owner's command, send the brief to the Scarab session | TODO |
 
 - H1: every rule is shown with an example from sunlight's own code; the owner reviews the guide.
@@ -2132,7 +2132,8 @@ every sample builds.
   change. Afterwards no form the guide replaced is left in code (comments keep their prose).
   Full suite 657/657, Doxygen 0.
 
-**H3: the Scarab handoff brief.** The message the Scarab session starts from:
+**H3 and H4: the Scarab handoff brief (DONE).** The message the Scarab session starts from, kept as
+`doc/SCARAB_HANDOFF.md` (removed before `feat/master_plan` goes to `main`, see Process):
 1. The integration: sunlight's `feat/master_plan` is the shared base; Scarab's own master plan,
    on its own `master_plan` branch, built against it; then Caravellius; nothing to any `main`
    until the whole integration is done.
@@ -2197,6 +2198,7 @@ session then holds: it starts nothing on its own, and acts only on the owner's l
 ## Process
 
 - Peer breakages: [doc/BREAKAGES.md](BREAKAGES.md) lists every change that affects Scarab or Caravellius, and what to do when integration starts. Add an entry for each such change as it is made. The file is removed when this plan is merged to `main`, after the peers have been told.
+- Scarab handoff: [doc/SCARAB_HANDOFF.md](SCARAB_HANDOFF.md) is the brief the Scarab session starts from (Phase H). Like `BREAKAGES.md`, it is integration material only: it is removed before `feat/master_plan` goes to `main` (owner's decision, 2026-10-14).
 - Items are closed one at a time, in phase order, unless the owner decides otherwise.
 - Each item is closed only when its test items pass and the owner has confirmed it.
 - Item 7 of the original review (manual review of documentation and code) stays manual
