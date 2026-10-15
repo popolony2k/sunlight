@@ -28,8 +28,8 @@ This produces the `hexagonal_test` executable under `build/samples/hexagonal/`, 
 | `Q` / `E` | One hex up-left (NW) / up-right (NE) |
 | `A` / `D` | One hex left (W) / right (E) |
 | `Z` / `C` | One hex down-left (SW) / down-right (SE) |
-| `=` / `-` | Zoom in / out |
-| `Home` | Reset the zoom |
+| `+` / `-` (keyboard or keypad) | Zoom in / out |
+| `=` (keyboard or keypad) or `Home` | Reset the zoom |
 | `Esc` | Quit |
 
 The six keys sit around `S` on a QWERTY keyboard, in the same directions as the hex's neighbours.

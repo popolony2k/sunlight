@@ -32,6 +32,7 @@ This produces the `collision_test` executable under `build/samples/collision/`, 
 | `Page Up` | Zoom out |
 | `Page Down` | Zoom in |
 | `Home` | Reset zoom to the default level |
+| `+` / `-` / `=` (keyboard or keypad) | Zoom in / out / reset the zoom |
 
 Unlike the `orthogonal`/`sprite` samples, these keys move Sunny directly rather than scrolling the camera — there's no inversion here, since the character is visible on screen (see `feedback_camera_keybindings` in this project's notes if you're comparing against the other two samples' camera controls).
 

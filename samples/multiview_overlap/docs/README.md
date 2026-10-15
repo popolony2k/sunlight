@@ -23,7 +23,7 @@ cmake --build build -j 4
 
 ## Controls
 
-Arrow keys or `W` `A` `S` `D` walk Sunny. `1` hides or shows the minimap, `2` the close-up, `3` the map's second layer, `4` changes the minimap's draw order. `Page Up` and `Page Down` zoom the close-up. `Esc` quits.
+Arrow keys or `W` `A` `S` `D` walk Sunny. `1` hides or shows the minimap, `2` the close-up, `3` the map's second layer, `4` changes the minimap's draw order. `Page Up` and `Page Down` zoom the close-up, and so do `+` and `-`; `=` resets its zoom (on the keyboard or the keypad). `Esc` quits.
 
 ## What to look for
 

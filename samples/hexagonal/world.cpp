@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include "../shared/zoomkeys.h"
 #include "general/clock.h"
 #include <cstdio>
 
@@ -417,11 +418,15 @@ bool World :: Run( void )  {
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_Z, std :: bind( &World :: MovePlayerSW, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_C, std :: bind( &World :: MovePlayerSE, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
 
-    //zoom configuration - "-" zooms out, "=" zooms in (the same key as "+" on most layouts, no
-    //shift needed), Home resets.
-    m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_MINUS, std :: bind( &World :: ZoomOut, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
-    m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_EQUAL, std :: bind( &World :: ZoomIn, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
+    //zoom configuration - Home resets the zoom.
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &World :: ResetZoom, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
+
+    // + zooms in, - zooms out and = resets the zoom, on the keyboard and on the keypad - the same in
+    // every sample that zooms (samples/shared/zoomkeys.h), next to this sample's own keys above.
+    Samples :: InstallZoomKeys( *m_pRenderer,
+                                [this]() { ZoomIn( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ZoomOut( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ResetZoom( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); } );
 
     viewport.pos.x = __VIEWPORT_POS_X;
     viewport.pos.y = __VIEWPORT_POS_Y;

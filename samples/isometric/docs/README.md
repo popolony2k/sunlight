@@ -29,8 +29,8 @@ This produces the `isometric_test` executable under `build/samples/isometric/`, 
 | `S` / `Down Arrow` | One cell down-left (row + 1) |
 | `A` / `Left Arrow` | One cell up-left (column - 1) |
 | `D` / `Right Arrow` | One cell down-right (column + 1) |
-| `=` / `-` | Zoom in / out |
-| `Home` | Reset the zoom |
+| `+` / `-` (keyboard or keypad) | Zoom in / out |
+| `=` (keyboard or keypad) or `Home` | Reset the zoom |
 | `Esc` | Quit |
 
 ## What to look for

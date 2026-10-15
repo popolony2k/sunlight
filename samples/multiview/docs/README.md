@@ -33,6 +33,7 @@ Like the other samples, `multiview_test` resolves its resources (a copy of the [
 | --- | --- |
 | Arrow keys / `W` `A` `S` `D` | Walk Sunny |
 | `Page Up` / `Page Down` | Zoom the close-up out / in (its camera re-follows Sunny) |
+| `+` / `-` / `=` (keyboard or keypad) | Zoom the close-up in / out / reset its zoom |
 | `1` | Show / hide the minimap |
 | `2` | Show / hide the close-up |
 | `3` | Mask the `sky` layer out of / back into the main view |
