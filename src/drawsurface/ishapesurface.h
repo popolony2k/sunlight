@@ -41,9 +41,9 @@ namespace SunLight {
          * map is loaded, the same zero-initialized state TileMapRenderer already carries from
          * construction - never set by anything except per-layer map drawing).
          *
-         * Each primitive here is the exact same underlying drawing code the Tiled-object path
-         * (DrawObjects) already uses and already has test coverage for - this interface exists
-         * only to give it a public, mapless door, not to reimplement it. Thickness and point size
+         * Each primitive here is the exact same underlying drawing code (ShapeRenderer) Tiled
+         * shape objects are drawn through, which already has test coverage - this interface
+         * exists only to give it a public, mapless door, not to reimplement it. Thickness and point size
          * are given in MAP units (the same unit the TMX `line_width`/`point_size` properties
          * already use), converted to screen pixels internally (Shape::ScreenLineWidth) - a caller
          * never computes that conversion itself.

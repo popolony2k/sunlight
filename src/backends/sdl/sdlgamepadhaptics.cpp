@@ -20,23 +20,37 @@
 
 #include "backends/sdl/sdlgamepadhaptics.h"
 #include "input/gamepadidentitymatcher.h"
+#include "backends/sdl/sdlcontrollerapi.h"
 #include "general/clock.h"
-#include <SDL.h>
 #include <algorithm>
+
+
+#define __MAX_MOTOR_LEVEL              65535.0f   // SDL's full rumble strength (a Uint16)
+#define __MILLISECONDS_PER_SECOND      1000.0f
 
 namespace SunLight  {
     namespace Input  {
         namespace SDL  {
 
             SDLGamepadHaptics :: SDLGamepadHaptics( SunLight :: Input :: IInputHandler& inputHandler )
-                : m_InputHandler( inputHandler )  {
-
-                ::SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER );
+                : SDLGamepadHaptics( inputHandler, nullptr )  {
             }
 
+            SDLGamepadHaptics :: SDLGamepadHaptics( SunLight :: Input :: IInputHandler& inputHandler, std :: unique_ptr<ISDLControllerApi> pApi )
+                : m_InputHandler( inputHandler ),
+                  m_pApi( pApi ? std :: move( pApi ) : std :: make_unique<SDLControllerApi>() )  {
+            }
+
+            /**
+             * @brief Closes every controller still open, before m_pApi (the real one releases SDL's
+             * subsystem when it goes) - a controller still rumbling is silenced by SDL's close.
+             */
             SDLGamepadHaptics :: ~SDLGamepadHaptics( void )  {
 
-                ::SDL_QuitSubSystem( SDL_INIT_GAMECONTROLLER );
+                for( const std :: pair<const int, OpenController> &entry : m_Controllers )
+                    m_pApi -> Close( entry.second.hController );
+
+                m_Controllers.clear();
             }
 
             /**
@@ -66,11 +80,11 @@ namespace SunLight  {
 
                 std :: vector<int>          sdlIndices;
                 std :: vector<std :: string> sdlNames;
-                int                          nNumJoysticks = ::SDL_NumJoysticks();
+                int                          nNumJoysticks = m_pApi -> NumJoysticks();
 
                 for( int nIndex = 0; nIndex < nNumJoysticks; nIndex++ )  {
-                    if( ::SDL_IsGameController( nIndex ) )  {
-                        const char  *szName = ::SDL_GameControllerNameForIndex( nIndex );
+                    if( m_pApi -> IsGameController( nIndex ) )  {
+                        const char  *szName = m_pApi -> NameForIndex( nIndex );
 
                         sdlIndices.push_back( nIndex );
                         sdlNames.push_back( ( szName != nullptr ) ? szName : "" );
@@ -87,54 +101,83 @@ namespace SunLight  {
                 return -1;
             }
 
-            bool SDLGamepadHaptics :: IsSupported( int nGamePadId ) const  {
+            /**
+             * @brief Closes and forgets nGamePadId's open controller, if it has one.
+             */
+            void SDLGamepadHaptics :: CloseController( int nGamePadId ) const  {
+
+                std :: map<int, OpenController> :: iterator  itItem = m_Controllers.find( nGamePadId );
+
+                if( itItem != m_Controllers.end() )  {
+                    m_pApi -> Close( itItem -> second.hController );
+                    m_Controllers.erase( itItem );
+                }
+            }
+
+            /**
+             * @brief nGamePadId's open controller (see this class's doc comment for why it stays
+             * open). The one already open is reused while it is still attached and is still the
+             * device that matches the pad (same SDL instance id at the matched index); otherwise it
+             * is closed and the matching device opened. A pad with no matching device has none.
+             */
+            ISDLControllerApi :: ControllerHandle SDLGamepadHaptics :: ControllerFor( int nGamePadId ) const  {
 
                 int  nSdlIndex = FindMatchingSDLIndex( nGamePadId );
 
-                if( nSdlIndex < 0 )
-                    return false;
+                if( nSdlIndex < 0 )  {
+                    CloseController( nGamePadId );
+                    return nullptr;
+                }
 
-                SDL_GameController  *pController = ::SDL_GameControllerOpen( nSdlIndex );
+                int32_t                                     nInstanceId = m_pApi -> InstanceIdForIndex( nSdlIndex );
+                std :: map<int, OpenController> :: iterator  itItem      = m_Controllers.find( nGamePadId );
 
-                if( pController == nullptr )
-                    return false;
+                if( ( itItem != m_Controllers.end() ) &&
+                    ( itItem -> second.nInstanceId == nInstanceId ) &&
+                    m_pApi -> IsAttached( itItem -> second.hController ) )
+                    return itItem -> second.hController;
 
-                bool  bSupported = ::SDL_GameControllerHasRumble( pController ) == SDL_TRUE;
+                CloseController( nGamePadId );
 
-                ::SDL_GameControllerClose( pController );
+                ISDLControllerApi :: ControllerHandle  hController = m_pApi -> Open( nSdlIndex );
 
-                return bSupported;
+                if( hController == nullptr )
+                    return nullptr;
+
+                m_Controllers[ nGamePadId ] = OpenController { hController, m_pApi -> InstanceId( hController ) };
+
+                return hController;
+            }
+
+            bool SDLGamepadHaptics :: IsSupported( int nGamePadId ) const  {
+
+                ISDLControllerApi :: ControllerHandle  hController = ControllerFor( nGamePadId );
+
+                return ( hController != nullptr ) && m_pApi -> HasRumble( hController );
             }
 
             void SDLGamepadHaptics :: SetVibration( int nGamePadId, float fLeftMotor, float fRightMotor, float fDuration )  {
 
-                int  nSdlIndex = FindMatchingSDLIndex( nGamePadId );
+                ISDLControllerApi :: ControllerHandle  hController = ControllerFor( nGamePadId );
 
-                if( nSdlIndex < 0 )
-                    return;
-
-                SDL_GameController  *pController = ::SDL_GameControllerOpen( nSdlIndex );
-
-                if( pController == nullptr )
+                if( hController == nullptr )
                     return;
 
                 float  fClampedLeft     = std :: clamp( fLeftMotor, 0.0f, 1.0f );
                 float  fClampedRight    = std :: clamp( fRightMotor, 0.0f, 1.0f );
                 float  fClampedDuration = std :: max( fDuration, 0.0f );
 
-                ::SDL_GameControllerRumble( pController,
-                                           ( Uint16 ) ( fClampedLeft * 65535.0f ),
-                                           ( Uint16 ) ( fClampedRight * 65535.0f ),
-                                           ( Uint32 ) ( fClampedDuration * 1000.0f ) );
-
-                ::SDL_GameControllerClose( pController );
+                m_pApi -> Rumble( hController,
+                                  ( uint16_t ) ( fClampedLeft * __MAX_MOTOR_LEVEL ),
+                                  ( uint16_t ) ( fClampedRight * __MAX_MOTOR_LEVEL ),
+                                  ( uint32_t ) ( fClampedDuration * __MILLISECONDS_PER_SECOND ) );
 
                 // SDL's own duration-based auto-stop needs SDL_JoystickUpdate(), which nothing
                 // else in this engine ever calls (see this class's own doc comment) - track the
                 // deadline ourselves and enforce it from Update() instead. A duration of 0
                 // means "stay on until Stop() is called explicitly" - no deadline to track.
                 if( fClampedDuration > 0.0f )
-                    m_VibrationDeadlines[ nGamePadId ] = SunLight :: General :: Clock :: NowMilliseconds() + ( int64_t ) ( fClampedDuration * 1000.0f );
+                    m_VibrationDeadlines[ nGamePadId ] = SunLight :: General :: Clock :: NowMilliseconds() + ( int64_t ) ( fClampedDuration * __MILLISECONDS_PER_SECOND );
                 else
                     m_VibrationDeadlines.erase( nGamePadId );
             }
@@ -143,22 +186,15 @@ namespace SunLight  {
 
                 m_VibrationDeadlines.erase( nGamePadId );
 
-                int  nSdlIndex = FindMatchingSDLIndex( nGamePadId );
+                ISDLControllerApi :: ControllerHandle  hController = ControllerFor( nGamePadId );
 
-                if( nSdlIndex < 0 )
-                    return;
-
-                SDL_GameController  *pController = ::SDL_GameControllerOpen( nSdlIndex );
-
-                if( pController == nullptr )
+                if( hController == nullptr )
                     return;
 
                 // Zero strengths stop an in-progress rumble immediately - verified against
                 // SDL's own source (SDL_joystick.c calls exactly this, with these exact
                 // arguments, to silence a controller's motors on close).
-                ::SDL_GameControllerRumble( pController, 0, 0, 0 );
-
-                ::SDL_GameControllerClose( pController );
+                m_pApi -> Rumble( hController, 0, 0, 0 );
             }
 
             /**

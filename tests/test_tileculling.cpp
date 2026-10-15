@@ -178,8 +178,8 @@ TEST_SUITE( "Tile culling" )  {
     TEST_CASE( "A map whose tilesets disagree on tile size falls back to visiting every cell" )  {
 
         // A 5 x 5 map (25 cells): every cell has a valid gid, and the far corner (4, 4) uses a tileset whose own
-        // tile size (48, not the map's declared 16) also moves where DrawLayer draws it - at column 4, row 4 of
-        // a 48 px step, that is pixel (192, 192), a pre-existing effect of DrawLayer using the resolved tile's
+        // tile size (48, not the map's declared 16) also moves where LayerRenderer::DrawTileLayer draws it - at column 4, row 4 of
+        // a 48 px step, that is pixel (192, 192), a pre-existing effect of DrawTileLayer using the resolved tile's
         // own tileset size, unrelated to E0. The viewport is large enough to show every cell at its own actual
         // position, so a count of 25 proves the fallback visited and drew all of them, mismatched size and all.
         Frame  frame( MakeMismatchedTmx( 4, 4, 48 ), 250, 250 );

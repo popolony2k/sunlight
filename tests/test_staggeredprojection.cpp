@@ -455,7 +455,7 @@ namespace  {
 
     // A 3 x 2 staggered map (64 x 48 declared tile size, no explicit staggeraxis/staggerindex -
     // libtmx defaults a missing attribute to SA_Y/SI_ODD, confirmed against its own source in E2a), one
-    // tileset matching that size exactly (so m_bUniformTileGrid is true and DrawLayer takes the culled
+    // tileset matching that size exactly (so MapData::IsUniformTileGrid() is true and LayerRenderer::DrawTileLayer takes the culled
     // path), every cell filled with gid 1.
     Bytes MakeStaggeredTmx( void )  {
 
@@ -516,7 +516,7 @@ TEST_SUITE( "Staggered rendering (renderer integration)" )  {
         // Default axis/index is SA_Y/SI_ODD (libtmx's own default for a missing attribute, E2a): row0
         // unshifted, row1 shifted by tileWidth/2 = 32. Derived from the same, already Tiled-measured
         // formula (see the "Staggered projection" suite above) - this test checks LoadMap's orientation
-        // switch, DrawLayer's culled loop and StaggeredProjection all agree with each other end to end,
+        // switch, DrawTileLayer's culled loop and StaggeredProjection all agree with each other end to end,
         // the same purpose IsometricProjection's own integration test serves.
         const stExpected  expected[] = {
             { 0, 0 }, { 64, 0 }, { 128, 0 }, { 32, 24 }, { 96, 24 }, { 160, 24 },

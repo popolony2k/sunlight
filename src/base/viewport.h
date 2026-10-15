@@ -113,6 +113,13 @@ namespace SunLight  {
             virtual bool GetClippedRect( SunLight :: Base :: stDimension2D src,
                                          SunLight :: Base :: stDimension2D& dst );
 
+            // GetClippedRect's arithmetic for any viewport rectangle and zoom factor (S1c2 of the
+            // master plan): a drawing class with a DrawContext - not a Viewport - runs the same test.
+            static bool ClipRect( const SunLight :: Base :: stDimension2D &viewport,
+                                  float fZoomFactor,
+                                  SunLight :: Base :: stDimension2D src,
+                                  SunLight :: Base :: stDimension2D& dst );
+
             protected:
 
             ZoomBorderLimits           m_ZoomBorderLimits;

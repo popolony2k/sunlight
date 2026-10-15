@@ -1257,6 +1257,30 @@ backend. Real behaviour can only be proven here, so this item stays open until t
     up).
 - Full suite (530 cases) passes under AddressSanitizer with no reports. Every sample,
   including the new one, builds cleanly.
+- **Follow-up, after S1 (owner's report: the frame rate dropped while Sunny bumped walls
+  with the gamepad, down to about 40 FPS when held against a wall).** Two causes, both
+  measured live with the owner's Xbox One S Controller (SDL's HIDAPI driver on macOS):
+  - The backend opened and closed the controller around every call. Opening one took
+    0.03 ms and sending a rumble 0.01-0.09 ms, but closing it right after a rumble took
+    about 11 ms on the calling thread, every time: SDL's close sends "motors off"
+    (`SDL_JoystickClose`) and the HIDAPI close then waits, in 10 ms `SDL_Delay` steps (up to
+    30 ms), for that pending rumble to go out (`HIDAPI_JoystickClose`) - both read in the
+    vendored SDL source. So each bump cost the frame about 11 ms when it started and again
+    when it stopped, and the close cut every rumble short. `SDLGamepadHaptics` now keeps
+    each pad's controller open (`m_Controllers`): reused while it is still attached and is
+    still the device that matches the pad, reopened otherwise, closed by the destructor.
+    SDL's macOS HID open is not exclusive (`kIOHIDOptionsTypeNone`), so raylib/GLFW keeps
+    reading the pad, and the unread input reports are capped (hidapi keeps 30).
+  - The sample remembered only the last blocked direction. A stick held at a diagonal
+    sends both of its directions every frame, so against a corner the two blocked
+    directions alternated, each looking new: 395 bumps in a few seconds, two a frame. It
+    now remembers every direction blocked since Sunny last moved.
+  - The SDL calls the backend makes are behind an internal `ISDLControllerApi`
+    (`SDLControllerApi` is the real one), so `tests/test_sdlgamepadhaptics_controllers.cpp`
+    (5 cases) runs the backend against a fake and can never reach a real controller: opened
+    once and reused, the deadline's stop on the same controller, reopened after an unplug or
+    when another device matches the pad, closed when the pad goes away, no rumble without
+    one. Putting back the close after every rumble fails 3 of them.
 
 ## Phase L: layer camera, opacity and sprite order
 
@@ -1773,18 +1797,19 @@ text, the map's tilesets or the registered fonts.
 
 | # | Item | Status |
 |---|------|--------|
-| S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | TODO |
-| S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch, tile objects, the per-object opacity rule and its warnings) | TODO |
-| S1c | `LoadedMap`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), release, and tile, layer and object lookups. `LayerRenderer`: tile, image and group layer drawing and culling | TODO |
-| S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | TODO |
-| S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | TODO |
+| S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | DONE |
+| S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch and the per-object opacity rule, `ObjectOpacity`, with its warnings). Tile objects are handed back to the renderer and move in S1c | DONE |
+| S1c1 | `MapData`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), freeing by its destructor, and tile, layer and object lookups | DONE |
+| S1c2 | `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | DONE |
+| S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | DONE |
+| S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | DONE |
 
 What stays in `TileMapRenderer`: the lifecycle (`Start`/`Run`/`Stop`), the views and the multi-view passes,
 the small setters, getters and pass-throughs to `IWindow`/`IEngine`, and the wiring between the new classes.
 Moving the views out (they are tied to the renderer the most closely) is left for a later decision, once S1e
 has simplified them.
 
-- Order: S1a to S1e, lowest risk first. Each item is one branch and one PR, and the next starts only once the
+- Order: S1a to S1e (S1c in two steps, S1c1 then S1c2), lowest risk first. Each item is one branch and one PR, and the next starts only once the
   previous one is merged.
 - No behaviour change in any step: the full suite passes, every sample builds, the AddressSanitizer run is
   clean (S1d and S1e touch object lifetimes), `leaks --atExit` reports none, and the shapes stress benchmark
@@ -1798,6 +1823,132 @@ has simplified them.
 - Every value in new code is named, as in the other modules.
 - Not in S1: shared interfaces for future renderers (an `IRenderer` base, a layer-source interface). They are
   better designed against a second renderer once one exists.
+
+**S1a: `DrawContext` and `ShapeRenderer` (DONE).** `renderer/drawcontext.h` holds the active
+view's rectangle, its zoom and the drawn layer's camera offset, in the very types the renderer
+holds them (int rectangle, float zoom and camera), so a shape's arithmetic is unchanged bit for
+bit. `renderer/shape/shaperenderer.h/.cpp` holds the five shape bodies with `ScreenPointsOf` and
+`DrawEdge`, moved as they were; it has no state and does not know `TileMapRenderer`. The renderer
+builds the context at each call (`CurrentDrawContext`, reading what the bodies read before) for
+its shape objects and its `IShapeSurface` methods. `tilemaprenderer.cpp` 3,652 -> 3,437 lines,
+the header 522 -> 487. `tests/test_shaperenderer.cpp` (8 cases) draws with no renderer at all;
+applying the camera after the zoom fails its context test, which none of the 600 earlier tests
+noticed. Full suite 608/608, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark no slower.
+
+**S1b: `FontRegistry`, `ObjectOpacity`, `TextObjectRenderer`, `ObjectRenderer` (DONE).** In
+`renderer/text/` and `renderer/objects/`, each knowing nothing about `TileMapRenderer`:
+`FontRegistry` (`Register`/`Find`/`WarnMissing`/`Clear`; `RegisterFont` keeps its public
+signature and its "not started" check), `ObjectOpacity` (the L2 rule and its once-per-object
+warning), `TextObjectRenderer` (the `DrawTextObject` body, reading a `DrawContext`; its comment
+corrected - rotation is applied, and the view's clip cuts the text) and `ObjectRenderer` (the
+`DrawObjects` dispatch, one `DrawContext` per layer). Tile objects need the map's tiles, their
+animation and `DrawTile`, so they are handed back to the renderer with their opacity and move in
+S1c. The libtmx colour conversion is shared as `Shape::ColorOf`. `tilemaprenderer.cpp` 3,437 ->
+3,084 lines, the header 487 -> 467. `tests/test_objectrenderers.cpp` (10 cases) uses objects
+libtmx parsed, no renderer. Full suite 618/618, ASan clean, `leaks` 0, Doxygen 0, the stress
+benchmark within its spread.
+- Found, not changed (S1 changes no behaviour): libtmx keeps an object group's objects in
+  reverse file order (it prepends them, `tmx_xml.c`), and records the group's `draworder`
+  (`topdown`/`index`), which sunlight never reads - objects are drawn in that reversed list order.
+  Whether to honour `draworder` is an open point for after S1.
+
+**S1c1: `MapData` (DONE).** `renderer/map/mapdata.h/.cpp` owns one loaded map: the `tmx_map`,
+its Resource Manager, the projection, the map's size in map pixels, the uniform-grid flag and
+the tile animation state. `MapData::Load` is `LoadMap`'s loading half, unchanged (FileSystem
+read, external tilesets and templates, parse, projection, the same error messages); its
+destructor frees the map, then the Resource Manager, then the animation state - `ReleaseMap`'s
+order. Lookups: layers by id or name, `TileAt` (the gid and tile; the screen rectangle stays in
+the renderer's `GetTile`, which needs the view), `FindObjectByName`, `AnimatedFrameOf`. The
+libtmx texture hooks move with it, installed by `Load`. `TileMapRenderer` holds one
+`std::unique_ptr<MapData>`: `LoadMap` loads into a new one and only then replaces the old,
+`UnloadMap` is `UnloadSprites()` plus a reset; `ReleaseMap`, `FindObjectByName`,
+`AnimatedFrameOf`, `GetTilesetList` and seven members are gone. `tilemaprenderer.cpp` 3,084 ->
+2,728 lines, the header 467 -> 440. `tests/test_mapdata.cpp` (7 cases, no renderer); freeing the
+old map before loading the new one fails T2's failed-parse test. Full suite 625/625, ASan clean,
+`leaks` 0, Doxygen 0, the stress benchmark within its spread.
+- Found while moving it, fixed right after in its own PR (owner's call - no peer map has
+  animated tiles yet): a Tiled tile animation held its first frame for two of its durations
+  every cycle. After the last frame, `AnimatedFrameOf` wrapped the counter to 0 and showed frame
+  0 without stepping it on, so frame 0 came again on the next step (0 1 2 0 0 1 2 0 0 ...). The
+  counter now steps on and wraps in one place: each frame once per cycle, for its own duration.
+  `tests/test_mapdata.cpp` checks two full cycles of three frames and fails on the old code.
+
+**S1c2: `LayerRenderer` (DONE).** `renderer/map/layerrenderer.h/.cpp` draws a tile layer
+(`DrawTileLayer`, with its culling), an image layer and a tile object through a `DrawContext`
+and a `MapData`, the bodies moved as they were; it has no state and does not know
+`TileMapRenderer`. The viewport test a tile goes through is shared as the static
+`Viewport::ClipRect` (`GetClippedRect` calls it with its own rectangle and zoom). Group layers
+stay in `DrawAllLayers`, which still walks the layers (views, parallax camera, sprites) and
+calls `LayerRenderer` for each one; `ObjectRenderer`'s tile-object callback calls it too.
+`DrawLayer`, `DrawImageLayer`, `DrawTileObject` and `DrawTile` are gone from the renderer, and
+the outdated "animated tile objects draw their first frame only" comment is
+corrected. `tilemaprenderer.cpp` 2,728 -> 2,411 lines, the header 440 -> 427.
+`tests/test_layerrenderer.cpp` (10 cases, no renderer): tile positions with zoom, camera and
+viewport origin, opacity, tint and offset, animation, image layers, and tile objects at their
+own size, stretched and cut at the viewport, and turned; dropping the camera from `DrawTile`
+fails 4 of them. Culling saves work only (`ClipRect` skips an off-viewport tile anyway), so it
+is not visible in draw calls; `test_tileculling` still pins that it loses no visible cell.
+Full suite 635/635, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark within its spread.
+- Found while moving it, fixed right after in its own PR (owner's call): a resized tile
+  object ignored its layer's tint (it was drawn white, with its opacity), while one at its
+  tile's size and a turned one took it. It now takes the tint too; `tests/test_layerrenderer.cpp`
+  checks it and fails on the old code.
+- Found by the owner's real-window check, pre-existing (the limit dates from Phase L), fixed
+  in its own PR (owner's call): the staggered and hexagonal samples never showed their last
+  strip on the right and at the bottom. `MoveCameraUp`/`MoveCameraLeft` refused a scroll step
+  that went past the map's far edge, so up to a step less one pixel stayed hidden (about 55 map px at
+  the staggered sample's right edge, 37 and 18 at the hexagonal sample's). The last step is now
+  a partial one to the edge (rounded up to a whole map pixel: no gap, under a pixel hidden at a
+  non-integer zoom), and `MoveCameraDown`/`MoveCameraRight` end with a partial step onto the
+  origin. `tests/test_camera.cpp` (two cases) and the step-by-step check in
+  `tests/test_viewport_semantics.cpp` fail on the old code.
+
+**S1d: `SpriteRegistry` (DONE).** `renderer/sprite/spriteregistry.h/.cpp` holds the sprites
+registered per layer, the sprites the renderer is the parent of, and the once-per-frame update
+across the view passes (the z-order sort, `Update` with one view, advance-once-then-`Draw` with
+several, the end-of-frame advance of a sprite no pass had on screen), moved as they were; it
+never owns a sprite and does not know `TileMapRenderer`. Each layer's list is now held by value
+(it was a raw `new` freed by hand in `UnloadSprites`). A layer's list is still opened before
+`AddSprite`'s checks, so a refused sprite leaves it open as before (`OpenLayer`; `Empty` decides
+whether a mapless renderer runs its sprite frame). `AddSprite`/`RemoveSprite` keep their checks
+and the collider; `ChildRemoved` stays the renderer's override and asks `Forget` which sprite left
+and from which layers; `HandleSpriteUpdate`/`UnloadSprites` are one-line calls into it. One
+addition, not reachable today: `Forget` also drops a leaving sprite from the frame's
+advanced/pending sets, so a sprite destroyed during a frame could not be advanced at its end.
+`tilemaprenderer.cpp` 2,407 -> 2,312 lines, the header 427 -> 423. `tests/test_spriteregistry.cpp`
+(7 cases, no renderer): advancing in every pass, dropping the end-of-frame advance and stopping
+`Forget` at the first layer each fail one. Full suite 644/644, ASan clean, `leaks` 0, Doxygen 0,
+the stress benchmark within its spread.
+- Found while moving it, fixed right after in its own PR (owner's call): `Sprite::Unload()`
+  emptied the sprite's sequences but left its active sequence marked valid, so an unloaded sprite
+  that was drawn, advanced or asked `IsOnScreen`/`GetActiveTexture` read through a dangling
+  iterator - eg. one reused after the renderer's `Stop()`, which unloads every registered sprite.
+  No sequence is active after `Unload()` now. `tests/test_sprite.cpp` checks it; on the old code
+  AddressSanitizer reports a heap-use-after-free in it.
+
+**S1e: `Camera` (DONE).** `renderer/camera/camera.h/.cpp` holds one view's camera: its position
+(the negated map point at the viewport's top-left, as before), its scroll step (-1 until a map
+resolves it), the four moves with #201's limits, the map alignments (`LoadMap`'s switch) and the
+parallax camera (`GetEffectiveCameraForFactor`'s arithmetic), moved as they were; it knows
+nothing about `TileMapRenderer` or `View`, and is handed the map's size, the viewport and the
+zoom. Each `View` now holds its `Camera`: the renderer's `m_CameraPos` and
+`m_nScrollStepWidth`/`Height` and `View::State` are gone, `ActivateView` no longer copies a
+camera in and out (it only switches the active view and its viewport), and `View::Detach` no
+longer parks one. The renderer's camera methods keep their checks and work on the active view's
+camera (`ActiveCamera`); a view's methods still go through `View::Run`, so a removed view's
+setters stay no-ops and its getters return its last values. `tilemaprenderer.cpp` 2,312 ->
+2,201 lines, the header 423 -> 422, `view.cpp` 367 -> 349. `tests/test_cameraunit.cpp` (7
+cases, no renderer); an explicit step overwritten by `ResolveScrollStep`, a wrong axis in
+`Align` and every view using the default view's camera each fail tests (the last, 10 of the
+view tests). Full suite 652/652, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark within
+its spread.
+
+**S1 result.** `tilemaprenderer.cpp` went from 3,652 to 2,201 lines and its header from 522 to
+422, across ten new classes. That is short of the "near 1,400" this section expected: what stays
+is what it lists (the lifecycle, `Run()`, the views and their passes, the layer walk with its
+parallax and masks, about 45 small setters and pass-throughs) plus `LoadMap`, the input wiring
+and `GetTile`/`TileMapToTileMatrix`, with their long comments. Moving the views out, left for
+after S1e above, is the largest piece still in it.
 
 ## Docs, samples and tests
 

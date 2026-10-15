@@ -46,11 +46,6 @@ namespace SunLight {
                 m_pViewport      = m_pOwnedViewport.get();
             }
 
-            m_State.camera.x         = 0.0f;
-            m_State.camera.y         = 0.0f;
-            m_State.nScrollStepWidth  = -1;
-            m_State.nScrollStepHeight = -1;
-
             // The default view (the one wrapping the renderer's own viewport) is drawn first and
             // is not cleared per-view (the frame clear is its clear); the others start on top of it.
             m_bVisible            = true;
@@ -86,13 +81,8 @@ namespace SunLight {
          * Cut this view loose from its renderer (see @see IView::IsRemoved for what an
          * inert view does). Idempotent.
          *
-         * A view's own state is parked in m_State whenever it is not the active one; the
-         * only view that can still be active here is the default one (a removed view is made
-         * inactive first, and the renderer's own destructor runs with the default view
-         * active), so its live camera/scroll step - which sit in the renderer's working
-         * members - are parked now.
-         *
-         * The default view also uses the renderer's OWN root Viewport, a member of the
+         * The view's camera is its own (m_Camera), so it keeps its last position and scroll
+         * step as it is. The default view also uses the renderer's OWN root Viewport, a member of the
          * renderer's base class that dies with it: so it is replaced by a private copy,
          * built through Viewport's public interface (rectangle, zoom position, preferred
          * zoom, zoom limits, user-zoom flag), which then belongs to the view. Viewport
@@ -103,12 +93,6 @@ namespace SunLight {
 
             if( !m_pRenderer )
                 return;
-
-            if( m_pRenderer -> m_pActiveView == this )  {
-                m_State.camera            = m_pRenderer -> m_CameraPos;
-                m_State.nScrollStepWidth  = m_pRenderer -> m_nScrollStepWidth;
-                m_State.nScrollStepHeight = m_pRenderer -> m_nScrollStepHeight;
-            }
 
             if( this == m_pRenderer -> m_pDefaultView.get() )  {
                 std :: unique_ptr<SunLight :: Base :: Viewport>  pCopy = std :: make_unique<SunLight :: Base :: Viewport>();
@@ -194,10 +178,9 @@ namespace SunLight {
 
         void View :: GetCameraPosition( int &nX, int &nY )  {
 
-            // Detached: the last position it had (same negation the renderer's own getter applies).
+            // Detached: the last position it had.
             if( !m_pRenderer )  {
-                nX = ( int ) -m_State.camera.x;
-                nY = ( int ) -m_State.camera.y;
+                m_Camera.GetPosition( nX, nY );
 
                 return;
             }
@@ -213,8 +196,7 @@ namespace SunLight {
         void View :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
 
             if( !m_pRenderer )  {
-                nStepWidth  = m_State.nScrollStepWidth;
-                nStepHeight = m_State.nScrollStepHeight;
+                m_Camera.GetScrollStep( nStepWidth, nStepHeight );
 
                 return;
             }
@@ -285,7 +267,7 @@ namespace SunLight {
 
         bool View :: ShowLayer( const char *szLayerName, bool bShow )  {
 
-            tmx_layer  *pLayer = ( szLayerName && m_pRenderer && m_pRenderer -> m_pTmxMap ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
+            tmx_layer  *pLayer = ( szLayerName && m_pRenderer && m_pRenderer -> Tmx() ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
 
             if( !pLayer )
                 return false;
@@ -325,7 +307,7 @@ namespace SunLight {
          */
         bool View :: FitToMap( void )  {
 
-            tmx_map  *pMap = ( m_pRenderer ? m_pRenderer -> m_pTmxMap : nullptr );
+            tmx_map  *pMap = ( m_pRenderer ? m_pRenderer -> Tmx() : nullptr );
 
             if( !pMap )
                 return false;

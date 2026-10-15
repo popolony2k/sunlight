@@ -246,53 +246,41 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "MoveCameraLeft/Up limits keep the map's far edge at or past the viewport's, step by step" )  {
+    TEST_CASE( "MoveCameraLeft/Up scroll until the map's far edge reaches the viewport's, and never past it" )  {
 
-        // This test used to pin the OLD MoveCameraLeft/Up formula verbatim as its own oracle
-        // (an "nErrorFix" term, step.nWidth / round(zoom)) - but that formula itself never
-        // added the viewport's own pos.x/pos.y (the render target's origin its own doc
-        // comment always claimed it was measured from), compensating instead with that
-        // zoom-imprecise fudge term. At zoom 1 with a small pos, the error was invisible;
-        // at a real, non-integer zoom (found live, in samples/sprite's own default zoom,
-        // 3.8125) it left a visible gap of dozens of pixels between the map's own edge and
-        // the viewport's - confirmed by direct measurement, not assumed, before the fix
-        // below. The oracle here is now the independently-derived, exact "no gap" formula -
-        // the far edge (nPosX + nWidth) compared against the map's own candidate screen
-        // position, pos.x included - which is what MoveCameraLeft/Up now compute.
+        // Checked step by step, at four viewports and zooms (60 is 3.8125, non-integer), against
+        // what the limit means rather than a copy of its formula. A map position p is drawn at
+        // (p + camera) x zoom + viewport.pos; the map is 640 x 640. After every step:
+        // - the map's far edge is at or past the viewport's (no gap of the clear colour);
+        // - the camera moved by at most one scroll step, and stays a whole number;
+        // - once it stops moving, one more map pixel would open a gap: it went all the way.
+        // The old rule refused a step that went past the edge, so it stopped up to a step short.
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
 
-        VpCase  aCases[] = { { 10, 10, 1240, 900, 60 }, { 0, 0, 300, 300, 15 }, { 25, 40, 875, 660, 30 }, { 10, 10, 400, 350, 30 } };
-        long    nCompared   = 0;
-        long    nMismatches = 0;
-        long    nMoved      = 0;
-        long    nMovedUp    = 0;
+        VpCase      aCases[] = { { 10, 10, 1240, 900, 60 }, { 0, 0, 300, 300, 15 }, { 25, 40, 875, 660, 30 }, { 10, 10, 400, 350, 30 } };
+        const int   nStep    = 16;        // LoadMap sets the scroll step to the tile size
+        const int   nMapSize = 640;
+        const int   nIters   = 400;       // far more steps than any case needs to reach its edge
+        long        nCompared = 0;
+        long        nMovedX   = 0;
+        long        nMovedY   = 0;
 
         for( const VpCase &v : aCases )  {
             std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, ITM :: MAP_ALIGNMENT_TOP_LEFT );
             float                               fZoom     = pRenderer -> GetViewport().GetZoomProperties().fZoomFactor;
             int                                 nFarX     = v.nPosX + v.nWidth;
             int                                 nFarY     = v.nPosY + v.nHeight;
-            float                               fCamX     = 0.0f;      // the oracle's own camera
-            float                               fCamY     = 0.0f;
-            const int                           nStep     = 16;        // LoadMap sets the scroll step to the tile size
+            int                                 nPrevX    = 0, nPrevY = 0;
 
-            for( int nIter = 0; nIter < 400; nIter++ )  {
-                // The exact, no-gap boundary: the map's far edge's own screen position after
-                // this hypothetical step, pos included - not a fudge-term approximation.
-                int  nBoundX = ( int ) std :: round( ( fCamX - nStep + 640 ) * fZoom ) + v.nPosX;
-                int  nBoundY = ( int ) std :: round( ( fCamY - nStep + 640 ) * fZoom ) + v.nPosY;
+            // The far edge's screen position for a camera; GetCameraPosition reports -camera.
+            auto  edge = [fZoom, nMapSize]( int nReported, int nPos )  {
+                return ( ( -nReported + nMapSize ) * fZoom ) + nPos;
+            };
 
-                if( nFarX < nBoundX )  {
-                    fCamX-=nStep;
-                    nMoved++;
-                }
+            pRenderer -> GetCameraPosition( nPrevX, nPrevY );
 
-                if( nFarY < nBoundY )  {
-                    fCamY-=nStep;
-                    nMovedUp++;
-                }
-
+            for( int nIter = 0; nIter < nIters; nIter++ )  {
                 pRenderer -> MoveCameraLeft();
                 pRenderer -> MoveCameraUp();
 
@@ -301,17 +289,33 @@ TEST_SUITE( "renderer/viewport semantics" )  {
                 pRenderer -> GetCameraPosition( nX, nY );
                 nCompared++;
 
-                if( ( nX != ( int ) -fCamX ) || ( nY != ( int ) -fCamY ) )
-                    nMismatches++;
+                CHECK( edge( nX, v.nPosX ) >= nFarX );
+                CHECK( edge( nY, v.nPosY ) >= nFarY );
+                CHECK( ( nX - nPrevX ) >= 0 );
+                CHECK( ( nX - nPrevX ) <= nStep );
+                CHECK( ( nY - nPrevY ) >= 0 );
+                CHECK( ( nY - nPrevY ) <= nStep );
+
+                if( nX == nPrevX )
+                    CHECK( edge( nX + 1, v.nPosX ) < nFarX );
+                else
+                    nMovedX++;
+
+                if( nY == nPrevY )
+                    CHECK( edge( nY + 1, v.nPosY ) < nFarY );
+                else
+                    nMovedY++;
+
+                nPrevX = nX;
+                nPrevY = nY;
             }
 
             pRenderer -> Stop();
         }
 
-        CHECK( nCompared == 1600 );
-        CHECK( nMoved > 40 );             // the scrolling really happens in both directions (not vacuous)
-        CHECK( nMovedUp > 40 );
-        CHECK( nMismatches == 0 );
+        CHECK( nCompared == 4 * nIters );
+        CHECK( nMovedX > 40 );            // the scrolling really happens in both directions (not vacuous)
+        CHECK( nMovedY > 40 );
     }
 
     TEST_CASE( "TileMapToTileMatrix uses the viewport's pos.y for the row (it used pos.x)" )  {

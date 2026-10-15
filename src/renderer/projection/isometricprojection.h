@@ -43,7 +43,7 @@ namespace SunLight  {
              * Tile *objects* use a related but distinct formula (also measured, not derived from the above):
              *   objScreenX = storedX - storedY + (mapHeightCells - 1) * (tileWidth / 2) + tileHeight / 2
              *   objScreenY = (storedX + storedY) / 2
-             * at the object's own bottom-left corner, Tiled's usual tile-object anchor (see DrawTileObject).
+             * at the object's own bottom-left corner, Tiled's usual tile-object anchor (see LayerRenderer::DrawTileObject).
              * This projection does not implement object placement yet - no IMapProjection method covers it
              * (TileViewRect is collision-only); it is tracked as a follow-up once isometric objects are needed.
              */

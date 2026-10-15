@@ -144,9 +144,9 @@ bool World :: LoadSprites( void ) {
 
         // Sprites don't scroll with the camera in this library -
         // TextureCanvas::Update() -> Viewport::GetClippedRect() computes
-        // screen = world * zoomFactor + viewport.pos with no m_CameraPos
+        // screen = world * zoomFactor + viewport.pos with no Camera::Position()
         // term at all (unlike tile layers, which DrawTile offsets by
-        // m_CameraPos explicitly). At this sample's zoom (3.8125x) and
+        // Camera::Position() explicitly). At this sample's zoom (3.8125x) and
         // 900x800 viewport at (10,10), that means only world coordinates
         // roughly within x:[0,236] y:[0,210] land on screen at all -
         // Sunny is placed near the middle of that range so she's clearly

@@ -35,6 +35,14 @@
 #include "font/ifont.h"
 #include "renderer/rendererconfig.h"
 #include "renderer/shape/shapeprimitives.h"
+#include "renderer/shape/shaperenderer.h"
+#include "renderer/drawcontext.h"
+#include "renderer/text/fontregistry.h"
+#include "renderer/objects/objectrenderer.h"
+#include "renderer/map/mapdata.h"
+#include "renderer/map/layerrenderer.h"
+#include "renderer/sprite/spriteregistry.h"
+#include "renderer/camera/camera.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
 #include "input/icontrollermanager.h"
@@ -71,19 +79,7 @@ namespace SunLight {
                                  public SunLight :: DrawSurface :: IDrawSurface,
                                  public SunLight :: DrawSurface :: IShapeSurface  {
 
-            /**
-             * Tile animation information.
-             */
-            struct __stTileAnimInfo  {
-                int64_t      nMillis;
-                uint16_t     nCounter;
-                tmx_tile     *pNextTile;
-            };
-
-            typedef std :: deque<std :: unique_ptr<__stTileAnimInfo>> __AnimInfoList;
             typedef std :: deque<SunLight :: TileMap :: ITileMapListener*> TileMapListenerList;
-            typedef std :: deque<SunLight :: Sprite :: Sprite*> SpriteList;
-            typedef std :: map<int, SpriteList*>                SpriteMap;
 
             // Non-null only for a RENDERER_BACKEND_NULL renderer: holds the
             // (shared, process-wide) null backend installed for as long as
@@ -97,52 +93,40 @@ namespace SunLight {
             // frame via Update() (see Run()). TileMapRenderer's own public input methods
             // (AddGamePad, SetUserKeyEventHandler, ...) delegate to this directly.
             std :: unique_ptr<SunLight :: Input :: IControllerManager>  m_pControllerManager;
-            SpriteMap                                  m_SpriteMap;
 
-            // Every sprite this renderer is the PARENT of (set by AddSprite, kept by RemoveSprite as it
-            // always was): the sprites whose parent pointer would dangle if this renderer went away, and
-            // the ones that must tell it when they are destroyed (ChildRemoved). A superset of m_SpriteMap.
-            std :: set<SunLight :: Sprite :: Sprite*>  m_ParentedSprites;
+            // The sprites registered per layer (AddSprite), every sprite this renderer is the PARENT of
+            // (set by AddSprite, kept by RemoveSprite as it always was: the ones whose parent pointer
+            // would dangle if this renderer went away, and that tell it when they are destroyed -
+            // ChildRemoved), and the once-per-frame sprite update across the view passes (S1d).
+            SpriteRegistry                             m_Sprites;
             TileMapListenerList                        m_TileMapListenerList;
             SunLight :: Collision :: CollisionManager  m_CollisionManager;
-            stVector                                   m_CameraPos;
+            ShapeRenderer                              m_ShapeRenderer;          // draws every shape (S1a): shape objects and IShapeSurface
 
             // The CURRENT layer's own effective camera (L1 of the master plan: per-layer
-            // parallax) - m_CameraPos scaled by that layer's own parallax factor (and its
+            // parallax) - the active camera scaled by that layer's own parallax factor (and its
             // group ancestors', multiplied together, matching Tiled's own nesting rule) and
             // anchored at the map's parallaxoriginx/y. Set once per layer, of any type, at
             // the top of DrawAllLayers's own loop body - before dispatching to
-            // DrawLayer/DrawObjects/DrawImageLayer and before HandleSpriteUpdate, so every one
+            // LayerRenderer/ObjectRenderer (through the DrawContext) and before HandleSpriteUpdate, so every one
             // of them (including a world-space sprite's own GetCameraOffset) reads the same,
             // already-correct value for whichever layer is currently being processed, with no
             // separate per-sprite layer tracking needed at all. A layer with no parallax
-            // (factor 1,1 - the overwhelming default) gets this set to exactly m_CameraPos,
+            // (factor 1,1 - the overwhelming default) gets this set to exactly the active camera,
             // byte-identical to this project's pre-L1 behavior.
             stVector                                   m_EffectiveLayerCameraPos;
-            uint16_t                                   m_nMapWidth;
-            uint16_t                                   m_nMapHeight;
-            std :: unique_ptr<Projection :: IMapProjection>  m_pProjection;
-            // Whether every tileset the map uses declares the same tile size as the map itself - only then is
-            // DrawLayer's culled loop exact (its visible-range math assumes one consistent grid step). A map
-            // that mixes tileset sizes falls back to visiting every cell, same as before E0.
-            bool                                       m_bUniformTileGrid;
-            int                                        m_nScrollStepWidth;
-            int                                        m_nScrollStepHeight;
             float                                      m_fWindowWidth;
             float                                      m_fWindowHeight;
             int                                        m_nTargetFps;
             SunLight :: Base :: stColor                m_WindowBackgroundColor;
             bool                                       m_bWindowBackgroundSet;   // SetWindowBackgroundColor was called: the window area is not the map's colour
-            __AnimInfoList                             m_AnimInfoList;
             std :: string                              m_strTitle;
             float                                      m_fScreenFadeAlpha;
-            tmx_map                                    *m_pTmxMap;
 
-            // Owns the map's EXTERNAL tilesets (.tsx) and object templates
-            // (.tx) - read through SunLight::FileSystem and handed to libtmx
-            // as buffers (see LoadMap). nullptr when the map has none. Must
-            // outlive m_pTmxMap and be freed after it (see UnloadMap).
-            tmx_resource_manager                       *m_pTmxRcMgr;
+            // The loaded map and everything that belongs to it (S1c1: MapData - the libtmx map, its
+            // Resource Manager, projection, pixel size and tile animation state); null when no map is
+            // loaded. Replacing it with a newly loaded MapData frees the old map exactly once.
+            std :: unique_ptr<MapData>                 m_pMap;
             bool                                       m_bClearBackground;
             bool                                       m_bIsStarted;
             bool                                       m_bExitRequested;
@@ -154,7 +138,6 @@ namespace SunLight {
             bool                                       m_bStretchToFill;
             unsigned                                   m_nMaxFrames;
             unsigned                                   m_nFramesRun;
-            static bool                                m_bInitialized;
 
             // Everything is rendered into this fixed-internal-resolution
             // offscreen render target (via IEngine), then Run() blits it
@@ -166,50 +149,39 @@ namespace SunLight {
 
             // Views (see SunLight::TileMap::IView). The DEFAULT view (id 0)
             // owns what the renderer always had - camera, scroll step and
-            // root viewport - and is the ACTIVE one whenever nothing else is:
-            // m_CameraPos / m_nScrollStep* above are the ACTIVE view's
-            // working state, swapped in and out by ActivateView (which
-            // View's operations and the draw passes use), so all the existing
-            // camera/zoom code serves every view unchanged.
+            // root viewport - and is the ACTIVE one whenever nothing else is.
+            // Every view holds its own Camera (S1e); the renderer's camera code
+            // works on the ACTIVE view's (ActiveCamera), and ActivateView (which
+            // View's operations and the draw passes use) switches which view that
+            // is, so all the camera/zoom code serves every view unchanged.
             std :: shared_ptr<View>                    m_pDefaultView;
             std :: vector<std :: shared_ptr<View>>     m_ExtraViews;
             View                                       *m_pActiveView;
             int                                        m_nNextViewId;
 
-            // Multi-pass frame (only used once an extra view exists - see RenderMap): the
-            // sprites already advanced this frame (a sprite advances ONCE per frame, however
-            // many views draw it), and the views of this frame's passes in draw order.
-            struct __stRegisteredFont  {
-                std :: string                                 strFamily;
-                bool                                          bBold;
-                bool                                          bItalic;
-                std :: unique_ptr<SunLight :: Font :: IFont>  pFont;   // owned here; released by ReleaseRegisteredFonts
-            };
-            std :: vector<__stRegisteredFont>          m_RegisteredFonts;
-            std :: set<std :: string>                  m_WarnedFonts;       // "family|bold|italic" keys already warned about
-            std :: set<unsigned int>                   m_WarnedOpacityObjects;   // object ids already warned about an invalid "opacity" property
-            std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvancedSprites;
-            std :: set<SunLight :: Sprite :: Sprite*>  m_FramePendingSprites;       // reached by a pass, but not on screen there (yet)
+            FontRegistry                               m_Fonts;             // RegisterFont's fonts (S1b); released by ReleaseRegisteredFonts
+            ObjectRenderer                             m_ObjectRenderer;    // object layers: shapes, text, the opacity rule (S1b)
+            LayerRenderer                              m_LayerRenderer;     // tile and image layers, tile objects (S1c2)
+
+            // Multi-pass frame (only used once an extra view exists - see RenderMap): the views of
+            // this frame's passes in draw order.
             std :: vector<View*>                       m_PassViews;
 
             friend class View;
 
             View* ActivateView( View *pView );
+            Camera& ActiveCamera( void ) const;      // the active view's camera (S1e)
 
-            // TmxLib overrides
-            static void* TextureLoaderCallback( const char *szFileName );
-            static void TextureFreeCallback( void *pTexture );
-
-            // TmxLib miscellaneous
-            tmx_tileset_list* GetTilesetList( tmx_tileset *pTilesetSearch );
+            // The loaded map (S1c1): its libtmx map (null when none is loaded), its size in map pixels
+            // (0 when none), and its layers by id or name (null when none, or no such layer).
+            tmx_map* Tmx( void ) const;
+            uint16_t MapPixelWidth( void ) const;
+            uint16_t MapPixelHeight( void ) const;
             tmx_layer* GetLayer( int nLayerId );
             tmx_layer* GetLayer( const char *szLayerName );
 
             // Sprites miscelaneous
             void UnloadSprites( void );
-
-            // Frees the loaded map and everything that belongs to it, but not the registered sprites
-            void ReleaseMap( void );
 
             // Listener dispatch that tolerates a listener (un)registering listeners from it's own callback
             TileMapListenerList ListenersSnapshot( void ) const;
@@ -218,31 +190,8 @@ namespace SunLight {
             // Color control
             SunLight :: Base :: stColor IntToColor( uint32_t color );
 
-            // Graphics primitives miscellaneous
-            // One straight edge of a shape: the engine's own line (IEngine::DrawLine).
-            void DrawEdge( int nX0, int nY0, int nX1, int nY1, int nWidth, SunLight :: Base :: stColor color );
-
-            // Engine primitives
-            void DrawPolyline( double fOffset_x,
-                               double fOffset_y,
-                               double **fPoints,
-                               int nPointsCount,
-                               double fRotation,
-                               int nLineWidth,
-                               SunLight :: Base :: stColor color );
-            void DrawPolygon( double fOffset_x,
-                              double fOffset_y,
-                              double **fPoints,
-                              int nPointsCount,
-                              double fRotation,
-                              int nLineWidth,
-                              SunLight :: Base :: stColor color );
-            std :: vector<Shape :: ScreenPoint> ScreenPointsOf( double fOriginX,
-                                                                          double fOriginY,
-                                                                          double **fPoints,
-                                                                          int nPointsCount,
-                                                                          double fZoom,
-                                                                          double fRotation );
+            // The view and layer being drawn, for the drawing classes (S1a)
+            DrawContext CurrentDrawContext( void );
 
             // M1 of the master plan: converts a caller-owned stVector2D array into the double**
             // shape the private DrawPolyline/DrawPolygon overloads (and libtmx itself) use, in
@@ -252,65 +201,16 @@ namespace SunLight {
                                   int nPointsCount,
                                   std :: vector<double> &storage,
                                   std :: vector<double*> &ppRows );
-            void DrawRectangle( double offset_x,
-                                double offset_y,
-                                double width,
-                                double height,
-                                double fRotation,
-                                int nLineWidth,
-                                SunLight :: Base :: stColor color );
-            void DrawPoint( double offset_x, double offset_y, double size, SunLight :: Base :: stColor color );
-            void DrawEllipse( double offset_x,
-                              double offset_y,
-                              double width,
-                              double height,
-                              double fRotation,
-                              int nLineWidth,
-                              SunLight :: Base :: stColor color );
-            void DrawTile( SunLight :: Base :: TextureHandle pImage,
-                           int32_t nSourceX,
-                           int32_t nSourceY,
-                           int32_t nSourceW,
-                           int32_t nSourceH,
-                           int32_t nDestX,
-                           int32_t nDestY,
-                           float fOpacity,
-                           SunLight :: Base :: stColor tintColor = { 0xFF, 0xFF, 0xFF, 0xFF } );
-
-            // High level primitive map handlers
-            void DrawObjects( tmx_layer *pLayer );
-
-            // L2 of the master plan: an object's own effective opacity (0 to 1) - its own "opacity"
-            // property when it has a usable one, otherwise its layer's opacity, exactly as before L2.
-            // An unusable property (wrong type, or outside 0 to 1) warns once per object and falls
-            // back to the layer's opacity too, same as having none.
-            float ObjectOpacity( tmx_object *pObject, float fLayerOpacity );
-            void WarnInvalidOpacity( unsigned int nObjectId );
-
-            // Draws one text object (B1). See DrawTextObject's own comment for
-            // the placeholder used when its font is not registered.
-            void DrawTextObject( tmx_object *pObject, tmx_layer *pLayer );
-
-            // Draws one tile object (B2): the tile its gid names, at the object's position.
-            void DrawTileObject( tmx_object *pObject, tmx_layer *pLayer );
-            SunLight :: Font :: IFont* FindRegisteredFont( const char *szFamily, bool bBold, bool bItalic );
-            void WarnMissingFont( const char *szFamily, bool bBold, bool bItalic );
             void ReleaseRegisteredFonts( void );
-            void DrawImageLayer( tmx_layer *pLayer );
-            void DrawLayer( tmx_layer *pLayer );
-            tmx_tile* AnimatedFrameOf( tmx_tile *pBase, unsigned int nGID );
             void DrawAllLayers( tmx_layer *pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0 );
             void RenderMap( void );
 
             // L1 of the master plan: the effective camera for a layer whose own accumulated
             // parallax factor (its own parallaxx/y, already multiplied by every group ancestor's
-            // own factor) is fFactorX/fFactorY - m_CameraPos itself, anchored at the map's own
-            // parallaxoriginx/y, scaled by the factor; exactly m_CameraPos, per axis, when that
+            // own factor) is fFactorX/fFactorY - the active camera, anchored at the map's own
+            // parallaxoriginx/y, scaled by the factor (Camera::ForParallax); exactly that camera, per axis, when that
             // axis's factor is 1.0 (byte-identical to this project's pre-L1 behavior).
             stVector GetEffectiveCameraForFactor( double fFactorX, double fFactorY ) const;
-
-            // Object management internals
-            bool FindObjectByName( tmx_layer *pLayer, const char *szObjectName, SunLight :: TileMap :: stObject& object );
 
             // User interaction handlers
             inline void HandleTileMapUpdate( void );
@@ -451,10 +351,10 @@ namespace SunLight {
             int GetWindowWidth( void ) override;
             int GetWindowHeight( void ) override;
 
-            // IShapeSurface (M1 of the master plan): the same shape-drawing bodies DrawObjects
-            // already uses for Tiled shape objects, given a public, mapless door. Each override
-            // converts its own map-unit thickness/rotation into the existing private methods'
-            // own screen-pixel/point-array shape, then calls straight through - no drawing logic
+            // IShapeSurface (M1 of the master plan): the same ShapeRenderer (S1a) Tiled shape
+            // objects are drawn through, given a public, mapless door. Each override converts
+            // its own map-unit thickness into ShapeRenderer's screen-pixel line width (and its
+            // points into libtmx's point-array shape), then calls straight through - no drawing logic
             // is duplicated or reimplemented here.
             void DrawRectangle( double fX, double fY, double fWidth, double fHeight,
                                 SunLight :: Base :: stColor color,
