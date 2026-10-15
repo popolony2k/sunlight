@@ -28,7 +28,9 @@
  #include "input/igamepadhaptics.h"
  #include <cstdint>
  #include <memory>
+ #include <set>
  #include <string>
+ #include <utility>
 
 
  /**
@@ -44,7 +46,7 @@
  * against a real controller: a naive "bump every blocked call" rumbled continuously for as long
  * as the key stayed held (TryMoveStep re-attempts, and re-blocks, every single frame it is
  * down), so a bump only fires on the first blocked frame of a given hold
- * (m_bWasBlockedLastAttempt), not every frame after. A connected gamepad's D-pad/left stick
+ * (m_BlockedThisHold), not every frame after. A connected gamepad's D-pad/left stick
  * drives Sunny too, the same movement a keyboard does (AddGamePad/SetUserGamePadEventHandler in
  * Run(), binding the same MovePlayer* handlers).
  */
@@ -74,16 +76,18 @@ class World : public SunLight :: Collision :: ICollisionListener,
     int                                                        m_nLastDeltaCol = 0;
     int                                                        m_nRunUpSteps   = 0;
 
-    // Whether the previous TryMoveStep call (not necessarily this frame - a key only fires
-    // while held) was blocked, and in which direction - a held key re-attempts the same
-    // blocked step every frame (see m_bAnimating's own comment below for why nothing else
-    // paces a blocked attempt the way it paces a successful one), so without this a bump
-    // would re-fire, and re-arm its own duration, every single frame it stays held - felt as
-    // one continuous, never-stopping rumble instead of one short pulse. Cleared on any
-    // successful move (she is no longer stuck against anything).
-    bool                                                       m_bWasBlockedLastAttempt = false;
-    int                                                        m_nLastBlockedDeltaRow   = 0;
-    int                                                        m_nLastBlockedDeltaCol   = 0;
+    // Every direction (row/col delta) already blocked since Sunny last moved - a held key
+    // re-attempts the same blocked step every frame (see m_bAnimating's own comment below for
+    // why nothing else paces a blocked attempt the way it paces a successful one), so without
+    // this a bump would re-fire, and re-arm its own duration, every single frame it stays held -
+    // felt as one continuous, never-stopping rumble instead of one short pulse. A set, not just
+    // the last direction: a gamepad's stick held at a diagonal sends BOTH of its directions every
+    // frame (ControllerManager turns each axis past the deadzone into its own D-pad direction), so
+    // against a corner the two blocked directions alternated, each looking new, and the sample
+    // bumped twice a frame (found live with an Xbox controller: 395 bumps in a few seconds, the
+    // frame rate down to about 40). Cleared on any successful move (she is no longer stuck
+    // against anything).
+    std :: set<std :: pair<int, int>>                          m_BlockedThisHold;
 
     // A key held down fires its handler every frame; TryMoveStep ignores a call while an
     // animation from the previous step is still playing (see m_bAnimating) - that alone paces

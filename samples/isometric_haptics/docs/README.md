@@ -38,7 +38,7 @@ Connect a gamepad that can vibrate (gamepad 0) to feel the rumble. Without one, 
 ## What to look for
 
 - Walking into an obstacle cell rumbles the gamepad for 0.2 s. A bump straight after turning is weak (strength 0.2). Each step already taken in the same direction makes it stronger, up to full strength after six steps.
-- Holding a direction against a wall bumps once, not continuously: only the first blocked attempt of a hold rumbles.
+- Holding a direction against a wall bumps once, not continuously: only the first blocked attempt in each direction since Sunny last moved rumbles. That includes the stick held at a diagonal into a corner, which sends both of its directions every frame.
 - Walking off the map's edge doesn't rumble. Only an obstacle tile counts as a wall.
 
 ## In the code
