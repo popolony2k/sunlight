@@ -1257,6 +1257,30 @@ backend. Real behaviour can only be proven here, so this item stays open until t
     up).
 - Full suite (530 cases) passes under AddressSanitizer with no reports. Every sample,
   including the new one, builds cleanly.
+- **Follow-up, after S1 (owner's report: the frame rate dropped while Sunny bumped walls
+  with the gamepad, down to about 40 FPS when held against a wall).** Two causes, both
+  measured live with the owner's Xbox One S Controller (SDL's HIDAPI driver on macOS):
+  - The backend opened and closed the controller around every call. Opening one took
+    0.03 ms and sending a rumble 0.01-0.09 ms, but closing it right after a rumble took
+    about 11 ms on the calling thread, every time: SDL's close sends "motors off"
+    (`SDL_JoystickClose`) and the HIDAPI close then waits, in 10 ms `SDL_Delay` steps (up to
+    30 ms), for that pending rumble to go out (`HIDAPI_JoystickClose`) - both read in the
+    vendored SDL source. So each bump cost the frame about 11 ms when it started and again
+    when it stopped, and the close cut every rumble short. `SDLGamepadHaptics` now keeps
+    each pad's controller open (`m_Controllers`): reused while it is still attached and is
+    still the device that matches the pad, reopened otherwise, closed by the destructor.
+    SDL's macOS HID open is not exclusive (`kIOHIDOptionsTypeNone`), so raylib/GLFW keeps
+    reading the pad, and the unread input reports are capped (hidapi keeps 30).
+  - The sample remembered only the last blocked direction. A stick held at a diagonal
+    sends both of its directions every frame, so against a corner the two blocked
+    directions alternated, each looking new: 395 bumps in a few seconds, two a frame. It
+    now remembers every direction blocked since Sunny last moved.
+  - The SDL calls the backend makes are behind an internal `ISDLControllerApi`
+    (`SDLControllerApi` is the real one), so `tests/test_sdlgamepadhaptics_controllers.cpp`
+    (5 cases) runs the backend against a fake and can never reach a real controller: opened
+    once and reused, the deadline's stop on the same controller, reopened after an unplug or
+    when another device matches the pad, closed when the pad goes away, no rumble without
+    one. Putting back the close after every rumble fails 3 of them.
 
 ## Phase L: layer camera, opacity and sprite order
 

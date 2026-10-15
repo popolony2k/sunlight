@@ -108,6 +108,12 @@ Each item is described in full in the plan; what each change means for code buil
   drawing, advancing or asking an unloaded sprite `IsOnScreen`/`GetActiveTexture` read freed
   memory (eg. a sprite reused after the renderer's `Stop()`, which unloads every registered
   sprite). After `Unload()` no sequence is active.
+- Gamepad rumble (SDL backend) opened and closed the controller around every call, and closing
+  one right after a rumble blocked the game loop for about 11 ms (measured with an Xbox One S
+  Controller on macOS) - when a rumble started and again when it stopped - and cut the rumble
+  short. Each pad's controller now stays open, so a rumble costs well under a millisecond and
+  lasts its full duration. The `isometric_haptics` sample no longer bumps every frame when the
+  stick is held at a diagonal into a corner.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 

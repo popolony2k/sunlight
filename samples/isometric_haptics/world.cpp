@@ -124,9 +124,9 @@ void World :: TriggerWallBump( int nRunUpSteps )  {
  * comment for why) - an obstacle refusal also triggers a rumble (TriggerWallBump), scaled by
  * whatever run-up Sunny had already built in that exact direction (zero if this step's direction
  * differs from her last one - a fresh turn into a wall is not a "long run" bump), but only on the
- * first blocked attempt of a held key - every later frame it stays held against the identical
- * wall is the same attempt, not a new one, so it does not bump again (see
- * m_bWasBlockedLastAttempt in world.h for why a naive "bump every blocked call" felt like one
+ * first blocked attempt in each direction since her last move - every later frame it stays held
+ * against the identical wall is the same attempt, not a new one, so it does not bump again (see
+ * m_BlockedThisHold in world.h for why a naive "bump every blocked call" felt like one
  * continuous, never-stopping rumble instead of a short pulse). Otherwise the
  * step always commits logically (m_nSunnyRow/Col always reaches the target cell) - what differs is
  * only how that is shown: a plain step animates her drawn position there; a step that would carry
@@ -166,12 +166,11 @@ void World :: TryMoveStep( int nDeltaRow, int nDeltaCol )  {
         SunLight :: TileMap :: stTile            tile;
 
         if( m_pRenderer -> GetTile( targetPos, obstacleLayer, tile ) && ( tile.pTile -> collision != nullptr ) )  {
-            // Only the first frame of a held key against this wall bumps - every later frame
-            // while it stays held is the exact same blocked attempt, not a new one (see
-            // m_bWasBlockedLastAttempt's own comment in world.h for why this matters).
-            bool  bAlreadyBumpedThisHold = m_bWasBlockedLastAttempt &&
-                                            ( nDeltaRow == m_nLastBlockedDeltaRow ) &&
-                                            ( nDeltaCol == m_nLastBlockedDeltaCol );
+            // Only the first blocked attempt in each direction since her last move bumps - every
+            // later frame while it stays held is the exact same blocked attempt, not a new one,
+            // even when a diagonal stick alternates two blocked directions (see
+            // m_BlockedThisHold's own comment in world.h for why this matters).
+            bool  bAlreadyBumpedThisHold = m_BlockedThisHold.count( { nDeltaRow, nDeltaCol } ) > 0;
 
             if( !bAlreadyBumpedThisHold )  {
                 bool  bSameDirection = ( nDeltaRow == m_nLastDeltaRow ) && ( nDeltaCol == m_nLastDeltaCol );
@@ -179,9 +178,7 @@ void World :: TryMoveStep( int nDeltaRow, int nDeltaCol )  {
                 TriggerWallBump( bSameDirection ? m_nRunUpSteps : 0 );
             }
 
-            m_bWasBlockedLastAttempt = true;
-            m_nLastBlockedDeltaRow   = nDeltaRow;
-            m_nLastBlockedDeltaCol   = nDeltaCol;
+            m_BlockedThisHold.insert( { nDeltaRow, nDeltaCol } );
 
             // The run toward this wall is over either way; hitting it still "faces" that
             // direction, so a same-direction retry starts its own fresh run-up from here.
@@ -254,7 +251,7 @@ void World :: TryMoveStep( int nDeltaRow, int nDeltaCol )  {
 
     // A successful move means she is no longer stuck against anything - the next blocked
     // attempt, whenever it happens, is a fresh one and should bump again.
-    m_bWasBlockedLastAttempt = false;
+    m_BlockedThisHold.clear();
 
     // Run-up tracking for the next bump's own strength (see TriggerWallBump): a step in the same
     // direction as the last one extends the run; any other direction starts a fresh run of 1.
