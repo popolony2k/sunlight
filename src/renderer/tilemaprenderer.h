@@ -207,10 +207,10 @@ namespace SunLight  {
 
             // L1 of the master plan: the effective camera for a layer whose own accumulated
             // parallax factor (its own parallaxx/y, already multiplied by every group ancestor's
-            // own factor) is fFactorX/fFactorY - the active camera, anchored at the map's own
-            // parallaxoriginx/y, scaled by the factor (Camera::ForParallax); exactly that camera, per axis, when that
-            // axis's factor is 1.0 (byte-identical to this project's pre-L1 behavior).
-            stVector GetEffectiveCameraForFactor( double fFactorX, double fFactorY ) const;
+            // own factor) is fFactorX/fFactorY - the active view's camera, the layer placed as Tiled
+            // places it about that view's centre and the map's parallax origin (Camera::ForParallax);
+            // exactly that camera, per axis, when that axis's factor is 1.0.
+            stVector GetEffectiveCameraForFactor( double fFactorX, double fFactorY );
 
             // User interaction handlers
             inline void HandleTileMapUpdate( void );

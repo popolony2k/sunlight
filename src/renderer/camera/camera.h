@@ -65,7 +65,8 @@ namespace SunLight  {
                         const SunLight :: Base :: stDimension2D& viewport, float fZoomFactor );
 
             SunLight :: Base :: stVector2D ForParallax( double fFactorX, double fFactorY,
-                                                        double fOriginX, double fOriginY ) const;
+                                                        double fOriginX, double fOriginY,
+                                                        double fHalfViewWidth, double fHalfViewHeight ) const;
         };
     }
 }

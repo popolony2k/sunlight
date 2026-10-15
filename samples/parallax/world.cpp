@@ -20,6 +20,8 @@
 
 #include "world.h"
 #include "../shared/zoomkeys.h"
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 #define __DISPLAY_W                 1260
@@ -44,6 +46,7 @@
 #define __SUNNY_LAYER_ID            4
 #define __GAME_NAME                 "Parallax test"
 #define __PLAYER_STEP               4         // world pixels moved per frame the key is held
+#define __HALF_VIEW_DIVISOR         2.0f      // the view's visible size, halved: how far it reaches past its centre
 
 
 /**
@@ -130,6 +133,37 @@ void World :: WrapWorldPosition( void )  {
         m_fWorldY = m_fWrapTop + ( m_fWorldY - m_fWrapBottom );
     else if( m_fWorldY < m_fWrapTop )
         m_fWorldY = m_fWrapBottom - ( m_fWrapTop - m_fWorldY );
+}
+
+/**
+ * @brief Limits how far the view zooms out: never so far that, with Sunny on an edge of the wrap
+ * rectangle, the view reaches past the map's own edge. The view's centre is Sunny, so it reaches
+ * half its visible size past her - (viewport / zoom) / 2 on each axis - and that must fit in the map
+ * beyond the wrap rectangle on that side: zoom >= viewport / (2 x margin). This map leaves 256 map
+ * pixels left and right of the rectangle and 160 above and below it, so the height decides
+ * (790 / 320: about 2.47, zoom position 39, factor 2.5). Computed from the map, the markers and the
+ * viewport, so it follows them if they change. (The margin above and below is one tile row more than
+ * the map first had: the wrap rectangle itself cannot shrink, since its 512-pixel jump times each
+ * layer's factor is that layer's repeating pattern - what keeps the wrap seamless.)
+ */
+void World :: LimitZoomOut( void )  {
+
+    SunLight :: TileMap :: stMapInfo  mapInfo {};
+
+    if( !m_pRenderer -> GetMapInfo( mapInfo ) )
+        return;
+
+    float     fMapWidth  = ( float ) ( mapInfo.mapSize.nWidth  * mapInfo.tileSize.nWidth );
+    float     fMapHeight = ( float ) ( mapInfo.mapSize.nHeight * mapInfo.tileSize.nHeight );
+    float     fMarginX   = std :: min( m_fWrapLeft, fMapWidth  - m_fWrapRight );
+    float     fMarginY   = std :: min( m_fWrapTop,  fMapHeight - m_fWrapBottom );
+    float     fMinZoom   = std :: max( __VIEWPORT_WIDTH  / ( __HALF_VIEW_DIVISOR * fMarginX ),
+                                       __VIEWPORT_HEIGHT / ( __HALF_VIEW_DIVISOR * fMarginY ) );
+
+    // A zoom position's factor is ( position + 1 ) x ZOOM_STEP: the lowest position at or above fMinZoom.
+    unsigned  nMinPos    = ( unsigned ) std :: ceil( fMinZoom / SunLight :: Base :: ZOOM_STEP ) - 1u;
+
+    m_pRenderer -> GetViewport().SetMinZoom( nMinPos );
 }
 
 /**
@@ -301,6 +335,8 @@ bool World :: Run( void )  {
         fprintf( stderr, "Error loading wrap markers (wrap_left/right/top/bottom)\n" );
         return false;
     }
+
+    LimitZoomOut();
 
     // Start Sunny in the middle of the wrap rectangle.
     m_fWorldX = ( m_fWrapLeft + m_fWrapRight ) / 2.0f;

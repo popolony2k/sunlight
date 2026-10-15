@@ -55,6 +55,8 @@ The layers of `resources/map/parallax.tmx`, back to front, with their Tiled `par
 - The factors come from the map file; nothing in the code sets them. A game can also set them at run time with `TileMapRenderer::SetLayerParallax(layer, fx, fy)`.
 - `World::LoadWrapMarkers()` ([world.cpp](/samples/parallax/world.cpp)) reads the markers, `World::WrapWorldPosition()` wraps Sunny's map position, and `World::UpdateCameraOnSunny()` centres the camera on it after every step and zoom change.
 - `World::RecenterSunnyOnScreen()` keeps the sprite at the viewport's centre at any zoom: a screen-space sprite's position is multiplied by the zoom, so it stores the centre divided by the zoom.
+- The map's parallax origin is (-640, -416), minus the centre of the wrap rectangle: Tiled shifts a parallax layer by (1 - factor) x (view centre + origin), so with this origin the layers line up with the ground when the view is centred on the middle of the wrap rectangle, where Sunny starts. With the default (0, 0), the layers are pushed down and right by most of the view centre, and near the top of the wrap rectangle the view reached above the sky layer's first row, where it has no tiles: a puff seemed to vanish after a wrap. With this origin the view stays inside every parallax layer across the whole wrap rectangle, at every zoom the sample allows.
+- `World::LimitZoomOut()` stops zooming out before the view can reach past the map's edge: with Sunny on an edge of the wrap rectangle, the view shows half its visible size beyond her, and that must fit in the map left beyond the rectangle (`Viewport::SetMinZoom`, computed from the map, the markers and the viewport - here zoom 2.5).
 
 ## Assets
 

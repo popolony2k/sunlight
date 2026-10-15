@@ -209,20 +209,63 @@ TEST_SUITE( "renderer/Camera" )  {
         CHECK( pos.y == -190.0f );
     }
 
-    TEST_CASE( "ForParallax: exactly the camera at factor 1; anchored at the origin and scaled otherwise" )  {
+    TEST_CASE( "ForParallax: exactly the camera at factor 1; otherwise the layer placed as Tiled places it, about the view's centre" )  {
 
+        // Tiled shifts a layer by (1 - factor) x (view centre + origin) (MapScene::parallaxOffset). With
+        // the camera at (100, 60) (stored as (-100, -60)), a visible area of 300 x 200 map pixels (half:
+        // 150 x 100) and the origin at (10, 20), the view centre is (250, 160).
         Camera  camera;
 
-        camera.SetPosition( 100, 60 );                                       // stored as (-100, -60)
+        camera.SetPosition( 100, 60 );
 
-        SunLight :: Base :: stVector2D  same = camera.ForParallax( 1.0, 1.0, 10.0, 20.0 );
+        SunLight :: Base :: stVector2D  same = camera.ForParallax( 1.0, 1.0, 10.0, 20.0, 150.0, 100.0 );
 
         CHECK( same.x == -100.0f );
         CHECK( same.y == -60.0f );
 
-        SunLight :: Base :: stVector2D  half = camera.ForParallax( 0.5, 2.0, 10.0, 20.0 );
+        SunLight :: Base :: stVector2D  shifted = camera.ForParallax( 0.5, 2.0, 10.0, 20.0, 150.0, 100.0 );
 
-        CHECK( half.x == -55.0f );                                           // (-100 + 10) x 0.5 - 10
-        CHECK( half.y == -100.0f );                                          // (-60 + 20) x 2 - 20
+        // x: the layer shifts by (1 - 0.5) x (250 + 10) = 130, so its camera is -100 + 130 = 30.
+        // y: the layer shifts by (1 - 2) x (160 + 20) = -180, so its camera is -60 - 180 = -240.
+        CHECK( shifted.x == 30.0f );
+        CHECK( shifted.y == -240.0f );
+    }
+
+    TEST_CASE( "ForParallax: zooming about a fixed view centre does not move a parallax layer against that centre" )  {
+
+        // The regression seen in samples/parallax: the layer was anchored at the view's top-left, which
+        // moves with every zoom about a fixed centre. Keep the centre at map (500, 300) and zoom: the map
+        // point the layer shows at the view's centre must not change.
+        const double  fFactor = 0.5;
+        const double  fCentreX = 500.0;
+        const double  fCentreY = 300.0;
+        const double  aHalfViews[] = { 200.0, 100.0, 50.0, 25.0 };      // half the visible width, zooming in
+        float         fFirstX = 0.0f, fFirstY = 0.0f;
+        bool          bFirst  = true;
+
+        for( double fHalf : aHalfViews )  {
+            Camera  camera;
+
+            camera.SetPosition( ( int ) ( fCentreX - fHalf ), ( int ) ( fCentreY - fHalf ) );   // top-left = centre - half
+
+            SunLight :: Base :: stVector2D  layer = camera.ForParallax( fFactor, fFactor, 0.0, 0.0, fHalf, fHalf );
+
+            // The layer point drawn at the view's centre is p with p + layer camera == half view.
+            float  fPointX = ( float ) fHalf - layer.x;
+            float  fPointY = ( float ) fHalf - layer.y;
+
+            if( bFirst )  {
+                fFirstX = fPointX;
+                fFirstY = fPointY;
+                bFirst  = false;
+            }
+
+            INFO( "half view " << fHalf );
+            CHECK( fPointX == fFirstX );
+            CHECK( fPointY == fFirstY );
+        }
+
+        CHECK( fFirstX == 250.0f );                                          // centre x factor: 500 x 0.5
+        CHECK( fFirstY == 150.0f );                                          // 300 x 0.5
     }
 }

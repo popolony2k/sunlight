@@ -20,9 +20,13 @@
 
 /*
  * L1 of the master plan: per-layer camera and parallax. Every expected screen position below
- * is hand-derived against the formula (effectiveCamera = (camera + origin) * factor - origin,
- * see TileMapRenderer::GetEffectiveCameraForFactor's own doc comment), not re-derived from the
- * same code under test - a genuinely independent check, not a tautology.
+ * is hand-derived from Tiled's own placement, not re-derived from the code under test: Tiled
+ * shifts a parallax layer by (1 - factor) x (view centre + parallax origin), in map pixels
+ * (MapScene::parallaxOffset - see Camera::ForParallax). With this file's camera (the negated
+ * map point at the view's top-left), half view H and origin O, a layer's effective camera is
+ * camera x factor + (1 - factor) x (H + O). Every view here is 2000 x 2000 at zoom 1: H = 1000.
+ * (Until 2026-10-15 these values followed an older formula anchored at the view's top-left,
+ * (camera + origin) x factor - origin, which did not match Tiled.)
  *
  * Map: 4x4 tiles, 16px each, parallaxoriginx=-100, parallaxoriginy=-50 (negative, so that the
  * camera positions this file exercises keep every drawn position at a non-negative, un-clipped
@@ -176,11 +180,11 @@ TEST_SUITE( "renderer/parallax" )  {
         float  fBgBaseY     = scene.BgTile().y;
 
         // Asserted as absolute values too (not just the shift below): with origin (-100,-50),
-        // factor 0.5, camera (0,0) -> effective = (0 + -100)*0.5 - (-100) = 50 (and, on y,
-        // (0 + -50)*0.5 - (-50) = 25). A implementation that ignored the origin entirely would
-        // give (0, 0) here instead - still passing the ratio check below, but not this one.
-        CHECK( fBgBaseX == 50.0f );
-        CHECK( fBgBaseY == 25.0f );
+        // factor 0.5, camera (0,0), H 1000 -> effective = 0 x 0.5 + 0.5 x (1000 + -100) = 450 (and,
+        // on y, 0.5 x (1000 + -50) = 475). An implementation that ignored the origin or the view's
+        // centre would still pass the ratio check below, but not this one.
+        CHECK( fBgBaseX == 450.0f );
+        CHECK( fBgBaseY == 475.0f );
 
         scene.pRenderer -> SetCameraPosition( -20, -30 );
         scene.RunFrames( 1 );
@@ -195,9 +199,9 @@ TEST_SUITE( "renderer/parallax" )  {
         CHECK( fBgShiftX == ( fGroundShiftX * 0.5f ) );
         CHECK( fBgShiftY == ( fGroundShiftY * 0.5f ) );
 
-        // effective = (20 + -100)*0.5 - (-100) = 60; (30 + -50)*0.5 - (-50) = 40.
-        CHECK( scene.BgTile().x == 60.0f );
-        CHECK( scene.BgTile().y == 40.0f );
+        // effective = 20 x 0.5 + 450 = 460; 30 x 0.5 + 475 = 490.
+        CHECK( scene.BgTile().x == 460.0f );
+        CHECK( scene.BgTile().y == 490.0f );
     }
 
     TEST_CASE( "Each view applies the factor to its own camera" )  {
@@ -213,9 +217,10 @@ TEST_SUITE( "renderer/parallax" )  {
         scene.RunFrames( 1 );
 
         // The default view's own pass: bg's effective camera uses the default view's camera
-        // (20, 30) - same derivation as the "moves half as far" case above (60, 40).
+        // (20, 30) - same derivation as the "moves half as far" case above (460, 490).
         // The extra view's own pass: bg's effective camera uses THAT view's own camera
-        // (40, 60): x = (40 + -100)*0.5 - (-100) = 70; y = (60 + -50)*0.5 - (-50) = 55.
+        // (40, 60), and its own size (also 2000 x 2000 at zoom 1, H 1000):
+        // x = 40 x 0.5 + 0.5 x (1000 + -100) = 470; y = 60 x 0.5 + 0.5 x (1000 + -50) = 505.
         int  nTileIndex = 0;
         int  nBgEventsFound = 0;
 
@@ -230,17 +235,49 @@ TEST_SUITE( "renderer/parallax" )  {
                 nBgEventsFound++;
 
                 if( nTileIndex == 17 )  {
-                    CHECK( evt.x == 60.0f );
-                    CHECK( evt.y == 40.0f );
+                    CHECK( evt.x == 460.0f );
+                    CHECK( evt.y == 490.0f );
                 }
                 else  {
-                    CHECK( evt.x == 70.0f );
-                    CHECK( evt.y == 55.0f );
+                    CHECK( evt.x == 470.0f );
+                    CHECK( evt.y == 505.0f );
                 }
             }
         }
 
         REQUIRE( nBgEventsFound == 2 );
+    }
+
+    TEST_CASE( "Zooming about a fixed view centre does not move a parallax layer against that centre" )  {
+
+        // The regression seen in samples/parallax: the layer was anchored at the view's top-left, so
+        // zooming about a fixed centre slid it away from the rest of the map. Here the ground's map
+        // point (32, 32) is kept at the view's centre (screen (1000, 1000)) at zoom 1, 2 and 4 (exact
+        // powers of two, so every value below is exact): camera = 1000 / zoom - 32. bg's tile sits at
+        // map (0, 0), so it is drawn at its layer camera x zoom, and the bg point under the centre is
+        // 1000 / zoom - drawn / zoom. By Tiled's placement it is factor x 32 - (1 - factor) x origin:
+        // 16 + 50 = 66 on x, 16 + 25 = 41 on y, at every zoom.
+        const unsigned  aZoomPositions[] = { 15u, 31u, 63u };                // factors 1, 2 and 4
+        const float     fCentre = 1000.0f;
+        const float     fGroundPoint = 32.0f;
+
+        Scene  scene;
+
+        for( unsigned nZoomPos : aZoomPositions )  {
+            scene.pRenderer -> GetViewport().SetZoom( nZoomPos );
+
+            float  fZoom   = scene.pRenderer -> GetViewport().GetZoomProperties().fZoomFactor;
+            int    nCamera = ( int ) ( ( fCentre / fZoom ) - fGroundPoint );
+
+            scene.pRenderer -> SetCameraPosition( -nCamera, -nCamera );
+            scene.RunFrames( 1 );
+
+            INFO( "zoom " << fZoom );
+            // The ground's map point (32, 32) is at the centre: (32 + camera) x zoom == 1000.
+            CHECK( ( fGroundPoint + nCamera ) * fZoom == fCentre );
+            CHECK( ( fCentre / fZoom ) - ( scene.BgTile().x / fZoom ) == 66.0f );
+            CHECK( ( fCentre / fZoom ) - ( scene.BgTile().y / fZoom ) == 41.0f );
+        }
     }
 
     TEST_CASE( "SetLayerParallax overrides the TMX-declared factor" )  {
@@ -309,8 +346,8 @@ TEST_SUITE( "renderer/parallax" )  {
         // Same effective camera "bg"'s own tile gets (see the "moves half as far" test).
         CHECK( pSprite -> x == scene.BgTile().x );
         CHECK( pSprite -> y == scene.BgTile().y );
-        CHECK( pSprite -> x == 60.0f );
-        CHECK( pSprite -> y == 40.0f );
+        CHECK( pSprite -> x == 460.0f );
+        CHECK( pSprite -> y == 490.0f );
 
         scene.pRenderer -> RemoveSprite( 2, sprite );
     }

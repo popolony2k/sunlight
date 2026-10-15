@@ -114,6 +114,10 @@ Each item is described in full in the plan; what each change means for code buil
   short. Each pad's controller now stays open, so a rumble costs well under a millisecond and
   lasts its full duration. The `isometric_haptics` sample no longer bumps every frame when the
   stick is held at a diagonal into a corner.
+- Parallax layers were placed from the view's top-left, with the map's parallax origin subtracted;
+  Tiled places them from the view's centre and adds the origin. The layers did not sit where Tiled
+  shows them, and zooming about a fixed point slid them away from the rest of the map. They are now
+  placed as Tiled places them, in every view.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 

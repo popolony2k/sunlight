@@ -88,6 +88,7 @@ class World  {
 
     bool LoadSprites( void );
     bool LoadWrapMarkers( void );
+    void LimitZoomOut( void );
     void WrapWorldPosition( void );
     void UpdateCameraOnSunny( void );
     void RecenterSunnyOnScreen( void );

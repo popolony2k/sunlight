@@ -61,7 +61,7 @@
  * Engine limits.
  */
 #define __MAX_OPACITY_LEVEL            0xFF
-
+#define __HALF_DIVISOR                 2.0     // half of a view's visible size: its centre
 
 
 namespace SunLight  {
@@ -288,28 +288,23 @@ namespace SunLight  {
         /**
          * The effective camera for a layer whose own accumulated parallax factor (its own
          * parallaxx/y, already multiplied by every group ancestor's own factor - see
-         * DrawAllLayers) is fFactorX/fFactorY (L1 of the master plan).
-         *
-         * Verified against both Tiled's own documented parallax formula and this project's
-         * own camera convention (Camera::Position() is the NEGATED map coordinate shown at the
-         * viewport's top-left - GetCameraPosition's own doc comment): the layer's own screen
-         * position should be unshifted relative to its authored position exactly when the
-         * camera sits at the map's own parallax origin (Tiled's own definition of that origin -
-         * "the point parallax is measured from"), and should move at fFactor times the rate
-         * the real camera moves otherwise. That is exactly
-         * `(Camera::Position() + origin) * factor - origin`, which reduces to Camera::Position() itself when
-         * factor is 1 algebraically - except floating point does not guarantee
-         * `(a + b) * 1 - b == a` bit-for-bit for arbitrary a/b, so factor 1 is special-cased per
-         * axis to return Camera::Position() exactly, unchanged, rather than trust that identity (the
-         * master plan's own first L1 test item: factor 1 is byte-identical to today).
+         * DrawAllLayers) is fFactorX/fFactorY (L1 of the master plan), for the ACTIVE view: the
+         * layer placed as Tiled places it, about that view's own centre (see Camera::ForParallax
+         * for the formula and where it comes from). Each view has its own size and zoom, so each
+         * view's pass gets its own centre. A factor of exactly 1 returns the camera itself, per
+         * axis, bit for bit (floating point does not guarantee the general formula reduces to it).
          */
-        stVector TileMapRenderer :: GetEffectiveCameraForFactor( double fFactorX, double fFactorY ) const  {
+        stVector TileMapRenderer :: GetEffectiveCameraForFactor( double fFactorX, double fFactorY )  {
 
-            tmx_map  *pTmxMap  = Tmx();
-            double   fOriginX = pTmxMap ? pTmxMap -> parallaxoriginx : 0.0;
-            double   fOriginY = pTmxMap ? pTmxMap -> parallaxoriginy : 0.0;
+            tmx_map                              *pTmxMap  = Tmx();
+            double                               fOriginX = pTmxMap ? pTmxMap -> parallaxoriginx : 0.0;
+            double                               fOriginY = pTmxMap ? pTmxMap -> parallaxoriginy : 0.0;
+            SunLight :: Base :: Viewport&        vp       = GetViewport();
+            double                               fZoom    = vp.GetZoomProperties().fZoomFactor;
+            double                               fHalfW   = ( ( double ) vp.GetDimension2D().size.nWidth / fZoom ) / __HALF_DIVISOR;
+            double                               fHalfH   = ( ( double ) vp.GetDimension2D().size.nHeight / fZoom ) / __HALF_DIVISOR;
 
-            return ActiveCamera().ForParallax( fFactorX, fFactorY, fOriginX, fOriginY );
+            return ActiveCamera().ForParallax( fFactorX, fFactorY, fOriginX, fOriginY, fHalfW, fHalfH );
         }
 
         /**
