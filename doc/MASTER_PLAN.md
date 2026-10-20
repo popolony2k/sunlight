@@ -2101,7 +2101,7 @@ Scarab works through it.
 | H2 | Align sunlight's code with the guide (formatting only) | DONE |
 | H3 | Write the Scarab handoff brief | DONE |
 | H4 | Review and refine the brief with the owner, as many rounds as needed | DONE |
-| H5 | On the owner's command, send the brief to the Scarab session | TODO |
+| H5 | On the owner's command, send the brief to the Scarab session | DONE |
 
 - H1: every rule is shown with an example from sunlight's own code; the owner reviews the guide.
 - H2: every object file's machine code is identical before and after; the full suite passes and
@@ -2203,8 +2203,15 @@ every sample builds.
 9. Open points from sunlight, for context: objects ignore Tiled's `draworder` and are drawn in
    reverse file order; the views still live in `TileMapRenderer`.
 
-**H5: the handoff.** The brief is sent to the Scarab session only on the owner's command. This
-session then holds: it starts nothing on its own, and acts only on the owner's later requests.
+**H5: the handoff (DONE, 2026-10-19).** The brief is sent to the Scarab session only on the owner's
+command. This session then holds: it starts nothing on its own, and acts only on the owner's later
+requests.
+- Sent on the owner's command to the Scarab session (`scarab-c7`), after the owner had briefed it.
+  The message points to `doc/SCARAB_HANDOFF.md`, `doc/BREAKAGES.md` (49 entries) and
+  `doc/CODE_STYLE.md`, and gives the sunlight commit to pin:
+  `772851ce7120c0d4f25dbf72c8d15f7e54bcd1d5` (the head of `feat/master_plan`, #212, CI green;
+  checked to be GitHub's branch head before sending). Planning comes first there, nothing is
+  committed without the owner's review, and sunlight questions go to the owner.
 
 ## Out of scope for this plan
 
