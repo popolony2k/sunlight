@@ -2223,7 +2223,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | # | Item | Status |
 |---|------|--------|
 | I1 | Semi-transparent drawing darker than authored (reported by Scarab, its V1) | DONE |
-| I2 | A blend-mode primitive (normal, additive, multiply, ...) a game can use, with or without a map | TODO |
+| I2 | A blend-mode primitive (normal, additive, multiply, ...) a game can use, with or without a map | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2239,9 +2239,54 @@ draws give rgba 242 250 253 177, shown as 167 173 175, before; 242 250 253 255, 
 after. Not unit-testable (blending happens on the GPU; the mocks draw nothing); checked by the owner
 in a real window. `doc/BREAKAGES.md` entry 50.
 
-**I2: blend-mode primitive (TODO).** Asked by the owner while I1 was discussed: a way for a game to
-choose how what it draws next combines (glows, lights, shadows, fades), on the drawing surface, map
-or no map. To be designed with the owner before any code.
+**I2: blend modes (DONE).** Asked by the owner while I1 was discussed: a way for a game to choose
+how what it draws next combines (lights, glows, shadows), on the drawing surface, map or no map.
+Designed with the owner (2026-10-22):
+
+- **The modes:** `SunLight::Base::BlendMode` (`base/blendmode.h`): `BLEND_MODE_NORMAL`, `_ADD`,
+  `_MULTIPLY`, `_SUBTRACT`. For each one the colour channels get that mode's formula, and alpha is
+  always "over", as I1 set it, so no mode can bring I1's darkening back.
+- **The API:**
+  - `IEngine::SetBlendMode`/`GetBlendMode`, in the backend.
+  - `IDrawSurface::BeginBlendMode`/`EndBlendMode` around a game's own drawing. They follow raylib's
+    pattern: no nesting, and `End` goes back to normal.
+  - `Sprite::SetBlendMode`/`ClearBlendMode`/`HasBlendMode`/`GetBlendMode`. A sprite with a mode
+    switches to it for its own `Draw()` only, in every view pass, then goes back to the mode in
+    effect before. A sprite with none switches nothing.
+- **The frame:**
+  - Every frame starts in normal (`BeginRenderTarget`).
+  - `Run()` returns to normal before the screen fade, so a missing `EndBlendMode` lasts one frame at
+    most, and the fade always darkens.
+  - A frame that uses no mode makes no blend call.
+- **raylib backend:** each mode is a `BLEND_CUSTOM_SEPARATE` with its own colour factors. Add is
+  (src alpha, one), subtract is (src alpha, one) with reverse subtract, and multiply is (dst colour,
+  one minus src alpha). raylib's own modes blend alpha with the colour's factors, which is I1's bug
+  again.
+- **Multiply:** its formula, d x (s x a + 1 - a), cannot be built from blend factors alone. raylib's
+  `BLEND_MULTIPLIED` gives d x (s + 1 - a), which is exact only for opaque or black source pixels.
+  Measured in a render target over sky (135, 206, 235):
+  - a fully transparent white pixel turned the sky white;
+  - a half-transparent grey (128) left the sky unchanged instead of making it (101, 154, 176).
+
+  The owner chose to make it exact with a premultiply shader: raylib's own default GLSL 330 fragment
+  shader, premultiplied, used only while multiply is active. It is loaded on the first multiply and
+  released with the window (`ReleaseWindowState`). On a GL without GLSL 330, multiply falls back to
+  the factors alone and warns once.
+- **Measured through the real `RaylibEngine`** (a hidden-window probe, not committed):
+  - every mode's colours match its formula;
+  - every pixel stays opaque;
+  - normal drawing after multiply is not premultiplied any more.
+- **Tests:** `tests/test_blendmodes.cpp` (11 cases, mocks and the null engine) pins who asks for
+  which mode, when, and in what order. The tests aimed at each one were shown to fail when it was
+  removed:
+  - the end-of-frame reset;
+  - the sprite's switch back;
+  - the off-screen skip.
+- **Sample:** `samples/blend`, over the map or with `nomap`. Sunny's glow takes a mode from the
+  number keys, a soft shadow with white transparent pixels always multiplies, and four panels are
+  drawn by the game, one per mode.
+
+`doc/BREAKAGES.md` entry 51.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

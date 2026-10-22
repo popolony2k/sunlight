@@ -1513,6 +1513,25 @@ namespace SunLight  {
         }
 
         /**
+         * @brief Draw by the given mode until EndBlendMode (see IDrawSurface::BeginBlendMode).
+         * A pass-through to IEngine; Run() takes the frame back to BLEND_MODE_NORMAL before the
+         * screen fade.
+         * @param mode The mode to draw in;
+         */
+        void TileMapRenderer :: BeginBlendMode( SunLight :: Base :: BlendMode mode )  {
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().SetBlendMode( mode );
+        }
+
+        /**
+         * @brief Draw by BLEND_MODE_NORMAL again (see IDrawSurface::EndBlendMode).
+         */
+        void TileMapRenderer :: EndBlendMode( void )  {
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
+        }
+
+        /**
          * @brief Load (or replace) the font used by @see DrawText (see
          * @see IDrawSurface::SetFont). A thin pass-through to IEngine - unlike
          * @see SetWindowResizeable, there's no pre-Start() path to support
@@ -2097,6 +2116,15 @@ namespace SunLight  {
                         m_pControllerManager -> Update();
                         HandleTileMapUpdate();
                         HandleUserCollisions();
+
+                        // A game's BeginBlendMode without its EndBlendMode ends here (I2): the
+                        // fade below, a black drawn over everything, must darken the frame, not be
+                        // added to or subtracted from it. Asked only when needed, so a frame with no mode
+                        // makes no SetBlendMode call.
+                        SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+
+                        if( engine.GetBlendMode() != SunLight :: Base :: BLEND_MODE_NORMAL )
+                            engine.SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
 
                         /*
                          * Screen fade overlay - drawn last, after

@@ -47,6 +47,7 @@ if(BUILD_LIBRARY_SAMPLES)
     add_subdirectory(samples/zorder)
     add_subdirectory(samples/surface)
     add_subdirectory(samples/input)
+    add_subdirectory(samples/blend)
 endif(BUILD_LIBRARY_SAMPLES)
 
 # Unit tests

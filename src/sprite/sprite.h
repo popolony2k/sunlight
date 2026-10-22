@@ -23,6 +23,7 @@
 
 #include <map>
 #include <memory>
+#include "base/blendmode.h"
 #include "collision/collider.h"
 #include "sprite/texturemap.h"
 
@@ -53,6 +54,10 @@ namespace SunLight  {
             // (TileMapRenderer::AddSprite) - default 0. Layers already order sprites between each
             // other; this only reorders siblings within one layer, stably, on a change.
             int                             m_nZOrder;
+
+            // I2 of the master plan: the mode this sprite draws by, if it has one (SetBlendMode).
+            bool                            m_bHasBlendMode;
+            SunLight :: Base :: BlendMode   m_BlendMode;
 
             public:
 
@@ -115,6 +120,18 @@ namespace SunLight  {
             // (AddSprite) - every sprite at 0 therefore draws in that same, unchanged order.
             void SetZOrder( int nZOrder );
             int GetZOrder( void );
+
+            // I2 of the master plan: the mode this sprite draws by (see SunLight::Base::BlendMode) - a
+            // light in BLEND_MODE_ADD, a shadow in BLEND_MODE_MULTIPLY - on every frame and in every view,
+            // until ClearBlendMode. Draw() switches to it for this sprite alone and back to the mode that
+            // was in effect, so it also holds inside a game's IDrawSurface::BeginBlendMode. A sprite with
+            // no mode (the default) draws by whatever mode is in effect and switches nothing. Unload()
+            // does not touch it: the mode is the sprite's, not the textures'.
+            void SetBlendMode( SunLight :: Base :: BlendMode mode );
+            void ClearBlendMode( void );
+            bool HasBlendMode( void );
+            // The mode set by SetBlendMode; BLEND_MODE_NORMAL when the sprite has none.
+            SunLight :: Base :: BlendMode GetBlendMode( void );
 
             // Whether the ACTIVE texture passes the viewport test that gates Advance() and Draw() in the
             // view being drawn (the sprite is visible, has an active sequence, and the texture's rectangle is
