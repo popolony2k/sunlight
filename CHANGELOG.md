@@ -118,6 +118,11 @@ Each item is described in full in the plan; what each change means for code buil
   Tiled places them from the view's centre and adds the origin. The layers did not sit where Tiled
   shows them, and zooming about a fixed point slid them away from the rest of the map. They are now
   placed as Tiled places them, in every view.
+- Anything semi-transparent (a tile layer below full opacity, a sprite or an object with opacity,
+  the screen fade) was drawn darker than it should be: drawing into the frame's render target
+  blended its alpha channel too, so it lost opacity there, and the frame - drawn onto the window over
+  black - came out darker in those places (about 70% brightness for a 0.65 layer over a 0.69 one).
+  The render target now blends alpha as "over", so the colours shown are the colours drawn.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 
