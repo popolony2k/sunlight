@@ -148,7 +148,17 @@ The same strategy as sunlight's:
 Report it to the owner, who decides where and when it is fixed. The sunlight session holds after
 sending this brief and does nothing on its own; the owner brings work to it when needed.
 
-## 9. Open points in sunlight, for context
+## 9. sunlight commits to pin
+
+Every `feat/master_plan` commit handed to Scarab to pin, newest first. Each later one only adds to
+the one before it; `doc/BREAKAGES.md` says what each change affects.
+
+| Commit | What it adds | BREAKAGES |
+|---|---|---|
+| `a63fec6811ba28fb46a94015d05b852393016692` | Semi-transparent drawing no longer darker than authored (I1, found by Scarab) | 50 |
+| `772851ce7120c0d4f25dbf72c8d15f7e54bcd1d5` | The handoff (H5): sunlight's master plan, finished | 1 to 49 |
+
+## 10. Open points in sunlight, for context
 
 - Objects ignore Tiled's `draworder` and are drawn in reverse file order.
 - The views still live inside `TileMapRenderer` (the largest piece left after S).
