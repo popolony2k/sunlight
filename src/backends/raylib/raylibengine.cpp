@@ -23,6 +23,7 @@
 #include "filesystem/filesystemfactory.h"
 #include "window/windowfactory.h"
 
+#include <rlgl.h>
 #include <algorithm>
 #include <cstring>
 #include <vector>
@@ -769,19 +770,33 @@ namespace SunLight  {
             /**
              * @brief Redirect subsequent drawing into the given render
              * target, until the matching @see EndRenderTarget call.
+             *
+             * Drawing into it blends colour and alpha separately: colour as raylib's default
+             * (source alpha, one minus source alpha), alpha as "over" (one, one minus source
+             * alpha), so a pixel drawn over an opaque one stays opaque. raylib's default
+             * BLEND_ALPHA is a single glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA ) for all
+             * four channels (rlgl.h, rlSetBlendMode): a layer drawn at opacity 0.69 over an opaque
+             * pixel left its alpha at 0.69 x 0.69 + 0.31 = 0.79, and the frame - drawn onto the
+             * window over black (TileMapRenderer::Run) - came out about that much darker. Found by
+             * Scarab (semi-transparent Tiled layers greyer than in Tiled).
              * @param hRenderTarget The render target to draw into;
              */
             void RaylibEngine :: BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
 
                 ::BeginTextureMode( *reinterpret_cast<RenderTexture2D*>( hRenderTarget ) );
+                ::rlSetBlendFactorsSeparate( RL_SRC_ALPHA, RL_ONE_MINUS_SRC_ALPHA,   // colour
+                                             RL_ONE, RL_ONE_MINUS_SRC_ALPHA,         // alpha
+                                             RL_FUNC_ADD, RL_FUNC_ADD );
+                ::BeginBlendMode( BLEND_CUSTOM_SEPARATE );
             }
 
             /**
              * @brief Stop redirecting drawing into whichever render target
-             * the matching @see BeginRenderTarget call started.
+             * the matching @see BeginRenderTarget call started, back to raylib's default blending.
              */
             void RaylibEngine :: EndRenderTarget( void )  {
 
+                ::EndBlendMode();
                 ::EndTextureMode();
             }
 

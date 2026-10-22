@@ -2213,7 +2213,36 @@ requests.
   checked to be GitHub's branch head before sending). Planning comes first there, nothing is
   committed without the owner's review, and sunlight questions go to the owner.
 
-## Out of scope for this plan
+## Integration follow-ups
+
+Work that comes back to sunlight from Scarab's and Caravellius's own master plans, on
+`feat/master_plan` (the integration base). Each item is planned with the owner first, as every
+item here; once one merges, the new full commit hash goes to the peer that needs it, by message and
+recorded in `doc/SCARAB_HANDOFF.md`.
+
+| # | Item | Status |
+|---|------|--------|
+| I1 | Semi-transparent drawing darker than authored (reported by Scarab, its V1) | DONE |
+| I2 | A blend-mode primitive (normal, additive, multiply, ...) a game can use, with or without a map | TODO |
+
+**I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
+layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
+default `BLEND_ALPHA` is one `glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA )` for all four
+channels (`rlgl.h`, `rlSetBlendMode`), so drawing into the frame's render target also blended its
+alpha - a 0.69 layer then a 0.65 one over opaque sky left alpha at 0.69 (177) - and `Run()` draws
+that target onto the window over black, darkening those places to about 70%. The colours in the
+target were right. `RaylibEngine::BeginRenderTarget` now blends colour as before and alpha as "over"
+(`rlSetBlendFactorsSeparate`: one, one minus source alpha; `BLEND_CUSTOM_SEPARATE`), and
+`EndRenderTarget` restores raylib's default. It applies to everything drawn in a frame - map or no
+map. Measured through the real `RaylibEngine` (a hidden-window probe, not committed): the same
+draws give rgba 242 250 253 177, shown as 167 173 175, before; 242 250 253 255, shown as is,
+after. Not unit-testable (blending happens on the GPU; the mocks draw nothing); checked by the owner
+in a real window. `doc/BREAKAGES.md` entry 50.
+
+**I2: blend-mode primitive (TODO).** Asked by the owner while I1 was discussed: a way for a game to
+choose how what it draws next combines (glows, lights, shadows, fades), on the drawing surface, map
+or no map. To be designed with the owner before any code.
+
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
   today. The SDL backend is a large change of its own, and will be handled in a separate
