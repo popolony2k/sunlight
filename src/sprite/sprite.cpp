@@ -19,6 +19,7 @@
  */
 
 #include "sprite/sprite.h"
+#include "engines/enginefactory.h"
 
 
 namespace SunLight  {
@@ -32,6 +33,8 @@ namespace SunLight  {
             m_bIsValidActiveSequence = ( m_itActiveSequence != m_Sequences.end() );
             m_bFrameHeld = false;
             m_nZOrder = 0;
+            m_bHasBlendMode = false;
+            m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
         }
 
         /**
@@ -300,20 +303,65 @@ namespace SunLight  {
         }
 
         /**
-         * L3 of the master plan: this sprite's own draw order among the other sprites on the same
+         * @brief L3 of the master plan: this sprite's own draw order among the other sprites on the same
          * TMX layer - plain storage, read back by TileMapRenderer::HandleSpriteUpdate before every
          * draw. No propagation to this sprite's own canvases (unlike SetWorldSpace/
          * SetParallaxLayerId above): z-order is a sibling-ordering concern the renderer applies
          * from outside the sprite, not something an individual canvas needs to know about itself.
+         * @param nZOrder The draw order; a higher one draws later, on top;
          */
         void Sprite :: SetZOrder( int nZOrder )  {
 
             m_nZOrder = nZOrder;
         }
 
+        /**
+         * @brief L3 of the master plan: this sprite's draw order among the other sprites on the same
+         * TMX layer, as SetZOrder stored it.
+         * @return The draw order; 0 by default;
+         */
         int Sprite :: GetZOrder( void )  {
 
             return m_nZOrder;
+        }
+
+        /**
+         * @brief I2 of the master plan: the mode this sprite draws by, applied by Draw() (see the
+         * header), on every frame and in every view until ClearBlendMode.
+         * @param mode The mode to draw in;
+         */
+        void Sprite :: SetBlendMode( SunLight :: Base :: BlendMode mode )  {
+
+            m_bHasBlendMode = true;
+            m_BlendMode     = mode;
+        }
+
+        /**
+         * @brief Remove the sprite's own mode: it draws by whatever mode is in effect again, as a
+         * sprite does by default.
+         */
+        void Sprite :: ClearBlendMode( void )  {
+
+            m_bHasBlendMode = false;
+            m_BlendMode     = SunLight :: Base :: BLEND_MODE_NORMAL;
+        }
+
+        /**
+         * @brief Whether the sprite has a mode of its own (SetBlendMode, not yet ClearBlendMode).
+         * @return true if Draw() switches to the sprite's own mode;
+         */
+        bool Sprite :: HasBlendMode( void )  {
+
+            return m_bHasBlendMode;
+        }
+
+        /**
+         * @brief The mode SetBlendMode gave the sprite.
+         * @return The sprite's own mode; BLEND_MODE_NORMAL when it has none (see HasBlendMode);
+         */
+        SunLight :: Base :: BlendMode Sprite :: GetBlendMode( void )  {
+
+            return m_BlendMode;
         }
 
         /**
@@ -402,7 +450,25 @@ namespace SunLight  {
                     pTextureCanvas -> SetTileSize( 0 );
                 }
 
+                // The sprite's own mode (I2), for its own draw only: switched to, then back to the mode
+                // in effect before - skipped when that is already the mode, or the sprite is off screen
+                // (nothing is drawn, and each switch makes the backend draw what it has pending first).
+                SunLight :: Engines :: IEngine  &engine   = SunLight :: Engines :: EngineFactory :: GetEngine();
+                SunLight :: Base :: BlendMode   previous  = SunLight :: Base :: BLEND_MODE_NORMAL;
+                bool                            bSwitch   = false;
+
+                if( m_bHasBlendMode && IsOnScreen() )  {
+                    previous = engine.GetBlendMode();
+                    bSwitch  = ( previous != m_BlendMode );
+
+                    if( bSwitch )
+                        engine.SetBlendMode( m_BlendMode );
+                }
+
                 pTextureCanvas -> Draw();
+
+                if( bSwitch )
+                    engine.SetBlendMode( previous );
 
                 if( m_bFrameHeld )
                     pTextureCanvas -> SetTileSize( nTileSize );

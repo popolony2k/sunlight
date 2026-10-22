@@ -25,8 +25,24 @@
 
 #include <rlgl.h>
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <vector>
+
+// BLEND_MODE_MULTIPLY's fragment shader (see RaylibEngine::SetBlendMode): raylib's default
+// GLSL 330 fragment shader (rlgl.h, rlLoadShaderDefault), with its colour premultiplied by its alpha.
+#define __MULTIPLY_SHADER_330  "#version 330\n"                                                     \
+                               "in vec2 fragTexCoord;\n"                                            \
+                               "in vec4 fragColor;\n"                                               \
+                               "out vec4 finalColor;\n"                                             \
+                               "uniform sampler2D texture0;\n"                                      \
+                               "uniform vec4 colDiffuse;\n"                                         \
+                               "void main()\n"                                                      \
+                               "{\n"                                                                \
+                               "    vec4 texelColor = texture(texture0, fragTexCoord);\n"           \
+                               "    vec4 color = texelColor*colDiffuse*fragColor;\n"                \
+                               "    finalColor = vec4(color.rgb*color.a, color.a);\n"               \
+                               "}\n"
 
 namespace SunLight  {
     namespace Engines  {
@@ -636,6 +652,15 @@ namespace SunLight  {
                 }
 
                 m_LiveFonts.clear();
+
+                // Multiply's shader is a GL program too. A future window loads it again.
+                if( m_bMultiplyShaderLoaded )
+                    ::UnloadShader( m_MultiplyShader );
+
+                m_MultiplyShader        = ::Shader {};
+                m_bMultiplyShaderLoaded = false;
+                m_bMultiplyShaderTried  = false;
+                m_bMultiplyShaderActive = false;
             }
 
             /**
@@ -784,20 +809,129 @@ namespace SunLight  {
             void RaylibEngine :: BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
 
                 ::BeginTextureMode( *reinterpret_cast<RenderTexture2D*>( hRenderTarget ) );
-                ::rlSetBlendFactorsSeparate( RL_SRC_ALPHA, RL_ONE_MINUS_SRC_ALPHA,   // colour
-                                             RL_ONE, RL_ONE_MINUS_SRC_ALPHA,         // alpha
-                                             RL_FUNC_ADD, RL_FUNC_ADD );
-                ::BeginBlendMode( BLEND_CUSTOM_SEPARATE );
+                SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
             }
 
             /**
              * @brief Stop redirecting drawing into whichever render target
-             * the matching @see BeginRenderTarget call started, back to raylib's default blending.
+             * the matching @see BeginRenderTarget call started, back to raylib's default blending
+             * (and its default shader, should the frame have ended in BLEND_MODE_MULTIPLY).
              */
             void RaylibEngine :: EndRenderTarget( void )  {
 
+                SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
                 ::EndBlendMode();
                 ::EndTextureMode();
+            }
+
+            /**
+             * @brief Draw by the given mode from now on (I2 of the master plan): every mode is a
+             * BLEND_CUSTOM_SEPARATE with its own colour factors and the same alpha factors, "over"
+             * (one, one minus source alpha), as BLEND_MODE_NORMAL needs for I1 (see
+             * BeginRenderTarget). raylib's own modes blend alpha by the colour's factors, which is
+             * I1's bug again.
+             *
+             * BLEND_MODE_MULTIPLY's formula, d x (s x a + 1 - a), cannot be built from blend factors
+             * alone: the source term would need s x a x d, and a factor multiplies s by one thing
+             * only. raylib's BLEND_MULTIPLIED (dst colour, one minus src alpha) gives d x (s + 1 - a)
+             * instead, exact only for an opaque or black source pixel - measured in a render target
+             * over sky (135, 206, 235): a fully transparent white pixel turned it white, and a half
+             * transparent grey (128) left it as it was instead of making it (101, 154, 176). So
+             * multiply draws through a shader that hands the blending s x a in place of s (raylib's
+             * default fragment shader, premultiplied), which makes those same factors exact: the
+             * same pixels then measured (135, 206, 235) and (101, 154, 176). The alpha the shader
+             * hands on is unchanged, so alpha stays "over".
+             *
+             * Changing the shader, like changing the blending, first draws raylib's pending batch
+             * (rlSetShader, rlSetBlendMode), so what was drawn before keeps its own mode. With no
+             * window yet there is no GL context: the mode is only remembered, and the next
+             * BeginRenderTarget starts in BLEND_MODE_NORMAL anyway.
+             * @param mode The mode to draw in;
+             */
+            void RaylibEngine :: SetBlendMode( SunLight :: Base :: BlendMode mode )  {
+
+                m_BlendMode = mode;
+
+                if( !::IsWindowReady() )
+                    return;
+
+                int   nSrcColor   = RL_SRC_ALPHA;
+                int   nDstColor   = RL_ONE_MINUS_SRC_ALPHA;
+                int   nEquation   = RL_FUNC_ADD;
+                bool  bPremultiply = false;
+
+                switch( mode )  {
+                    case SunLight :: Base :: BLEND_MODE_ADD:
+                        nDstColor = RL_ONE;
+                    break;
+
+                    case SunLight :: Base :: BLEND_MODE_MULTIPLY:
+                        nSrcColor    = RL_DST_COLOR;
+                        bPremultiply = LoadMultiplyShader();
+                    break;
+
+                    case SunLight :: Base :: BLEND_MODE_SUBTRACT:
+                        nDstColor = RL_ONE;
+                        nEquation = RL_FUNC_REVERSE_SUBTRACT;   // destination minus source
+                    break;
+
+                    default:
+                    break;
+                }
+
+                if( bPremultiply != m_bMultiplyShaderActive )  {
+                    if( bPremultiply )
+                        ::BeginShaderMode( m_MultiplyShader );
+                    else
+                        ::EndShaderMode();
+
+                    m_bMultiplyShaderActive = bPremultiply;
+                }
+
+                ::rlSetBlendFactorsSeparate( nSrcColor, nDstColor,             // colour
+                                             RL_ONE, RL_ONE_MINUS_SRC_ALPHA,   // alpha: "over"
+                                             nEquation, RL_FUNC_ADD );
+                ::BeginBlendMode( BLEND_CUSTOM_SEPARATE );
+            }
+
+            /**
+             * @brief The mode the last SetBlendMode set.
+             * @return The mode draws combine by now;
+             */
+            SunLight :: Base :: BlendMode RaylibEngine :: GetBlendMode( void )  {
+
+                return m_BlendMode;
+            }
+
+            /**
+             * @brief Load BLEND_MODE_MULTIPLY's shader the first time it is needed (see
+             * SetBlendMode). It is GLSL 330, the version raylib's own shaders use on the desktop
+             * OpenGL 3.3 and 4.3 it builds for by default (rlgl.h, rlGlVersion); on any other GL, or
+             * should it fail to build (raylib then hands back its default shader), multiply draws
+             * with the factors alone, exact only for opaque or black pixels, and says so once.
+             * @return Whether the shader is loaded;
+             */
+            bool RaylibEngine :: LoadMultiplyShader( void )  {
+
+                if( !m_bMultiplyShaderTried )  {
+                    int  nVersion = ::rlGetVersion();
+
+                    m_bMultiplyShaderTried = true;
+
+                    if( ( nVersion == RL_OPENGL_33 ) || ( nVersion == RL_OPENGL_43 ) )  {
+                        m_MultiplyShader = ::LoadShaderFromMemory( nullptr, __MULTIPLY_SHADER_330 );
+
+                        if( m_MultiplyShader.id != ::rlGetShaderIdDefault() )
+                            m_bMultiplyShaderLoaded = true;
+                        else
+                            ::MemFree( m_MultiplyShader.locs );   // UnloadShader skips the default shader's id, table and all
+                    }
+
+                    if( !m_bMultiplyShaderLoaded )
+                        fprintf( stderr, "BLEND_MODE_MULTIPLY needs GLSL 330: partly transparent pixels multiply inexactly.\n" );
+                }
+
+                return m_bMultiplyShaderLoaded;
             }
 
             /**

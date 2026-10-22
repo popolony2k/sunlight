@@ -104,6 +104,8 @@ namespace SunLight  {
                 void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void EndRenderTarget( void ) override;
+                void SetBlendMode( SunLight :: Base :: BlendMode mode ) override;
+                SunLight :: Base :: BlendMode GetBlendMode( void ) override;
                 SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget ) override;
 
                 void DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,
@@ -160,6 +162,22 @@ namespace SunLight  {
                 // and must never Unload.
                 ::Font  m_CurrentFont       {};
                 bool  m_bCustomFontLoaded = false;
+
+                // The mode SetBlendMode set last (I2).
+                SunLight :: Base :: BlendMode  m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
+
+                // BLEND_MODE_MULTIPLY's shader, which premultiplies the source colour by its alpha
+                // (see SetBlendMode). Loaded on the first multiply, as it needs the GL context, and
+                // released with the window (ReleaseWindowState). m_bMultiplyShaderTried keeps a GL
+                // without GLSL 330 from retrying (and warning) on every multiply.
+                ::Shader  m_MultiplyShader         {};
+                bool      m_bMultiplyShaderLoaded  = false;
+                bool      m_bMultiplyShaderTried   = false;
+
+                // Whether m_MultiplyShader is the active shader now.
+                bool      m_bMultiplyShaderActive  = false;
+
+                bool LoadMultiplyShader( void );
             };
         }
     }

@@ -137,10 +137,34 @@ namespace SunLight  {
             void NullEngine :: DrawFPS( int, int )  {
             }
 
+            /**
+             * @brief Nothing is drawn into it; drawing "into" it starts in BLEND_MODE_NORMAL, as
+             * IEngine::BeginRenderTarget says.
+             */
             void NullEngine :: BeginRenderTarget( SunLight :: Base :: TextureHandle )  {
+
+                m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
             }
 
             void NullEngine :: EndRenderTarget( void )  {
+            }
+
+            /**
+             * @brief Nothing is drawn, so nothing blends: the mode is only kept, for GetBlendMode.
+             * @param mode The mode to keep;
+             */
+            void NullEngine :: SetBlendMode( SunLight :: Base :: BlendMode mode )  {
+
+                m_BlendMode = mode;
+            }
+
+            /**
+             * @brief The mode the last SetBlendMode kept, or BLEND_MODE_NORMAL after BeginRenderTarget.
+             * @return The kept mode;
+             */
+            SunLight :: Base :: BlendMode NullEngine :: GetBlendMode( void )  {
+
+                return m_BlendMode;
             }
 
             void NullEngine :: DrawTextureRotated( SunLight :: Base :: TextureHandle,

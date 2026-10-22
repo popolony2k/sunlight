@@ -23,6 +23,7 @@
 
 #include <memory>
 #include <string>
+#include "base/blendmode.h"
 #include "base/color.h"
 #include "base/primitives.h"
 #include "font/ifont.h"
@@ -313,7 +314,8 @@ namespace SunLight  {
             /**
              * @brief Must be implemented to redirect all subsequent drawing
              * on chosen target engine into the given render target, until
-             * the matching @see EndRenderTarget call.
+             * the matching @see EndRenderTarget call. Drawing into it
+             * starts in BLEND_MODE_NORMAL (see @see SetBlendMode).
              *
              * @param hRenderTarget The render target to draw into;
              */
@@ -325,6 +327,25 @@ namespace SunLight  {
              * call started, resuming normal drawing.
              */
             virtual void EndRenderTarget( void ) = 0;
+
+            /**
+             * @brief Must be implemented to make every following draw combine with what is already
+             * drawn by the given mode (I2 of the master plan), until the next call or the next
+             * @see BeginRenderTarget, which starts in BLEND_MODE_NORMAL. Each mode's formula is on
+             * SunLight::Base::BlendMode; whatever the mode, the destination's alpha is combined as
+             * "over", so an opaque pixel stays opaque.
+             *
+             * @param mode The mode to draw in;
+             */
+            virtual void SetBlendMode( SunLight :: Base :: BlendMode mode ) = 0;
+
+            /**
+             * @brief Must be implemented to return the mode set by the last @see SetBlendMode, or
+             * BLEND_MODE_NORMAL after @see BeginRenderTarget.
+             *
+             * @return The mode draws combine by now;
+             */
+            virtual SunLight :: Base :: BlendMode GetBlendMode( void ) = 0;
 
             /**
              * @brief Must be implemented to return a texture handle for the

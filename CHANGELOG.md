@@ -32,6 +32,8 @@ Each item is described in full in the plan; what each change means for code buil
   configurable per pad and axis.
 - `stLayer::nOpacity` (`GetLayer`/`SetLayer`) is 0..255, 255 = opaque. The old conversions were
   not inverses: an opaque layer read 256, and `SetLayer(255)` hid the layer.
+- `IEngine` gains pure virtuals `SetBlendMode`/`GetBlendMode`, and `IDrawSurface` gains
+  `BeginBlendMode`/`EndBlendMode`. Only a class implementing one of them must update.
 
 ### Added
 
@@ -52,9 +54,14 @@ Each item is described in full in the plan; what each change means for code buil
 - **A drawing surface without a map:** `IShapeSurface` (`DrawRectangle`, `DrawEllipse`,
   `DrawPolyline`, `DrawPolygon`, `DrawPoint`, zoom-aware), and sprites registered with no map
   loaded are drawn.
+- **Blend modes** (`SunLight::Base::BlendMode`: normal, add, multiply, subtract), map or no map:
+  `IDrawSurface::BeginBlendMode`/`EndBlendMode` around a game's own drawing, and
+  `Sprite::SetBlendMode` for a sprite that always draws in its own mode. Every frame starts in
+  normal, and a forgotten `EndBlendMode` ends with the frame. Each mode keeps an opaque pixel
+  opaque, and multiply is exact for partly transparent pixels too.
 - Samples: `isometric`, `isometric_haptics`, `staggered`, `hexagonal`, `parallax`, `text`,
-  `objects`, `shapes`, `multiview_overlap`, `opacity`, `zorder`, `surface` and `input`, each with a
-  `docs/README.md`; shared fonts in `samples/shared/fonts`.
+  `objects`, `shapes`, `multiview_overlap`, `opacity`, `zorder`, `surface`, `input` and `blend`,
+  each with a `docs/README.md`; shared fonts in `samples/shared/fonts`.
 - CI: an AddressSanitizer job on Linux (with leak detection), a Doxygen job that fails on any
   warning (Doxygen pinned to 1.17.0, also for the published docs), and suffixed tags
   (`v0.39.0-beta.1`) published as prereleases.

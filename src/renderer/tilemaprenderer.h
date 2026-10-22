@@ -322,6 +322,8 @@ namespace SunLight  {
             // Window management
             void SetWindowTitle( const std :: string& strTitle ) override;
             void SetScreenFade( float fAlpha ) override;
+            void BeginBlendMode( SunLight :: Base :: BlendMode mode ) override;
+            void EndBlendMode( void ) override;
 
             // Text rendering
             bool SetFont( const char* szFilePath ) override;

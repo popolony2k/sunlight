@@ -135,6 +135,14 @@ namespace SunLight  {
                                       int nFontSize,
                                       float rotation,
                                       SunLight :: Base :: stColor color ) override;
+
+                void SetBlendMode( SunLight :: Base :: BlendMode mode ) override;
+                SunLight :: Base :: BlendMode GetBlendMode( void ) override;
+
+                private:
+
+                // Nothing is drawn, but the mode is kept: GetBlendMode answers what was set (I2).
+                SunLight :: Base :: BlendMode  m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
             };
         }
     }

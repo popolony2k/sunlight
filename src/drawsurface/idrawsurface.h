@@ -80,6 +80,27 @@ namespace SunLight  {
             virtual void SetScreenFade( float fAlpha ) = 0;
 
             /**
+             * @brief Draw everything from here to @see EndBlendMode by the given mode (I2 of the
+             * master plan): shapes, text, rectangles and sprites a game draws itself - lights in
+             * BLEND_MODE_ADD, shadows in BLEND_MODE_MULTIPLY, map or no map. Each mode's formula is
+             * on SunLight::Base::BlendMode.
+             *
+             * Like raylib's own BeginBlendMode, the calls do not nest: a second BeginBlendMode
+             * replaces the first one's mode, and EndBlendMode goes back to BLEND_MODE_NORMAL. The
+             * mode lasts until the end of the frame at most: the renderer draws in
+             * BLEND_MODE_NORMAL again before the screen fade, so a missing EndBlendMode costs one
+             * frame, never the next. Only drawing during a frame (in the renderer's callbacks)
+             * takes it: every frame starts in BLEND_MODE_NORMAL.
+             * @param mode The mode to draw in;
+             */
+            virtual void BeginBlendMode( SunLight :: Base :: BlendMode mode ) = 0;
+
+            /**
+             * @brief Draw by BLEND_MODE_NORMAL again, after @see BeginBlendMode.
+             */
+            virtual void EndBlendMode( void ) = 0;
+
+            /**
              * @brief Enter or leave fullscreen, defaulting to a real,
              * OS-level fullscreen space (see RaylibEngine::SetFullscreen
              * for why that's the default and when the

@@ -173,6 +173,7 @@ Each sample takes its own directory as `argv[1]` and resolves its resources rela
 * [opacity](https://github.com/popolony2k/sunlight/blob/main/samples/opacity/docs/README.md) — a per-object `opacity` property on tile, shape and text objects, and the fallback to the layer's opacity.
 * [parallax](https://github.com/popolony2k/sunlight/blob/main/samples/parallax/docs/README.md) — layers scrolling at different speeds (Tiled's per-layer parallax) around a walking Sunny, on a map that wraps.
 * [zorder](https://github.com/popolony2k/sunlight/blob/main/samples/zorder/docs/README.md) — four overlapping sprites on one layer, each brought to the front with `Sprite::SetZOrder`.
+* [blend](https://github.com/popolony2k/sunlight/blob/main/samples/blend/docs/README.md) — blend modes (normal, add, multiply, subtract): a glow and a shadow sprite with their own mode (`Sprite::SetBlendMode`), and panels drawn by the game between `BeginBlendMode` and `EndBlendMode`, over a map or with no map.
 
 ### Views
 

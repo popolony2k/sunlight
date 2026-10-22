@@ -101,11 +101,13 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nDrawTextureScaledCalls    = 0;
     int                                 nDrawTextureRotatedCalls   = 0;
     int                                 nDrawTextRotatedCalls      = 0;
+    int                                 nSetBlendModeCalls         = 0;
+    SunLight :: Base :: BlendMode       currentBlendMode           = SunLight :: Base :: BLEND_MODE_NORMAL;
 
     // Every draw-ish call in order, for tests that care about WHICH pass drew what and in what order
     // (the multi-view frame): kind + the rectangle it was given (x, y, w, h; zeros where it has none).
     struct Event  {
-        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED, LINE, ELLIPSE, TILE_ROTATED, TEXT_ROTATED };   // TILE_ROTATED: x, y = anchor, w, h = dest size, scale = rotation, srcX, srcY = origin. TEXT_ROTATED: x, y = top-left corner, scale = rotation, nFontSize, text   // LINE: x, y = first end, w, h = second end, scale = thickness. ELLIPSE: x, y = centre, w, h = radii   // CLIP_BEGIN: x, y, w, h = the rectangle
+        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED, LINE, ELLIPSE, TILE_ROTATED, TEXT_ROTATED, BLEND };   // BLEND: blendMode = the mode set   // TILE_ROTATED: x, y = anchor, w, h = dest size, scale = rotation, srcX, srcY = origin. TEXT_ROTATED: x, y = top-left corner, scale = rotation, nFontSize, text   // LINE: x, y = first end, w, h = second end, scale = thickness. ELLIPSE: x, y = centre, w, h = radii   // CLIP_BEGIN: x, y, w, h = the rectangle
 
         Kind   kind;
         float  x, y, w, h;
@@ -117,6 +119,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         const void                  *font = nullptr;     // TEXT only: the MockFont drawn with (nullptr = active font)
         int                          nFontSize = 0;      // TEXT only
         float                        srcY = 0.0f, srcW = 0.0f, srcH = 0.0f;   // SCALED only: the source rectangle (srcX is its x)
+        SunLight :: Base :: BlendMode  blendMode = SunLight :: Base :: BLEND_MODE_NORMAL;   // BLEND only
     };
     std :: vector<Event>                events;
 
@@ -282,6 +285,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
         nBeginRenderTargetCalls++;
         hLastBegunRenderTarget = hRenderTarget;
+        currentBlendMode       = SunLight :: Base :: BLEND_MODE_NORMAL;     // as IEngine says; not a SetBlendMode call
     }
 
     void EndRenderTarget( void )  {
@@ -290,6 +294,19 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
 
     SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget )  {
         return hRenderTarget;
+    }
+
+    void SetBlendMode( SunLight :: Base :: BlendMode mode )  {
+        Event  event { Event :: BLEND, 0, 0, 0, 0, 0.0f, 0.0f, nullptr, SunLight :: Base :: stColor { 0, 0, 0, 0 } };
+
+        event.blendMode = mode;
+        nSetBlendModeCalls++;
+        currentBlendMode = mode;
+        events.push_back( event );
+    }
+
+    SunLight :: Base :: BlendMode GetBlendMode( void )  {
+        return currentBlendMode;
     }
 
     void DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,
