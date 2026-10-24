@@ -99,7 +99,7 @@ namespace SunLight  {
              * raylib's own source - always prepends "./" to the result
              * whenever fileName has no drive letter and doesn't already
              * start with '/' (the common, relative-path case). A
-             * SetFont("resources/fonts/foo.fnt") call therefore reaches
+             * LoadFont("resources/fonts/foo.fnt") call therefore reaches
              * RaylibEngine's own FileSystemLoadFileDataCallback asking to
              * read "./resources/fonts/foo.png" - which PHYSFS_openRead()
              * silently rejects, with no trace at all (that total silence

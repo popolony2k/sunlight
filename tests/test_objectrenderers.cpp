@@ -130,7 +130,7 @@ TEST_SUITE( "renderer/FontRegistry" )  {
         MockEngineFixture  fixture;
         FontRegistry       fonts;
 
-        REQUIRE( fonts.Register( "Sans", "sans.fnt", false, false ) == true );
+        REQUIRE( fonts.Register( "Sans", fixture.engine.LoadFont( "sans.fnt" ), false, false ) == true );
 
         const void  *pLoaded = fixture.engine.hLastLoadedFont;
 
@@ -145,42 +145,108 @@ TEST_SUITE( "renderer/FontRegistry" )  {
         MockEngineFixture  fixture;
         FontRegistry       fonts;
 
-        REQUIRE( fonts.Register( "Sans", "a.fnt", true, false ) == true );
-        REQUIRE( fonts.Register( "Sans", "b.fnt", true, false ) == true );
+        REQUIRE( fonts.Register( "Sans", fixture.engine.LoadFont( "a.fnt" ), true, false ) == true );
+        REQUIRE( fonts.Register( "Sans", fixture.engine.LoadFont( "b.fnt" ), true, false ) == true );
 
-        CHECK( fixture.engine.nFontsDestroyed == 1 );
+        CHECK( fixture.engine.nFontsDestroyed == 1 );               // the registry held the first one alone
         CHECK( fonts.Find( "Sans", true, false ) == fixture.engine.hLastLoadedFont );
     }
 
-    TEST_CASE( "A font that does not load, or a missing name, registers nothing and keeps the earlier font" )  {
+    TEST_CASE( "No font, an invalid font or a missing name registers nothing and keeps the earlier font" )  {
 
         MockEngineFixture  fixture;
         FontRegistry       fonts;
 
-        REQUIRE( fonts.Register( "Sans", "a.fnt", false, false ) == true );
+        REQUIRE( fonts.Register( "Sans", fixture.engine.LoadFont( "a.fnt" ), false, false ) == true );
 
-        const void  *pKept = fixture.engine.hLastLoadedFont;
+        const void                                   *pKept   = fixture.engine.hLastLoadedFont;
+        std :: shared_ptr<SunLight :: Font :: IFont>  pClosed = fixture.engine.LoadFont( "closed.fnt" );
 
-        fixture.engine.bLoadFontResult = false;
+        static_cast<MockFont*>( pClosed.get() ) -> bValid = false;    // its window has closed
 
-        CHECK( fonts.Register( "Sans", "broken.fnt", false, false ) == false );
-        CHECK( fonts.Register( nullptr, "a.fnt", false, false ) == false );
         CHECK( fonts.Register( "Sans", nullptr, false, false ) == false );
+        CHECK( fonts.Register( "Sans", pClosed, false, false ) == false );
+        CHECK( fonts.Register( nullptr, fixture.engine.LoadFont( "a.fnt" ), false, false ) == false );
         CHECK( fonts.Find( "Sans", false, false ) == pKept );
     }
 
-    TEST_CASE( "Clear releases every font" )  {
+    TEST_CASE( "Clear lets go of every font: the ones no one else holds are released" )  {
+
+        MockEngineFixture                             fixture;
+        FontRegistry                                  fonts;
+        std :: shared_ptr<SunLight :: Font :: IFont>  pHeld = fixture.engine.LoadFont( "b.ttf" );
+
+        fonts.Register( "Sans", fixture.engine.LoadFont( "a.fnt" ), false, false );
+        fonts.Register( "Mono", pHeld, false, true );
+        fonts.Clear();
+
+        CHECK( fixture.engine.nFontsDestroyed == 1 );               // a.fnt; b.ttf is still the caller's
+        CHECK( fonts.Find( "Sans", false, false ) == nullptr );
+        CHECK( fonts.Find( "Mono", false, true ) == nullptr );
+        CHECK( pHeld -> IsValid() );
+    }
+
+    TEST_CASE( "Unregister by the font removes every family and style it serves, and only those (I3)" )  {
+
+        MockEngineFixture                             fixture;
+        FontRegistry                                  fonts;
+        std :: shared_ptr<SunLight :: Font :: IFont>  pShared = fixture.engine.LoadFont( "shared.ttf" );
+        std :: shared_ptr<SunLight :: Font :: IFont>  pOther  = fixture.engine.LoadFont( "other.ttf" );
+
+        REQUIRE( fonts.Register( "Sans", pShared, false, false ) == true );
+        REQUIRE( fonts.Register( "Sans", pShared, true, false ) == true );   // standing in for a bold face
+        REQUIRE( fonts.Register( "Mono", pOther, false, false ) == true );
+
+        CHECK( fonts.Unregister( pShared.get() ) == true );
+        CHECK( fonts.Find( "Sans", false, false ) == nullptr );
+        CHECK( fonts.Find( "Sans", true, false ) == nullptr );
+        CHECK( fonts.Find( "Mono", false, false ) == pOther.get() );
+
+        CHECK( fonts.Unregister( pShared.get() ) == false );                // no longer registered
+        CHECK( fonts.Unregister( nullptr ) == false );
+        CHECK( fixture.engine.nFontsDestroyed == 0 );                       // the caller still holds both
+    }
+
+    TEST_CASE( "Unregister by family and style removes that slot alone; the font keeps its other slots (I3)" )  {
 
         MockEngineFixture  fixture;
         FontRegistry       fonts;
 
-        fonts.Register( "Sans", "a.fnt", false, false );
-        fonts.Register( "Mono", "b.ttf", false, true );
-        fonts.Clear();
+        REQUIRE( fonts.Register( "Sans", fixture.engine.LoadFont( "sans.ttf" ), false, false ) == true );
 
-        CHECK( fixture.engine.nFontsDestroyed == 2 );
-        CHECK( fonts.Find( "Sans", false, false ) == nullptr );
-        CHECK( fonts.Find( "Mono", false, true ) == nullptr );
+        SunLight :: Font :: IFont  *pSans = fonts.Find( "Sans", false, false );
+
+        REQUIRE( fonts.Register( "UI", fixture.engine.LoadFont( "ui.ttf" ), false, false ) == true );
+        REQUIRE( fonts.Register( "Sans", fixture.engine.LoadFont( "bold.ttf" ), true, false ) == true );
+
+        CHECK( fonts.Unregister( "Sans", true, false ) == true );
+        CHECK( fonts.Find( "Sans", true, false ) == nullptr );
+        CHECK( fonts.Find( "Sans", false, false ) == pSans );              // the regular face is kept
+        CHECK( fonts.Find( "UI", false, false ) != nullptr );
+        CHECK( fixture.engine.nFontsDestroyed == 1 );                       // the registry held bold.ttf alone
+
+        CHECK( fonts.Unregister( "Sans", true, false ) == false );
+        CHECK( fonts.Unregister( "Serif", false, false ) == false );
+        CHECK( fonts.Unregister( nullptr, false, false ) == false );
+    }
+
+    TEST_CASE( "One font serves several families and styles, without being loaded again" )  {
+
+        MockEngineFixture                             fixture;
+        FontRegistry                                  fonts;
+        std :: shared_ptr<SunLight :: Font :: IFont>  pFont = fixture.engine.LoadFont( "one.ttf" );
+
+        REQUIRE( fonts.Register( "Sans", pFont, false, false ) == true );
+        REQUIRE( fonts.Register( "Mono", pFont, true, true ) == true );
+
+        CHECK( fixture.engine.nLoadFontCalls == 1 );
+        CHECK( fonts.Find( "Sans", false, false ) == pFont.get() );
+        CHECK( fonts.Find( "Mono", true, true ) == pFont.get() );
+
+        pFont.reset();                                              // the game lets go of its handle
+        CHECK( fixture.engine.nFontsDestroyed == 0 );               // the registry still holds it
+        fonts.Clear();
+        CHECK( fixture.engine.nFontsDestroyed == 1 );
     }
 }
 
@@ -210,7 +276,7 @@ TEST_SUITE( "renderer/TextObjectRenderer" )  {
         ObjectOpacity       opacity;
         TextObjectRenderer  text;
 
-        REQUIRE( fonts.Register( "Sans", "sans.fnt", false, false ) == true );
+        REQUIRE( fonts.Register( "Sans", fixture.engine.LoadFont( "sans.fnt" ), false, false ) == true );
 
         text.Draw( ScaledContext(), objects.Object( "label" ), objects.Layer(), fonts, opacity );
 
@@ -251,7 +317,7 @@ TEST_SUITE( "renderer/TextObjectRenderer" )  {
         ObjectOpacity       opacity;
         TextObjectRenderer  text;
 
-        fonts.Register( "Sans", "sans.fnt", false, false );
+        fonts.Register( "Sans", fixture.engine.LoadFont( "sans.fnt" ), false, false );
         text.Draw( ScaledContext(), objects.Object( "far" ), objects.Layer(), fonts, opacity );
 
         CHECK( EventsOf( fixture.engine, Event :: TEXT ).empty() );
@@ -268,7 +334,7 @@ TEST_SUITE( "renderer/ObjectRenderer" )  {
         ObjectRenderer      renderer;
         std :: vector<std :: pair<tmx_object*, float>>  tileObjects;
 
-        fonts.Register( "Sans", "sans.fnt", false, false );
+        fonts.Register( "Sans", fixture.engine.LoadFont( "sans.fnt" ), false, false );
 
         renderer.Draw( PlainContext(), objects.Layer(), fonts, [&]( tmx_object* pObject, tmx_layer* pLayer, float fOpacity )  {
             CHECK( pLayer == objects.Layer() );

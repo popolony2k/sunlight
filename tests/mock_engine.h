@@ -46,13 +46,14 @@ class MockFont : public SunLight :: Font :: IFont  {
     public:
 
     MockEngine  *pOwner;
+    bool        bValid = true;      // false plays a font whose window has closed
 
     explicit MockFont( MockEngine* pEngine ) : pOwner( pEngine )  {}
 
     ~MockFont( void ) override;
 
     bool IsValid( void ) const override  {
-        return true;
+        return bValid;
     }
 
     int MeasureText( const char* szText, int nFontSize ) override;
@@ -135,7 +136,6 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nLastFilledRectangleHeight = 0;
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
     bool                                bSetFontResult             = true;
-    std :: string                       strLastSetFontPath;
 
     int                                 nBeginClipCalls            = 0;
     int                                 nEndClipCalls              = 0;
@@ -145,6 +145,9 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     std :: string                       strLastLoadFontPath;
     const void                          *hLastLoadedFont           = nullptr;   // the font LoadFont last returned
     const void                          *hLastMeasuredFont         = nullptr;   // the font MeasureText/IFont last measured with
+    // Declared after nFontsDestroyed, so a MockFont these keep alive is destroyed before the counter it bumps.
+    std :: shared_ptr<SunLight :: Font :: IFont>  pLastSetFont;     // the font SetFont was last given
+    std :: shared_ptr<SunLight :: Font :: IFont>  pActiveFont;      // the font SetFont selected (GetFont)
     bool                                bMeasureByLength           = false;
     std :: string                       strLastDrawnText;
     SunLight :: Base :: stColor         lastClearBackgroundColor   { 0, 0, 0, 0 };
@@ -212,13 +215,24 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return strApplicationDirectoryResult;
     }
 
-    bool SetFont( const char* szFilePath )  {
+    // SetFont records the font it was given, and selects it unless bSetFontResult is false
+    // (then the active font is kept, as IEngine says). The text calls still record a nullptr
+    // font: "drawn by the engine with its active font", whichever that is.
+    bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont )  {
         nSetFontCalls++;
-        strLastSetFontPath = szFilePath;
+        pLastSetFont = pFont;
+
+        if( bSetFontResult )
+            pActiveFont = std :: move( pFont );
+
         return bSetFontResult;
     }
 
-    std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath );   // defined after MockFont
+    std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void )  {
+        return pActiveFont;
+    }
+
+    std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath );   // defined after MockFont
 
     void BeginClip( SunLight :: Base :: stRectangle rect )  {
         nBeginClipCalls++;
@@ -352,7 +366,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
  * MockEngine instance for the fixture's lifetime, restoring the default
  * (real) backend on destruction.
  */
-inline std :: unique_ptr<SunLight :: Font :: IFont> MockEngine :: LoadFont( const char* szFilePath )  {
+inline std :: shared_ptr<SunLight :: Font :: IFont> MockEngine :: LoadFont( const char* szFilePath )  {
 
     nLoadFontCalls++;
     strLastLoadFontPath = szFilePath;
@@ -360,7 +374,7 @@ inline std :: unique_ptr<SunLight :: Font :: IFont> MockEngine :: LoadFont( cons
     if( !bLoadFontResult )
         return nullptr;
 
-    std :: unique_ptr<MockFont>  pFont = std :: make_unique<MockFont>( this );
+    std :: shared_ptr<MockFont>  pFont = std :: make_shared<MockFont>( this );
 
     hLastLoadedFont = pFont.get();
 

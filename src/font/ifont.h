@@ -33,11 +33,13 @@ namespace SunLight  {
          * size a caller asks for. Backends whose native font is sized at load
          * time (SDL_ttf, for one) keep one native font per size behind this.
          *
-         * Ownership: the caller holds it through a unique_ptr. Destroying it
-         * releases the font, unless the window has already closed - then the
-         * engine has released it, and the object is simply invalid (IsValid is
-         * false, and its drawing methods do nothing). A caller never gets a
-         * freed font, whatever the order of teardown.
+         * Ownership: shared, through a std::shared_ptr (I3 of the master plan): the
+         * game's handle, the engine while the font is active (IEngine::SetFont) and
+         * each text-object family it is registered for (RegisterFont). The last
+         * owner to let go releases the font, unless the window has already closed -
+         * then the engine has released it, and the object is simply invalid
+         * (IsValid is false, and its drawing methods do nothing). A caller never
+         * gets a freed font, whatever the order of teardown.
          */
         class IFont  {
 

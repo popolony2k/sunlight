@@ -2224,6 +2224,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 |---|------|--------|
 | I1 | Semi-transparent drawing darker than authored (reported by Scarab, its V1) | DONE |
 | I2 | A blend-mode primitive (normal, additive, multiply, ...) a game can use, with or without a map | DONE |
+| I3 | Fonts by handle: load an `IFont` once, then select it (`SetFont`) and register it for text objects (`RegisterFont`), instead of passing a file path to each | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2287,6 +2288,64 @@ Designed with the owner (2026-10-22):
   drawn by the game, one per mode.
 
 `doc/BREAKAGES.md` entry 51.
+
+**I3: fonts by handle (DONE).** Asked by the owner on 2026-10-24, for Scarab's handle-based font
+API. Before, `SetFont( path )` loaded a file *and* made it the active font for `DrawText`. There was
+no way to select a font already loaded, and `RegisterFont( family, path, … )` loaded its own copy
+of the file, so a game could not use one font for both its own text and a map's text objects.
+Designed with the owner (Scarab compatibility deliberately broken, to be adjusted with Scarab
+directly):
+
+- **Load:** `IEngine::LoadFont( path )` returns `std::shared_ptr<IFont>` (it returned `unique_ptr`).
+- **Select:**
+  - `IEngine::SetFont( std::shared_ptr<IFont> )` replaces `SetFont( path )`. The engine shares
+    ownership of the active font, so the game's handle can go without the font dangling.
+  - `SetFont( nullptr )` selects the backend's built-in font.
+  - A font another engine created, or one already invalid, is refused (false) and the active font
+    is kept.
+  - New `IEngine::GetFont()` returns the active font, or `nullptr` for the built-in one.
+- **Draw:** `IEngine::DrawText`/`MeasureText`/`DrawTextRotated` draw with the active `IFont` while
+  it is valid, or with the built-in font.
+- **Surface:** `IDrawSurface::SetFont( std::shared_ptr<IFont> )` replaces `SetFont( path )`; new
+  `IDrawSurface::LoadFont( path )` and `GetFont()`.
+- **Text objects:** `TileMapRenderer::RegisterFont( family, std::shared_ptr<IFont>, bold, italic )`
+  replaces the path form. `FontRegistry` shares the font, so one font serves `SetFont` and any
+  number of families.
+- **Unregistering:** `TileMapRenderer::UnregisterFont( font )` removes the font from every family
+  and style it serves; the handle is all that is needed. `UnregisterFont( family, bold, italic )`
+  removes one slot. Text objects left without a font draw `??????` again.
+  - The owner considered putting the family and style on `IFont` itself, read-only, set at load.
+    The registration key was kept instead: a key on the font would allow one slot per font, so a
+    font serving two families, or standing in for a missing bold face, would need a second load.
+- **Lifetime:**
+  - `Stop()` releases the registered fonts and selects the built-in font again, while the window is
+    open.
+  - When the window closes, every live font becomes invalid, as before, and the raylib engine drops
+    its active font.
+- **raylib:** the engine's own `m_CurrentFont` is gone. `DrawText`/`MeasureText`/`DrawTextRotated`
+  call the active font's own `IFont` methods, the same calls a game makes on its handle, or draw with
+  `GetFontDefault()`. Only a `RaylibFont` can be selected.
+- **Measured through the real `RaylibEngine`** (a hidden-window probe, not committed), with
+  "Hello, world" at size 20:
+  - the built-in font measured 94 and the loaded Anonymous Pro 127;
+  - after `SetFont( font )` the engine measured 127, and still 127 after the game dropped its handle;
+  - after `SetFont( nullptr )` it measured 94 again.
+- **Tests:**
+  - New: `SetFont`/`GetFont` on the null engine, with a font from another engine refused;
+    `FontRegistry` sharing one font across families, refusing an invalid font, and letting go
+    without releasing a font the caller still holds; unregistering by font (every slot it fills)
+    and by family and style (one slot); one font used as the active font and a map text family,
+    loaded once; a text object whose font is unregistered drawing `??????` again; `Stop()` going
+    back to the built-in font.
+  - The tests aimed at each of these failed when it was removed in turn: `Stop()` going back to the
+    built-in font, the registry's validity check, the null engine refusing another engine's font,
+    and unregistering by font removing every slot.
+  - Every `RegisterFont`/`SetFont( path )` test was moved to the new form.
+- **Samples:** `blend`, `objects`, `opacity`, `shapes` and `zorder` load, then select or register.
+  `text` loads each face once, and also selects the Mono face for a HUD line, so one font serves the
+  HUD and the map's Mono labels.
+
+`doc/BREAKAGES.md` entry 52.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

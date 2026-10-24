@@ -26,6 +26,7 @@
 #include "filesystem/filesystemfactory.h"
 #include "input/defaultcontrollerbindings.h"
 #include "renderer/tilemaprenderer.h"
+#include "tilemap/itilemaplistener.h"
 #include "../shared/zoomkeys.h"
 
 using namespace SunLight :: Renderer;
@@ -42,6 +43,28 @@ namespace  {
     const int  __VIEWPORT_HEIGHT = 800;
     const int  __START_CAMERA_X  = 100;
     const int  __START_CAMERA_Y  = 100;
+
+    // The HUD line under the viewport, in screen pixels (DrawText: no viewport or camera).
+    const int            __HUD_X         = __VIEWPORT_POS_X;
+    const int            __HUD_Y         = __VIEWPORT_POS_Y + __VIEWPORT_HEIGHT + 24;
+    const int            __HUD_FONT_SIZE = 20;
+    const unsigned char  __OPAQUE        = 0xFF;
+
+    // The face the HUD shares with the map's Mono labels (I3 of the master plan).
+    const char* const    __HUD_FACE      = "/shared/fonts/AnonymousPro-Regular.ttf";
+
+    // Draws the HUD line every frame, inside the frame, with the active font (SetFont).
+    struct stHud : public SunLight :: TileMap :: ITileMapListener  {
+
+        TileMapRenderer  *pRenderer = nullptr;
+
+        void OnUpdate( SunLight :: TileMap :: ITileMap& ) override  {
+            pRenderer -> DrawText( "HUD: the same Anonymous Pro the Mono labels use, loaded once (LoadFont, SetFont, RegisterFont)",
+                                   __HUD_X, __HUD_Y, __HUD_FONT_SIZE, __OPAQUE, __OPAQUE, __OPAQUE, __OPAQUE );
+        }
+
+        void OnStop( void ) override  {}
+    };
 }
 
 int main( int argc, char** argv )  {
@@ -113,10 +136,22 @@ int main( int argc, char** argv )  {
         { "Pixel", "/shared/fonts/pressstart2p-regular.ttf",    false, false },
     };
 
+    // Each face is loaded once (LoadFont) and registered by handle. The Mono regular face is
+    // also selected for the HUD line (SetFont): one font, two uses, no second load.
     for( const auto& face : faces )  {
-        if( !pRenderer -> RegisterFont( face.szFamily, face.szFile, face.bBold, face.bItalic ) )
+        std :: shared_ptr<SunLight :: Font :: IFont>  pFont = pRenderer -> LoadFont( face.szFile );
+
+        if( !pRenderer -> RegisterFont( face.szFamily, pFont, face.bBold, face.bItalic ) )
             fprintf( stderr, "Cannot load %s (%s)\n", face.szFile, face.szFamily );
+
+        if( ( pFont != nullptr ) && ( std :: string( face.szFile ) == __HUD_FACE ) )
+            pRenderer -> SetFont( pFont );
     }
+
+    stHud  hud;
+
+    hud.pRenderer = pRenderer.get();
+    pRenderer -> AddTileMapListener( &hud );
 
     pRenderer -> SetCameraPosition( __START_CAMERA_X, __START_CAMERA_Y );
 

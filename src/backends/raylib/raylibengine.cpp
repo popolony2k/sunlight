@@ -167,7 +167,7 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Load a font file the way SetFont and LoadFont both do. A TrueType/OpenType
+             * @brief Load a font file for LoadFont. A TrueType/OpenType
              * font is loaded with ::LoadFontEx and the code points of TtfCodepoints() (ASCII,
              * Latin-1 and Latin Extended-A), at raylib's own default glyph size: ::LoadFont
              * would build it with the 95 ASCII glyphs alone (rtext.c), so an accented letter was
@@ -472,15 +472,54 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Load (or replace) the font used by DrawText (see
-             * @see IEngine::SetFont), through @see LoadFontFile (raylib
+             * @brief Select the font DrawText, MeasureText and DrawTextRotated use (see
+             * @see IEngine::SetFont, I3 of the master plan). Only a RaylibFont can be selected:
+             * the engine draws with it through its own IFont methods, and a font of any other
+             * backend could not draw here. The previously active font is only let go - it is
+             * released when its last owner lets go too.
+             * @param pFont A font from LoadFont, or nullptr for raylib's built-in font;
+             * @return Whether pFont is now the active font;
+             */
+            bool RaylibEngine :: SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont )  {
+
+                if( pFont && ( ( dynamic_cast<RaylibFont*>( pFont.get() ) == nullptr ) || !pFont -> IsValid() ) )
+                    return false;
+
+                m_pActiveFont = std :: move( pFont );
+
+                return true;
+            }
+
+            /**
+             * @brief The font SetFont selected (see @see IEngine::GetFont).
+             * @return The active font; nullptr while the built-in font is used;
+             */
+            std :: shared_ptr<SunLight :: Font :: IFont> RaylibEngine :: GetFont( void )  {
+
+                return m_pActiveFont;
+            }
+
+            /**
+             * @brief The font DrawText/MeasureText/DrawTextRotated draw with: the one SetFont
+             * selected while it is valid. nullptr means raylib's own built-in default font -
+             * also once the selected font's window has closed.
+             * @return The active font, or nullptr for the built-in one;
+             */
+            SunLight :: Font :: IFont* RaylibEngine :: ActiveFont( void )  {
+
+                return ( m_pActiveFont && m_pActiveFont -> IsValid() ) ? m_pActiveFont.get() : nullptr;
+            }
+
+            /**
+             * @brief Load a font without making it the active font (see
+             * @see IEngine::LoadFont), through @see LoadFontFile (raylib
              * picks the format from the file's extension - TrueType/OpenType,
              * or an AngelCode BMFont ".fnt" atlas - and a TrueType/OpenType
-             * font gets its Latin glyphs). The previous custom font, if any, is unloaded only
-             * after the new one is confirmed valid, so a failed load never
-             * leaves DrawText without a usable font.
+             * font gets its Latin glyphs).
+             * @param szFilePath The font file;
+             * @return The font; nullptr if it could not be loaded;
              */
-            bool RaylibEngine :: SetFont( const char* szFilePath )  {
+            std :: shared_ptr<SunLight :: Font :: IFont> RaylibEngine :: LoadFont( const char* szFilePath )  {
 
                 ::Font  newFont = LoadFontFile( szFilePath );
 
@@ -488,39 +527,6 @@ namespace SunLight  {
                 // never-allocated Font (confirmed in raylib's own source -
                 // it only builds glyphs and reaches a GPU upload on the success
                 // path), so there's nothing of newFont's to release here.
-                if( !::IsFontValid( newFont ) )
-                    return false;
-
-                if( m_bCustomFontLoaded )
-                    ::UnloadFont( m_CurrentFont );
-
-                m_CurrentFont       = newFont;
-                m_bCustomFontLoaded = true;
-
-                return true;
-            }
-
-            /**
-             * @brief The font DrawText/MeasureText should use right now -
-             * whichever one SetFont last loaded, or raylib's own built-in
-             * default font if SetFont has never been called (or every
-             * call to it so far has failed).
-             */
-            ::Font  RaylibEngine :: GetActiveFont( void )  {
-
-                return m_bCustomFontLoaded ? m_CurrentFont : ::GetFontDefault();
-            }
-
-            /**
-             * @brief Load a font without making it the active font (see
-             * @see IEngine::LoadFont). Same loader and validity check as
-             * @see SetFont: @see LoadFontFile, which returns an
-             * all-zero Font on failure, nothing allocated to free.
-             */
-            std :: unique_ptr<SunLight :: Font :: IFont> RaylibEngine :: LoadFont( const char* szFilePath )  {
-
-                ::Font  newFont = LoadFontFile( szFilePath );
-
                 if( !::IsFontValid( newFont ) )
                     return nullptr;
 
@@ -537,7 +543,7 @@ namespace SunLight  {
                 pState -> font = newFont;
                 m_LiveFonts.push_back( pState );
 
-                return std :: make_unique<RaylibFont>( pState );
+                return std :: make_shared<RaylibFont>( pState );
             }
 
             /**
@@ -591,9 +597,10 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Draw a line of text in screen space, using whichever font
-             * is currently active - the backend's built-in default until
-             * @see SetFont is called (see @see IEngine::DrawText).
+             * @brief Draw a line of text in screen space, with the active font (ActiveFont), or
+             * raylib's built-in default font when none is selected (see @see IEngine::DrawText).
+             * The active font draws through its own IFont::DrawText, the same call a game makes
+             * on its handle, so both draw a font alike.
              */
             void RaylibEngine :: DrawText( const char* szText,
                                            int nPosX,
@@ -601,18 +608,30 @@ namespace SunLight  {
                                            int nFontSize,
                                            SunLight :: Base :: stColor color )  {
 
-                ::DrawTextEx( GetActiveFont(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY },
+                SunLight :: Font :: IFont  *pFont = ActiveFont();
+
+                if( pFont != nullptr )  {
+                    pFont -> DrawText( szText, nPosX, nPosY, nFontSize, color );
+                    return;
+                }
+
+                ::DrawTextEx( ::GetFontDefault(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY },
                               ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
                               Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }
 
             /**
-             * @brief Measure a line of text's rendered width, using the same
+             * @brief Measure a line of text's rendered width, with the same
              * font as @see DrawText (see @see IEngine::MeasureText).
              */
             int RaylibEngine :: MeasureText( const char* szText, int nFontSize )  {
 
-                Vector2  size = ::MeasureTextEx( GetActiveFont(), szText, ( float ) nFontSize, __DEFAULT_TEXT_SPACING );
+                SunLight :: Font :: IFont  *pFont = ActiveFont();
+
+                if( pFont != nullptr )
+                    return pFont -> MeasureText( szText, nFontSize );
+
+                Vector2  size = ::MeasureTextEx( ::GetFontDefault(), szText, ( float ) nFontSize, __DEFAULT_TEXT_SPACING );
 
                 return ( int ) size.x;
             }
@@ -623,22 +642,20 @@ namespace SunLight  {
              * handlers, see the constructor). This runs before CloseWindow(),
              * so the GL context is still valid: every font this engine
              * loaded is unloaded here, and marked invalid so the IFont that
-             * owns it does nothing afterwards. The active font is released
-             * the same way, and the bookkeeping is cleared, so a future
-             * window (if Start() is ever called again) starts clean.
+             * owns it does nothing afterwards. The active font is let go too
+             * (the built-in one is used from then on), and the bookkeeping is
+             * cleared, so a future window (if Start() is ever called again)
+             * starts clean.
              */
             void RaylibEngine :: ReleaseWindowState( void )  {
 
                 // The close handler runs before the window's context is
                 // destroyed (see IWindow::AddCloseHandler), so unloading here
-                // frees each font's GPU texture while it is still valid.
-                // Unloading the active font here also fixes its leak: this
-                // used to only reset the handle, never calling ::UnloadFont.
-                if( m_bCustomFontLoaded )
-                    ::UnloadFont( m_CurrentFont );
-
-                m_CurrentFont       = ::Font {};
-                m_bCustomFontLoaded = false;
+                // frees each font's GPU texture while it is still valid. Letting
+                // go of the active font first: if the engine was its last owner,
+                // its RaylibFont releases it right here, while the context is
+                // valid; otherwise the loop below does.
+                m_pActiveFont.reset();
 
                 // Each live font is released here and marked invalid, so the
                 // RaylibFont that owns it does not release it a second time.
@@ -970,7 +987,14 @@ namespace SunLight  {
                                                   float rotation,
                                                   SunLight :: Base :: stColor color )  {
 
-                ::DrawTextPro( GetActiveFont(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY }, Vector2 { 0.0f, 0.0f },
+                SunLight :: Font :: IFont  *pFont = ActiveFont();
+
+                if( pFont != nullptr )  {
+                    pFont -> DrawTextRotated( szText, nPosX, nPosY, nFontSize, rotation, color );
+                    return;
+                }
+
+                ::DrawTextPro( ::GetFontDefault(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY }, Vector2 { 0.0f, 0.0f },
                                rotation, ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
                                Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }

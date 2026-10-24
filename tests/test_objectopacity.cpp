@@ -91,7 +91,7 @@ namespace  {
             windowFixture.window.nFramesUntilShouldClose = 1;
             REQUIRE( pRenderer -> Start() == true );
             REQUIRE( pRenderer -> LoadMap( "maps/opacity.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
-            REQUIRE( pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+            REQUIRE( pRenderer -> RegisterFont( "Sans", pRenderer -> LoadFont( "fonts/sans.ttf" ), false, false ) == true );
             pRenderer -> Run();
         }
 

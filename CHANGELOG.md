@@ -34,6 +34,10 @@ Each item is described in full in the plan; what each change means for code buil
   not inverses: an opaque layer read 256, and `SetLayer(255)` hid the layer.
 - `IEngine` gains pure virtuals `SetBlendMode`/`GetBlendMode`, and `IDrawSurface` gains
   `BeginBlendMode`/`EndBlendMode`. Only a class implementing one of them must update.
+- Fonts by handle: `SetFont` takes a loaded font (`std::shared_ptr<IFont>`, `nullptr` for the
+  built-in one) instead of a file path, on `IEngine` and `IDrawSurface`; `LoadFont` returns a
+  `std::shared_ptr<IFont>`; `RegisterFont( family, font, bold, italic )` takes a loaded font
+  instead of a path. A game loads with `LoadFont`, then selects or registers the font.
 
 ### Added
 
@@ -59,6 +63,11 @@ Each item is described in full in the plan; what each change means for code buil
   `Sprite::SetBlendMode` for a sprite that always draws in its own mode. Every frame starts in
   normal, and a forgotten `EndBlendMode` ends with the frame. Each mode keeps an opaque pixel
   opaque, and multiply is exact for partly transparent pixels too.
+- **Fonts by handle:** a font is loaded once (`IDrawSurface::LoadFont`) and the same handle can
+  be the active font for `DrawText` (`SetFont`, read back with `GetFont`), serve any number of
+  text-object families (`RegisterFont`), or draw by itself (`IFont`). `UnregisterFont( font )`
+  removes it from every family and style it serves; `UnregisterFont( family, bold, italic )`
+  removes one.
 - Samples: `isometric`, `isometric_haptics`, `staggered`, `hexagonal`, `parallax`, `text`,
   `objects`, `shapes`, `multiview_overlap`, `opacity`, `zorder`, `surface`, `input` and `blend`,
   each with a `docs/README.md`; shared fonts in `samples/shared/fonts`.

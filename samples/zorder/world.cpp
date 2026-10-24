@@ -145,7 +145,7 @@ bool World :: Run( void )  {
         return false;
     }
 
-    if( !m_pRenderer -> RegisterFont( "Sans", "/shared/fonts/caravellius8x8.fnt", false, false ) )
+    if( !m_pRenderer -> RegisterFont( "Sans", m_pRenderer -> LoadFont( "/shared/fonts/caravellius8x8.fnt" ), false, false ) )
         fprintf( stderr, "Cannot load the Sans font\n" );
 
     if( !LoadSprites() )  {

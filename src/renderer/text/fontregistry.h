@@ -34,9 +34,11 @@ namespace SunLight  {
         /**
          * @brief The fonts text objects are drawn with, by Tiled family and style (S1b of the
          * master plan): a family name as Tiled's fontfamily spells it, and bold and italic
-         * flags. It owns every font it loaded (through IEngine::LoadFont); a font is released
-         * when it is replaced, when Clear() is called, or with the registry - while the window
-         * that loaded it is still open, as an IFont requires.
+         * flags. It shares each font it is given (I3 of the master plan: a font from
+         * IEngine::LoadFont, which the game may also select with SetFont or register for other
+         * families); the registry lets go of a font when it is replaced, when Clear() is called,
+         * or with the registry, and the font is released once its last owner lets go - while
+         * the window that loaded it is still open, as an IFont requires.
          *
          * It also remembers which family and style it has already warned about (WarnMissing),
          * so a text object with an unregistered font logs once, not every frame.
@@ -47,7 +49,7 @@ namespace SunLight  {
                 std :: string                                 strFamily;
                 bool                                          bBold;
                 bool                                          bItalic;
-                std :: unique_ptr<SunLight :: Font :: IFont>  pFont;
+                std :: shared_ptr<SunLight :: Font :: IFont>  pFont;
             };
 
             std :: vector<__stRegisteredFont>  m_Fonts;
@@ -55,7 +57,9 @@ namespace SunLight  {
 
             public:
 
-            bool Register( const char* szFamily, const char* szFilePath, bool bBold, bool bItalic );
+            bool Register( const char* szFamily, std :: shared_ptr<SunLight :: Font :: IFont> pFont, bool bBold, bool bItalic );
+            bool Unregister( const SunLight :: Font :: IFont* pFont );
+            bool Unregister( const char* szFamily, bool bBold, bool bItalic );
             SunLight :: Font :: IFont* Find( const char* szFamily, bool bBold, bool bItalic ) const;
             void WarnMissing( const char* szFamily, bool bBold, bool bItalic );
             void Clear( void );

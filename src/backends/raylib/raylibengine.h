@@ -80,9 +80,10 @@ namespace SunLight  {
                                          float fRadiusY,
                                          SunLight :: Base :: stColor color ) override;
 
-                bool SetFont( const char* szFilePath ) override;
+                bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont ) override;
+                std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void ) override;
 
-                std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) override;
+                std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) override;
 
                 void BeginClip( SunLight :: Base :: stRectangle rect ) override;
                 void EndClip( void ) override;
@@ -140,9 +141,9 @@ namespace SunLight  {
                 // backend window (see IWindow::AddCloseHandler).
                 int   m_nCloseHandlerId   = 0;
 
-                // Shared by DrawText/MeasureText - the font either of them
-                // should use right now (see m_CurrentFont's own comment).
-                ::Font  GetActiveFont( void );
+                // The font SetFont selected, while it is still valid; nullptr
+                // when the built-in font is to be used (I3).
+                SunLight :: Font :: IFont* ActiveFont( void );
 
                 // Every font LoadFont handed out that may still be alive. The
                 // engine holds them weakly: each font owns its own state, and
@@ -155,13 +156,10 @@ namespace SunLight  {
 
                 void ApplyClip( SunLight :: Base :: stRectangle rect );
 
-                // Font currently used by DrawText, loaded via SetFont - only
-                // valid (and only ever Unload'd) when m_bCustomFontLoaded is
-                // true; otherwise DrawText falls back to raylib's own
-                // built-in GetFontDefault(), which this class never owns
-                // and must never Unload.
-                ::Font  m_CurrentFont       {};
-                bool  m_bCustomFontLoaded = false;
+                // The font SetFont selected (I3), shared with whoever else holds
+                // it; nullptr selects raylib's own built-in GetFontDefault(),
+                // which this class never owns and must never Unload.
+                std :: shared_ptr<SunLight :: Font :: IFont>  m_pActiveFont;
 
                 // The mode SetBlendMode set last (I2).
                 SunLight :: Base :: BlendMode  m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;

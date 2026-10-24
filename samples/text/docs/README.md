@@ -63,6 +63,9 @@ The green rectangle is the viewport's frame in the map. The viewport is the area
 
 A text that is entirely outside the viewport is not drawn at all.
 
+**One font, two uses**
+- The white **HUD** line under the viewport is drawn with `DrawText`, in the same Anonymous Pro face the `Mono` labels use. The sample loads each face once with `LoadFont`, registers the handle with `RegisterFont`, and also selects the Mono regular one with `SetFont`. It is one font, not two loads.
+
 ## Fonts
 
 All the fonts are under the SIL Open Font License 1.1 or the zlib License, and each has its licence text in `../shared/fonts/`.

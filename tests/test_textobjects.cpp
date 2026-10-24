@@ -85,6 +85,11 @@ namespace  {
 
         MockEngine& engine( void )  { return engineFixture.engine; }
 
+        // Load a font file and register it for a family and style (I3: two steps).
+        bool Register( const char* szFamily, const char* szFile, bool bBold, bool bItalic )  {
+            return pRenderer -> RegisterFont( szFamily, pRenderer -> LoadFont( szFile ), bBold, bItalic );
+        }
+
         double Zoom( void )  { return pRenderer -> GetView( 0 ) -> GetViewport().GetZoomProperties().fZoomFactor; }
 
         void RunFrames( int nFrames )  {
@@ -109,7 +114,7 @@ namespace  {
 
 TEST_SUITE( "renderer/text objects" )  {
 
-    TEST_CASE( "RegisterFont needs a started renderer" )  {
+    TEST_CASE( "LoadFont needs a started renderer, and RegisterFont refuses no font" )  {
 
         MockEngineFixture                   engineFixture;
         MockWindowFixture                   windowFixture;
@@ -119,15 +124,16 @@ TEST_SUITE( "renderer/text objects" )  {
 
         REQUIRE( pRenderer != nullptr );
 
-        CHECK( pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == false );
+        CHECK( pRenderer -> LoadFont( "fonts/sans.ttf" ).get() == nullptr );
         CHECK( engineFixture.engine.nLoadFontCalls == 0 );
+        CHECK( pRenderer -> RegisterFont( "Sans", nullptr, false, false ) == false );
     }
 
     TEST_CASE( "A registered font is loaded through the engine, and the active font is not touched" )  {
 
         Scene  scene( TextObject( 1, 0, 0, 0, 0, "", "x" ) );
 
-        CHECK( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        CHECK( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
         CHECK( scene.engine().nLoadFontCalls == 1 );
         CHECK( scene.engine().strLastLoadFontPath == "fonts/sans.ttf" );
         CHECK( scene.engine().nSetFontCalls == 0 );
@@ -137,10 +143,10 @@ TEST_SUITE( "renderer/text objects" )  {
 
         Scene  scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\"", "Hi" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
 
         scene.engine().bLoadFontResult = false;
-        CHECK( scene.pRenderer -> RegisterFont( "Sans", "fonts/missing.ttf", false, false ) == false );
+        CHECK( scene.Register( "Sans", "fonts/missing.ttf", false, false ) == false );
         CHECK( scene.engine().nFontsDestroyed == 0 );
 
         scene.RunFrames( 1 );
@@ -153,11 +159,11 @@ TEST_SUITE( "renderer/text objects" )  {
 
         Scene  scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\"", "Hi" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
 
         const void  *hFirst = scene.engine().hLastLoadedFont;
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans2.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans2.ttf", false, false ) == true );
 
         // The old font object is destroyed (which releases it), and the new one is the one drawn with.
         CHECK( scene.engine().nFontsDestroyed == 1 );
@@ -172,7 +178,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         Scene  scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\"", "Hello" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
 
         scene.RunFrames( 1 );
 
@@ -187,6 +193,61 @@ TEST_SUITE( "renderer/text objects" )  {
         CHECK( texts[0].x == ( float ) std :: lround( 5 * fZoom + 10 ) );
         CHECK( texts[0].y == ( float ) std :: lround( 7 * fZoom + 10 ) );
         CHECK( texts[0].nFontSize == ( int ) std :: lround( 12 * fZoom ) );
+    }
+
+    TEST_CASE( "One loaded font is the surface's active font and a map text family at once, loaded once (I3)" )  {
+
+        Scene                                         scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\"", "Hello" ) );
+        std :: shared_ptr<SunLight :: Font :: IFont>  pFont = scene.pRenderer -> LoadFont( "fonts/sans.ttf" );
+
+        REQUIRE( pFont.get() != nullptr );
+        REQUIRE( scene.pRenderer -> SetFont( pFont ) == true );
+        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", pFont, false, false ) == true );
+
+        scene.RunFrames( 1 );
+
+        std :: vector<Event>  texts = scene.Texts();
+
+        REQUIRE( texts.size() == 1 );
+        CHECK( texts[0].font == pFont.get() );                          // the text object, through the font itself
+        CHECK( scene.pRenderer -> GetFont().get() == pFont.get() );                 // the surface's DrawText, through the engine
+        CHECK( scene.engine().nLoadFontCalls == 1 );
+    }
+
+    TEST_CASE( "Stop selects the built-in font again and lets go of the fonts: one no one else holds is released (I3)" )  {
+
+        Scene                                         scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\"", "Hello" ) );
+        std :: shared_ptr<SunLight :: Font :: IFont>  pHeld = scene.pRenderer -> LoadFont( "fonts/held.ttf" );
+
+        REQUIRE( scene.pRenderer -> SetFont( scene.pRenderer -> LoadFont( "fonts/hud.ttf" ) ) == true );     // the engine's alone
+        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", pHeld, false, false ) == true );                   // the game's too
+
+        scene.pRenderer -> Stop();
+
+        CHECK( scene.engine().GetFont().get() == nullptr );
+        CHECK( scene.engine().nFontsDestroyed == 1 );                   // hud.ttf; held.ttf is still the game's
+        CHECK( pHeld -> IsValid() );
+    }
+
+    TEST_CASE( "A text object whose font is unregistered draws ?????? again (I3)" )  {
+
+        Scene                                         scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\"", "Hello" ) );
+        std :: shared_ptr<SunLight :: Font :: IFont>  pFont = scene.pRenderer -> LoadFont( "fonts/sans.ttf" );
+
+        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", pFont, false, false ) == true );
+        scene.RunFrames( 1 );
+        REQUIRE( scene.Texts().size() == 1 );
+        CHECK( scene.Texts()[0].text == "Hello" );
+
+        CHECK( scene.pRenderer -> UnregisterFont( pFont ) == true );
+        scene.RunFrames( 1 );
+        REQUIRE( scene.Texts().size() == 1 );
+        CHECK( scene.Texts()[0].text == "??????" );
+        CHECK( scene.Texts()[0].font == nullptr );                      // the placeholder, with the active font
+
+        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", pFont, false, false ) == true );
+        CHECK( scene.pRenderer -> UnregisterFont( "Sans", false, false ) == true );
+        CHECK( scene.pRenderer -> UnregisterFont( "Sans", false, false ) == false );
     }
 
     TEST_CASE( "A missing family draws ?????? in place of the text, with the active font, and never the text itself" )  {
@@ -218,7 +279,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         Scene  scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\" bold=\"1\"", "Loud" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
 
         scene.RunFrames( 1 );
 
@@ -233,7 +294,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         Scene  scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\" bold=\"1\"", "Loud" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sansbold.ttf", true, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sansbold.ttf", true, false ) == true );
 
         scene.RunFrames( 1 );
 
@@ -250,7 +311,7 @@ TEST_SUITE( "renderer/text objects" )  {
         // is 40 px, the box width. "aaa bbb" fits (7 characters); "aaa bbb ccc" does not.
         Scene  scene( TextObject( 1, 0, 0, 40, 0, "fontfamily=\"Sans\" pixelsize=\"10\" wrap=\"1\"", "aaa bbb ccc" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
         scene.engine().bMeasureByLength = true;
 
         scene.RunFrames( 1 );
@@ -267,7 +328,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         Scene  scene( TextObject( 1, 0, 0, 0, 0, "fontfamily=\"Sans\" pixelsize=\"10\"", "one\ntwo" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
 
         scene.RunFrames( 1 );
 
@@ -283,7 +344,7 @@ TEST_SUITE( "renderer/text objects" )  {
         // "abcd" at size 10 is 20 px by MeasureText; in a 100 px box it starts 40 px in.
         Scene  scene( TextObject( 1, 0, 0, 100, 0, "fontfamily=\"Sans\" pixelsize=\"10\" halign=\"center\"", "abcd" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
         scene.engine().bMeasureByLength = true;
 
         scene.RunFrames( 1 );
@@ -303,7 +364,7 @@ TEST_SUITE( "renderer/text objects" )  {
         Scene  scene( TextObject( 1, 0, 0, 100, 50,
                                   "fontfamily=\"Sans\" pixelsize=\"10\" halign=\"right\" valign=\"bottom\"", "abcd" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
         scene.engine().bMeasureByLength = true;
 
         scene.RunFrames( 1 );
@@ -321,7 +382,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         Scene  scene( TextObject( 1, 5000, 5000, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\"", "far" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
 
         scene.RunFrames( 1 );
 
@@ -332,7 +393,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         Scene  scene( TextObject( 1, 0, 0, 0, 0, "fontfamily=\"Sans\" pixelsize=\"10\"", "cut" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
 
         scene.RunFrames( 1 );
 
@@ -363,7 +424,7 @@ TEST_SUITE( "renderer/text objects" )  {
         Scene  scene( TextObject( 1, 0, 0, 0, 0, "fontfamily=\"Sans\" pixelsize=\"10\"", "one" ) +
                       TextObject( 2, 0, 40, 0, 0, "fontfamily=\"Sans\" pixelsize=\"10\"", "two" ) );
 
-        REQUIRE( scene.pRenderer -> RegisterFont( "Sans", "fonts/sans.ttf", false, false ) == true );
+        REQUIRE( scene.Register( "Sans", "fonts/sans.ttf", false, false ) == true );
 
         // One single-view frame = one clip (the viewport). Two text objects add none: the clip is
         // the engine's job for the whole frame, not one per text object.

@@ -48,7 +48,7 @@ Shape and text objects are drawn with their layer's opacity too, when they have 
 ## In the code
 
 - The opacities are all in `resources/map/opacity.tmx`: nothing in [opacity_test.cpp](/samples/opacity/opacity_test.cpp) sets them.
-- The sample mounts its own folder and `../shared` (for the label font) with `IFileSystem::Mount`, registers the font with `RegisterFont`, and starts the camera at (100, 100) so the frame fills the viewport.
+- The sample mounts its own folder and `../shared` (for the label font) with `IFileSystem::Mount`, loads the font with `LoadFont` and registers it with `RegisterFont`, and starts the camera at (100, 100) so the frame fills the viewport.
 
 ## Assets
 
