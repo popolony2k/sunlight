@@ -2225,6 +2225,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I1 | Semi-transparent drawing darker than authored (reported by Scarab, its V1) | DONE |
 | I2 | A blend-mode primitive (normal, additive, multiply, ...) a game can use, with or without a map | DONE |
 | I3 | Fonts by handle: load an `IFont` once, then select it (`SetFont`) and register it for text objects (`RegisterFont`), instead of passing a file path to each | DONE |
+| I4 | A map whose embedded tileset image path contains `..` was refused (reported by Scarab, its V6) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2346,6 +2347,35 @@ directly):
   HUD and the map's Mono labels.
 
 `doc/BREAKAGES.md` entry 52.
+
+**I4: `..` in an embedded tileset's image path (DONE).** Reported by Scarab: a map whose own,
+embedded tileset wrote `<image source="../../sprites/sunny_idle_down.png">` failed `LoadMap` with
+"an error occured in the delegated image loading function". `..` in an external tileset's reference
+already worked.
+
+- **Cause** (read in libtmx's and PhysFS's sources):
+  - libtmx's `mk_absolute_path` (tmx_utils.c) only concatenates the map's directory and the image
+    path, giving `resources/tilemap/shapes/../../sprites/x.png`.
+  - The image hook, `TextureLoaderCallback` (`mapdata.cpp`), collapsed `.` and `..` only for images
+    of external tilesets and templates (`ExternalResources::JoinVirtualPath`). Its comment wrongly
+    said a map's own images arrived "already resolved".
+  - PhysFS rejects any `.` or `..` segment (`PHYSFS_ERR_BAD_FILENAME`, physfs.c), so the texture
+    failed and libtmx refused the map.
+- **Fix:** every image path goes through the same `JoinVirtualPath`: backslashes become `/`, and `.`
+  and `..` are collapsed lexically. A path that would climb above the root is passed on as written
+  and fails as before. A path without `.` or `..` is unchanged.
+- **Windows:**
+  - libtmx's `dirpath_len` takes the last `/` or `\` as the directory.
+  - `JoinVirtualPath` turns `\` into `/` before collapsing, the same function and the same handling
+    the external-tileset test with backslashes already passes on `windows-latest`.
+  - A drive letter stays the first segment, and the FileSystem strips it later, as before.
+- **Tests** (`tests/test_externaltilesets.cpp`), each shown to fail on the old code:
+  - The path handed to `LoadTexture`: `../../`, `../`, `./`, Windows-style `..\..\`, and a plain
+    path left unchanged.
+  - A path climbing above the root, passed on as written.
+  - End to end, through the null backend, whose `LoadTexture` reads the image through the
+    FileSystem: a map in `maps/sub/` with its image in `images/` loads.
+  - The same from a scrambled `.zip` behind a read filter, through real PhysFS.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

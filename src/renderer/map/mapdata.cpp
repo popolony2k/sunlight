@@ -60,25 +60,27 @@ namespace SunLight  {
 
             /**
              * libtmx's texture loader hook: loads a map's (or a tileset's) image through IEngine.
+             *
+             * While an external tileset/template is being preloaded, szFileName is the image path as
+             * written in that file, relative to the file's own directory, so it is joined to that
+             * directory. A map's own (embedded) images arrive joined by libtmx to the map's directory
+             * but not resolved: mk_absolute_path (tmx_utils.c) only concatenates, so an image written
+             * "../../sprites/x.png" in "resources/tilemap/shapes/map.tmx" arrives as
+             * "resources/tilemap/shapes/../../sprites/x.png". The FileSystem rejects "." and ".."
+             * segments (PhysFS: PHYSFS_ERR_BAD_FILENAME), and libtmx then refused the whole map.
+             * Found by Scarab. Both kinds of path are therefore collapsed the same way
+             * (JoinVirtualPath: backslashes become '/', "." and ".." resolved lexically). A path that
+             * would climb above the root is not a legal virtual path, so it is passed on as written,
+             * and fails as it did before.
              * @param szFileName Texture file name;
              */
             void* TextureLoaderCallback( const char* szFileName )  {
 
-                int  nWidth, nHeight;
+                int             nWidth, nHeight;
+                std :: string  strResolved = ExternalResources :: JoinVirtualPath( ExternalResources :: ImageBase(), szFileName );
 
-                // While an external tileset/template is being preloaded, this is the image path as written
-                // in that file - relative to the file's own directory. (Maps' own images arrive already
-                // resolved by libtmx against the map's path.)
-                std :: string  strImageBase = ExternalResources :: ImageBase();
-
-                if( !strImageBase.empty() )  {
-                    std :: string  strResolved = ExternalResources :: JoinVirtualPath( strImageBase, szFileName );
-
-                    if( !strResolved.empty() )
-                        return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strResolved.c_str(), nWidth, nHeight );
-                }
-
-                return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( szFileName, nWidth, nHeight );
+                return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strResolved.empty() ? szFileName : strResolved.c_str(),
+                                                                                       nWidth, nHeight );
             }
 
             /**
