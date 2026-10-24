@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `9c8c6bf421a1147d1e8c099e698dfbe7c1885af2` | Fonts by handle: `LoadFont` once, then `SetFont` / `RegisterFont` / `UnregisterFont` with the handle (I3). Breaks `set_font`/`register_font` on purpose; sent with a guide to the new model | 52 |
 | `bfce5983370fa0661c18701164a10f7e18f1e7a1` | Blend modes: normal, add, multiply, subtract, for a game's own drawing and per sprite (I2). Also a new item for Scarab's plan, sent with it | 51 |
 | `a63fec6811ba28fb46a94015d05b852393016692` | Semi-transparent drawing no longer darker than authored (I1, found by Scarab) | 50 |
 | `772851ce7120c0d4f25dbf72c8d15f7e54bcd1d5` | The handoff (H5): sunlight's master plan, finished | 1 to 49 |
