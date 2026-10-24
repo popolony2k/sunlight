@@ -248,10 +248,10 @@ TEST_SUITE( "backends/null/NullEngine" )  {
 
         fixture.fs.files["fonts/f.ttf"] = Bytes { 1, 2, 3 };
 
-        CHECK( engine.LoadFont( "fonts/f.ttf" ) != nullptr );
-        CHECK( engine.LoadFont( "fonts/missing.ttf" ) == nullptr );
-        CHECK( engine.LoadFont( "" ) == nullptr );
-        CHECK( engine.LoadFont( nullptr ) == nullptr );
+        CHECK( engine.LoadFont( "fonts/f.ttf" ).get() != nullptr );
+        CHECK( engine.LoadFont( "fonts/missing.ttf" ).get() == nullptr );
+        CHECK( engine.LoadFont( "" ).get() == nullptr );
+        CHECK( engine.LoadFont( nullptr ).get() == nullptr );
     }
 
     TEST_CASE( "SetFont selects one of the engine's own fonts, shares it, and nullptr goes back to the built-in one" )  {
@@ -266,7 +266,7 @@ TEST_SUITE( "backends/null/NullEngine" )  {
         std :: shared_ptr<SunLight :: Font :: IFont>  pForeign = other.LoadFont( "fonts/f.ttf" );
         SunLight :: Font :: IFont                     *pRaw    = pFont.get();
 
-        CHECK( engine.GetFont() == nullptr );                   // the built-in font, until one is selected
+        CHECK( engine.GetFont().get() == nullptr );                   // the built-in font, until one is selected
 
         REQUIRE( engine.SetFont( pFont ) == true );
         pFont.reset();                                          // the caller lets go: the engine still holds it
@@ -276,7 +276,7 @@ TEST_SUITE( "backends/null/NullEngine" )  {
         CHECK( engine.GetFont().get() == pRaw );                // refused: the active font is kept
 
         CHECK( engine.SetFont( nullptr ) == true );
-        CHECK( engine.GetFont() == nullptr );
+        CHECK( engine.GetFont().get() == nullptr );
     }
 
     TEST_CASE( "Render targets and their textures are stable handles, and every draw call is a harmless no-op" )  {

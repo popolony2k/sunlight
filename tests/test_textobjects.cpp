@@ -124,7 +124,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         REQUIRE( pRenderer != nullptr );
 
-        CHECK( pRenderer -> LoadFont( "fonts/sans.ttf" ) == nullptr );
+        CHECK( pRenderer -> LoadFont( "fonts/sans.ttf" ).get() == nullptr );
         CHECK( engineFixture.engine.nLoadFontCalls == 0 );
         CHECK( pRenderer -> RegisterFont( "Sans", nullptr, false, false ) == false );
     }
@@ -200,7 +200,7 @@ TEST_SUITE( "renderer/text objects" )  {
         Scene                                         scene( TextObject( 1, 5, 7, 0, 0, "fontfamily=\"Sans\" pixelsize=\"12\"", "Hello" ) );
         std :: shared_ptr<SunLight :: Font :: IFont>  pFont = scene.pRenderer -> LoadFont( "fonts/sans.ttf" );
 
-        REQUIRE( pFont != nullptr );
+        REQUIRE( pFont.get() != nullptr );
         REQUIRE( scene.pRenderer -> SetFont( pFont ) == true );
         REQUIRE( scene.pRenderer -> RegisterFont( "Sans", pFont, false, false ) == true );
 
@@ -210,7 +210,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         REQUIRE( texts.size() == 1 );
         CHECK( texts[0].font == pFont.get() );                          // the text object, through the font itself
-        CHECK( scene.pRenderer -> GetFont() == pFont );                 // the surface's DrawText, through the engine
+        CHECK( scene.pRenderer -> GetFont().get() == pFont.get() );                 // the surface's DrawText, through the engine
         CHECK( scene.engine().nLoadFontCalls == 1 );
     }
 
@@ -224,7 +224,7 @@ TEST_SUITE( "renderer/text objects" )  {
 
         scene.pRenderer -> Stop();
 
-        CHECK( scene.engine().GetFont() == nullptr );
+        CHECK( scene.engine().GetFont().get() == nullptr );
         CHECK( scene.engine().nFontsDestroyed == 1 );                   // hud.ttf; held.ttf is still the game's
         CHECK( pHeld -> IsValid() );
     }

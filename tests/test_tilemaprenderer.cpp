@@ -285,11 +285,11 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         fixture.engine.bSetFontResult = false;
         CHECK( renderer.SetFont( pFont ) == false );
         CHECK( fixture.engine.nSetFontCalls == 1 );
-        CHECK( fixture.engine.pLastSetFont == pFont );
-        CHECK( renderer.GetFont() == nullptr );                 // refused: still the built-in font
+        CHECK( fixture.engine.pLastSetFont.get() == pFont.get() );
+        CHECK( renderer.GetFont().get() == nullptr );                 // refused: still the built-in font
 
         fixture.engine.bSetFontResult = true;
         CHECK( renderer.SetFont( pFont ) == true );
-        CHECK( renderer.GetFont() == pFont );
+        CHECK( renderer.GetFont().get() == pFont.get() );
     }
 }
