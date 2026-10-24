@@ -49,6 +49,26 @@ namespace SunLight  {
 }
 ```
 
+- A forward declaration follows the same rule: nested and indented, one level each, never the
+  one-line C++17 form (`namespace A :: B  { class X; }`). A class of the header's own namespace
+  is declared inside that namespace's block; one from another namespace gets its own nested
+  block:
+
+```cpp
+namespace SunLight  {
+    namespace Backends  {
+        namespace Null  {
+            class NullBackend;
+        }
+    }
+}
+```
+
+- Forward-declare only the project's own classes, and only where the header needs nothing but
+  the name (a pointer, a reference, a smart pointer, a `friend`): to break an include cycle
+  (`View` and `TileMapRenderer`), or to keep a backend out of a public header (`NullBackend`).
+  Everything else, and every class of an external library, is included.
+
 - There is no `using namespace` in sunlight's own code; names are written in full
   (`SunLight :: TileMap :: stTile`). Tests may use `using` for the class under test.
 
