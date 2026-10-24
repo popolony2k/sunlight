@@ -139,6 +139,10 @@ Each item is described in full in the plan; what each change means for code buil
   blended its alpha channel too, so it lost opacity there, and the frame - drawn onto the window over
   black - came out darker in those places (about 70% brightness for a 0.65 layer over a 0.69 one).
   The render target now blends alpha as "over", so the colours shown are the colours drawn.
+- A map whose own (embedded) tileset image path contained `..` or `.`
+  (`<image source="../../sprites/x.png">`) was refused by `LoadMap`: libtmx joins the path to the
+  map's directory without collapsing it, and the FileSystem rejects those segments. It is now
+  collapsed, as an external tileset's image path already was.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 
