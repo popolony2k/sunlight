@@ -274,13 +274,13 @@ namespace SunLight  {
         }
 
         /**
-         * @brief Release every font RegisterFont loaded, and forget the
+         * @brief Let go of every font RegisterFont was given, and forget the
          * warnings already given. Called by Stop() while the window and its
          * render context still exist, and by the destructor.
          */
         void TileMapRenderer :: ReleaseRegisteredFonts( void )  {
 
-            // Each font is destroyed here, which releases it while the window is open.
+            // A font no one else holds is released here, while the window is open.
             m_Fonts.Clear();
             m_ObjectRenderer.ResetWarnings();   // the renderer's one existing "forget warnings" point
         }
@@ -1532,44 +1532,90 @@ namespace SunLight  {
         }
 
         /**
-         * @brief Load (or replace) the font used by @see DrawText (see
-         * @see IDrawSurface::SetFont). A thin pass-through to IEngine - unlike
-         * @see SetWindowResizeable, there's no pre-Start() path to support
-         * here (loading a font needs the render context IEngine's backend
-         * already requires), so this is always forwarded directly.
+         * @brief Load a font, without selecting it (see @see IDrawSurface::LoadFont, I3 of the
+         * master plan). Needs a started renderer: loading a font needs the window's render
+         * context, which Start() creates.
+         * @param szFilePath The font file;
+         * @return The font, shared; nullptr before Start() or if it could not be loaded;
          */
-        bool TileMapRenderer :: SetFont( const char* szFilePath )  {
+        std :: shared_ptr<SunLight :: Font :: IFont> TileMapRenderer :: LoadFont( const char* szFilePath )  {
 
-            return SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( szFilePath );
+            if( !m_bIsStarted )
+                return nullptr;
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().LoadFont( szFilePath );
         }
 
         /**
-         * @brief Register a font for text objects (see TextObjectRenderer): a
-         * text object draws with the font whose family and bold/italic flags
-         * match its own. Loads through the engine's LoadFont, which does not
-         * change the active font (SetFont).
+         * @brief Select the font @see DrawText and @see MeasureText use (see
+         * @see IDrawSurface::SetFont). A thin pass-through to IEngine, which
+         * shares the font while it is active. Stop() selects the built-in font
+         * again, before the window closes.
+         * @param pFont A font from LoadFont, or nullptr for the built-in font;
+         * @return Whether pFont is now the active font;
+         */
+        bool TileMapRenderer :: SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont )  {
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( std :: move( pFont ) );
+        }
+
+        /**
+         * @brief The font SetFont selected (see @see IDrawSurface::GetFont).
+         * @return The active font; nullptr while the built-in font is used;
+         */
+        std :: shared_ptr<SunLight :: Font :: IFont> TileMapRenderer :: GetFont( void )  {
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().GetFont();
+        }
+
+        /**
+         * @brief Register a loaded font for text objects (see TextObjectRenderer):
+         * a text object draws with the font whose family and bold/italic flags
+         * match its own. The font is shared, not copied (I3): the same font can
+         * also be the active font (SetFont) or serve other families, and loading
+         * it is LoadFont's job.
          *
-         * Needs a started renderer: loading a font needs the window's render
-         * context, which Start() creates. The font is released by Stop(),
-         * before the window closes. Registering the same family and style
-         * again replaces the earlier font, so a game can swap a font without
-         * stopping the renderer.
+         * The registry lets go of its fonts in Stop(), before the window closes.
+         * Registering the same family and style again replaces the earlier font,
+         * so a game can swap a font without stopping the renderer.
          *
          * @param szFamily Family name, as Tiled's fontfamily spells it;
-         * @param szFilePath Font file to load (same formats as SetFont);
+         * @param pFont The font (from LoadFont);
          * @param bBold Whether this is the bold face of the family;
          * @param bItalic Whether this is the italic face of the family;
-         * @return true if the font loaded and is registered, false otherwise
-         * (nothing is registered, and an earlier font for the same family and
-         * style is kept).
+         * @return true if the font is registered; false for no family, no font
+         * or a font no longer valid (nothing is registered, and an earlier font
+         * for the same family and style is kept);
          */
-        bool TileMapRenderer :: RegisterFont( const char* szFamily, const char* szFilePath, bool bBold, bool bItalic )  {
+        bool TileMapRenderer :: RegisterFont( const char* szFamily, std :: shared_ptr<SunLight :: Font :: IFont> pFont, bool bBold, bool bItalic )  {
 
-            // Loading a font needs the render context, which Start() creates.
-            if( !m_bIsStarted )
-                return false;
+            return m_Fonts.Register( szFamily, std :: move( pFont ), bBold, bItalic );
+        }
 
-            return m_Fonts.Register( szFamily, szFilePath, bBold, bItalic );
+        /**
+         * @brief Let go of a font in every family and style it was registered for (see
+         * FontRegistry::Unregister, I3 of the master plan): the handle is all that is needed.
+         * Text objects of those families draw ?????? again. The font is released if no one
+         * else holds it.
+         * @param pFont The font, as LoadFont gave it;
+         * @return true if it was registered for at least one family and style;
+         */
+        bool TileMapRenderer :: UnregisterFont( const std :: shared_ptr<SunLight :: Font :: IFont>& pFont )  {
+
+            return m_Fonts.Unregister( pFont.get() );
+        }
+
+        /**
+         * @brief Let go of the font registered for one family and style, leaving its other
+         * families and styles registered.
+         * @param szFamily Family name, as Tiled's fontfamily spells it;
+         * @param bBold Whether this is the bold face of the family;
+         * @param bItalic Whether this is the italic face of the family;
+         * @return true if a font was registered for exactly that family and style;
+         */
+        bool TileMapRenderer :: UnregisterFont( const char* szFamily, bool bBold, bool bItalic )  {
+
+            return m_Fonts.Unregister( szFamily, bBold, bItalic );
         }
 
         /**
@@ -2073,7 +2119,10 @@ namespace SunLight  {
 
                 // Fonts go before the window closes: the engine's close handler
                 // would release them too, but that is its own state, not ours.
+                // The active font is let go as well (I3), so a font no one else
+                // holds is released while the window is open.
                 ReleaseRegisteredFonts();
+                SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( nullptr );
 
                 if( m_pRenderTexture != nullptr )  {
                     SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( m_pRenderTexture );

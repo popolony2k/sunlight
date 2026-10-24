@@ -275,23 +275,41 @@ namespace SunLight  {
             virtual bool GetStretchToFill( void ) = 0;
 
             /**
-             * @brief Load (or replace) the font used by @ref DrawText,
-             * from any backend-supported font file (at minimum TrueType/
-             * OpenType; the raylib backend also auto-detects an AngelCode
-             * BMFont ".fnt" atlas by extension - see IEngine::SetFont).
-             * Callers just pass a file path; which font formats are
-             * actually supported is entirely a backend concern, not
-             * something callers need to know about. Until this is called
-             * for the first time, @ref DrawText falls back to the
-             * backend's own built-in default font, so text can be drawn
-             * with zero setup.
+             * @brief Load a font from any backend-supported font file (at
+             * minimum TrueType/OpenType; the raylib backend also
+             * auto-detects an AngelCode BMFont ".fnt" atlas by extension -
+             * see IEngine::LoadFont), without making it the active font
+             * (I3 of the master plan). The handle it returns can be selected
+             * for @ref DrawText (@ref SetFont), registered for a map's text
+             * objects (TileMapRenderer::RegisterFont), or drawn with
+             * directly (IFont). Needs a started renderer: a font needs the
+             * window's render context.
              *
              * @param szFilePath Path to the font file to load;
-             * @return true if the font loaded successfully and is now the
-             * active font, false if it failed to load (the previously
-             * active font, if any, is left untouched).
+             * @return The font, shared; nullptr if it failed to load;
              */
-            virtual bool SetFont( const char* szFilePath ) = 0;
+            virtual std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) = 0;
+
+            /**
+             * @brief Select the font @ref DrawText and @ref MeasureText use:
+             * a font from @ref LoadFont, or nullptr for the backend's own
+             * built-in font (the default, so text can be drawn with zero
+             * setup). The surface shares ownership of the selected font, so
+             * the caller may drop its handle.
+             *
+             * @param pFont The font to select, or nullptr for the built-in font;
+             * @return true if it is now the active font; false, with the
+             * active font unchanged, if it was not loaded by this backend or
+             * is no longer valid;
+             */
+            virtual bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont ) = 0;
+
+            /**
+             * @brief The font @ref SetFont selected.
+             *
+             * @return The active font; nullptr while the built-in font is used;
+             */
+            virtual std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void ) = 0;
 
             /**
              * @brief Draw a line of text on screen, in screen space (no

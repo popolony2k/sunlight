@@ -59,7 +59,7 @@ To run with no map loaded:
 - **`World::DrawPanels()`** ([world.cpp](/samples/blend/world.cpp)): each panel's squares are drawn between `BeginBlendMode(mode)` and `EndBlendMode()`. `OnUpdate` calls it inside the frame, after the sprites.
 - **`World::LoadSprites()`:** `m_Shadow.sprite.SetBlendMode(BLEND_MODE_MULTIPLY)` keeps the shadow in multiply on every frame. The sprite switches to its mode for its own draw only, then back to the mode in effect.
 - **`World::SetGlowMode()`:** `SetBlendMode` or `ClearBlendMode` on the glow.
-- **The font:** the HUD and the labels use `samples/shared/fonts/AnonymousPro-Bold.ttf` (`SetFont`), mounted at `/shared`.
+- **The font:** the HUD and the labels use `samples/shared/fonts/AnonymousPro-Bold.ttf` (loaded with `LoadFont`, then selected with `SetFont`), mounted at `/shared`.
 - **No map:** with `nomap`, `LoadMap` is never called. The layer ids only order the sprites, and the window is cleared to a dusk blue (`SetWindowBackgroundColor`), darker than the sky-coloured panels.
 
 ## Assets

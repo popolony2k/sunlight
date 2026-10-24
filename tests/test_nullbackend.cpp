@@ -35,6 +35,7 @@
 #include "backends/null/nullwindow.h"
 #include "backends/null/nullinputhandler.h"
 #include "backends/null/nullbackend.h"
+#include "mock_engine.h"
 #include "filesystem/filesystemfactory.h"
 #include "engines/enginefactory.h"
 #include "window/windowfactory.h"
@@ -240,17 +241,42 @@ TEST_SUITE( "backends/null/NullEngine" )  {
         CHECK( engine.MeasureText( nullptr, 16 ) == 0 );
     }
 
-    TEST_CASE( "SetFont succeeds only for a font file that exists" )  {
+    TEST_CASE( "LoadFont succeeds only for a font file that exists" )  {
 
         MemoryFileSystemFixture                   fixture;
         SunLight :: Engines :: Null :: NullEngine  engine;
 
         fixture.fs.files["fonts/f.ttf"] = Bytes { 1, 2, 3 };
 
-        CHECK( engine.SetFont( "fonts/f.ttf" ) == true );
-        CHECK( engine.SetFont( "fonts/missing.ttf" ) == false );
-        CHECK( engine.SetFont( "" ) == false );
-        CHECK( engine.SetFont( nullptr ) == false );
+        CHECK( engine.LoadFont( "fonts/f.ttf" ) != nullptr );
+        CHECK( engine.LoadFont( "fonts/missing.ttf" ) == nullptr );
+        CHECK( engine.LoadFont( "" ) == nullptr );
+        CHECK( engine.LoadFont( nullptr ) == nullptr );
+    }
+
+    TEST_CASE( "SetFont selects one of the engine's own fonts, shares it, and nullptr goes back to the built-in one" )  {
+
+        MemoryFileSystemFixture                       fixture;
+        SunLight :: Engines :: Null :: NullEngine      engine;
+        MockEngine                                     other;      // a font from another engine is refused
+
+        fixture.fs.files["fonts/f.ttf"] = Bytes { 1, 2, 3 };
+
+        std :: shared_ptr<SunLight :: Font :: IFont>  pFont    = engine.LoadFont( "fonts/f.ttf" );
+        std :: shared_ptr<SunLight :: Font :: IFont>  pForeign = other.LoadFont( "fonts/f.ttf" );
+        SunLight :: Font :: IFont                     *pRaw    = pFont.get();
+
+        CHECK( engine.GetFont() == nullptr );                   // the built-in font, until one is selected
+
+        REQUIRE( engine.SetFont( pFont ) == true );
+        pFont.reset();                                          // the caller lets go: the engine still holds it
+        CHECK( engine.GetFont().get() == pRaw );
+
+        CHECK( engine.SetFont( pForeign ) == false );
+        CHECK( engine.GetFont().get() == pRaw );                // refused: the active font is kept
+
+        CHECK( engine.SetFont( nullptr ) == true );
+        CHECK( engine.GetFont() == nullptr );
     }
 
     TEST_CASE( "Render targets and their textures are stable handles, and every draw call is a harmless no-op" )  {

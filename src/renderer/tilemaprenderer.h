@@ -326,13 +326,21 @@ namespace SunLight  {
             void EndBlendMode( void ) override;
 
             // Text rendering
-            bool SetFont( const char* szFilePath ) override;
+            std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) override;
+            bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont ) override;
+            std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void ) override;
 
-            // Register a font for text objects: a text object whose fontfamily
-            // and bold/italic flags match these draws with it. Needs a started
-            // renderer (a font needs the window's render context). Registering
-            // the same family and style again replaces the earlier font.
-            bool RegisterFont( const char* szFamily, const char* szFilePath, bool bBold, bool bItalic );
+            // Register a loaded font (LoadFont) for text objects: a text object
+            // whose fontfamily and bold/italic flags match these draws with it.
+            // The font is shared, so the same one can also be the active font
+            // (SetFont) or serve other families. Registering the same family and
+            // style again replaces the earlier font.
+            bool RegisterFont( const char* szFamily, std :: shared_ptr<SunLight :: Font :: IFont> pFont, bool bBold, bool bItalic );
+
+            // Let go of a registered font: in every family and style it serves (by the font itself),
+            // or for one family and style. Text objects left without a font draw ??????.
+            bool UnregisterFont( const std :: shared_ptr<SunLight :: Font :: IFont>& pFont );
+            bool UnregisterFont( const char* szFamily, bool bBold, bool bItalic );
             void DrawText( const char* szText,
                            int nPosX,
                            int nPosY,

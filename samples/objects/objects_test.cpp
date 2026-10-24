@@ -100,7 +100,7 @@ int main( int argc, char** argv )  {
     }
 
     // The labels are in "Sans", the regular face of Caravellius 8x8 (a bitmap font).
-    if( !pRenderer -> RegisterFont( "Sans", "/shared/fonts/caravellius8x8.fnt", false, false ) )
+    if( !pRenderer -> RegisterFont( "Sans", pRenderer -> LoadFont( "/shared/fonts/caravellius8x8.fnt" ), false, false ) )
         fprintf( stderr, "Cannot load the Sans font\n" );
 
     pRenderer -> SetCameraPosition( __START_CAMERA_X, __START_CAMERA_Y );

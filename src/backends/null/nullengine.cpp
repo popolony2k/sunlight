@@ -184,19 +184,6 @@ namespace SunLight  {
                                                   SunLight :: Base :: stColor )  {
             }
 
-            /**
-             * @brief Succeeds iff the font file exists (nothing is loaded -
-             * MeasureText's metric doesn't depend on the font).
-             */
-            bool NullEngine :: SetFont( const char* szFilePath )  {
-
-                if( ( szFilePath == nullptr ) || ( szFilePath[0] == '\0' ) )
-                    return false;
-
-                return SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().Exists(
-                           SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFilePath ) );
-            }
-
             static int NullTextWidth( const char* szText, int nFontSize );
 
             /**
@@ -224,14 +211,44 @@ namespace SunLight  {
             };
 
             /**
-             * @brief Succeeds iff the font file exists (see @see IEngine::LoadFont).
+             * @brief Succeeds iff the font file exists (see @see IEngine::LoadFont): nothing is
+             * loaded, since the metrics do not depend on the font.
+             * @param szFilePath The font file;
+             * @return A NullFont; nullptr if there is no such file;
              */
-            std :: unique_ptr<SunLight :: Font :: IFont> NullEngine :: LoadFont( const char* szFilePath )  {
+            std :: shared_ptr<SunLight :: Font :: IFont> NullEngine :: LoadFont( const char* szFilePath )  {
 
-                if( !SetFont( szFilePath ) )
+                if( ( szFilePath == nullptr ) || ( szFilePath[0] == '\0' ) ||
+                    !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().Exists(
+                         SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFilePath ) ) )
                     return nullptr;
 
-                return std :: make_unique<NullFont>();
+                return std :: make_shared<NullFont>();
+            }
+
+            /**
+             * @brief Keep the selected font, as the real engine would (see
+             * @see IEngine::SetFont): only a NullFont, this engine's own, is taken.
+             * @param pFont A font from LoadFont, or nullptr for the built-in font;
+             * @return Whether pFont is now the active font;
+             */
+            bool NullEngine :: SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont )  {
+
+                if( pFont && ( dynamic_cast<NullFont*>( pFont.get() ) == nullptr ) )
+                    return false;
+
+                m_pActiveFont = std :: move( pFont );
+
+                return true;
+            }
+
+            /**
+             * @brief The font SetFont kept (see @see IEngine::GetFont).
+             * @return The active font; nullptr for the built-in one;
+             */
+            std :: shared_ptr<SunLight :: Font :: IFont> NullEngine :: GetFont( void )  {
+
+                return m_pActiveFont;
             }
 
             /**

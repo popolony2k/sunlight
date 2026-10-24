@@ -276,15 +276,20 @@ TEST_SUITE( "renderer/TileMapRenderer" )  {
         CHECK( fixture.engine.nMeasureTextCalls == 1 );
     }
 
-    TEST_CASE( "SetFont forwards straight through to IEngine and returns its result" )  {
+    TEST_CASE( "SetFont and GetFont forward straight through to IEngine and return its result" )  {
 
-        MockEngineFixture  fixture;
-        TileMapRenderer    renderer( 800, 600, "test", -1 );
+        MockEngineFixture                             fixture;
+        TileMapRenderer                               renderer( 800, 600, "test", -1 );
+        std :: shared_ptr<SunLight :: Font :: IFont>  pFont = fixture.engine.LoadFont( "any.ttf" );
 
         fixture.engine.bSetFontResult = false;
-
-        CHECK( renderer.SetFont( "does-not-matter.ttf" ) == false );
+        CHECK( renderer.SetFont( pFont ) == false );
         CHECK( fixture.engine.nSetFontCalls == 1 );
-        CHECK( fixture.engine.strLastSetFontPath == "does-not-matter.ttf" );
+        CHECK( fixture.engine.pLastSetFont == pFont );
+        CHECK( renderer.GetFont() == nullptr );                 // refused: still the built-in font
+
+        fixture.engine.bSetFontResult = true;
+        CHECK( renderer.SetFont( pFont ) == true );
+        CHECK( renderer.GetFont() == pFont );
     }
 }

@@ -299,8 +299,9 @@ bool World :: Run( void )  {
         return false;
     }
 
-    // A readable font for the HUD and the labels (raylib's built-in one is a small bitmap font).
-    if( !m_pRenderer -> SetFont( __FONT_FILE ) )
+    // A readable font for the HUD and the labels (raylib's built-in one is a small bitmap font):
+    // loaded, then selected for DrawText; the renderer keeps it while it is selected.
+    if( !m_pRenderer -> SetFont( m_pRenderer -> LoadFont( __FONT_FILE ) ) )
         fprintf( stderr, "Cannot load the font [%s]: using the built-in one\n", __FONT_FILE );
 
     if( m_bUseMap && !m_pRenderer -> LoadMap( __TMX_MAP_FILE, __MAP_ALIGNMENT ) )  {

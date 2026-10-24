@@ -19,7 +19,7 @@
  */
 
 #include "renderer/text/fontregistry.h"
-#include "engines/enginefactory.h"
+#include <algorithm>
 #include <cstdio>
 
 
@@ -27,28 +27,24 @@ namespace SunLight  {
     namespace Renderer  {
 
         /**
-         * @brief Load a font and register it for a family and style, replacing (and so
-         * releasing) a font already registered for the same family and style.
+         * @brief Register a loaded font for a family and style, replacing (and so letting go
+         * of) a font already registered for the same family and style. The font is shared, not
+         * copied: the same font may also be the active font (SetFont) or serve other families.
          * @param szFamily Family name, as Tiled's fontfamily spells it;
-         * @param szFilePath Font file to load (any format IEngine::LoadFont reads);
+         * @param pFont The font (from IEngine::LoadFont);
          * @param bBold Whether this is the bold face of the family;
          * @param bItalic Whether this is the italic face of the family;
-         * @return true if the font loaded and is registered; false otherwise, and an earlier
-         * font for the same family and style is kept;
+         * @return true if the font is registered; false for no family, no font or a font no
+         * longer valid, and an earlier font for the same family and style is kept;
          */
-        bool FontRegistry :: Register( const char* szFamily, const char* szFilePath, bool bBold, bool bItalic )  {
+        bool FontRegistry :: Register( const char* szFamily, std :: shared_ptr<SunLight :: Font :: IFont> pFont, bool bBold, bool bItalic )  {
 
-            if( ( szFamily == nullptr ) || ( szFilePath == nullptr ) )
-                return false;
-
-            std :: unique_ptr<SunLight :: Font :: IFont>  pFont = SunLight :: Engines :: EngineFactory :: GetEngine().LoadFont( szFilePath );
-
-            if( pFont == nullptr )
+            if( ( szFamily == nullptr ) || ( pFont == nullptr ) || !pFont -> IsValid() )
                 return false;
 
             for( __stRegisteredFont& registered : m_Fonts )  {
                 if( ( registered.strFamily == szFamily ) && ( registered.bBold == bBold ) && ( registered.bItalic == bItalic ) )  {
-                    // Assigning destroys the old font, which releases it.
+                    // Assigning lets go of the old font, released if no one else holds it.
                     registered.pFont = std :: move( pFont );
 
                     return true;
@@ -58,6 +54,49 @@ namespace SunLight  {
             m_Fonts.push_back( __stRegisteredFont { szFamily, bBold, bItalic, std :: move( pFont ) } );
 
             return true;
+        }
+
+        /**
+         * @brief Let go of a font in every family and style it was registered for (I3 of the
+         * master plan): the font itself is all that is needed. Text objects of those families
+         * draw the placeholder again, as for a font never registered.
+         * @param pFont The font, as LoadFont gave it;
+         * @return true if it was registered for at least one family and style;
+         */
+        bool FontRegistry :: Unregister( const SunLight :: Font :: IFont* pFont )  {
+
+            size_t  nBefore = m_Fonts.size();
+
+            m_Fonts.erase( std :: remove_if( m_Fonts.begin(), m_Fonts.end(),
+                                             [pFont]( const __stRegisteredFont& registered )  {
+                                                 return ( pFont != nullptr ) && ( registered.pFont.get() == pFont );
+                                             } ),
+                           m_Fonts.end() );
+
+            return m_Fonts.size() != nBefore;
+        }
+
+        /**
+         * @brief Let go of the font registered for one family and style, leaving the font's other
+         * families and styles, if any, registered.
+         * @param szFamily Family name, as Tiled's fontfamily spells it;
+         * @param bBold Whether this is the bold face of the family;
+         * @param bItalic Whether this is the italic face of the family;
+         * @return true if a font was registered for exactly that family and style;
+         */
+        bool FontRegistry :: Unregister( const char* szFamily, bool bBold, bool bItalic )  {
+
+            if( szFamily == nullptr )
+                return false;
+
+            for( auto pIt = m_Fonts.begin(); pIt != m_Fonts.end(); ++pIt )  {
+                if( ( pIt -> strFamily == szFamily ) && ( pIt -> bBold == bBold ) && ( pIt -> bItalic == bItalic ) )  {
+                    m_Fonts.erase( pIt );
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /**
@@ -96,7 +135,7 @@ namespace SunLight  {
          */
         void FontRegistry :: Clear( void )  {
 
-            // Each font is destroyed here, which releases it.
+            // Each font is let go here, and released if no one else holds it.
             m_Fonts.clear();
             m_WarnedFonts.clear();
         }

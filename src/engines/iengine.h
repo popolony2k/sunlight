@@ -158,45 +158,53 @@ namespace SunLight  {
                                              SunLight :: Base :: stColor color ) = 0;
 
             /**
-             * @brief Must be implemented to load (or replace) the font used
-             * by @see DrawText, from a font file on disk. Implementations
-             * are expected to support at least TrueType/OpenType and, where
-             * the backend's own font loader allows it, other formats too
-             * (e.g. raylib auto-detects an AngelCode BMFont ".fnt" atlas by
-             * extension) - callers pass a plain file path and rely on the
-             * backend to sort out the format, the same way @see LoadTexture
-             * doesn't ask the caller which image codec to use. Only
-             * meaningful to call once the window/render context exists.
-             * Until this is called for the first time, @see DrawText must
-             * fall back to the backend's own built-in default font, so text
-             * can be drawn with zero setup. Implementations must release
-             * whatever font this call is replacing (if it was a font this
-             * method loaded, not the backend's built-in default), so
-             * repeated calls don't leak font resources.
+             * @brief Must be implemented to make a loaded font the active
+             * font: the one @see DrawText, @see MeasureText and
+             * @see DrawTextRotated use (I3 of the master plan). Loading is
+             * @see LoadFont's job alone; this only selects. The engine shares
+             * ownership of the active font, so the caller may drop its own
+             * handle. Until a font is selected, and after SetFont( nullptr ),
+             * the backend's own built-in font is used, so text can be drawn
+             * with zero setup; an active font that has become invalid (its
+             * window closed) is treated the same way.
              *
-             * @param szFilePath Path to the font file to load;
-             * @return true if the font loaded successfully and is now the
-             * active font, false if it failed to load (the previously
-             * active font, if any, is left untouched).
+             * @param pFont The font to select (from this engine's
+             * @see LoadFont), or nullptr for the built-in font;
+             * @return true if it is now the active font; false, with the
+             * active font unchanged, if pFont was not loaded by this engine
+             * or is no longer valid;
              */
-            virtual bool SetFont( const char* szFilePath ) = 0;
+            virtual bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont ) = 0;
 
             /**
-             * @brief Must be implemented to load a font file for use with
-             * @see DrawText and @see MeasureText, without making it the
-             * active font. Several fonts can be loaded at once, which is
-             * what a map needs when its text objects name different
-             * families or styles. Same file-format rules as @see SetFont.
+             * @brief Must be implemented to return the font @see SetFont
+             * selected.
              *
-             * The font is owned by the caller through the returned pointer.
-             * Destroying it releases the font; if the window has closed
-             * first, the engine has already released it and the object is
-             * invalid (see IFont).
+             * @return The active font; nullptr while the built-in font is used;
+             */
+            virtual std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void ) = 0;
+
+            /**
+             * @brief Must be implemented to load a font file, without making
+             * it the active font. Implementations are expected to support at
+             * least TrueType/OpenType and, where the backend's own font
+             * loader allows it, other formats too (e.g. raylib auto-detects
+             * an AngelCode BMFont ".fnt" atlas by extension) - callers pass a
+             * plain file path and rely on the backend to sort out the format,
+             * the same way @see LoadTexture doesn't ask the caller which
+             * image codec to use. Only meaningful to call once the
+             * window/render context exists. Several fonts can be loaded at
+             * once; each draws by itself (IFont), can be selected with
+             * @see SetFont, and can be registered for a map's text objects.
+             *
+             * Ownership is shared (std::shared_ptr): the last owner to let go
+             * releases the font; if the window has closed first, the engine
+             * has already released it and the object is invalid (see IFont).
              *
              * @param szFilePath Path to the font file to load;
              * @return The loaded font, or nullptr if it failed to load;
              */
-            virtual std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) = 0;
+            virtual std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) = 0;
 
             /**
              * @brief Must be implemented to restrict everything drawn after

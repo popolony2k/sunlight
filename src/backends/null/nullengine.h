@@ -45,7 +45,8 @@ namespace SunLight  {
              *  - MeasureText is a fixed metric (not pixel-accurate to any
              *    real font): width = characters x fontSize / 2. Games lay
              *    text out from it, so it must be deterministic.
-             *  - SetFont succeeds iff the font file exists.
+             *  - LoadFont succeeds iff the font file exists; SetFont keeps the
+             *    font it was given (one of this engine's), for GetFont.
              *  - Handles are tiny heap records (their size), so
              *    load/unload pairs behave like the real thing.
              */
@@ -90,9 +91,10 @@ namespace SunLight  {
                                          float fRadiusY,
                                          SunLight :: Base :: stColor color ) override;
 
-                bool SetFont( const char* szFilePath ) override;
+                bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont ) override;
+                std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void ) override;
 
-                std :: unique_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) override;
+                std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) override;
 
                 // Draws nothing, so there is nothing to clip.
                 void BeginClip( SunLight :: Base :: stRectangle rect ) override;
@@ -143,6 +145,10 @@ namespace SunLight  {
 
                 // Nothing is drawn, but the mode is kept: GetBlendMode answers what was set (I2).
                 SunLight :: Base :: BlendMode  m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
+
+                // The font SetFont selected (I3); nullptr for the built-in one. Its metrics are
+                // the same fixed ones either way, but GetFont answers what was selected.
+                std :: shared_ptr<SunLight :: Font :: IFont>  m_pActiveFont;
             };
         }
     }
