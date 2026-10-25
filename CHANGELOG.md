@@ -143,6 +143,13 @@ Each item is described in full in the plan; what each change means for code buil
   (`<image source="../../sprites/x.png">`) was refused by `LoadMap`: libtmx joins the path to the
   map's directory without collapsing it, and the FileSystem rejects those segments. It is now
   collapsed, as an external tileset's image path already was.
+- `CollisionManager`:
+  - `AddColliderToColliderRule` read past its layer array for a layer id out of range, and accepted
+    one as its second id, storing a bad pointer that the next `Update()` crashed on.
+  - `Clear()` destroyed every layer's list, so anything after it crashed.
+  - `RemoveAll()` (every layer) cleared nothing.
+  - Every layer id is now checked to be `0 <= id < MAX_COLLIDER_LAYERS`, `Clear()` empties the
+    lists, and `RemoveAll()` clears every layer.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 

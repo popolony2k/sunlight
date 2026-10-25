@@ -23,6 +23,9 @@
 #include <algorithm>
 #include <vector>
 
+// RemoveAll's id for "every layer" - its documented default (ICollisionManager::RemoveAll).
+#define __ALL_COLLIDER_LAYERS   ( -1 )
+
 
 namespace SunLight  {
     namespace Collision  {
@@ -89,6 +92,20 @@ namespace SunLight  {
         }
 
         /**
+         * @brief Whether a collider layer id indexes the layer array: 0 <= id < MAX_COLLIDER_LAYERS.
+         * Every method taking a layer id checks it first and refuses it otherwise. Comparing the int
+         * with the array's size_t size directly turned a negative id into a huge unsigned one: that
+         * refused a negative id only by accident, and made RemoveAll's -1 ("every layer") never
+         * match.
+         * @param nColliderLayerId The id to check;
+         * @return Whether it is a valid layer id;
+         */
+        bool CollisionManager :: IsValidLayerId( int nColliderLayerId )  {
+
+            return ( nColliderLayerId >= 0 ) && ( nColliderLayerId < MAX_COLLIDER_LAYERS );
+        }
+
+        /**
          * Add a collider to manager;
          * @param nColliderLayerId collider layer id to add the collider;
          * @param pCollider Pointer to collider to add;
@@ -96,7 +113,7 @@ namespace SunLight  {
         bool CollisionManager :: AddCollider( int nColliderLayerId,
                                               SunLight :: Collision :: Collider* pCollider )  {
 
-            if( nColliderLayerId < m_ColliderLayerList.size() )  {
+            if( IsValidLayerId( nColliderLayerId ) )  {
                 m_ColliderLayerList[nColliderLayerId] -> push_back( pCollider -> GetHandle() );
 
                 return true;
@@ -117,7 +134,7 @@ namespace SunLight  {
         bool CollisionManager :: RemoveCollider( int nColliderLayerId,
                                                  SunLight :: Collision :: Collider* pCollider )  {
 
-            if( nColliderLayerId < m_ColliderLayerList.size() )  {
+            if( IsValidLayerId( nColliderLayerId ) )  {
                 ColliderList   *pColliderList = m_ColliderLayerList[nColliderLayerId].get();
                 ColliderList :: iterator itItem = std :: find( pColliderList -> begin(),
                                                             pColliderList -> end(),
@@ -139,15 +156,16 @@ namespace SunLight  {
          */
         bool CollisionManager :: RemoveAll( int nColliderLayerId )  {
 
-            if( nColliderLayerId < m_ColliderLayerList.size() )  {
-                if( nColliderLayerId < 0 )  {
-                    for( auto& pColliderList : m_ColliderLayerList )  {
-                        pColliderList -> clear();
-                    }
+            if( nColliderLayerId == __ALL_COLLIDER_LAYERS )  {
+                for( auto& pColliderList : m_ColliderLayerList )  {
+                    pColliderList -> clear();
                 }
-                else  {
-                    m_ColliderLayerList[nColliderLayerId] -> clear();
-                }
+
+                return true;
+            }
+
+            if( IsValidLayerId( nColliderLayerId ) )  {
+                m_ColliderLayerList[nColliderLayerId] -> clear();
 
                 return true;
             }
@@ -156,12 +174,16 @@ namespace SunLight  {
         }
 
         /**
-         * Clear the collider manager object (lists status, ....
+         * Clear the collider manager object: every layer's colliders, and every rule. Each layer's
+         * list is emptied, not destroyed, so the manager stays as usable as a new one: AddCollider,
+         * RemoveCollider and Update use every layer's list without checking it, and used to
+         * dereference null after a Clear() that destroyed them. The lists themselves are freed with
+         * the manager (their unique_ptrs).
          */
         void CollisionManager :: Clear( void )  {
 
-            for( int nCount = 0; nCount < m_ColliderLayerList.size(); nCount++)  {
-                m_ColliderLayerList[nCount].reset();
+            for( auto& pColliderList : m_ColliderLayerList )  {
+                pColliderList -> clear();
             }
 
             m_ColliderToColliderRuleList.clear();
@@ -180,6 +202,12 @@ namespace SunLight  {
         bool CollisionManager :: AddColliderToColliderRule( int nFirstColliderLayerId,
                                                             int nSecondColliderLayerId )  {
 
+            // Both ids are checked before the duplicate search below indexes the layer array with them.
+            // Found by Scarab: the search read past the array for an id out of range, and the old check
+            // tested the first id twice, so ( 1, 300 ) kept a pointer from past the array in a rule.
+            if( !IsValidLayerId( nFirstColliderLayerId ) || !IsValidLayerId( nSecondColliderLayerId ) )
+                return false;
+
             ColliderLayerList& colliderLayerListRef = m_ColliderLayerList;
             ColliderToColliderRuleList :: iterator itItem = std :: find_if( m_ColliderToColliderRuleList.begin(),
                                                                             m_ColliderToColliderRuleList.end(),
@@ -193,9 +221,7 @@ namespace SunLight  {
                                 return ( ( pPair -> first == pFirst ) && ( pPair -> second == pSecond ) );
                             } );
 
-            if( ( itItem == m_ColliderToColliderRuleList.end() ) &&
-                ( nFirstColliderLayerId < m_ColliderLayerList.size() ) &&
-                ( nFirstColliderLayerId < m_ColliderLayerList.size() ) )  {
+            if( itItem == m_ColliderToColliderRuleList.end() )  {
 
                 std :: unique_ptr<ColliderPair>  pPair = std :: make_unique<ColliderPair>();
 
@@ -223,7 +249,7 @@ namespace SunLight  {
 
             SunLight :: TileMap :: stLayer layer;
 
-            if( ( nColliderLayerId < m_ColliderLayerList.size() ) &&
+            if( IsValidLayerId( nColliderLayerId ) &&
                 m_pParent -> GetLayer( nTileLayerId, layer ) )  {
 
                 std :: unique_ptr<ColliderTileLayerPair>  pPair = std :: make_unique<ColliderTileLayerPair>();
