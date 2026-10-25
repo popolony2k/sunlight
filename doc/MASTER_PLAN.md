@@ -2226,6 +2226,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I2 | A blend-mode primitive (normal, additive, multiply, ...) a game can use, with or without a map | DONE |
 | I3 | Fonts by handle: load an `IFont` once, then select it (`SetFont`) and register it for text objects (`RegisterFont`), instead of passing a file path to each | DONE |
 | I4 | A map whose embedded tileset image path contains `..` was refused (reported by Scarab, its V6) | DONE |
+| I5 | `CollisionManager` layer ids: an id out of range read past the layer array, `Clear()` left null lists, `RemoveAll()` cleared nothing (reported by Scarab) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2376,6 +2377,32 @@ already worked.
   - End to end, through the null backend, whose `LoadTexture` reads the image through the
     FileSystem: a map in `maps/sub/` with its image in `images/` loads.
   - The same from a scrambled `.zip` behind a read filter, through real PhysFS.
+
+**I5: `CollisionManager` layer ids (DONE).** Scarab reported the first two points; the owner approved
+fixing all four together:
+
+1. `AddColliderToColliderRule`'s duplicate search indexed the layer array with both ids before any
+   check, which read past the array for an id `>= MAX_COLLIDER_LAYERS` or a negative one.
+2. Its check then tested the first id twice. `( 1, 300 )` and `( 1, -1 )` returned true and stored a
+   pointer read from outside the array, and the next `Update()` dereferenced it (a crash in the test).
+3. `Clear()` (public, called only by the destructor today) destroyed every layer's list, so
+   `AddCollider`, `RemoveCollider` and `Update` dereferenced null after it (a crash in the test).
+4. `RemoveAll()`'s documented default, `-1` ("every layer"), was compared with the array's `size_t`
+   size, became a huge unsigned value, and never matched: it returned false and cleared nothing.
+
+- **Fix:** a private `IsValidLayerId( id )` (`0 <= id < MAX_COLLIDER_LAYERS`), checked first by every
+  method taking a layer id; `AddColliderToColliderRule` checks both ids before the search. `Clear()`
+  empties each list instead of destroying it. `RemoveAll( -1 )` clears every layer.
+- **Tests** (`tests/test_collisionmanager.cpp`), each shown to fail on the old code, except the
+  third, which pins the new explicit check:
+  - an out-of-range id on either side is refused and adds no rule (old: true, then a crash in
+    `Update`);
+  - a negative id on either side while a rule exists (old: `( 1, -1 )` true);
+  - every layer method refusing a negative id;
+  - `Clear()` leaving every layer empty but usable (old: a crash);
+  - `RemoveAll()`, `RemoveAll( id )` and an invalid id (old: `RemoveAll()` false, nothing cleared).
+- **Who it affects:** nothing found. Scarab already refuses layer ids outside 0..254, and nothing in
+  sunlight, Scarab or Caravellius calls `Clear()` or `RemoveAll()`.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

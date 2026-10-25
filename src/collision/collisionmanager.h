@@ -67,6 +67,9 @@ namespace SunLight  {
             bool IsColliderRegistered( ColliderList* pColliderList,
                                        const ColliderHandle& handle );
 
+            // Whether a collider layer id indexes m_ColliderLayerList: 0 <= id < MAX_COLLIDER_LAYERS.
+            static bool IsValidLayerId( int nColliderLayerId );
+
             public:
 
             CollisionManager( SunLight :: TileMap :: ITileMap  *pParent );

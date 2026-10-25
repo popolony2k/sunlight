@@ -139,6 +139,120 @@ TEST_SUITE( "collision/CollisionManager" )  {
         CHECK( manager.AddColliderToColliderRule( 0, 1 ) == false );
     }
 
+    TEST_CASE( "AddColliderToColliderRule refuses a layer id out of range on either side, and adds no rule" )  {
+
+        // Found by Scarab: the second id was never checked, so ( 1, 300 ) returned true and kept a pointer read
+        // from past the layer array in the rule, which the next Update() dereferenced.
+        const int               nOutOfRange = 300;
+        MockTileMap             tileMap;
+        CollisionManager        manager( &tileMap );
+        TestCollisionListener   listener;
+        Collider                colliderA, colliderB;
+        SunLight :: Base :: stDimension2D  dim { { 0, 0 }, { 50, 50 } };
+
+        CHECK( manager.AddColliderToColliderRule( 1, MAX_COLLIDER_LAYERS ) == false );
+        CHECK( manager.AddColliderToColliderRule( MAX_COLLIDER_LAYERS, 1 ) == false );
+        CHECK( manager.AddColliderToColliderRule( 1, nOutOfRange ) == false );
+        CHECK( manager.AddColliderToColliderRule( nOutOfRange, 1 ) == false );
+
+        // No rule was added: two overlapping colliders on layers 1 and 2 are never checked.
+        colliderA.SetDimension2D( dim );
+        colliderB.SetDimension2D( dim );
+        manager.AddCollider( 1, &colliderA );
+        manager.AddCollider( 2, &colliderB );
+        manager.AddCollisionListener( &listener );
+        manager.Update();
+
+        CHECK( listener.colliderHits.empty() );
+        CHECK( manager.AddColliderToColliderRule( 1, MAX_COLLIDER_LAYERS - 1 ) == true );    // the last valid id
+    }
+
+    TEST_CASE( "AddColliderToColliderRule refuses a negative layer id on either side while a rule already exists" )  {
+
+        // With a rule in the list, the duplicate search used to index the layer array with the id before any
+        // check - a read before the array for a negative id (seen by AddressSanitizer).
+        MockTileMap        tileMap;
+        CollisionManager   manager( &tileMap );
+
+        REQUIRE( manager.AddColliderToColliderRule( 0, 1 ) == true );
+
+        CHECK( manager.AddColliderToColliderRule( -1, 1 ) == false );
+        CHECK( manager.AddColliderToColliderRule( 1, -1 ) == false );
+    }
+
+    TEST_CASE( "Every layer method refuses a negative layer id" )  {
+
+        MockTileMap        tileMap;
+        CollisionManager   manager( &tileMap );
+        Collider           collider;
+
+        CHECK( manager.AddCollider( -1, &collider ) == false );
+        CHECK( manager.RemoveCollider( -1, &collider ) == false );
+        CHECK( manager.AddColliderToTileRule( -1, 0 ) == false );
+    }
+
+    TEST_CASE( "RemoveAll() empties every layer, RemoveAll( id ) one layer, and any other id is refused" )  {
+
+        // RemoveAll's default, -1 ("every layer"), compared as a huge unsigned value, so it returned false and
+        // cleared nothing.
+        MockTileMap             tileMap;
+        CollisionManager        manager( &tileMap );
+        TestCollisionListener   listener;
+        Collider                colliderA, colliderB, colliderC;
+        SunLight :: Base :: stDimension2D  dim { { 0, 0 }, { 50, 50 } };
+
+        colliderA.SetDimension2D( dim );
+        colliderB.SetDimension2D( dim );
+        colliderC.SetDimension2D( dim );
+        manager.AddCollider( 0, &colliderA );
+        manager.AddCollider( 1, &colliderB );
+        manager.AddCollider( 2, &colliderC );
+        manager.AddColliderToColliderRule( 0, 1 );
+        manager.AddColliderToColliderRule( 0, 2 );
+        manager.AddCollisionListener( &listener );
+
+        CHECK( manager.RemoveAll( 2 ) == true );                    // one layer: only A-B still hits
+        manager.Update();
+        CHECK( listener.colliderHits.size() == 1 );
+
+        CHECK( manager.RemoveAll() == true );                       // every layer: nothing hits
+        listener.colliderHits.clear();
+        manager.Update();
+        CHECK( listener.colliderHits.empty() );
+
+        CHECK( manager.RemoveAll( -2 ) == false );
+        CHECK( manager.RemoveAll( MAX_COLLIDER_LAYERS ) == false );
+    }
+
+    TEST_CASE( "After Clear() every layer is empty but usable, as on a new manager" )  {
+
+        // Clear() used to destroy every layer's list, so AddCollider, RemoveCollider and Update dereferenced null.
+        MockTileMap             tileMap;
+        CollisionManager        manager( &tileMap );
+        TestCollisionListener   listener;
+        Collider                colliderA, colliderB;
+        SunLight :: Base :: stDimension2D  dim { { 0, 0 }, { 50, 50 } };
+
+        colliderA.SetDimension2D( dim );
+        colliderB.SetDimension2D( dim );
+        manager.AddCollider( 0, &colliderA );
+        manager.AddCollider( 1, &colliderB );
+        manager.AddColliderToColliderRule( 0, 1 );
+        manager.AddCollisionListener( &listener );
+
+        manager.Clear();
+        manager.Update();
+        CHECK( listener.colliderHits.empty() );                    // the colliders and the rule are gone
+
+        CHECK( manager.AddCollider( 0, &colliderA ) == true );
+        CHECK( manager.AddCollider( 1, &colliderB ) == true );
+        CHECK( manager.RemoveCollider( 1, &colliderB ) == true );
+        CHECK( manager.AddCollider( 1, &colliderB ) == true );
+        CHECK( manager.AddColliderToColliderRule( 0, 1 ) == true );
+        manager.Update();
+        CHECK( listener.colliderHits.size() == 1 );
+    }
+
     TEST_CASE( "Update fires OnCollision only for overlapping colliders on a paired layer" )  {
 
         MockTileMap             tileMap;
