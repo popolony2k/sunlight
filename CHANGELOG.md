@@ -150,6 +150,10 @@ Each item is described in full in the plan; what each change means for code buil
   - `RemoveAll()` (every layer) cleared nothing.
   - Every layer id is now checked to be `0 <= id < MAX_COLLIDER_LAYERS`, `Clear()` empties the
     lists, and `RemoveAll()` clears every layer.
+- `UnloadMap()` and `Stop()` left the unloaded sprites' colliders in the collision manager: an
+  unloaded sprite kept colliding, and adding it again registered its collider twice. The sprites'
+  own colliders are now removed with them; colliders the game added itself, and the collision
+  rules, stay.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 

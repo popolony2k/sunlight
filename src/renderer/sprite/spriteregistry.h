@@ -24,6 +24,7 @@
 #include <deque>
 #include <map>
 #include <set>
+#include <utility>
 #include <vector>
 #include "sprite/sprite.h"
 
@@ -58,6 +59,7 @@ namespace SunLight  {
             bool Remove( int nLayerId, SunLight :: Sprite :: Sprite* pSprite );
             bool Empty( void ) const;
             std :: vector<int> LayerIds( void ) const;
+            std :: vector<std :: pair<int, SunLight :: Sprite :: Sprite*>> Registrations( void ) const;
 
             void MarkParented( SunLight :: Sprite :: Sprite* pSprite );
             SunLight :: Sprite :: Sprite* Forget( SunLight :: Canvas :: BaseCanvas* pChild, std :: vector<int>& layerIds );
