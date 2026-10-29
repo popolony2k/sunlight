@@ -2227,6 +2227,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I3 | Fonts by handle: load an `IFont` once, then select it (`SetFont`) and register it for text objects (`RegisterFont`), instead of passing a file path to each | DONE |
 | I4 | A map whose embedded tileset image path contains `..` was refused (reported by Scarab, its V6) | DONE |
 | I5 | `CollisionManager` layer ids: an id out of range read past the layer array, `Clear()` left null lists, `RemoveAll()` cleared nothing (reported by Scarab) | DONE |
+| I6 | `UnloadMap()`/`Stop()` left the unloaded sprites' colliders in the collision manager (reported by Scarab, its V9) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2403,6 +2404,29 @@ fixing all four together:
   - `RemoveAll()`, `RemoveAll( id )` and an invalid id (old: `RemoveAll()` false, nothing cleared).
 - **Who it affects:** nothing found. Scarab already refuses layer ids outside 0..254, and nothing in
   sunlight, Scarab or Caravellius calls `Clear()` or `RemoveAll()`.
+
+**I6: unloaded sprites' colliders (DONE).** Scarab reported it, while checking BREAKAGES 47 (its V9).
+
+- **What happened:**
+  - `UnloadMap()` and `Stop()` both unload the sprites through `UnloadSprites()` ->
+    `SpriteRegistry::UnloadAll()`, which unloads and forgets them but left each sprite's collider in
+    its layer's collision list. So an unloaded, unregistered sprite kept colliding.
+  - The next `AddSprite` saw the sprite as new and added the collider again. Scarab measured 4 hits
+    per frame for 2 overlapping sprites, where 1 is right.
+  - `RemoveSprite` and `ChildRemoved` already removed the collider; only this bulk path did not.
+- **Fix:** `UnloadSprites()` removes each registered sprite's collider from every layer it was
+  registered on (`RemoveCollider`), then unloads. `SpriteRegistry` gained a read-only
+  `Registrations()` (layer, sprite) for it, and still knows nothing about collisions.
+- **Decided with the owner:**
+  - Only the sprites' own colliders are removed. One the game added to the manager itself stays,
+    which `RemoveAll( layer )` would have wiped.
+  - The collision rules stay: they are the game's setup, not the map's.
+- **Tests** (`tests/test_spriteregistration.cpp`), each shown to fail on the old code with Scarab's
+  numbers:
+  - one hit per frame with the map loaded, then 0 after `UnloadMap()` (old: still 1 per frame), then
+    1 per frame after `LoadMap` and `AddSprite` again (old: 4);
+  - the same through `Stop()` and `Start()` (old: 4);
+  - a collider the game added itself surviving `UnloadMap()`.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

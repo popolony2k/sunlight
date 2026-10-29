@@ -110,6 +110,25 @@ namespace SunLight  {
         }
 
         /**
+         * @brief Every registration, as (layer id, sprite) - a sprite registered on several layers
+         * appears once per layer. Lets the renderer undo what it set up around each registration
+         * (its collider) before UnloadAll forgets them, without the registry knowing about
+         * collisions.
+         * @return The registrations, layer by layer in ascending id order;
+         */
+        std :: vector<std :: pair<int, SunLight :: Sprite :: Sprite*>> SpriteRegistry :: Registrations( void ) const  {
+
+            std :: vector<std :: pair<int, SunLight :: Sprite :: Sprite*>>  registrations;
+
+            for( const std :: pair<const int, SpriteList>& layer : m_Layers )  {
+                for( SunLight :: Sprite :: Sprite* pSprite : layer.second )
+                    registrations.push_back( { layer.first, pSprite } );
+            }
+
+            return registrations;
+        }
+
+        /**
          * @brief Record a sprite whose parent the renderer has become: one that must tell it when
          * it is destroyed or moves to another parent (Forget), on a layer or not any more.
          */

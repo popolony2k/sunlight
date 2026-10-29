@@ -78,7 +78,124 @@ namespace  {
     };
 }
 
+namespace  {
+
+    // Counts every collider-to-collider hit the collision manager reports.
+    struct HitCounter : public SunLight :: Collision :: ICollisionListener  {
+        int  nHits = 0;
+
+        void OnCollision( SunLight :: Collision :: Collider*, SunLight :: Collision :: Collider* ) override  { nHits++; }
+        void OnCollision( SunLight :: Collision :: Collider*, SunLight :: TileMap :: stTile* ) override     {}
+    };
+
+    // Two overlapping sprites registered on the map's two layers (1, the tile layer, and 2, the object
+    // layer), with a collider-to-collider rule between those layers: one hit per frame.
+    struct CollidingSprites  {
+
+        static const int  FIRST_LAYER  = 1;
+        static const int  SECOND_LAYER = 2;
+
+        MockEngineFixture                   engineFixture;
+        MockWindowFixture                   windowFixture;
+        MemoryFileSystemFixture             fsFixture;
+        std :: unique_ptr<TileMapRenderer>  pRenderer;
+        SunLight :: Sprite :: Sprite        first, second;
+        HitCounter                          hits;
+
+        CollidingSprites( void )  {
+            fsFixture.fs.files["maps/two.tmx"] = MakeSquareTmx( 4, 16, true, 0, 0, 8, 8 );
+
+            RendererConfig  config;
+
+            config.fWidth  = 1260.0f;
+            config.fHeight = 920.0f;
+
+            pRenderer = TileMapRenderer :: Create( config, nullptr );
+
+            REQUIRE( pRenderer != nullptr );
+            REQUIRE( pRenderer -> Start() == true );
+            REQUIRE( LoadMap() == true );
+            REQUIRE( pRenderer -> GetCollisionManager().AddColliderToColliderRule( FIRST_LAYER, SECOND_LAYER ) == true );
+            pRenderer -> GetCollisionManager().AddCollisionListener( &hits );
+            AddBoth();
+        }
+
+        ~CollidingSprites( void )  {
+            if( pRenderer )
+                pRenderer -> Stop();
+        }
+
+        bool LoadMap( void )  {
+            return pRenderer -> LoadMap( "maps/two.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT );
+        }
+
+        // Each sprite's collider is its own rectangle (no texture): the two overlap.
+        void AddBoth( void )  {
+            first.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 50, 50 } } );
+            second.SetDimension2D( SunLight :: Base :: stDimension2D { { 25, 25 }, { 50, 50 } } );
+
+            REQUIRE( pRenderer -> AddSprite( FIRST_LAYER, first ) == true );
+            REQUIRE( pRenderer -> AddSprite( SECOND_LAYER, second ) == true );
+        }
+
+        // The hits reported over nFrames frames.
+        int HitsOver( int nFrames )  {
+            hits.nHits                                   = 0;
+            windowFixture.window.nEndFrameCalls          = 0;
+            windowFixture.window.nFramesUntilShouldClose = nFrames;
+            pRenderer -> Run();
+
+            return hits.nHits;
+        }
+    };
+
+    const int  __FRAMES = 5;
+}
+
 TEST_SUITE( "renderer/spriteregistration" )  {
+
+    TEST_CASE( "UnloadMap takes the sprites' colliders out too: an unloaded sprite collides no more, a re-added one once" )  {
+
+        // Found by Scarab (its V9): UnloadMap unloaded and forgot the sprites but left their colliders in the
+        // collision manager, so they kept colliding, and AddSprite after a new LoadMap added each collider again.
+        CollidingSprites  scene;
+
+        CHECK( scene.HitsOver( __FRAMES ) == __FRAMES );            // one hit per frame
+
+        REQUIRE( scene.pRenderer -> UnloadMap() == true );
+        CHECK( scene.HitsOver( __FRAMES ) == 0 );                   // unloaded: no collider left
+
+        REQUIRE( scene.LoadMap() == true );
+        scene.AddBoth();
+        CHECK( scene.HitsOver( __FRAMES ) == __FRAMES );            // each collider registered once again
+    }
+
+    TEST_CASE( "Stop takes the sprites' colliders out too: after Start and AddSprite again, one hit per frame" )  {
+
+        CollidingSprites  scene;
+
+        scene.pRenderer -> Stop();
+        REQUIRE( scene.pRenderer -> Start() == true );
+        REQUIRE( scene.LoadMap() == true );
+        scene.AddBoth();
+
+        CHECK( scene.HitsOver( __FRAMES ) == __FRAMES );
+    }
+
+    TEST_CASE( "UnloadMap leaves a collider the game added itself: only the sprites' own colliders are taken out" )  {
+
+        CollidingSprites                   scene;
+        SunLight :: Collision :: Collider  own;
+
+        own.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 50, 50 } } );   // over the second sprite
+        REQUIRE( scene.pRenderer -> GetCollisionManager().AddCollider( CollidingSprites :: FIRST_LAYER, &own ) == true );
+        CHECK( scene.HitsOver( __FRAMES ) == 2 * __FRAMES );        // own and the first sprite, both against the second
+
+        REQUIRE( scene.pRenderer -> UnloadMap() == true );
+        REQUIRE( scene.LoadMap() == true );
+        scene.AddBoth();
+        CHECK( scene.HitsOver( __FRAMES ) == 2 * __FRAMES );        // own is still there, the sprites once each
+    }
 
     TEST_CASE( "A sprite destroyed while registered is forgotten by the renderer (its address can be registered again, frames are safe)" )  {
 

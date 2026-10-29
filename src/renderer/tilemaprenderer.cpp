@@ -144,9 +144,19 @@ namespace SunLight  {
         }
 
         /**
-         * Unload all sprites from map and release all allocated data.
+         * Unload all sprites from map and release all allocated data. Each sprite's collider comes
+         * out of the collision manager first, from every layer it was registered on - the
+         * counterpart of AddSprite's AddCollider, as RemoveSprite and ChildRemoved already do.
+         * Found by Scarab (its V9): UnloadMap and Stop used to leave the colliders in, so an
+         * unloaded sprite kept colliding, and the AddSprite that followed a new LoadMap (the
+         * registry having forgotten it) added the same collider a second time. Only the sprites'
+         * own colliders are taken out: one the game added to the manager itself stays, and so do
+         * the collision rules, which are the game's setup, not the map's.
          */
         void TileMapRenderer :: UnloadSprites( void )  {
+
+            for( const std :: pair<int, SunLight :: Sprite :: Sprite*>& registration : m_Sprites.Registrations() )
+                m_CollisionManager.RemoveCollider( registration.first, &registration.second -> GetCollider() );
 
             m_Sprites.UnloadAll();
         }
