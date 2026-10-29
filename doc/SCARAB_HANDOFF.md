@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `a6ac4f6bea9973795c1668dd8eabfc67defc03c1` | `UnloadMap()`/`Stop()` take the unloaded sprites' colliders out (I6, found by Scarab in its V9) | 55 |
 | `fa953f38cb22508247b528c8234ad2bb0f4293e8` | `CollisionManager` checks every layer id; `Clear()` and `RemoveAll()` work (I5, found by Scarab) | 54 |
 | `f651accc2291a2ea9020dad3bfc2f1245e76858f` | A map's embedded tileset image path with `..` or `.` loads (I4, found by Scarab in its V6) | 53 |
 | `9c8c6bf421a1147d1e8c099e698dfbe7c1885af2` | Fonts by handle: `LoadFont` once, then `SetFont` / `RegisterFont` / `UnregisterFont` with the handle (I3). Breaks `set_font`/`register_font` on purpose; sent with a guide to the new model | 52 |
