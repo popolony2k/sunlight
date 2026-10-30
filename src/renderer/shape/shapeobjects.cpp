@@ -37,6 +37,10 @@ namespace SunLight  {
                 const double        __OPACITY_MAX          = 1.0;
                 const double        __DEGREES_TO_RADIANS   = 3.14159265358979323846 / 180.0;
                 const double        __ROTATION_EPSILON     = 1e-12;   // a cosine or sine this close to zero is zero
+                const unsigned      __ALPHA_SHIFT          = 24;      // libtmx's packed colour: 0xAARRGGBB
+                const unsigned      __RED_SHIFT            = 16;
+                const unsigned      __GREEN_SHIFT          = 8;
+                const unsigned      __CHANNEL_MAX          = 0xFF;    // a colour channel's full value
 
                 // A numeric property of the object (Tiled stores it as an int or a float), or the default when it has none.
                 double NumberPropertyOf( tmx_object* pObject, const char* szName, double fDefault )  {
@@ -64,6 +68,35 @@ namespace SunLight  {
                 tmx_col_bytes  res = ::tmx_col_to_bytes( nColor );
 
                 return *( ( SunLight :: Base :: stColor * ) &res );
+            }
+
+            /**
+             * @brief The inverse of ColorOf: libtmx's ARGB layout (tmx_col_to_bytes reads alpha from the
+             * top byte, then red, green and blue).
+             * @param color The colour;
+             * @return The packed ARGB value;
+             */
+            uint32_t ArgbOf( SunLight :: Base :: stColor color )  {
+
+                return ( ( uint32_t ) color.nAlpha << __ALPHA_SHIFT ) | ( ( uint32_t ) color.nRed << __RED_SHIFT ) |
+                       ( ( uint32_t ) color.nGreen << __GREEN_SHIFT ) | ( uint32_t ) color.nBlue;
+            }
+
+            /**
+             * @brief A colour's RGB multiplied by a tint's, channel by channel, rounded to nearest:
+             * c x t / 255, so white (255) leaves a channel exactly as it is, and black (0) clears it.
+             * @param color The colour (its alpha is kept);
+             * @param tint The tint (its alpha is not used);
+             * @return The tinted colour;
+             */
+            SunLight :: Base :: stColor MultiplyTint( SunLight :: Base :: stColor color, SunLight :: Base :: stColor tint )  {
+
+                auto  Channel = []( unsigned char c, unsigned char t )  {
+                    return ( unsigned char ) ( ( ( unsigned ) c * t + __CHANNEL_MAX / 2 ) / __CHANNEL_MAX );
+                };
+
+                return SunLight :: Base :: stColor { Channel( color.nRed, tint.nRed ), Channel( color.nGreen, tint.nGreen ),
+                                                     Channel( color.nBlue, tint.nBlue ), color.nAlpha };
             }
 
             double LineWidthOf( tmx_object* pObject )  {

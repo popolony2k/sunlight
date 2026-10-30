@@ -25,6 +25,10 @@
  * tile layers, image layers, and tile objects alike. Its own alpha channel is deliberately
  * ignored: layer opacity (the existing, separate "opacity" attribute) is still the only alpha
  * control, exactly as it was before tintcolor existed.
+ *
+ * I8 of the master plan: stLayer::tint reads the authored tintcolor (alpha included) through
+ * GetLayer and writes it back through SetLayer. Groups and runtime changes on every layer type
+ * are in test_layertint_groups.cpp.
  */
 
 #include <doctest/doctest.h>
@@ -108,6 +112,15 @@ namespace  {
             pRenderer -> Run();
         }
 
+        // libtmx's own packed ARGB value of a layer, as SetLayer left it.
+        uint32_t RawTint( int nLayerId )  {
+            SunLight :: TileMap :: stLayer  layer {};
+
+            REQUIRE( pRenderer -> GetLayer( nLayerId, layer ) == true );
+
+            return layer.pLayer -> tintcolor;
+        }
+
         std :: vector<Event> TileEvents( void )  {
             std :: vector<Event>  tiles;
 
@@ -186,6 +199,118 @@ TEST_SUITE( "renderer/layer_tint" )  {
             CHECK( tiles[i].color.nGreen == 0x80 );
             CHECK( tiles[i].color.nBlue  == 0x00 );
             CHECK( tiles[i].color.nAlpha == 0xFF );    // from opacity (1.0), NOT the tint's own 0x80
+        }
+    }
+
+    TEST_CASE( "GetLayer reads a layer's authored tint, alpha included, by id and by name" )  {
+
+        Scene  scene( " tintcolor=\"#80ff8000\"" );
+
+        SunLight :: TileMap :: stLayer  byId {};
+        SunLight :: TileMap :: stLayer  byName {};
+
+        REQUIRE( scene.pRenderer -> GetLayer( 1, byId ) == true );
+        REQUIRE( scene.pRenderer -> GetLayer( "tinted", byName ) == true );
+
+        for( const SunLight :: TileMap :: stLayer& layer : { byId, byName } )  {
+            CHECK( layer.tint.nRed   == 0xFF );
+            CHECK( layer.tint.nGreen == 0x80 );
+            CHECK( layer.tint.nBlue  == 0x00 );
+            CHECK( layer.tint.nAlpha == 0x80 );
+        }
+    }
+
+    TEST_CASE( "GetLayer reads opaque white for a layer with no tintcolor" )  {
+
+        Scene  scene( " tintcolor=\"#ff8000\"" );
+
+        SunLight :: TileMap :: stLayer  layer {};
+
+        layer.tint = SunLight :: Base :: stColor { 0, 0, 0, 0 };   // so a GetLayer that leaves it alone shows
+        REQUIRE( scene.pRenderer -> GetLayer( "plain", layer ) == true );
+        CHECK( layer.tint.nRed   == 0xFF );
+        CHECK( layer.tint.nGreen == 0xFF );
+        CHECK( layer.tint.nBlue  == 0xFF );
+        CHECK( layer.tint.nAlpha == 0xFF );
+    }
+
+    TEST_CASE( "SetLayer writes the tint back as libtmx's ARGB, alpha included" )  {
+
+        Scene  scene( "" );
+
+        SunLight :: TileMap :: stLayer  layer {};
+
+        REQUIRE( scene.pRenderer -> GetLayer( 1, layer ) == true );
+        layer.tint = SunLight :: Base :: stColor { 0x12, 0x34, 0x56, 0x78 };
+        REQUIRE( scene.pRenderer -> SetLayer( 1, layer ) == true );
+        CHECK( scene.RawTint( 1 ) == 0x78123456u );
+
+        SunLight :: TileMap :: stLayer  readBack {};
+
+        REQUIRE( scene.pRenderer -> GetLayer( "tinted", readBack ) == true );
+        CHECK( readBack.tint.nRed   == 0x12 );
+        CHECK( readBack.tint.nGreen == 0x34 );
+        CHECK( readBack.tint.nBlue  == 0x56 );
+        CHECK( readBack.tint.nAlpha == 0x78 );
+    }
+
+    TEST_CASE( "A tint set with SetLayer shows from the next frame, its alpha still ignored" )  {
+
+        Scene  scene( "" );
+
+        scene.RunFrames( 1 );
+        REQUIRE( scene.TileEvents().size() == 4 );
+        CHECK( scene.TileEvents()[0].color.nGreen == 0xFF );   // untinted before
+
+        SunLight :: TileMap :: stLayer  layer {};
+
+        REQUIRE( scene.pRenderer -> GetLayer( "tinted", layer ) == true );
+        layer.tint = SunLight :: Base :: stColor { 0x00, 0x80, 0xFF, 0x10 };
+        REQUIRE( scene.pRenderer -> SetLayer( "tinted", layer ) == true );
+        scene.RunFrames( 1 );
+
+        std :: vector<Event>  tiles = scene.TileEvents();
+
+        REQUIRE( tiles.size() == 4 );
+
+        for( size_t i = 0; i < 2; i++ )  {
+            INFO( "tinted tile " << i );
+            CHECK( tiles[i].color.nRed   == 0x00 );
+            CHECK( tiles[i].color.nGreen == 0x80 );
+            CHECK( tiles[i].color.nBlue  == 0xFF );
+            CHECK( tiles[i].color.nAlpha == 0xFF );   // the opacity's, not the tint's 0x10
+        }
+
+        CHECK( tiles[2].color.nRed == 0xFF );   // the other layer untouched
+        CHECK( tiles[2].color.nBlue == 0xFF );
+    }
+
+    TEST_CASE( "Writing back an unchanged layer leaves its tint exactly as authored" )  {
+
+        Scene  scene( " tintcolor=\"#80ff8000\"" );
+
+        uint32_t  nAuthored = scene.RawTint( 1 );
+
+        scene.RunFrames( 1 );
+
+        std :: vector<Event>  before = scene.TileEvents();
+        SunLight :: TileMap :: stLayer  layer {};
+
+        REQUIRE( scene.pRenderer -> GetLayer( 1, layer ) == true );
+        REQUIRE( scene.pRenderer -> SetLayer( 1, layer ) == true );
+        CHECK( scene.RawTint( 1 ) == nAuthored );
+        scene.RunFrames( 1 );
+
+        std :: vector<Event>  after = scene.TileEvents();
+
+        REQUIRE( after.size() == before.size() );
+
+        for( size_t i = 0; i < after.size(); i++ )  {
+            INFO( "tile " << i );
+            CHECK( after[i].color.nRed   == before[i].color.nRed );
+            CHECK( after[i].color.nGreen == before[i].color.nGreen );
+            CHECK( after[i].color.nBlue  == before[i].color.nBlue );
+            CHECK( after[i].color.nAlpha == before[i].color.nAlpha );
         }
     }
 }

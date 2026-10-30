@@ -115,6 +115,12 @@ namespace SunLight  {
             // (factor 1,1 - the overwhelming default) gets this set to exactly the active camera,
             // byte-identical to this project's pre-L1 behavior.
             stVector                                   m_EffectiveLayerCameraPos;
+
+            // I8 of the master plan: the opacity and tint the layer being drawn inherits from its
+            // enclosing groups (DrawAllLayers), passed to the drawing classes through the DrawContext.
+            // 1 and white outside any group, and again once the map is drawn.
+            float                                      m_fGroupOpacity = 1.0f;
+            SunLight :: Base :: stColor                m_GroupTint     = WHITE_COLOR;
             float                                      m_fWindowWidth;
             float                                      m_fWindowHeight;
             int                                        m_nTargetFps;
@@ -202,7 +208,8 @@ namespace SunLight  {
                                   std :: vector<double>& storage,
                                   std :: vector<double*>& ppRows );
             void ReleaseRegisteredFonts( void );
-            void DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0 );
+            void DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0,
+                                float fParentOpacity = 1.0f, SunLight :: Base :: stColor parentTint = WHITE_COLOR );
             void RenderMap( void );
 
             // L1 of the master plan: the effective camera for a layer whose own accumulated

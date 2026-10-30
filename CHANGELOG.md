@@ -73,8 +73,11 @@ Each item is described in full in the plan; what each change means for code buil
   text-object families (`RegisterFont`), or draw by itself (`IFont`). `UnregisterFont( font )`
   removes it from every family and style it serves; `UnregisterFont( family, bold, italic )`
   removes one.
+- **Layer tint at runtime:** `stLayer::tint` (`GetLayer`/`SetLayer`), the layer's Tiled
+  `tintcolor`, alpha included, opaque white when the map has none; a change shows from the next
+  frame.
 - Samples: `isometric`, `isometric_haptics`, `staggered`, `hexagonal`, `parallax`, `text`,
-  `objects`, `shapes`, `multiview_overlap`, `opacity`, `zorder`, `surface`, `input` and `blend`,
+  `objects`, `shapes`, `multiview_overlap`, `opacity`, `zorder`, `surface`, `input`, `blend` and `tint`,
   each with a `docs/README.md`; shared fonts in `samples/shared/fonts`.
 - CI: an AddressSanitizer job on Linux (with leak detection), a Doxygen job that fails on any
   warning (Doxygen pinned to 1.17.0, also for the published docs), and suffixed tags
@@ -95,6 +98,10 @@ Each item is described in full in the plan; what each change means for code buil
 - A listener or input handler added during a dispatch starts with the next frame; a map listener
   removed during one is not called again.
 - `samples/tilemaprenderer` is renamed `samples/orthogonal` (`orthogonal_test`).
+- A group layer's opacity and tint reach everything inside it, as Tiled draws a group: opacities
+  multiply down the nesting, tints multiply channel by channel. Tile layers, image layers and tile
+  objects take both; shapes and text take only the opacity. They were ignored.
+- An image layer applies its own opacity; it was always drawn opaque.
 
 ### Fixed
 

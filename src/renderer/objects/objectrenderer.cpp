@@ -46,7 +46,8 @@ namespace SunLight  {
                     // L2: the object's own "opacity" property, or its layer's, multiplies into the
                     // object group's own stored colour alpha - shapes have no separate alpha control
                     // of their own to begin with, the same reasoning as a text object's.
-                    float                        fOpacity = m_Opacity.Of( head, ( float ) pLayer -> opacity );
+                    // I8: times every enclosing group's opacity (context), as Tiled draws a group.
+                    float                        fOpacity = m_Opacity.Of( head, ( float ) pLayer -> opacity ) * context.fGroupOpacity;
                     SunLight :: Base :: stColor  color    = baseColor;
 
                     color.nAlpha = ( uint8_t ) ( color.nAlpha * fOpacity );

@@ -181,7 +181,9 @@ namespace SunLight  {
 
             return DrawContext { GetViewport().GetDimension2D(),
                                  GetViewport().GetZoomProperties().fZoomFactor,
-                                 m_EffectiveLayerCameraPos };
+                                 m_EffectiveLayerCameraPos,
+                                 m_fGroupOpacity,
+                                 m_GroupTint };
         }
 
         /**
@@ -325,8 +327,14 @@ namespace SunLight  {
          * pLayer, multiplied together (L1 of the master plan - Tiled's own documented nesting
          * rule: a layer's effective factor is its own, times every parent group's own);
          * @param fParentParallaxY Same as fParentParallaxX, for the vertical axis;
+         * @param fParentOpacity The opacity of every group ancestor of pLayer, multiplied together
+         * (I8 of the master plan: Tiled draws a group's content with the group's opacity and tint
+         * applied on top of each layer's own); 1 outside any group;
+         * @param parentTint Their tints, multiplied channel by channel (Shape::MultiplyTint); opaque
+         * white outside any group;
          */
-        void TileMapRenderer :: DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX, double fParentParallaxY )  {
+        void TileMapRenderer :: DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX, double fParentParallaxY,
+                                               float fParentOpacity, SunLight :: Base :: stColor parentTint )  {
 
             while( pLayer )  {
 
@@ -351,9 +359,16 @@ namespace SunLight  {
 
                     m_EffectiveLayerCameraPos = GetEffectiveCameraForFactor( fEffectiveParallaxX, fEffectiveParallaxY );
 
+                    // I8: what this layer's groups pass down (the drawing classes multiply in its own).
+                    m_fGroupOpacity = fParentOpacity;
+                    m_GroupTint     = parentTint;
+
                     switch( pLayer -> type )  {
                         case L_GROUP :
-                            DrawAllLayers( pLayer -> content.group_head, fEffectiveParallaxX, fEffectiveParallaxY ); // recursive call
+                            // A group passes its own opacity and tint on, multiplied into what it was given.
+                            DrawAllLayers( pLayer -> content.group_head, fEffectiveParallaxX, fEffectiveParallaxY,
+                                           fParentOpacity * ( float ) pLayer -> opacity,
+                                           Shape :: MultiplyTint( parentTint, Shape :: ColorOf( pLayer -> tintcolor ) ) );   // recursive call
                             break;
                         case L_OBJGR :
                             // S1b: shapes and text through the ObjectRenderer; tile objects come back here.
@@ -406,6 +421,11 @@ namespace SunLight  {
 
                 pLayer = pLayer -> next;
             }
+
+            // Back to what this call was given: once the whole map is drawn, 1 and white again, so no
+            // DrawContext built after it (a game's own IShapeSurface drawing) carries a group's values.
+            m_fGroupOpacity = fParentOpacity;
+            m_GroupTint     = parentTint;
         }
 
         /**
@@ -633,6 +653,7 @@ namespace SunLight  {
             pTmxLayer -> visible   = layer.bVisible;
             pTmxLayer -> parallaxx = layer.fParallaxX;
             pTmxLayer -> parallaxy = layer.fParallaxY;
+            pTmxLayer -> tintcolor = Shape :: ArgbOf( layer.tint );   // I8: alpha kept as given, ignored for drawing
             layer.pLayer           = pTmxLayer;
         }
 
@@ -649,6 +670,7 @@ namespace SunLight  {
             layer.bVisible   = pTmxLayer -> visible;
             layer.fParallaxX = ( float ) pTmxLayer -> parallaxx;
             layer.fParallaxY = ( float ) pTmxLayer -> parallaxy;
+            layer.tint       = Shape :: ColorOf( pTmxLayer -> tintcolor );   // I8: as authored, opaque white by default
             layer.pLayer     = pTmxLayer;
         }
 
