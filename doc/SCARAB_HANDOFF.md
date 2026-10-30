@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `ef1499d811e87c520a3669c9754cf4e6893ff4a8` | Sprite opacity and tint (`Sprite::SetOpacity`/`SetTint`); code style: include directly, forward-declare only to break an include cycle (I10) | 59 |
 | `8842ccc831a0dc7d10f85a93fc9f978f63015b09` | **Breaking:** a layer's opacity as a float, 0..1 (`stLayer::fOpacity`); an unchanged `GetLayer`/`SetLayer` keeps the map's opacity and parallax exactly; `SetScreenFade` clamped to 0..1 (I9, found while testing I8). Sent with a migration guide for `luatilemapapi.cpp` | 58 |
 | `4274ecbf6cdd71c3625254f68ae14e0ed6631acb` | Layer tint at runtime (`stLayer::tint`); group layers' tint and opacity reach their content; image layers apply their opacity (I8, asked for by Scarab in its V12) | 57 |
 | `4189199f7b3af75e590792f85d51051916f4a206` | Tile collisions and tile picking in map space; `GetCollidingTiles`; one callback per tile touched (I7, found by Scarab in its V11) | 56 |
