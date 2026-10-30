@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `4189199f7b3af75e590792f85d51051916f4a206` | Tile collisions and tile picking in map space; `GetCollidingTiles`; one callback per tile touched (I7, found by Scarab in its V11) | 56 |
 | `a6ac4f6bea9973795c1668dd8eabfc67defc03c1` | `UnloadMap()`/`Stop()` take the unloaded sprites' colliders out (I6, found by Scarab in its V9) | 55 |
 | `fa953f38cb22508247b528c8234ad2bb0f4293e8` | `CollisionManager` checks every layer id; `Clear()` and `RemoveAll()` work (I5, found by Scarab) | 54 |
 | `f651accc2291a2ea9020dad3bfc2f1245e76858f` | A map's embedded tileset image path with `..` or `.` loads (I4, found by Scarab in its V6) | 53 |
