@@ -2228,6 +2228,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I4 | A map whose embedded tileset image path contains `..` was refused (reported by Scarab, its V6) | DONE |
 | I5 | `CollisionManager` layer ids: an id out of range read past the layer array, `Clear()` left null lists, `RemoveAll()` cleared nothing (reported by Scarab) | DONE |
 | I6 | `UnloadMap()`/`Stop()` left the unloaded sprites' colliders in the collision manager (reported by Scarab, its V9) | DONE |
+| I7 | Sprite-against-tile collisions tested the wrong tile; tile picking mixed screen and map space (reported by Scarab, its V11) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2427,6 +2428,66 @@ fixing all four together:
     1 per frame after `LoadMap` and `AddSprite` again (old: 4);
   - the same through `Stop()` and `Start()` (old: 4);
   - a collider the game added itself surviving `UnloadMap()`.
+
+**I7: tile collisions and tile picking in map space (DONE).** Scarab reported it while checking
+BREAKAGES 4 (its V11), with a sweep of a 32 x 32 sprite past a 32 x 32 collision tile.
+
+- **What was wrong** (orthogonal; isometric, staggered and hexagonal had the same pattern):
+  1. Only the tile under the collider's top-left corner was tested, so a sprite reaching a wall from
+     the left or from above never collided.
+  2. The lookup (`TileMapToTileMatrix` -> `ViewToTileMatrix`) added the viewport origin (screen
+     pixels) to a position in map units, shifting it. Scarab measured a window of 150..180 where
+     129..191 is right.
+  3. A world-space sprite's position, already a map position, got the camera added again, so it
+     collided with a tile one camera offset away.
+  4. The tile handed to `OnCollision`, and `GetTile`'s tile, came in view space (map position +
+     viewport origin + camera).
+  5. Found while checking: `Collider::Hit( stTile& )` stepped to the first shape's `next` every
+     time, so on a tile with two or more shapes where the second missed, it looped forever (a hung
+     frame).
+  6. Found while checking: the lookup's bounds check divided the position by the zoom, the index
+     did not.
+- **Design, decided with the owner:** everything in MAP space (map pixels, before camera, zoom or
+  viewport origin).
+  - `TileMapToTileMatrix( coord )` takes a map position.
+  - `GetTile`'s `tile.dimension` is the tile's map rectangle (its cell's `TileDrawPosition` for its
+    tileset's size, plus the layer offset; parallax left out, a view effect).
+  - The new `ITileMap::GetCollidingTiles( rect, bWorldSpace, layer, tiles )` turns a collider into a
+    map rectangle - a world-space one as is, a view-relative one minus the camera the layer is drawn
+    with - visits every cell it can reach (the projection's culling range padded a tile, or every
+    cell on a grid of mixed tile sizes), and reports each tile with an overlapping collision
+    rectangle once, half-open (sharing an edge is not touching).
+  - `CollisionManager` fires `OnCollision` once per tile reported.
+  - The projection interface's `TileViewRect`/`ViewToTileMatrix` became one map-space
+    `MapToTileMatrix`; a view's `TileMapToTileMatrix` gives the same answer as any other's.
+- **The collider's world-space mode:** a sprite's collider has the sprite's PARENT as its own parent
+  (`Canvas::SetParent`), not the sprite, so it could not ask the sprite. `Canvas::SetWorldSpace` now
+  passes the mode on to its collider, as `SetParent` and `SetDimension2DPtr` already pass theirs.
+- Also: `GetTile` with no map loaded dereferenced null; it now answers false.
+- **Tests** (`tests/test_tilecollisions.cpp`, a real renderer with viewport origin (10, 10)), each
+  shown to fail on the old code (built from `feat/master_plan` in a worktree):
+  - the sweep window, 129..191, for a view-relative sprite at camera 0;
+  - with the camera at (64, 64);
+  - for a world-space sprite (and none two rows away);
+  - at a non-1 zoom;
+  - two walls touched, each reported once with its map rectangle;
+  - a wall reached from above, and edges that only meet;
+  - `TileMapToTileMatrix`/`GetTile` round-tripping a wall cell;
+  - an isometric wall at the map position worked out by hand from the lattice.
+
+  The old `Collider::Hit` hung on the three-shape case (killed by a time limit); the new test
+  passes. `tests/test_collisionmanager.cpp`'s tile cases test the new contract through the mock;
+  the projection, bounds, view and viewport tests moved to map space.
+- **Sample:** `samples/collision` gained a box of brick walls (a `walls` tile layer, `tileset_wall.tsx`
+  with a Tiled collision rectangle): Sunny stops at every wall from every side, at any zoom, with the
+  centre-aligned map's camera. The isometric samples' comments were updated; their behaviour did not
+  change (they only read whether a tile has a collision shape).
+- **Found in the owner's real-window check:** the sample undid only the last key's step on a
+  collision, so a diagonal (two keys, two steps in one frame) left one axis in the wall and Sunny
+  could work her way through it - a flaw the sample always had for its obstacle too. It now sums the
+  frame's steps (`Step()`, a frame counter advanced in `OnUpdate`) and undoes them all once. The
+  owner re-checked `collision`, `isometric`, `staggered` and `hexagonal` in a real window: all fine.
+- `doc/BREAKAGES.md` entry 56.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

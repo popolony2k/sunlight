@@ -45,7 +45,7 @@ namespace SunLight  {
              *   objScreenY = (storedX + storedY) / 2
              * at the object's own bottom-left corner, Tiled's usual tile-object anchor (see LayerRenderer::DrawTileObject).
              * This projection does not implement object placement yet - no IMapProjection method covers it
-             * (TileViewRect is collision-only); it is tracked as a follow-up once isometric objects are needed.
+             * (MapToTileMatrix only picks a cell); it is tracked as a follow-up once isometric objects are needed.
              */
             class IsometricProjection : public IMapProjection  {
 
@@ -60,16 +60,8 @@ namespace SunLight  {
                                                                       int nLayerOffsetX,
                                                                       int nLayerOffsetY ) const override;
 
-                SunLight :: Base :: stDimension2D TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
-                                                                 tmx_map* pMap,
-                                                                 const SunLight :: Base :: stDimension2D& viewport,
-                                                                 const SunLight :: Base :: stVector2D& camera ) const override;
-
-                bool ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                bool MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                       tmx_map* pMap,
-                                      const SunLight :: Base :: stDimension2D& viewport,
-                                      const SunLight :: Base :: stVector2D& camera,
-                                      float fZoom,
                                       int nMapPixelWidth,
                                       int nMapPixelHeight,
                                       SunLight :: TileMap :: stMatrixPosition& pos ) const override;

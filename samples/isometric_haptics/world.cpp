@@ -327,16 +327,17 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
 /**
  * @brief Intentionally not acted on. AddColliderToTileRule (paired against the "obstacles" layer
  * in LoadSprites()) runs every frame regardless of this sample's own logic, checking whatever
- * position Sunny's collider currently has - including the in-between frames of a smooth animation,
- * where that position is off the lattice's own cell corners. E1b found that isometric cells'
- * bounding boxes overlap their neighbors by half their width/height, so a mid-flight position can
- * resolve to the wrong cell there; reacting to a hit from here (an earlier version of this method
- * did, by reverting the step) could then undo a perfectly valid move because of a spurious hit on
- * an unrelated obstacle a frame or two into its animation. TryMoveStep's own proactive GetTile check
+ * position Sunny's collider currently has - including the in-between frames of a smooth animation.
+ * Since I7 every obstacle tile whose collision rectangle her rectangle overlaps is reported, in map
+ * space; but an isometric tile's collision rectangle covers its whole (diamond-bearing) image, and
+ * E1b found that those images' bounding boxes overlap their neighbors by half their width/height,
+ * so a mid-flight Sunny can touch an obstacle's rectangle while she is beside it on the lattice.
+ * Reacting to a hit from here (an earlier version of this method did, by reverting the step) could
+ * then undo a perfectly valid move a frame or two into its animation. TryMoveStep's own proactive GetTile check
  * (grid-exact, no animation involved) is the actual, reliable gate - and the only place that
  * triggers a rumble, for the same reason; this callback is kept, and still fires, purely so
  * AddColliderToTileRule stays demonstrated as genuinely wired up and working (see
- * tests/test_collisionmanager.cpp for the rigorous, non-animated proof of that).
+ * tests/test_tilecollisions.cpp for the rigorous, non-animated proof of that).
  */
 void World :: OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: TileMap :: stTile* pSecond )  {
 }

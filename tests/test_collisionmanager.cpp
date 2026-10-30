@@ -39,6 +39,7 @@ namespace  {
 
         std :: vector<std :: pair<Collider*, Collider*>>  colliderHits;
         std :: vector<Collider*>                          tileHits;
+        std :: vector<stTile>                             tiles;            // the tile of each tile hit
 
         void OnCollision( Collider* pFirst, Collider* pSecond )  {
             colliderHits.push_back( { pFirst, pSecond } );
@@ -46,6 +47,7 @@ namespace  {
 
         void OnCollision( Collider* pFirst, stTile* pSecond )  {
             tileHits.push_back( pFirst );
+            tiles.push_back( *pSecond );
         }
     };
 
@@ -485,147 +487,147 @@ TEST_SUITE( "collision/CollisionManager" )  {
         CHECK( manager.AddColliderToTileRule( 0, 7 ) == true );
     }
 
-    TEST_CASE( "Update's collider-to-tile path fires nothing when TileMapToTileMatrix fails" )  {
+    TEST_CASE( "Update asks the map for the tiles a collider touches, with its inset rectangle and its world-space mode (I7)" )  {
 
         MockTileMap             tileMap;
         TestCollisionListener   listener;
         Collider                collider;
 
         tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
-        tileMap.bTileMapToTileMatrixResult = false;
 
         CollisionManager  manager( &tileMap );
 
-        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } } );
+        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 20 }, { 40, 20 } } );
+        collider.SetInset( 0.25f, 0.0f, 0.25f, 0.0f );                // 10 px off each side: x 20, width 20
         manager.AddCollider( 0, &collider );
         manager.AddColliderToTileRule( 0, 7 );
         manager.AddCollisionListener( &listener );
 
         manager.Update();
 
-        CHECK( listener.tileHits.empty() );
-        CHECK( tileMap.nGetTileCalls == 0 );
+        REQUIRE( tileMap.nGetCollidingTilesCalls == 1 );
+        CHECK( tileMap.lastCollidingRect.x == 20.0f );
+        CHECK( tileMap.lastCollidingRect.y == 20.0f );
+        CHECK( tileMap.lastCollidingRect.width == 20.0f );
+        CHECK( tileMap.lastCollidingRect.height == 20.0f );
+        CHECK( tileMap.bLastCollidingWorldSpace == false );
+
+        collider.SetWorldSpace( true );                             // a collider of its own, world-space
+        manager.Update();
+        CHECK( tileMap.bLastCollidingWorldSpace == true );
+        CHECK( listener.tileHits.empty() );                         // the map reported no tile
     }
 
-    TEST_CASE( "Update's collider-to-tile path fires nothing when GetTile fails" )  {
+    TEST_CASE( "A sprite's collider is tested in its sprite's world-space mode (Canvas passes it on to its collider)" )  {
 
-        MockTileMap             tileMap;
-        TestCollisionListener   listener;
-        Collider                collider;
+        MockTileMap                   tileMap;
+        SunLight :: Sprite :: Sprite  sprite;
 
         tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
-        tileMap.bGetTileResult = false;
 
         CollisionManager  manager( &tileMap );
 
-        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } } );
-        manager.AddCollider( 0, &collider );
+        manager.AddCollider( 0, &sprite.GetCollider() );
         manager.AddColliderToTileRule( 0, 7 );
-        manager.AddCollisionListener( &listener );
 
         manager.Update();
+        CHECK( tileMap.bLastCollidingWorldSpace == false );
 
-        CHECK( listener.tileHits.empty() );
-        CHECK( tileMap.nGetTileCalls == 1 );
+        sprite.SetWorldSpace( true );
+        manager.Update();
+        CHECK( tileMap.bLastCollidingWorldSpace == true );
     }
 
-    TEST_CASE( "Update's collider-to-tile path reaches Hit() safely when the tile has no collision shape" )  {
+    TEST_CASE( "Update fires once for each tile the map reports, with that tile, in its order (I7)" )  {
 
         MockTileMap             tileMap;
         TestCollisionListener   listener;
         Collider                collider;
-        tmx_tile                fakeTile {};  // zero-initialized - collision == nullptr
+        stTile                  left {}, right {};
+
+        left.nGID  = 3;
+        left.dimension  = SunLight :: Base :: stDimension2D { { 160, 160 }, { 32, 32 } };
+        right.nGID = 4;
+        right.dimension = SunLight :: Base :: stDimension2D { { 192, 160 }, { 32, 32 } };
 
         tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
-        tileMap.bGetTileResult = true;
-        tileMap.getTileResult.pTile = &fakeTile;
-        tileMap.getTileResult.dimension = SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } };
+        tileMap.collidingTiles = { left, right };
 
         CollisionManager  manager( &tileMap );
 
-        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } } );
         manager.AddCollider( 0, &collider );
         manager.AddColliderToTileRule( 0, 7 );
         manager.AddCollisionListener( &listener );
 
         manager.Update();
 
-        CHECK( tileMap.nGetTileCalls == 1 );
-        CHECK( listener.tileHits.empty() );
-    }
-
-    TEST_CASE( "Update's collider-to-tile path fires OnCollision when the collider overlaps the tile's own "
-               "authored collision shape (Tiled's Tile Collision Editor, OT_SQUARE - the only shape Collider::Hit "
-               "supports today)" )  {
-
-        MockTileMap             tileMap;
-        TestCollisionListener   listener;
-        Collider                collider;
-        tmx_object               collisionShape {};
-        tmx_tile                 fakeTile {};
-
-        collisionShape.obj_type = OT_SQUARE;
-        collisionShape.x      = 0;
-        collisionShape.y      = 0;
-        collisionShape.width  = 32;
-        collisionShape.height = 32;
-        collisionShape.next   = nullptr;
-
-        fakeTile.collision = &collisionShape;
-
-        tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
-        tileMap.bGetTileResult = true;
-        tileMap.getTileResult.pTile = &fakeTile;
-        tileMap.getTileResult.dimension = SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } };
-
-        CollisionManager  manager( &tileMap );
-
-        // Fully overlapping the tile's collision shape (both at (0,0)-(32,32)).
-        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } } );
-        manager.AddCollider( 0, &collider );
-        manager.AddColliderToTileRule( 0, 7 );
-        manager.AddCollisionListener( &listener );
-
-        manager.Update();
-
-        REQUIRE( listener.tileHits.size() == 1 );
+        REQUIRE( listener.tiles.size() == 2 );
         CHECK( listener.tileHits[0] == &collider );
+        CHECK( listener.tiles[0].nGID == 3 );
+        CHECK( listener.tiles[0].dimension.pos.x == 160 );
+        CHECK( listener.tiles[1].nGID == 4 );
+        CHECK( listener.tiles[1].dimension.pos.x == 192 );
     }
 
-    TEST_CASE( "Update's collider-to-tile path fires nothing when the collider is clear of the tile's own "
-               "authored collision shape" )  {
+    TEST_CASE( "A listener that removes the collider on its first tile gets no second tile callback" )  {
 
-        MockTileMap             tileMap;
-        TestCollisionListener   listener;
-        Collider                collider;
-        tmx_object               collisionShape {};
-        tmx_tile                 fakeTile {};
+        struct RemovingTileListener : public ICollisionListener  {
+            CollisionManager  *pManager = nullptr;
+            int               nTileHits = 0;
 
-        collisionShape.obj_type = OT_SQUARE;
-        collisionShape.x      = 0;
-        collisionShape.y      = 0;
-        collisionShape.width  = 32;
-        collisionShape.height = 32;
-        collisionShape.next   = nullptr;
+            void OnCollision( Collider*, Collider* ) override  {}
+            void OnCollision( Collider* pFirst, stTile* ) override  {
+                nTileHits++;
+                pManager -> RemoveCollider( 0, pFirst );
+            }
+        };
 
-        fakeTile.collision = &collisionShape;
+        MockTileMap           tileMap;
+        RemovingTileListener  listener;
+        Collider              collider;
 
         tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
-        tileMap.bGetTileResult = true;
-        tileMap.getTileResult.pTile = &fakeTile;
-        tileMap.getTileResult.dimension = SunLight :: Base :: stDimension2D { { 0, 0 }, { 32, 32 } };
+        tileMap.collidingTiles = { stTile {}, stTile {} };
 
         CollisionManager  manager( &tileMap );
 
-        // Far from the tile's collision shape - TileMapToTileMatrix/GetTile are mocked to always return the
-        // same canned tile regardless of position, so only the final AABB test below can tell them apart.
-        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 1000, 1000 }, { 32, 32 } } );
+        listener.pManager = &manager;
         manager.AddCollider( 0, &collider );
         manager.AddColliderToTileRule( 0, 7 );
         manager.AddCollisionListener( &listener );
 
         manager.Update();
 
-        CHECK( listener.tileHits.empty() );
+        CHECK( listener.nTileHits == 1 );
+    }
+
+    TEST_CASE( "Collider::Hit on a tile with several collision shapes tests each one once, and stops" )  {
+
+        // It stepped to the FIRST shape's next every time: with two or more shapes and a miss on the
+        // second, it tested the second again forever (a hung frame).
+        Collider    collider;
+        tmx_object  shapes[3] {};
+        tmx_tile    tile {};
+        stTile      t {};
+
+        for( int nIdx = 0; nIdx < 3; nIdx++ )  {
+            shapes[nIdx].obj_type = OT_SQUARE;
+            shapes[nIdx].width    = 4;
+            shapes[nIdx].height   = 4;
+            shapes[nIdx].next     = ( nIdx < 2 ) ? &shapes[nIdx + 1] : nullptr;
+        }
+        shapes[0].x = 0;   shapes[0].y = 0;
+        shapes[1].x = 28;  shapes[1].y = 0;
+        shapes[2].x = 0;   shapes[2].y = 28;
+
+        tile.collision = &shapes[0];
+        t.pTile        = &tile;
+        t.dimension    = SunLight :: Base :: stDimension2D { { 100, 100 }, { 32, 32 } };
+
+        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 8, 8 } } );    // far from all three
+        CHECK( collider.Hit( t ) == false );
+
+        collider.SetDimension2D( SunLight :: Base :: stDimension2D { { 100, 128 }, { 8, 8 } } );   // on the third
+        CHECK( collider.Hit( t ) == true );
     }
 }

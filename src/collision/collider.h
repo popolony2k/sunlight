@@ -66,6 +66,11 @@ namespace SunLight  {
             virtual ~Collider( void );
 
             bool Hit( SunLight :: TileMap :: stTile& tile );
+
+            // The rectangle the collider tests with: its parent's dimension with SetInset's shave applied.
+            SunLight :: Base :: stRectangle EffectiveRect( void );
+
+
             bool Hit( SunLight :: Base :: stDimension2D& dimension );
             bool Hit( Collider& other );
 

@@ -71,33 +71,14 @@ namespace SunLight  {
                 return SunLight :: Base :: stCoordinate2D { cell.x + nLayerOffsetX, cell.y + nLayerOffsetY };
             }
 
-            SunLight :: Base :: stDimension2D IsometricProjection :: TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
-                                                                                     tmx_map* pMap,
-                                                                                     const SunLight :: Base :: stDimension2D& viewport,
-                                                                                     const SunLight :: Base :: stVector2D& camera ) const  {
-
-                SunLight :: Base :: stCoordinate2D  cell = CellTopLeft( pos.nTileCol, pos.nTileRow, pMap );
-                SunLight :: Base :: stDimension2D   tile;
-
-                tile.pos.x        = ( cell.x + viewport.pos.x ) + ( int ) camera.x;
-                tile.pos.y        = ( cell.y + viewport.pos.y ) + ( int ) camera.y;
-                tile.size.nWidth  = ( int ) pMap -> tile_width;
-                tile.size.nHeight = ( int ) pMap -> tile_height;
-
-                return tile;
-            }
-
-            bool IsometricProjection :: ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
-                                                          tmx_map* pMap,
-                                                          const SunLight :: Base :: stDimension2D& viewport,
-                                                          const SunLight :: Base :: stVector2D& camera,
-                                                          float fZoom,
-                                                          int nMapPixelWidth,
+            bool IsometricProjection :: MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                                         tmx_map* pMap,
+                                                         int nMapPixelWidth,
                                                           int nMapPixelHeight,
                                                           SunLight :: TileMap :: stMatrixPosition& pos ) const  {
 
-                int  nCoordX = ( int ) ( coord.x / fZoom );
-                int  nCoordY = ( int ) ( coord.y / fZoom );
+                int  nCoordX = coord.x;
+                int  nCoordY = coord.y;
 
                 if( !( ( nCoordX >= __NO_GRID_CELLS ) && ( nCoordX < nMapPixelWidth ) &&
                       ( nCoordY >= __NO_GRID_CELLS ) && ( nCoordY < nMapPixelHeight ) ) )
@@ -110,8 +91,8 @@ namespace SunLight  {
                 float  fHalfW  = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
                 float  fHalfH  = ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR;
                 int    nShift  = ( ( int ) pMap -> height ) - __LATTICE_HEIGHT_SHIFT;
-                float  fMapX   = ( ( coord.x + viewport.pos.x ) - camera.x );
-                float  fMapY   = ( ( coord.y + viewport.pos.y ) - camera.y );
+                float  fMapX   = ( float ) coord.x;
+                float  fMapY   = ( float ) coord.y;
                 float  fU      = ( fMapX / fHalfW ) - nShift;
                 float  fV      = fMapY / fHalfH;
 

@@ -48,39 +48,21 @@ namespace SunLight  {
                                                              ( pos.nTileRow * nTileHeight ) + nLayerOffsetY };
             }
 
-            SunLight :: Base :: stDimension2D OrthogonalProjection :: TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
-                                                                                     tmx_map* pMap,
-                                                                                     const SunLight :: Base :: stDimension2D& viewport,
-                                                                                     const SunLight :: Base :: stVector2D& camera ) const  {
-
-                SunLight :: Base :: stDimension2D  tile;
-
-                tile.pos.x        = ( ( pos.nTileCol * ( int ) pMap -> tile_width ) + viewport.pos.x ) + ( int ) camera.x;
-                tile.pos.y        = ( ( pos.nTileRow * ( int ) pMap -> tile_height ) + viewport.pos.y ) + ( int ) camera.y;
-                tile.size.nWidth  = ( int ) pMap -> tile_width;
-                tile.size.nHeight = ( int ) pMap -> tile_height;
-
-                return tile;
-            }
-
-            bool OrthogonalProjection :: ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
-                                                           tmx_map* pMap,
-                                                           const SunLight :: Base :: stDimension2D& viewport,
-                                                           const SunLight :: Base :: stVector2D& camera,
-                                                           float fZoom,
-                                                           int nMapPixelWidth,
+            bool OrthogonalProjection :: MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                                          tmx_map* pMap,
+                                                          int nMapPixelWidth,
                                                            int nMapPixelHeight,
                                                            SunLight :: TileMap :: stMatrixPosition& pos ) const  {
 
-                int  nCoordX = ( int ) ( coord.x / fZoom );
-                int  nCoordY = ( int ) ( coord.y / fZoom );
+                int  nCoordX = coord.x;
+                int  nCoordY = coord.y;
 
                 if( !( ( nCoordX >= __NO_GRID_CELLS ) && ( nCoordX < nMapPixelWidth ) &&
                       ( nCoordY >= __NO_GRID_CELLS ) && ( nCoordY < nMapPixelHeight ) ) )
                     return false;
 
-                pos.nTileCol = ( int ) ( ( ( coord.x + viewport.pos.x ) - camera.x ) / ( int ) pMap -> tile_width );
-                pos.nTileRow = ( int ) ( ( ( coord.y + viewport.pos.y ) - camera.y ) / ( int ) pMap -> tile_height );
+                pos.nTileCol = coord.x / ( int ) pMap -> tile_width;       // coord is >= 0 here: a plain division floors
+                pos.nTileRow = coord.y / ( int ) pMap -> tile_height;
 
                 return true;
             }

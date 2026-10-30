@@ -1,10 +1,13 @@
 /*
- * Tile lookup bounds (A6 of the master plan): the collision lookup turns a sprite's
- * position into a tile row/column (TileMapToTileMatrix) and GetTile indexes the
- * layer's gids[] with it. The row/column used to be checked against zero only, so a
- * position past the far edge of the map - which the viewport origin and a camera
- * offset can produce from a sprite that is still on the map - indexed past the end
- * of gids[]. Both now refuse anything outside the map.
+ * Tile lookup bounds (A6 of the master plan): TileMapToTileMatrix turns a position into
+ * a tile row/column and GetTile indexes the layer's gids[] with it. The row/column used
+ * to be checked against zero only, so a position past the far edge of the map indexed
+ * past the end of gids[]. Both now refuse anything outside the map.
+ *
+ * Since I7 the position is a MAP position (map pixels, no camera, zoom or viewport
+ * origin): the viewport origin and the camera used to be added to it, which is what
+ * carried a position still on the map past its far edge. The renderer's viewport origin
+ * is left non-zero here on purpose, to show it no longer enters.
  */
 
 #include <doctest/doctest.h>
@@ -74,15 +77,20 @@ TEST_SUITE( "renderer/tile lookup bounds" )  {
         CHECK( pos.nTileRow == 0 );
         CHECK( pos.nTileCol == 0 );
 
-        // (48 + 10) / 16 = 3: the last column is still on the map.
+        // 48 / 16 = 3: the last column and row.
         REQUIRE( Lookup( *pRenderer, 48, 48, pos ) == true );
+        CHECK( pos.nTileRow == 3 );
+        CHECK( pos.nTileCol == 3 );
+
+        // The map's last pixel, 63: still the last cell.
+        REQUIRE( Lookup( *pRenderer, 63, 63, pos ) == true );
         CHECK( pos.nTileRow == 3 );
         CHECK( pos.nTileCol == 3 );
 
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "A sprite in the strip past the last column is refused, not wrapped into the next row" )  {
+    TEST_CASE( "A position past the last column is refused, not wrapped into the next row" )  {
 
         MemoryFileSystemFixture  fs;
 
@@ -93,14 +101,15 @@ TEST_SUITE( "renderer/tile lookup bounds" )  {
 
         pRenderer -> SetCameraPosition( 0, 0 );
 
-        // (56 + 10) / 16 = 4: column 4 does not exist. The old lookup returned true
-        // here, and GetTile read gids[row * 4 + 4] - the next row's first entry.
-        CHECK( Lookup( *pRenderer, 56, 0, pos ) == false );
+        // 64 / 16 = 4: column 4 does not exist. Before A6 the lookup returned true for a
+        // column 4, and GetTile read gids[row * 4 + 4] - the next row's first entry.
+        CHECK( Lookup( *pRenderer, 64, 0, pos ) == false );
+        CHECK( Lookup( *pRenderer, -1, 0, pos ) == false );
 
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "A sprite in the strip past the last row is refused (the read ran past gids[])" )  {
+    TEST_CASE( "A position past the last row is refused (the read ran past gids[])" )  {
 
         MemoryFileSystemFixture  fs;
 
@@ -111,14 +120,15 @@ TEST_SUITE( "renderer/tile lookup bounds" )  {
 
         pRenderer -> SetCameraPosition( 0, 0 );
 
-        // The A6 case: (58 + 10) / 16 = 4 on both axes, so gids[4 * 4 + 4] = gids[20]
-        // - past the 16 entries. ASan showed this as a heap-buffer-overflow read.
-        CHECK( Lookup( *pRenderer, 58, 58, pos ) == false );
+        // The A6 case: row and column 4, so gids[4 * 4 + 4] = gids[20] - past the 16
+        // entries. ASan showed this as a heap-buffer-overflow read.
+        CHECK( Lookup( *pRenderer, 64, 64, pos ) == false );
+        CHECK( Lookup( *pRenderer, 0, 64, pos ) == false );
 
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "A camera offset that carries a sprite past the far edge is refused" )  {
+    TEST_CASE( "The camera and the viewport origin do not change the answer: it is a map position (I7)" )  {
 
         MemoryFileSystemFixture  fs;
 
@@ -127,14 +137,16 @@ TEST_SUITE( "renderer/tile lookup bounds" )  {
         std :: unique_ptr<TileMapRenderer>  pRenderer = LoadedRenderer();
         MatrixPos                           pos;
 
-        // Sprite at x = 40 is on the map (column 3 with no offset) ...
+        // x = 40 is column 2 (40 / 16), whatever the camera, and the viewport origin (10, 10) never
+        // enters. It used to be (40 + 10) / 16 = column 3, and with the camera 16 px along, column 4:
+        // past the edge.
         pRenderer -> SetCameraPosition( 0, 0 );
         REQUIRE( Lookup( *pRenderer, 40, 0, pos ) == true );
-        CHECK( pos.nTileCol == 3 );
+        CHECK( pos.nTileCol == 2 );
 
-        // ... but with the camera 16 px along, (40 + 10 + 16) / 16 = 4: past the edge.
         pRenderer -> SetCameraPosition( 16, 0 );
-        CHECK( Lookup( *pRenderer, 40, 0, pos ) == false );
+        REQUIRE( Lookup( *pRenderer, 40, 0, pos ) == true );
+        CHECK( pos.nTileCol == 2 );
 
         pRenderer -> Stop();
     }

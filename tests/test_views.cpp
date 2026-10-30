@@ -301,7 +301,7 @@ TEST_SUITE( "renderer/views" )  {
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "TileMapToTileMatrix through a view uses THAT view's viewport position and camera" )  {
+    TEST_CASE( "TileMapToTileMatrix through any view gives the same cell: a map position has no view (I7)" )  {
 
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
@@ -312,24 +312,24 @@ TEST_SUITE( "renderer/views" )  {
         SunLight :: Base :: stCoordinate2D    coord { 100, 100 };
         SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
 
-        // Default view (pos (10, 40), camera 0): col (100 + 10) / 16, row (100 + 40) / 16.
+        // Map point (100, 100) is cell (6, 6) = 100 / 16, through the default view (viewport (10, 40)) ...
         REQUIRE( pRenderer -> GetDefaultView().TileMapToTileMatrix( coord, pos ) == true );
-        CHECK( pos.nTileCol == ( 100 + 10 ) / 16 );
-        CHECK( pos.nTileRow == ( 100 + 40 ) / 16 );
+        CHECK( pos.nTileCol == 100 / 16 );
+        CHECK( pos.nTileRow == 100 / 16 );
 
-        // The other view (pos (64, 32)) with its own camera at (-16, -32): the point 100,100 is a different tile.
+        // ... through another view, at another viewport (64, 32) and with its own camera ...
         other.SetCameraPosition( 16, 32 );
         pos = SunLight :: TileMap :: stMatrixPosition { -1, -1 };
 
         REQUIRE( other.TileMapToTileMatrix( coord, pos ) == true );
-        CHECK( pos.nTileCol == ( 100 + 64 + 16 ) / 16 );      // camera x is -16 -> minus it
-        CHECK( pos.nTileRow == ( 100 + 32 + 32 ) / 16 );
+        CHECK( pos.nTileCol == 100 / 16 );
+        CHECK( pos.nTileRow == 100 / 16 );
 
-        // And the renderer's (= the default view's) answer is unchanged by having asked the other.
+        // ... and through the renderer itself.
         pos = SunLight :: TileMap :: stMatrixPosition { -1, -1 };
         REQUIRE( pRenderer -> TileMapToTileMatrix( coord, pos ) == true );
-        CHECK( pos.nTileCol == ( 100 + 10 ) / 16 );
-        CHECK( pos.nTileRow == ( 100 + 40 ) / 16 );
+        CHECK( pos.nTileCol == 100 / 16 );
+        CHECK( pos.nTileRow == 100 / 16 );
 
         pRenderer -> Stop();
     }

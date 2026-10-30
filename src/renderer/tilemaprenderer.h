@@ -212,6 +212,11 @@ namespace SunLight  {
             // exactly that camera, per axis, when that axis's factor is 1.0.
             stVector GetEffectiveCameraForFactor( double fFactorX, double fFactorY );
 
+            // I7 of the master plan: a tile's rectangle in map space (see GetTile).
+            SunLight :: Base :: stDimension2D TileMapRect( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                           tmx_layer* pLayer,
+                                                           tmx_tile* pTile );
+
             // User interaction handlers
             inline void HandleTileMapUpdate( void );
             inline void HandleUserCollisions( void );
@@ -401,6 +406,10 @@ namespace SunLight  {
             bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
                           const SunLight :: TileMap :: stLayer& layer,
                           SunLight :: TileMap :: stTile& tile ) override;
+            bool GetCollidingTiles( const SunLight :: Base :: stRectangle& rect,
+                                    bool bWorldSpace,
+                                    const SunLight :: TileMap :: stLayer& layer,
+                                    std :: vector<SunLight :: TileMap :: stTile>& tiles ) override;
 
             // Coordinate conversion
             bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,

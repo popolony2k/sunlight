@@ -58,7 +58,7 @@ namespace SunLight  {
                 /**
                  * @brief The map's own pixel bounding box - a rectangle for orthogonal, a diamond's bounding box
                  * for isometric. Computed once, at LoadMap; everywhere else it is consumed as an opaque size (the
-                 * alignment switch, the scroll clamps, the bounds check in ViewToTileMatrix).
+                 * alignment switch, the scroll clamps, the bounds check in MapToTileMatrix).
                  * @param pMap The map, as libtmx parsed it;
                  * @return The map's pixel size;
                  */
@@ -86,43 +86,24 @@ namespace SunLight  {
                                                                               int nLayerOffsetY ) const = 0;
 
                 /**
-                 * @brief A tile matrix cell's rectangle in view space (camera and viewport origin applied, zoom
-                 * not), used only for collision - CollisionManager compares a sprite's own view-space rectangle
-                 * against this one.
-                 * @param pos The cell's row and column;
+                 * @brief Which matrix cell a map-pixel coordinate falls in: the inverse of a cell's TileDrawPosition
+                 * for the map's own grid (no layer offset), in the same map-pixel space - no camera, zoom or
+                 * viewport origin (I7 of the master plan: tile picking and collisions are worked out in map
+                 * space, so a sprite's view and the camera never enter). Only checks that the coordinate is
+                 * inside the map's own pixel bounds (see MapPixelSize); the final check against the matrix's
+                 * actual row/column counts is the same for every orientation, so it stays in TileMapRenderer.
+                 * @param coord The coordinate, in map pixels;
                  * @param pMap The map, as libtmx parsed it;
-                 * @param viewport The active view's own viewport rectangle;
-                 * @param camera The active view's camera position;
-                 * @return The cell's rectangle, in view space;
-                 */
-                virtual SunLight :: Base :: stDimension2D TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
-                                                                         tmx_map* pMap,
-                                                                         const SunLight :: Base :: stDimension2D& viewport,
-                                                                         const SunLight :: Base :: stVector2D& camera ) const = 0;
-
-                /**
-                 * @brief The inverse of TileViewRect: which matrix cell a view-space coordinate falls in. Only
-                 * checks that the coordinate is inside the map's own pixel bounds (see MapPixelSize); the final
-                 * check against the matrix's actual row/column counts is the same for every orientation, so it
-                 * stays in TileMapRenderer.
-                 * @param coord The coordinate, in view space;
-                 * @param pMap The map, as libtmx parsed it;
-                 * @param viewport The active view's own viewport rectangle;
-                 * @param camera The active view's camera position;
-                 * @param fZoom The active view's zoom factor;
                  * @param nMapPixelWidth MapPixelSize's width, already computed;
                  * @param nMapPixelHeight MapPixelSize's height, likewise;
                  * @param pos Receives the matrix position, when the coordinate is inside the map's pixel bounds;
                  * @return Whether the coordinate is inside the map's pixel bounds;
                  */
-                virtual bool ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
-                                               tmx_map* pMap,
-                                               const SunLight :: Base :: stDimension2D& viewport,
-                                               const SunLight :: Base :: stVector2D& camera,
-                                               float fZoom,
-                                               int nMapPixelWidth,
-                                               int nMapPixelHeight,
-                                               SunLight :: TileMap :: stMatrixPosition& pos ) const = 0;
+                virtual bool MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                              tmx_map* pMap,
+                                              int nMapPixelWidth,
+                                              int nMapPixelHeight,
+                                              SunLight :: TileMap :: stMatrixPosition& pos ) const = 0;
 
                 /**
                  * @brief The scroll step a view starts with, when its own has not been set.

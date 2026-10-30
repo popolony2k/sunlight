@@ -51,6 +51,20 @@ namespace SunLight  {
         }
 
         /**
+         * @brief Set the world-space mode (see BaseCanvas::SetWorldSpace), and the collider's with it,
+         * as SetParent and SetDimension2DPtr pass theirs on: the collider tests in the same space as
+         * the canvas it belongs to (I7 of the master plan - a world-space sprite's tile collisions use
+         * its position as a map position). The collider cannot ask the canvas instead: its parent is
+         * the canvas's parent (SetParent above), not the canvas.
+         * @param bWorldSpace The new mode;
+         */
+        void Canvas :: SetWorldSpace( bool bWorldSpace )  {
+
+            BaseCanvas :: SetWorldSpace( bWorldSpace );
+            m_Collider.SetWorldSpace( bWorldSpace );
+        }
+
+        /**
          * Set pointer to a new parent dimension object passed as parameter;
          * @param pDimension Pointer to the new @ref SunLight::Base::stDimension2D object
          * that will be used by this entity;

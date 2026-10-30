@@ -45,16 +45,8 @@ namespace SunLight  {
                                                                       int nLayerOffsetX,
                                                                       int nLayerOffsetY ) const override;
 
-                SunLight :: Base :: stDimension2D TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
-                                                                 tmx_map* pMap,
-                                                                 const SunLight :: Base :: stDimension2D& viewport,
-                                                                 const SunLight :: Base :: stVector2D& camera ) const override;
-
-                bool ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                bool MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                       tmx_map* pMap,
-                                      const SunLight :: Base :: stDimension2D& viewport,
-                                      const SunLight :: Base :: stVector2D& camera,
-                                      float fZoom,
                                       int nMapPixelWidth,
                                       int nMapPixelHeight,
                                       SunLight :: TileMap :: stMatrixPosition& pos ) const override;
