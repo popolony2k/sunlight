@@ -62,6 +62,7 @@
  */
 #define __MAX_OPACITY_LEVEL            0xFF
 #define __HALF_DIVISOR                 2.0     // half of a view's visible size: its centre
+#define __COLLISION_PADDING_TILES      1       // cells searched around a collider: a tile larger than the grid reaches a neighbour's cell
 
 
 namespace SunLight  {
@@ -1804,55 +1805,169 @@ namespace SunLight  {
         }
 
         /**
-         * Get a tile based row and column on specified map layer;
+         * @brief A tile's rectangle in map space (I7 of the master plan): where it is drawn on the map,
+         * before any camera, zoom or viewport origin - the cell's TileDrawPosition for the tile's own
+         * tileset size (a tile larger than the grid is drawn from its cell's bottom, as LayerRenderer
+         * draws it), plus the layer's own Tiled offset. A layer's parallax factor is a view effect, so
+         * it is not part of it.
+         * @param pos The cell;
+         * @param pLayer The tile layer;
+         * @param pTile The tile in that cell;
+         * @return The tile's rectangle, in map pixels;
+         */
+        SunLight :: Base :: stDimension2D TileMapRenderer :: TileMapRect( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                          tmx_layer* pLayer,
+                                                                          tmx_tile* pTile )  {
+
+            tmx_tileset                         *pTs = pTile -> tileset;
+            SunLight :: Base :: stCoordinate2D  corner = m_pMap -> MapProjection().TileDrawPosition( pos, Tmx(), pTs -> tile_width,
+                                                                                                         pTs -> tile_height,
+                                                                                                         pLayer -> offsetx,
+                                                                                                         pLayer -> offsety );
+
+            return SunLight :: Base :: stDimension2D { corner, { ( int ) pTs -> tile_width, ( int ) pTs -> tile_height } };
+        }
+
+        /**
+         * Get a tile based row and column on specified map layer. The tile's dimension is its
+         * rectangle in MAP space (TileMapRect, I7 of the master plan): where it is on the map, the
+         * same space as a world-space sprite's position and as Tiled's. It used to be in the view's
+         * space (map position + viewport origin + camera).
          * @param pos The tile position on layer map.
          * @param layer Reference to the layer whose tile will be
          * retrieved;
          * @param tile reference to @ref SunLight::TileMap::stTile object to receive
          * tile information;
+         * @return Whether there is a tile there; false with no map loaded;
          */
         bool TileMapRenderer :: GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
                                          const SunLight :: TileMap :: stLayer& layer,
                                          SunLight :: TileMap :: stTile& tile )  {
 
             // The gid and tile (S1c1: MapData::TileAt, which also refuses a position off the map - A6 - and
-            // a gid past libtmx's tiles[] table); the screen rectangle below needs the view, so stays here.
-            if( !m_pMap -> TileAt( pos, layer.pLayer, tile ) )
+            // a gid past libtmx's tiles[] table). With no map there is no tile: it used to dereference null.
+            if( !m_pMap || !m_pMap -> TileAt( pos, layer.pLayer, tile ) )
                 return false;
 
-            // L1 of the master plan: layer.pLayer's own parallax factor (not accumulated with
-            // any parent group's own - this call has no ancestor chain to walk, only the one
-            // tmx_layer pointer the caller passed), so a non-nested parallax layer's picked
-            // tile position is correct; a tile layer nested inside a parallax-factored GROUP
-            // is a narrow, documented exception (LayerRenderer::DrawTileLayer's render path does not depend
-            // on this field at all - only external pick/collision callers read it).
-            tile.dimension = m_pMap -> MapProjection().TileViewRect( pos, Tmx(), GetDimension2D(),
-                                                            GetEffectiveCameraForFactor( layer.pLayer -> parallaxx, layer.pLayer -> parallaxy ) );
+            tile.dimension = TileMapRect( pos, layer.pLayer, tile.pTile );
 
             return true;
         }
 
         /**
-         * Convert world coordinate to tile matrix coordinate.
-         * @param coord The World coordinate to translate to tile matrix coordinate;
+         * @brief Whether two rectangles overlap, half-open: [x, x + width) on each axis, so two that
+         * only share an edge do not (a sprite resting flush against a wall does not touch it).
+         */
+        static bool RectanglesOverlap( const SunLight :: Base :: stRectangle& a, const SunLight :: Base :: stRectangle& b )  {
+
+            return ( a.x < b.x + b.width ) && ( b.x < a.x + a.width ) &&
+                   ( a.y < b.y + b.height ) && ( b.y < a.y + a.height );
+        }
+
+        /**
+         * @brief The tiles of a tile layer that a collider touches (see ITileMap::GetCollidingTiles,
+         * I7 of the master plan), worked out in MAP space for every projection.
+         *
+         * Found by Scarab: collisions used to look up the single tile under the collider's top-left
+         * corner, through TileMapToTileMatrix, which added the viewport origin (screen pixels) and the
+         * camera to the sprite's position - and the camera again for a world-space sprite, whose
+         * position is already a map position. A sprite reaching a collision tile from the left or from
+         * above never collided, the rest of the window was shifted by the viewport origin, and a
+         * world-space sprite was tested against a tile one camera offset away.
+         *
+         * Now the collider's rectangle is a map rectangle: a world-space one as given, a view-relative
+         * one minus the camera the layer is drawn with (its parallax camera - what is seen is what
+         * collides; a view-relative position p is drawn where map point p - camera is). Zoom never
+         * enters: positions and tiles are both in map pixels. Every cell the rectangle can reach is
+         * visited - the projection's own culling range, padded a tile around for a tile larger than the
+         * grid, or every cell on a grid of mixed tile sizes, as LayerRenderer draws them - and a tile is
+         * reported when one of its collision rectangles overlaps (RectanglesOverlap).
+         * @param rect The collider's rectangle (see ITileMap::GetCollidingTiles);
+         * @param bWorldSpace Whether rect is already a map position;
+         * @param layer The tile layer;
+         * @param tiles Receives the tiles touched;
+         * @return Whether the layer could be tested;
+         */
+        bool TileMapRenderer :: GetCollidingTiles( const SunLight :: Base :: stRectangle& rect,
+                                                   bool bWorldSpace,
+                                                   const SunLight :: TileMap :: stLayer& layer,
+                                                   std :: vector<SunLight :: TileMap :: stTile>& tiles )  {
+
+            tiles.clear();
+
+            if( !m_pMap || ( layer.pLayer == nullptr ) || ( layer.pLayer -> type != L_LAYER ) )
+                return false;
+
+            tmx_layer                       *pLayer  = layer.pLayer;
+            tmx_map                         *pTmxMap = Tmx();
+            SunLight :: Base :: stRectangle  mapRect = rect;
+            Projection :: stTileRange        range;
+
+            if( !bWorldSpace )  {
+                stVector  camera = GetEffectiveCameraForFactor( pLayer -> parallaxx, pLayer -> parallaxy );
+
+                mapRect.x -= camera.x;
+                mapRect.y -= camera.y;
+            }
+
+            if( m_pMap -> IsUniformTileGrid() )  {
+                float  fPadX = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_width );
+                float  fPadY = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_height );
+
+                range = m_pMap -> MapProjection().VisibleTileRange( pTmxMap, SunLight :: Base :: stRectangle {
+                            mapRect.x - pLayer -> offsetx - fPadX, mapRect.y - pLayer -> offsety - fPadY,
+                            mapRect.width + ( 2 * fPadX ), mapRect.height + ( 2 * fPadY ) } );
+            }
+            else  {
+                range = Projection :: stTileRange { 0, ( int ) pTmxMap -> height, 0, ( int ) pTmxMap -> width };
+            }
+
+            for( int nRow = range.nRowStart; nRow < range.nRowEnd; nRow++ )  {
+                for( int nCol = range.nColStart; nCol < range.nColEnd; nCol++ )  {
+                    SunLight :: TileMap :: stMatrixPosition  pos = { nRow, nCol };
+                    SunLight :: TileMap :: stTile            tile;
+
+                    if( !m_pMap -> TileAt( pos, pLayer, tile ) || ( tile.pTile -> collision == nullptr ) )
+                        continue;
+
+                    tile.dimension = TileMapRect( pos, pLayer, tile.pTile );
+
+                    for( tmx_object* pShape = tile.pTile -> collision; pShape; pShape = pShape -> next )  {
+                        SunLight :: Base :: stRectangle  shape { ( float ) ( tile.dimension.pos.x + pShape -> x ),
+                                                                 ( float ) ( tile.dimension.pos.y + pShape -> y ),
+                                                                 ( float ) pShape -> width,
+                                                                 ( float ) pShape -> height };
+
+                        if( ( pShape -> obj_type == OT_SQUARE ) && RectanglesOverlap( mapRect, shape ) )  {
+                            tiles.push_back( tile );
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /**
+         * Convert a MAP position to the tile matrix cell under it (I7 of the master plan): map pixels,
+         * the same space as GetTile's tile rectangles and a world-space sprite's position - no camera,
+         * zoom or viewport origin. A view-relative sprite's position is its map position minus the
+         * camera (GetCameraPosition). It used to add the viewport origin (screen pixels) and the
+         * camera to the coordinate, which shifted every lookup.
+         * @param coord The map position, in map pixels;
          * @param pos Reference to struct @ref SunLight::TileMap::stMatrixPosition to receive the
-         * tile matrix position based on world coordinate passed as parameter;
+         * tile matrix position;
+         * @return Whether the position is on the map; false with no map loaded;
          */
         bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                                      SunLight :: TileMap :: stMatrixPosition& pos )  {
 
             if( m_pMap )  {
-                SunLight :: Base :: stDimension2D&  vp = GetViewport().GetDimension2D();
-                SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
-
-                if( m_pMap -> MapProjection().ViewToTileMatrix( coord, Tmx(), vp, ActiveCamera().Position(), zp.fZoomFactor,
-                                                                MapPixelWidth(), MapPixelHeight(), pos ) )  {
+                if( m_pMap -> MapProjection().MapToTileMatrix( coord, Tmx(), MapPixelWidth(), MapPixelHeight(), pos ) )  {
 
                     // Both edges: GetTile indexes gids[] with these, and a
-                    // row/column past the far edge would read past the array. Only
-                    // the near edge used to be checked, so a sprite in the last
-                    // viewport-origin-sized strip of the map (the origin is added
-                    // above) got row/column == width/height (A6).
+                    // row/column past the far edge would read past the array (A6).
                     return ( ( pos.nTileCol >= 0 ) && ( pos.nTileRow >= 0 ) &&
                              ( pos.nTileCol < ( int ) Tmx() -> width ) &&
                              ( pos.nTileRow < ( int ) Tmx() -> height ) );

@@ -48,6 +48,13 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     int  nGetTileCalls              = 0;
     int  nTileMapToTileMatrixCalls  = 0;
 
+    // GetCollidingTiles answers collidingTiles (for any rectangle) and records what it was asked.
+    bool                                          bGetCollidingTilesResult = true;
+    std :: vector<SunLight :: TileMap :: stTile>  collidingTiles;
+    int                                           nGetCollidingTilesCalls  = 0;
+    SunLight :: Base :: stRectangle               lastCollidingRect        { 0, 0, 0, 0 };
+    bool                                          bLastCollidingWorldSpace = false;
+
     void AddGamePad( int )  {}
     void SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey, SunLight :: Input :: INPUT_EVENT_HANDLER )  {}
     void SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton, SunLight :: Input :: INPUT_EVENT_HANDLER )  {}
@@ -124,6 +131,16 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
         nGetTileCalls++;
         tile = getTileResult;
         return bGetTileResult;
+    }
+
+    bool GetCollidingTiles( const SunLight :: Base :: stRectangle& rect, bool bWorldSpace,
+                            const SunLight :: TileMap :: stLayer& layer,
+                            std :: vector<SunLight :: TileMap :: stTile>& tiles )  {
+        nGetCollidingTilesCalls++;
+        lastCollidingRect        = rect;
+        bLastCollidingWorldSpace = bWorldSpace;
+        tiles = collidingTiles;
+        return bGetCollidingTilesResult;
     }
 
     bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D&,

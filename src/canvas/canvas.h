@@ -45,6 +45,7 @@ namespace SunLight  {
 
             void SetParent( BaseCanvas* pParent );
             void SetDimension2DPtr( SunLight :: Base :: stDimension2D* pDimension );
+            void SetWorldSpace( bool bWorldSpace );
 
             void SetColor( SunLight :: Base :: stColor color );
             SunLight :: Base :: stColor& GetColor( void );

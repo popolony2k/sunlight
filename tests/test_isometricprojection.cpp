@@ -154,13 +154,10 @@ TEST_SUITE( "Isometric projection" )  {
         CHECK( destBig.y == 32 );
     }
 
-    TEST_CASE( "View to tile matrix round-trips every cell of a 3x4 map, at the default view state" )  {
+    TEST_CASE( "Map to tile matrix round-trips every cell of a 3x4 map, at the default view state" )  {
 
         IsometricProjection  projection;
         tmx_map              map = MakeMap( 3, 4, 64, 32 );
-
-        SunLight :: Base :: stDimension2D  viewport {};
-        SunLight :: Base :: stVector2D     camera { 0.0f, 0.0f };
         SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
 
         for( int nRow = 0; nRow < 4; nRow++ )  {
@@ -178,7 +175,7 @@ TEST_SUITE( "Isometric projection" )  {
                 SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
 
                 stMatrixPosition  back {};
-                bool  bFound = projection.ViewToTileMatrix( probe, &map, viewport, camera, 1.0f,
+                bool  bFound = projection.MapToTileMatrix( probe, &map,
                                                             mapSize.nWidth, mapSize.nHeight, back );
 
                 REQUIRE( bFound == true );
@@ -188,20 +185,17 @@ TEST_SUITE( "Isometric projection" )  {
         }
     }
 
-    TEST_CASE( "View to tile matrix refuses a coordinate outside the map's own pixel bounds" )  {
+    TEST_CASE( "Map to tile matrix refuses a coordinate outside the map's own pixel bounds" )  {
 
         IsometricProjection  projection;
         tmx_map              map = MakeMap( 3, 2, 64, 32 );
-
-        SunLight :: Base :: stDimension2D  viewport {};
-        SunLight :: Base :: stVector2D     camera { 0.0f, 0.0f };
         SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
 
         stMatrixPosition  pos {};
 
-        CHECK( projection.ViewToTileMatrix( { -1, 0 }, &map, viewport, camera, 1.0f,
+        CHECK( projection.MapToTileMatrix( { -1, 0 }, &map,
                                             mapSize.nWidth, mapSize.nHeight, pos ) == false );
-        CHECK( projection.ViewToTileMatrix( { mapSize.nWidth, 0 }, &map, viewport, camera, 1.0f,
+        CHECK( projection.MapToTileMatrix( { mapSize.nWidth, 0 }, &map,
                                             mapSize.nWidth, mapSize.nHeight, pos ) == false );
     }
 

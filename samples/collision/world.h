@@ -24,6 +24,7 @@
  #include "renderer/tilemaprenderer.h"
  #include "sprite/sprite.h"
  #include "collision/icollisionlistener.h"
+ #include "tilemap/itilemaplistener.h"
  #include <memory>
  #include <string>
 
@@ -31,14 +32,20 @@
  /**
  * @brief World class implementation.
  */
-class World : public SunLight :: Collision :: ICollisionListener  {
+class World : public SunLight :: Collision :: ICollisionListener, public SunLight :: TileMap :: ITileMapListener  {
 
     std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteSunny;
     std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasSunny;
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteObstacle;
     std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasObstacle;
+    // Every step Sunny took this frame, summed: holding two keys (a diagonal) moves her twice in one
+    // frame, and a collision must undo both, or one axis stays in the wall.
     SunLight :: Base :: stCoordinate2D                       m_LastStep;
+    long                                                     m_nFrame;          // advanced once a frame (OnUpdate)
+    long                                                     m_nStepFrame;      // the frame m_LastStep belongs to
+
+    void Step( int nDx, int nDy );
 
     void MovePlayerUp( SunLight :: Input :: ControllerType type, int nId );
     void MovePlayerDown( SunLight :: Input :: ControllerType type, int nId );
@@ -49,6 +56,7 @@ class World : public SunLight :: Collision :: ICollisionListener  {
     void ResetZoom( SunLight :: Input :: ControllerType type, int nId );
 
     bool LoadSprites( void );
+    void UndoLastStep( void );
 
     public :
 
@@ -57,8 +65,12 @@ class World : public SunLight :: Collision :: ICollisionListener  {
     bool Run( void );
 
     // SunLight :: Collision :: ICollisionListener
-    void OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: Collision :: Collider* pSecond );
-    void OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: TileMap :: stTile* pSecond );
+    void OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: Collision :: Collider* pSecond ) override;
+    void OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: TileMap :: stTile* pSecond ) override;
+
+    // SunLight :: TileMap :: ITileMapListener
+    void OnUpdate( SunLight :: TileMap :: ITileMap& tileMap ) override;
+    void OnStop( void ) override;
 };
 
  #endif // __WORLD_H__

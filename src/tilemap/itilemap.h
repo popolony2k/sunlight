@@ -22,6 +22,7 @@
 #define __ITILEMAP_H__
 
 #include <memory>
+#include <vector>
 #include "sprite/sprite.h"
 #include "tilemap/iview.h"
 #include "input/iinputhandler.h"
@@ -278,22 +279,47 @@ namespace SunLight  {
             virtual bool GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
-             * Get a tile based row and column on specified map layer;
+             * Get a tile based row and column on specified map layer. The tile's dimension is its
+             * rectangle in MAP space - map pixels, where it is drawn on the map before any camera,
+             * zoom or viewport origin, with the layer's own offset (I7 of the master plan).
              * @param pos The tile position on layer map.
              * @param layer Reference to the layer whose tile will be
              * retrieved;
              * @param tile reference to @ref stTile object to receive
              * tile information;
+             * @return Whether there is a tile there;
              */
             virtual bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
                                   const SunLight :: TileMap :: stLayer& layer,
                                   SunLight :: TileMap :: stTile& tile ) = 0;
 
             /**
-             * Get the tile position based on TileMap absolute coordinate passed as parameter.
-             * @param coord The TileMap absolute coordinate to translate to tile position;
+             * @brief The tiles of a tile layer that a collider touches (I7 of the master plan): every
+             * tile whose Tiled collision rectangle overlaps rect, in MAP space, each reported once with
+             * its dimension in map space (as GetTile gives it). Rectangles that only share an edge do
+             * not overlap, so a sprite resting flush against a wall does not touch it. Only rectangle
+             * collision shapes are tested.
+             * @param rect The collider's rectangle: a map position when bWorldSpace, otherwise relative
+             * to the view (a sprite's own position), which is turned into a map position with the camera
+             * the layer is drawn with;
+             * @param bWorldSpace Whether rect is already a map position;
+             * @param layer The tile layer;
+             * @param tiles Receives the tiles touched, in row then column order (emptied first);
+             * @return Whether the layer could be tested (a map is loaded and layer is a tile layer);
+             */
+            virtual bool GetCollidingTiles( const SunLight :: Base :: stRectangle& rect,
+                                            bool bWorldSpace,
+                                            const SunLight :: TileMap :: stLayer& layer,
+                                            std :: vector<SunLight :: TileMap :: stTile>& tiles ) = 0;
+
+            /**
+             * Get the tile matrix cell under a MAP position (map pixels - no camera, zoom or viewport
+             * origin; I7 of the master plan). A view-relative sprite's map position is its own position
+             * minus the camera (see GetCameraPosition).
+             * @param coord The map position to translate to tile position;
              * @param pos Reference to struct @ref SunLight::TileMap::stMatrixPosition to receive the
-             * tile position based on world coordinate passed as parameter;
+             * tile position;
+             * @return Whether the position is on the map;
              */
             virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                               SunLight :: TileMap :: stMatrixPosition& pos ) = 0;

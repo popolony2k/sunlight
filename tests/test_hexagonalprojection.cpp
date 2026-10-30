@@ -354,13 +354,10 @@ TEST_SUITE( "Hexagonal projection" )  {
         }
     }
 
-    TEST_CASE( "View to tile matrix round-trips every cell of a 4x3 map, axis Y index odd hexside 20" )  {
+    TEST_CASE( "Map to tile matrix round-trips every cell of a 4x3 map, axis Y index odd hexside 20" )  {
 
         HexagonalProjection  projection;
         tmx_map              map = MakeMap( 4, 3, 60, 50, SA_Y, SI_ODD, 20 );
-
-        SunLight :: Base :: stDimension2D  viewport {};
-        SunLight :: Base :: stVector2D     camera { 0.0f, 0.0f };
         SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
 
         for( int nRow = 0; nRow < 3; nRow++ )  {
@@ -372,7 +369,7 @@ TEST_SUITE( "Hexagonal projection" )  {
                 SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
 
                 stMatrixPosition  back {};
-                bool  bFound = projection.ViewToTileMatrix( probe, &map, viewport, camera, 1.0f,
+                bool  bFound = projection.MapToTileMatrix( probe, &map,
                                                             mapSize.nWidth, mapSize.nHeight, back );
 
                 REQUIRE( bFound == true );
@@ -382,13 +379,10 @@ TEST_SUITE( "Hexagonal projection" )  {
         }
     }
 
-    TEST_CASE( "View to tile matrix round-trips every cell of a 4x3 map, axis X index even hexside 20" )  {
+    TEST_CASE( "Map to tile matrix round-trips every cell of a 4x3 map, axis X index even hexside 20" )  {
 
         HexagonalProjection  projection;
         tmx_map              map = MakeMap( 4, 3, 50, 60, SA_X, SI_EVEN, 20 );
-
-        SunLight :: Base :: stDimension2D  viewport {};
-        SunLight :: Base :: stVector2D     camera { 0.0f, 0.0f };
         SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
 
         for( int nRow = 0; nRow < 3; nRow++ )  {
@@ -400,7 +394,7 @@ TEST_SUITE( "Hexagonal projection" )  {
                 SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
 
                 stMatrixPosition  back {};
-                bool  bFound = projection.ViewToTileMatrix( probe, &map, viewport, camera, 1.0f,
+                bool  bFound = projection.MapToTileMatrix( probe, &map,
                                                             mapSize.nWidth, mapSize.nHeight, back );
 
                 REQUIRE( bFound == true );
@@ -410,13 +404,10 @@ TEST_SUITE( "Hexagonal projection" )  {
         }
     }
 
-    TEST_CASE( "View to tile matrix round-trips with a different hexsidelength (10), axis Y index odd" )  {
+    TEST_CASE( "Map to tile matrix round-trips with a different hexsidelength (10), axis Y index odd" )  {
 
         HexagonalProjection  projection;
         tmx_map              map = MakeMap( 4, 3, 60, 50, SA_Y, SI_ODD, 10 );
-
-        SunLight :: Base :: stDimension2D  viewport {};
-        SunLight :: Base :: stVector2D     camera { 0.0f, 0.0f };
         SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
 
         for( int nRow = 0; nRow < 3; nRow++ )  {
@@ -428,7 +419,7 @@ TEST_SUITE( "Hexagonal projection" )  {
                 SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
 
                 stMatrixPosition  back {};
-                bool  bFound = projection.ViewToTileMatrix( probe, &map, viewport, camera, 1.0f,
+                bool  bFound = projection.MapToTileMatrix( probe, &map,
                                                             mapSize.nWidth, mapSize.nHeight, back );
 
                 REQUIRE( bFound == true );
@@ -438,20 +429,17 @@ TEST_SUITE( "Hexagonal projection" )  {
         }
     }
 
-    TEST_CASE( "View to tile matrix refuses a coordinate outside the map's own pixel bounds" )  {
+    TEST_CASE( "Map to tile matrix refuses a coordinate outside the map's own pixel bounds" )  {
 
         HexagonalProjection  projection;
         tmx_map              map = MakeMap( 4, 3, 60, 50, SA_Y, SI_ODD, 20 );
-
-        SunLight :: Base :: stDimension2D  viewport {};
-        SunLight :: Base :: stVector2D     camera { 0.0f, 0.0f };
         SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
 
         stMatrixPosition  pos {};
 
-        CHECK( projection.ViewToTileMatrix( { -1, 0 }, &map, viewport, camera, 1.0f,
+        CHECK( projection.MapToTileMatrix( { -1, 0 }, &map,
                                             mapSize.nWidth, mapSize.nHeight, pos ) == false );
-        CHECK( projection.ViewToTileMatrix( { mapSize.nWidth, 0 }, &map, viewport, camera, 1.0f,
+        CHECK( projection.MapToTileMatrix( { mapSize.nWidth, 0 }, &map,
                                             mapSize.nWidth, mapSize.nHeight, pos ) == false );
     }
 

@@ -113,12 +113,29 @@ namespace SunLight  {
         }
 
         /**
-         * Check if collider object area has been hit by tile passed as parameter.
+         * @brief The rectangle this collider tests with (see GetEffectiveRect), as one value.
+         * @return The effective rectangle;
+         */
+        SunLight :: Base :: stRectangle Collider :: EffectiveRect( void )  {
+
+            SunLight :: Base :: stRectangle  rect;
+
+            GetEffectiveRect( rect.x, rect.y, rect.width, rect.height );
+
+            return rect;
+        }
+
+        /**
+         * Check if collider object area has been hit by tile passed as parameter. The collider's
+         * rectangle and the tile's dimension are compared as they are, so both must be in the same
+         * space: a tile from GetTile is in map space (I7 of the master plan), so this answers for a
+         * collider whose position is a map position. CollisionManager does not use this: it asks the
+         * map for the tiles a collider touches (ITileMap::GetCollidingTiles), which converts the
+         * collider to map space first.
          * @param tile Reference to the tile struct containing all tile information;
          */
         bool Collider :: Hit( SunLight :: TileMap :: stTile& tile )  {
 
-            SunLight :: Base :: stDimension2D&  viewport    = GetViewport().GetDimension2D();
             tmx_object                           *pCollision = tile.pTile -> collision;
             bool                                 bHit        = false;
             float                                fSelfX, fSelfY, fSelfWidth, fSelfHeight;
@@ -129,8 +146,8 @@ namespace SunLight  {
 
                 switch( pCollision -> obj_type )  {
                     case OT_SQUARE :
-                        bHit = RectRect( fSelfX + ( float ) viewport.pos.x,
-                                         fSelfY + ( float ) viewport.pos.y,
+                        bHit = RectRect( fSelfX,
+                                         fSelfY,
                                          fSelfWidth,
                                          fSelfHeight,
                                          ( float ) ( tile.dimension.pos.x + pCollision -> x ),
@@ -163,8 +180,11 @@ namespace SunLight  {
 
                 if( bHit )
                     return true;
-                else
-                    pCollision = tile.pTile -> collision -> next;
+
+                // The next shape of this tile. It used to step to the FIRST shape's next every time,
+                // so on a tile with two or more shapes where the second missed, it tested the second
+                // one again forever (a hung frame).
+                pCollision = pCollision -> next;
             }
 
             return bHit;

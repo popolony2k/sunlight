@@ -257,10 +257,11 @@ namespace SunLight  {
             virtual bool FitToMap( void ) = 0;
 
             /**
-             * @brief Convert a coordinate in THIS view (screen space,
-             * through its viewport, zoom and camera) to the tile matrix
-             * position under it (see ITileMap::TileMapToTileMatrix, which
-             * does the same for the default view).
+             * @brief The tile matrix position under a MAP position: exactly
+             * ITileMap::TileMapToTileMatrix (I7 of the master plan). A map
+             * position has no view, so every view answers the same; this used
+             * to take a coordinate through THIS view's viewport origin and
+             * camera.
              */
             virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                               SunLight :: TileMap :: stMatrixPosition& pos ) = 0;

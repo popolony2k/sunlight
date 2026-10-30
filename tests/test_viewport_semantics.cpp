@@ -318,26 +318,27 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         CHECK( nMovedY > 40 );
     }
 
-    TEST_CASE( "TileMapToTileMatrix uses the viewport's pos.y for the row (it used pos.x)" )  {
+    TEST_CASE( "TileMapToTileMatrix takes a map position: the viewport origin enters neither axis (I7)" )  {
 
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
 
-        // pos.x != pos.y is what tells them apart: (10, 40).
+        // A viewport origin of (10, 40) - once added to x and, after an earlier fix, to y - no longer
+        // enters: the cell is the map position over the tile size.
         VpCase                              v { 10, 40, 500, 500, 15 };
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, ITM :: MAP_ALIGNMENT_TOP_LEFT );
         SunLight :: Base :: stCoordinate2D    coord { 100, 100 };
         SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
 
         REQUIRE( pRenderer -> TileMapToTileMatrix( coord, pos ) == true );
-        CHECK( pos.nTileCol == ( 100 + 10 ) / 16 );        // 6
-        CHECK( pos.nTileRow == ( 100 + 40 ) / 16 );        // 8   (was (100 + 10) / 16 = 6)
+        CHECK( pos.nTileCol == 100 / 16 );                 // 6
+        CHECK( pos.nTileRow == 100 / 16 );                 // 6
 
         SunLight :: Base :: stCoordinate2D    coord2 { 20, 30 };
 
         REQUIRE( pRenderer -> TileMapToTileMatrix( coord2, pos ) == true );
-        CHECK( pos.nTileCol == ( 20 + 10 ) / 16 );         // 1
-        CHECK( pos.nTileRow == ( 30 + 40 ) / 16 );         // 4
+        CHECK( pos.nTileCol == 20 / 16 );                  // 1
+        CHECK( pos.nTileRow == 30 / 16 );                  // 1
 
         pRenderer -> Stop();
     }

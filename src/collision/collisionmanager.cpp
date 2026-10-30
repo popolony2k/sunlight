@@ -377,19 +377,22 @@ namespace SunLight  {
                     if( !pFirst )
                         continue;
 
-                    SunLight :: TileMap :: stTile      tile;
-                    SunLight :: TileMap :: stLayer     layer;
+                    SunLight :: TileMap :: stLayer                layer;
+                    std :: vector<SunLight :: TileMap :: stTile>  tiles;
 
-                    if( m_pParent -> GetLayer( pPair -> second, layer ) )  {
-                        SunLight :: Base :: stDimension2D&    spritePos = pFirst -> GetDimension2D();
-                        SunLight :: TileMap :: stMatrixPosition  tilePos   = { 0, 0 };
+                    // I7 of the master plan: every tile the collider touches, worked out by the map in map
+                    // space (ITileMap::GetCollidingTiles), each reported once and with its map-space
+                    // rectangle. It used to test only the tile under the collider's top-left corner, found
+                    // through the viewport origin and the camera (see TileMapRenderer::GetCollidingTiles).
+                    if( m_pParent -> GetLayer( pPair -> second, layer ) &&
+                        m_pParent -> GetCollidingTiles( pFirst -> EffectiveRect(), pFirst -> IsWorldSpace(), layer, tiles ) )  {
 
-                        if( m_pParent -> TileMapToTileMatrix( spritePos.pos, tilePos ) )  {
-                            if( m_pParent -> GetTile( tilePos, layer, tile ) &&
-                                pFirst -> Hit( tile ) &&
-                                IsColliderRegistered( pPair -> first, firstHandle ) )  {
-                                FireOnCollision(pFirst, &tile );
-                            }
+                        for( SunLight :: TileMap :: stTile& tile : tiles )  {
+                            // A listener may have removed (or destroyed) this collider during an earlier tile's callback.
+                            if( !IsColliderRegistered( pPair -> first, firstHandle ) || !registry.Resolve( firstHandle ) )
+                                break;
+
+                            FireOnCollision( pFirst, &tile );
                         }
                     }
                 }

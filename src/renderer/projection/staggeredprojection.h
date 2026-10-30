@@ -42,7 +42,7 @@ namespace SunLight  {
              *         rather than assumed from the symmetry.
              * The row (SA_Y) or column (SA_X) pitch is only half a tile step, so consecutive cells on the
              * staggered axis genuinely overlap by half their own rectangle - the same shape of ambiguity E1b
-             * found for isometric's diamond lattice. ViewToTileMatrix resolves it the same way isometric's own
+             * found for isometric's diamond lattice. MapToTileMatrix resolves it the same way isometric's own
              * doc comment describes: AABB-level precision, correct for a point near a cell's own anchor corner,
              * not a true per-shape hit-test (no consumer needs one today).
              *
@@ -62,16 +62,8 @@ namespace SunLight  {
                                                                       int nLayerOffsetX,
                                                                       int nLayerOffsetY ) const override;
 
-                SunLight :: Base :: stDimension2D TileViewRect( const SunLight :: TileMap :: stMatrixPosition& pos,
-                                                                 tmx_map* pMap,
-                                                                 const SunLight :: Base :: stDimension2D& viewport,
-                                                                 const SunLight :: Base :: stVector2D& camera ) const override;
-
-                bool ViewToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                bool MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                       tmx_map* pMap,
-                                      const SunLight :: Base :: stDimension2D& viewport,
-                                      const SunLight :: Base :: stVector2D& camera,
-                                      float fZoom,
                                       int nMapPixelWidth,
                                       int nMapPixelHeight,
                                       SunLight :: TileMap :: stMatrixPosition& pos ) const override;

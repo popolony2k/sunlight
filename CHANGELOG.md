@@ -34,6 +34,11 @@ Each item is described in full in the plan; what each change means for code buil
   not inverses: an opaque layer read 256, and `SetLayer(255)` hid the layer.
 - `IEngine` gains pure virtuals `SetBlendMode`/`GetBlendMode`, and `IDrawSurface` gains
   `BeginBlendMode`/`EndBlendMode`. Only a class implementing one of them must update.
+- Tile positions are in map space: `TileMapToTileMatrix` takes a map position (it added the
+  viewport origin and the camera), and the tile from `GetTile` and from `OnCollision( Collider*,
+  stTile* )` has its map rectangle (it was in view space). `ITileMap` gains
+  `GetCollidingTiles`; the projection interface's `TileViewRect`/`ViewToTileMatrix` became
+  `MapToTileMatrix`.
 - Fonts by handle: `SetFont` takes a loaded font (`std::shared_ptr<IFont>`, `nullptr` for the
   built-in one) instead of a file path, on `IEngine` and `IDrawSurface`; `LoadFont` returns a
   `std::shared_ptr<IFont>`; `RegisterFont( family, font, bold, italic )` takes a loaded font
@@ -154,6 +159,10 @@ Each item is described in full in the plan; what each change means for code buil
   unloaded sprite kept colliding, and adding it again registered its collider twice. The sprites'
   own colliders are now removed with them; colliders the game added itself, and the collision
   rules, stay.
+- Sprite-against-tile collisions (`AddColliderToTileRule`) tested only the tile under the sprite's
+  top-left corner, shifted by the viewport origin, and added the camera to a world-space sprite's
+  map position. They now test every tile the sprite overlaps, in map space, once per tile per
+  frame. A tile with several collision shapes no longer hangs the frame.
 - The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
   keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 
