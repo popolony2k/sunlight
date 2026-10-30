@@ -21,6 +21,7 @@
 #ifndef __DRAWCONTEXT_H__
 #define __DRAWCONTEXT_H__
 
+#include "base/color.h"
 #include "base/primitives.h"
 
 
@@ -42,6 +43,12 @@ namespace SunLight  {
             SunLight :: Base :: stDimension2D  viewport;   // the view's rectangle, in screen pixels
             float                              fZoom;      // the view's zoom factor
             SunLight :: Base :: stVector2D     camera;     // the camera offset of the layer being drawn (its parallax applied), in map units
+
+            // I8 of the master plan: what the layer's group ancestors pass down, as Tiled draws a group
+            // - every enclosing group's opacity multiplied together, and their tints multiplied channel
+            // by channel (alpha unused). A layer outside any group gets 1 and opaque white: no change.
+            float                              fGroupOpacity = 1.0f;
+            SunLight :: Base :: stColor        groupTint     { 0xFF, 0xFF, 0xFF, 0xFF };
         };
     }
 }

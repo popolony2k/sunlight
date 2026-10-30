@@ -2229,6 +2229,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I5 | `CollisionManager` layer ids: an id out of range read past the layer array, `Clear()` left null lists, `RemoveAll()` cleared nothing (reported by Scarab) | DONE |
 | I6 | `UnloadMap()`/`Stop()` left the unloaded sprites' colliders in the collision manager (reported by Scarab, its V9) | DONE |
 | I7 | Sprite-against-tile collisions tested the wrong tile; tile picking mixed screen and map space (reported by Scarab, its V11) | DONE |
+| I8 | Layer tint at runtime (`stLayer::tint`), and a group's tint and opacity reaching the layers inside it (asked for by Scarab, its V12) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2488,6 +2489,51 @@ BREAKAGES 4 (its V11), with a sweep of a 32 x 32 sprite past a 32 x 32 collision
   frame's steps (`Step()`, a frame counter advanced in `OnUpdate`) and undoes them all once. The
   owner re-checked `collision`, `isometric`, `staggered` and `hexagonal` in a real window: all fine.
 - `doc/BREAKAGES.md` entry 56.
+
+**I8: layer tint at runtime, and group tint and opacity (DONE).** Scarab asked for it, at the
+owner's request (its V12): a game could not change a layer's tint at runtime, and a group's tint and
+opacity were ignored.
+
+- **API, decided with the owner:** `stLayer` gains `stColor tint`, appended (so positional
+  initializers keep compiling), opaque white by default. `GetLayer` fills it with the authored
+  `tintcolor`, alpha included, by id and by name, for every layer type including groups; `SetLayer`
+  writes it back (`Shape::ArgbOf`, the inverse of `ColorOf`), and the next frame draws with it. A
+  read and an unchanged write-back leave libtmx's value exactly as it was. The tint's alpha is kept
+  but ignored for drawing: opacity stays the only alpha control.
+- **Groups, as Tiled draws them:** a layer's effective opacity is its own times every enclosing
+  group's, and its effective tint is its own times the groups' tints, channel by channel
+  (`Shape::MultiplyTint`: c x t / 255 rounded, so white changes nothing). `DrawAllLayers` passes
+  both down the nesting, and the drawing classes get them in `DrawContext` (`fGroupOpacity`,
+  `groupTint`); once the map is drawn they are 1 and white again.
+  - Tile layers, image layers and tile objects take both.
+  - Shapes and text take only the group opacity: they are never tinted, as before.
+  - An object's own `opacity` property still replaces its layer's opacity (L2); the groups'
+    multiplies on top.
+  - Sprites are not affected.
+- **Image layers apply their own opacity** (with their groups'): they were always drawn opaque.
+- **Tests** (`tests/test_layertint.cpp`, extended, and `tests/test_layertint_groups.cpp`, a real
+  renderer over the mocks; every alpha and tint worked out by hand):
+  - `GetLayer` by id and by name reads the authored tint with its alpha, white when there is none,
+    and a group's tint;
+  - `SetLayer` writes libtmx's ARGB, and the change shows from the next frame on a tile layer, an
+    image layer, a tile object and a group (tint and opacity);
+  - an unchanged write-back changes neither the stored value nor the frame;
+  - a group's tint and opacity reach its tile layers and nothing outside it; nested groups multiply
+    (0.5 x 0.5 gives alpha 63; `#ff8000` x `#8080ff` gives `#804000`);
+  - shapes and text in a group take its opacity, not its tint; an object's own opacity times the
+    group's;
+  - an image layer's own opacity.
+
+  Built against `feat/master_plan` in a worktree, the five rendering tests fail on the old code (the
+  sixth, nothing tinted anywhere, passes on both, as it should). The `GetLayer`/`SetLayer` tests
+  cannot be built there: `stLayer::tint` is new.
+- **Sample:** `samples/tint`: a tinted tile layer, image layer and object layer, and a tinted,
+  half-transparent group holding a tile layer and shapes over stripes outside it. Keys cycle each
+  tint and the group's opacity through `GetLayer`/`SetLayer`.
+- **Open point, not changed here:** `nOpacity` is 0..255, so a layer authored at 0.5 reads back
+  as 128 and is written back as 0.502: a write-back of an unchanged half-transparent layer draws
+  alpha 128 where it drew 127. Pre-existing (T2), unrelated to the tint.
+- `doc/BREAKAGES.md` entry 57.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

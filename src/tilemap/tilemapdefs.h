@@ -23,6 +23,7 @@
 
 #include <tmx.h>
 #include <string>
+#include "base/color.h"
 #include "base/primitives.h"
 
 
@@ -50,6 +51,14 @@ namespace SunLight  {
             tmx_layer      *pLayer;
             float          fParallaxX = 1.0f;
             float          fParallaxY = 1.0f;
+
+            // I8 of the master plan: the layer's Tiled "tintcolor", read and written by GetLayer/SetLayer
+            // - opaque white (no tint) when the map declares none. Its RGB multiplies into every tile and
+            // image the layer draws (and, for a group, into everything inside it); its alpha is kept as
+            // authored but ignored for drawing - opacity stays the only alpha control. Appended, like the
+            // parallax factors, so positional initializers keep compiling; a stLayer built by hand rather
+            // than read with GetLayer therefore carries white, and SetLayer writes it.
+            Base :: stColor tint { 0xFF, 0xFF, 0xFF, 0xFF };
         };
 
         /**

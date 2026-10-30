@@ -151,7 +151,8 @@ namespace SunLight  {
             tmx_tile      *pTile   = ( pBase -> animation_len != 0 ) ? map.AnimatedFrameOf( pBase, nGID ) : pBase;
             tmx_tileset   *pTs     = pTile -> tileset;
             void          *pImage  = ( pTile -> image != nullptr ) ? pTile -> image -> resource_image : pTs -> image -> resource_image;
-            SunLight :: Base :: stColor  tintColor = Shape :: ColorOf( pLayer -> tintcolor );
+            SunLight :: Base :: stColor  tintColor = Shape :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );   // I8: with its groups'
+
             int            nTileW   = ( int ) pTs -> tile_width;
             int            nTileH   = ( int ) pTs -> tile_height;
 
@@ -235,7 +236,8 @@ namespace SunLight  {
          * rectangle is otherwise the active view's own clip region (BeginClip/EndClip), not
          * this function's job, same as DrawTile. Still only drawn for the default view (see
          * DrawAllLayers's own call site) - a separate, pre-existing restriction this item does
-         * not lift.
+         * not lift. Its opacity applies (I8 of the master plan; it was always drawn opaque), times
+         * its groups', and so does its tint, times its groups'.
          * @param context The view and layer to draw for;
          * @param pLayer The image layer to draw;
          */
@@ -243,7 +245,8 @@ namespace SunLight  {
 
             tmx_image                             *pTmxImage = pLayer -> content.image;
             void                                   *pImage    = pTmxImage -> resource_image;
-            SunLight :: Base :: stColor         tintColor  = Shape :: ColorOf( pLayer -> tintcolor );
+            SunLight :: Base :: stColor         tintColor  = Shape :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
+            float                               fOpacity   = ( float ) pLayer -> opacity * context.fGroupOpacity;
             SunLight :: Base :: stDimension2D  clip;
             SunLight :: Base :: stDimension2D  dm         = { { ( int ) ( pLayer -> offsetx + context.camera.x ),
                                                                  ( int ) ( pLayer -> offsety + context.camera.y ) },
@@ -269,7 +272,8 @@ namespace SunLight  {
                                                       SunLight :: Base :: stVector2D  { 0, 0 },
                                                       0.0f,
                                                       fZoomFactor,
-                                                      SunLight :: Base :: stColor  { tintColor.nRed, tintColor.nGreen, tintColor.nBlue, 0xFF } );
+                                                      SunLight :: Base :: stColor  { tintColor.nRed, tintColor.nGreen, tintColor.nBlue,
+                                                                                     ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) } );
             }
         }
 
@@ -283,8 +287,9 @@ namespace SunLight  {
          */
         void LayerRenderer :: DrawTileLayer( const DrawContext& context, MapData& map, tmx_layer* pLayer ) const  {
 
-            float                              fOpacity  = ( float ) pLayer -> opacity;
-            SunLight :: Base :: stColor  tintColor = Shape :: ColorOf( pLayer -> tintcolor );
+            // I8: the layer's own opacity and tint, with its enclosing groups' multiplied in (context).
+            float                              fOpacity  = ( float ) pLayer -> opacity * context.fGroupOpacity;
+            SunLight :: Base :: stColor  tintColor = Shape :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
             Projection :: stTileRange   range;
 
             tmx_map                            *pTmxMap  = map.Tmx();

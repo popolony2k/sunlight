@@ -81,7 +81,7 @@ namespace SunLight  {
             // L2: the object's own "opacity" property, or its layer's, multiplies into the text's
             // own stored colour alpha (not replaced - unlike a tile's tintcolor, a text object's
             // colour has no separate alpha control of its own to begin with).
-            color.nAlpha = ( uint8_t ) ( color.nAlpha * opacity.Of( pObject, ( float ) pLayer -> opacity ) );
+            color.nAlpha = ( uint8_t ) ( color.nAlpha * opacity.Of( pObject, ( float ) pLayer -> opacity ) * context.fGroupOpacity );   // I8: and its groups
             bool                                   bBold    = ( pText -> bold != 0 );
             bool                                   bItalic  = ( pText -> italic != 0 );
             double                                 fZoom    = context.fZoom;

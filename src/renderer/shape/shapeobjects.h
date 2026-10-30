@@ -46,6 +46,13 @@ namespace SunLight  {
              */
             SunLight :: Base :: stColor ColorOf( uint32_t nColor );
 
+            // The inverse of ColorOf: a colour packed back into libtmx's ARGB uint32_t (I8).
+            uint32_t ArgbOf( SunLight :: Base :: stColor color );
+
+            // Two tints multiplied channel by channel (each / 255, rounded to nearest): Tiled's way of
+            // combining a group's tint with a layer's (I8). Alpha is the first colour's, unchanged.
+            SunLight :: Base :: stColor MultiplyTint( SunLight :: Base :: stColor color, SunLight :: Base :: stColor tint );
+
             /**
              * @brief Size of a point object, in map units: its point_size property, or one map unit when the object
              * has none. The same reading as LineWidthOf.
