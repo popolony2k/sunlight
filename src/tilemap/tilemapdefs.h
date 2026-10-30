@@ -40,13 +40,19 @@ namespace SunLight  {
         /**
          * Layer definition struct. fParallaxX/fParallaxY (L1 of the master plan) mirror the
          * TMX layer's own parallaxx/parallaxy (1.0 = no parallax, today's exact behavior) -
-         * appended at the end, not inserted among the existing fields, so every positional
-         * initializer already in this codebase (eg. `stLayer{ true, 255, {0,0}, nullptr }`)
-         * keeps compiling unchanged.
+         * appended at the end, not inserted among the existing fields, so positional
+         * initializers (eg. `stLayer{ true, 1.0f, {0,0}, nullptr }`) keep compiling.
+         *
+         * fOpacity (I9 of the master plan) is Tiled's and libtmx's own opacity, 0 (transparent)
+         * to 1 (opaque); SetLayer clamps it. It replaced `int nOpacity` (0..255) in the same
+         * place, so an old positional initializer still compiles with a new meaning:
+         * `stLayer{ true, 128, ... }` is now opacity 128, clamped to opaque - write 0.5f.
+         * SetLayer writes a float field (opacity, parallax) only when it differs from what
+         * GetLayer reads, so an unchanged write-back leaves the map's value exactly as authored.
          */
         struct stLayer  {
             bool           bVisible;
-            int            nOpacity;
+            float          fOpacity;
             Base :: stCoordinate2D offset;
             tmx_layer      *pLayer;
             float          fParallaxX = 1.0f;

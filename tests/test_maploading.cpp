@@ -280,7 +280,7 @@ TEST_SUITE( "renderer/map loading" )  {
         CHECK( scene.pRenderer -> GetLayer( "nope", layer ) == false );
     }
 
-    TEST_CASE( "GetLayer reports opacity in 0..255: an opaque layer is 255, a half one 128" )  {
+    TEST_CASE( "GetLayer reports opacity in 0..1: an opaque layer is 1, a half one exactly 0.5" )  {
 
         Scene                           scene;
         SunLight :: TileMap :: stLayer  layer {};
@@ -288,11 +288,11 @@ TEST_SUITE( "renderer/map loading" )  {
         REQUIRE( scene.Load( "maps/level.tmx" ) == true );
 
         REQUIRE( scene.pRenderer -> GetLayer( "ground", layer ) == true );
-        CHECK( layer.nOpacity == 255 );
+        CHECK( layer.fOpacity == 1.0f );
         CHECK( layer.bVisible == true );
 
         REQUIRE( scene.pRenderer -> GetLayer( "inner", layer ) == true );
-        CHECK( layer.nOpacity == 128 );                         // 0.5 x 255 = 127.5, rounded
+        CHECK( layer.fOpacity == 0.5f );
     }
 
     TEST_CASE( "SetLayer stores opacity as libtmx's 0..1, clamped, and GetLayer then SetLayer changes nothing else" )  {
@@ -312,22 +312,22 @@ TEST_SUITE( "renderer/map loading" )  {
         CHECK( pTmx -> visible == 0 );
 
         REQUIRE( scene.pRenderer -> GetLayer( "ground", layer ) == true );
-        CHECK( layer.nOpacity == 255 );
+        CHECK( layer.fOpacity == 1.0f );
         CHECK( layer.bVisible == false );
 
-        layer.nOpacity = 0;
+        layer.fOpacity = 0.0f;
         REQUIRE( scene.pRenderer -> SetLayer( 1, layer ) == true );
         CHECK( pTmx -> opacity == 0.0 );
 
-        layer.nOpacity = 128;
+        layer.fOpacity = 0.25f;
         REQUIRE( scene.pRenderer -> SetLayer( 1, layer ) == true );
-        CHECK( pTmx -> opacity == 128.0 / 255.0 );
+        CHECK( pTmx -> opacity == 0.25 );
 
-        layer.nOpacity = 300;
+        layer.fOpacity = 1.5f;
         REQUIRE( scene.pRenderer -> SetLayer( 1, layer ) == true );
         CHECK( pTmx -> opacity == 1.0 );
 
-        layer.nOpacity = -5;
+        layer.fOpacity = -0.2f;
         REQUIRE( scene.pRenderer -> SetLayer( 1, layer ) == true );
         CHECK( pTmx -> opacity == 0.0 );
     }

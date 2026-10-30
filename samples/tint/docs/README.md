@@ -1,6 +1,6 @@
 # tint sample
 
-Shows layer tint at runtime. A Tiled layer's `tintcolor` multiplies into what it draws. The sample reads each layer with `GetLayer`, changes `stLayer::tint` (or the group's `nOpacity`) and writes it back with `SetLayer`; the change shows from the next frame. A group layer passes its own tint and opacity to everything inside it, as Tiled draws a group.
+Shows layer tint at runtime. A Tiled layer's `tintcolor` multiplies into what it draws. The sample reads each layer with `GetLayer`, changes `stLayer::tint` (or the group's `fOpacity`) and writes it back with `SetLayer`; the change shows from the next frame. A group layer passes its own tint and opacity to everything inside it, as Tiled draws a group.
 
 ## Building
 
@@ -35,7 +35,7 @@ Each key acts once per press.
 | `0` | Every layer back to its authored tint and opacity |
 | `Esc` | Quit |
 
-A tint key cycles through the layer's authored tint, then white (no tint), red, green, blue and gold. The opacity key cycles through the group's authored opacity, then 255, 191, 64 and 0 (of 255).
+A tint key cycles through the layer's authored tint, then white (no tint), red, green, blue and gold. The opacity key cycles through the group's authored opacity (0.5), then 1.0, 0.75, 0.25 and 0.0.
 
 ## What to look for
 
@@ -47,7 +47,7 @@ The art is neutral grey, so a layer shows its tint as its own colour. The HUD at
 - **4. Group**: a group authored with a blue tint (`#80c0ff`) and opacity 0.5, over grey diagonal stripes that are not in it.
   - Its tile layer (the checker) takes the group's tint and opacity: the stripes show through it.
   - Its yellow rectangle, ellipse and text take only the opacity: they stay yellow whatever the group's tint, and fade with the group.
-  - At opacity 0 the whole group disappears; at 255 the stripes are hidden.
+  - At opacity 0 the whole group disappears; at 1.0 the stripes are hidden.
 - The white labels are on a layer outside every tint: they never change.
 
 ## In the code

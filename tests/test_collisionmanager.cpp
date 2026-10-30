@@ -482,7 +482,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
 
         CHECK( manager.AddColliderToTileRule( 0, 7 ) == false );
 
-        tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
+        tileMap.layersById[7] = stLayer { true, 1.0f, { 0, 0 }, nullptr };
 
         CHECK( manager.AddColliderToTileRule( 0, 7 ) == true );
     }
@@ -493,7 +493,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
         TestCollisionListener   listener;
         Collider                collider;
 
-        tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
+        tileMap.layersById[7] = stLayer { true, 1.0f, { 0, 0 }, nullptr };
 
         CollisionManager  manager( &tileMap );
 
@@ -523,7 +523,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
         MockTileMap                   tileMap;
         SunLight :: Sprite :: Sprite  sprite;
 
-        tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
+        tileMap.layersById[7] = stLayer { true, 1.0f, { 0, 0 }, nullptr };
 
         CollisionManager  manager( &tileMap );
 
@@ -550,7 +550,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
         right.nGID = 4;
         right.dimension = SunLight :: Base :: stDimension2D { { 192, 160 }, { 32, 32 } };
 
-        tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
+        tileMap.layersById[7] = stLayer { true, 1.0f, { 0, 0 }, nullptr };
         tileMap.collidingTiles = { left, right };
 
         CollisionManager  manager( &tileMap );
@@ -586,7 +586,7 @@ TEST_SUITE( "collision/CollisionManager" )  {
         RemovingTileListener  listener;
         Collider              collider;
 
-        tileMap.layersById[7] = stLayer { true, 255, { 0, 0 }, nullptr };
+        tileMap.layersById[7] = stLayer { true, 1.0f, { 0, 0 }, nullptr };
         tileMap.collidingTiles = { stTile {}, stTile {} };
 
         CollisionManager  manager( &tileMap );

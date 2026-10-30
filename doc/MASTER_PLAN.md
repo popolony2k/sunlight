@@ -2230,6 +2230,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I6 | `UnloadMap()`/`Stop()` left the unloaded sprites' colliders in the collision manager (reported by Scarab, its V9) | DONE |
 | I7 | Sprite-against-tile collisions tested the wrong tile; tile picking mixed screen and map space (reported by Scarab, its V11) | DONE |
 | I8 | Layer tint at runtime (`stLayer::tint`), and a group's tint and opacity reaching the layers inside it (asked for by Scarab, its V12) | DONE |
+| I9 | A layer's opacity as a float, 0..1 (`stLayer::fOpacity`); an unchanged `GetLayer`/`SetLayer` keeps the map's opacity and parallax exactly; `SetScreenFade` clamped to 0..1 | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2530,10 +2531,50 @@ opacity were ignored.
 - **Sample:** `samples/tint`: a tinted tile layer, image layer and object layer, and a tinted,
   half-transparent group holding a tile layer and shapes over stripes outside it. Keys cycle each
   tint and the group's opacity through `GetLayer`/`SetLayer`.
-- **Open point, not changed here:** `nOpacity` is 0..255, so a layer authored at 0.5 reads back
-  as 128 and is written back as 0.502: a write-back of an unchanged half-transparent layer draws
-  alpha 128 where it drew 127. Pre-existing (T2), unrelated to the tint.
+- **Open point, left for I9:** `nOpacity` is 0..255, so a layer authored at 0.5 read back as 128
+  and was written back as 0.502. Pre-existing (T2), unrelated to the tint.
 - `doc/BREAKAGES.md` entry 57.
+
+**I9: a layer's opacity as a float (DONE).** Found while testing I8: an unchanged `GetLayer` then
+`SetLayer` moved a layer's opacity, because `stLayer::nOpacity` was an int 0..255 (T2) - an
+authored 0.5 came back as 128 / 255 = 0.502, drawn with alpha 128 instead of 127. Scarab's
+`tilemap_set_layer` does that round trip on every call.
+
+- **Design, decided with the owner:** opacity as a float from 0 to 1 at the API, as Tiled and
+  libtmx store it, as Godot, Unity, GameMaker, Phaser and libGDX expose it, and as raylib's own
+  `Fade`/`ColorAlpha` take it (raylib's `Color` holds a byte, converted at the end:
+  `(unsigned char)(255.0f*alpha)`, read in `rtextures.c`). It also matches sunlight's own
+  per-object opacity (L2) and parallax factors. `stLayer::nOpacity` became `float fOpacity`, in
+  the same place; the rename makes code that sets the field by name fail to compile rather than
+  change meaning.
+- **Write only what changed:** a float cannot hold every double Tiled writes (0.69 reads as
+  0.68999999), so `SetLayer` writes the opacity and the parallax factors only when they differ from
+  what `GetLayer` reads from libtmx (`StoreIfChanged`). An unchanged write-back keeps the map's
+  values exactly; a change is written as before. The opacity is clamped to 0..1, and a NaN leaves
+  the layer's own.
+- **A trap, documented:** a positional initializer still compiles with a new meaning -
+  `stLayer{ true, 128, ... }` is opacity 128, clamped to opaque. sunlight's five (in
+  `tests/test_collisionmanager.cpp`) now say `1.0f`; Scarab has none (read only).
+- **Tests** (`tests/test_layerroundtrip.cpp`): an unchanged write-back keeps 0.5 exactly and its
+  alpha 127, keeps 0.69 exactly, and keeps a parallax of 0.3 exactly; `GetLayer` reads 0.5, 0.69
+  and 1; a change of opacity (0.25, alpha 63) and of parallax is written and drawn; a NaN leaves
+  the layer's own. `tests/test_maploading.cpp`'s opacity tests moved to 0..1, clamping 1.5 and -0.2.
+  - The three write-back tests, built against `feat/master_plan` in a worktree, fail on the old code
+    (0.501961, alpha 128; 0.690196; 0.30000001).
+  - With `StoreIfChanged` made to always write, the 0.69 and 0.3 cases fail too: the float alone is
+    not enough.
+- **Every opacity in sunlight, checked:** the layer's (this item), an object's `opacity` property
+  (0..1, refused outside, L2) and `IDrawSurface::SetScreenFade` (0..1) are floats; `stColor`'s and
+  `DrawText`/`DrawFilledRectangle`'s `nAlpha` are a colour's alpha channel, a byte, as raylib's
+  `Color`. `SetScreenFade` did not clamp: `Run()` draws the fade with an alpha of 255 x the value,
+  and a float outside the byte's range converts with undefined behaviour - 1.5 drew alpha 126, a
+  light fade instead of black. It is now clamped to 0..1, a NaN is no fade, and the 255 is named.
+  Scarab's `screen_fade` already refuses values outside 0..1. A test (1.5 draws 255; -0.5 and NaN
+  draw no fade) fails on the old code (126). Sprites have no opacity at all: a feature for later,
+  not part of this item.
+- **Sample:** `samples/tint`'s opacity key cycles 1.0, 0.75, 0.25 and 0.0, and its HUD shows the
+  opacity as 0..1.
+- `doc/BREAKAGES.md` entry 58.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

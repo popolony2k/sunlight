@@ -27,6 +27,7 @@
  */
 
 #include <doctest/doctest.h>
+#include <cmath>
 #include <functional>
 #include "renderer/tilemaprenderer.h"
 #include "tilemap/itilemaplistener.h"
@@ -353,6 +354,33 @@ TEST_SUITE( "renderer/TileMapRenderer lifecycle" )  {
         CHECK( engineFixture.engine.nLastFilledRectangleWidth == 800 );
         CHECK( engineFixture.engine.nLastFilledRectangleHeight == 600 );
         CHECK( engineFixture.engine.lastFilledRectangleColor.nAlpha == 127 );
+
+        renderer.Stop();
+    }
+
+    TEST_CASE( "SetScreenFade clamps to 0..1: above 1 is fully black, below 0 or NaN is no fade" )  {
+
+        MockEngineFixture  engineFixture;
+        MockWindowFixture  windowFixture;
+        TileMapRenderer    renderer( 800, 600, "test", -1 );
+
+        REQUIRE( renderer.Start() == true );
+
+        // 255 x 1.5 = 382.5 does not fit the alpha byte: converting it was undefined behaviour.
+        renderer.SetScreenFade( 1.5f );
+        windowFixture.window.nFramesUntilShouldClose = 1;
+        renderer.Run();
+        REQUIRE( engineFixture.engine.nDrawFilledRectangleCalls == 1 );
+        CHECK( engineFixture.engine.lastFilledRectangleColor.nAlpha == 255 );
+
+        for( float fAlpha : { -0.5f, std :: nanf( "" ) } )  {
+            INFO( "fade " << fAlpha );
+            engineFixture.engine.nDrawFilledRectangleCalls = 0;
+            windowFixture.window.nEndFrameCalls            = 0;
+            renderer.SetScreenFade( fAlpha );
+            renderer.Run();
+            CHECK( engineFixture.engine.nDrawFilledRectangleCalls == 0 );
+        }
 
         renderer.Stop();
     }

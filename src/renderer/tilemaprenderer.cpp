@@ -60,7 +60,9 @@
 /*
  * Engine limits.
  */
-#define __MAX_OPACITY_LEVEL            0xFF
+#define __OPACITY_MIN                  0.0f    // a layer's opacity: fully transparent
+#define __OPACITY_MAX                  1.0f    // a layer's opacity: fully opaque
+#define __FADE_CHANNEL_MAX             255.0f  // the screen fade's alpha channel at a fade of 1 (fully black)
 #define __HALF_DIVISOR                 2.0     // half of a view's visible size: its centre
 #define __COLLISION_PADDING_TILES      1       // cells searched around a collider: a tile larger than the grid reaches a neighbour's cell
 
@@ -637,22 +639,37 @@ namespace SunLight  {
         }
 
         /**
+         * @brief Store a stLayer float into the libtmx double it was read from (CopyTmxToLayer),
+         * but only when it changed (I9 of the master plan). A float cannot hold every double
+         * Tiled writes (0.69 reads back as 0.68999999), so writing an unchanged value back would
+         * move the map's own value; comparing with what GetLayer reads from it keeps it exact.
+         * @param fStored The libtmx value;
+         * @param fValue The stLayer value;
+         */
+        static void StoreIfChanged( double& fStored, float fValue )  {
+
+            if( fValue != ( float ) fStored )
+                fStored = fValue;
+        }
+
+        /**
          * Copy user layer to tmx layer.
          * @param pTmxLayer Pointer to Tmx that data will be copied to;
          * @param layer User struct whose layer data will be copied from;
          */
         void TileMapRenderer :: CopyLayerToTmx( tmx_layer* pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
 
-            // nOpacity is 0..__MAX_OPACITY_LEVEL (fully opaque), libtmx's own opacity 0.0..1.0 - the factor
-            // LayerRenderer multiplies alpha by. It was "__MAX_OPACITY_LEVEL - nOpacity" here and "opacity +
-            // __MAX_OPACITY_LEVEL" in CopyTmxToLayer: not inverses of each other, and neither in 0..1 - an
-            // opaque layer read back as 256 and was written back as -1.0, and 255 made it invisible.
-            pTmxLayer -> opacity   = ( double ) std :: clamp( layer.nOpacity, 0, __MAX_OPACITY_LEVEL ) / __MAX_OPACITY_LEVEL;
+            // I9 of the master plan: fOpacity is libtmx's own 0..1 (1 = opaque), clamped; it was an
+            // int 0..255, which could not hold most authored opacities (0.5 came back as 0.502). A NaN
+            // is no opacity at all, so it leaves the layer's own.
+            if( !std :: isnan( layer.fOpacity ) )
+                StoreIfChanged( pTmxLayer -> opacity, std :: clamp( layer.fOpacity, __OPACITY_MIN, __OPACITY_MAX ) );
+
             pTmxLayer -> offsetx   = layer.offset.x;
             pTmxLayer -> offsety   = layer.offset.y;
             pTmxLayer -> visible   = layer.bVisible;
-            pTmxLayer -> parallaxx = layer.fParallaxX;
-            pTmxLayer -> parallaxy = layer.fParallaxY;
+            StoreIfChanged( pTmxLayer -> parallaxx, layer.fParallaxX );
+            StoreIfChanged( pTmxLayer -> parallaxy, layer.fParallaxY );
             pTmxLayer -> tintcolor = Shape :: ArgbOf( layer.tint );   // I8: alpha kept as given, ignored for drawing
             layer.pLayer           = pTmxLayer;
         }
@@ -664,7 +681,7 @@ namespace SunLight  {
          */
         void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer* pTmxLayer )  {
 
-            layer.nOpacity   = ( int ) std :: lround( pTmxLayer -> opacity * __MAX_OPACITY_LEVEL );
+            layer.fOpacity   = ( float ) pTmxLayer -> opacity;
             layer.offset.x   = pTmxLayer -> offsetx;
             layer.offset.y   = pTmxLayer -> offsety;
             layer.bVisible   = pTmxLayer -> visible;
@@ -1538,11 +1555,14 @@ namespace SunLight  {
         /**
          * @brief Set a whole-screen fade overlay. Stored here and drawn by
          * @see Run() as the very last thing each frame, on top of whatever
-         * else was rendered - see Run()'s own comment for why.
+         * else was rendered - see Run()'s own comment for why. Clamped to 0..1 (I9 of the master
+         * plan), like a layer's opacity: Run() turns it into an alpha byte, and a float outside
+         * that byte's range converts with undefined behaviour (1.5 drew a light fade, not black).
+         * A NaN is no fade.
          */
         void TileMapRenderer :: SetScreenFade( float fAlpha )  {
 
-            m_fScreenFadeAlpha = fAlpha;
+            m_fScreenFadeAlpha = std :: isnan( fAlpha ) ? __OPACITY_MIN : std :: clamp( fAlpha, __OPACITY_MIN, __OPACITY_MAX );
         }
 
         /**
@@ -2339,7 +2359,7 @@ namespace SunLight  {
                         if( m_fScreenFadeAlpha > 0.0f )  {
                             SunLight :: Base :: stColor  fadeColor = BLACK_COLOR;
 
-                            fadeColor.nAlpha = ( unsigned char ) ( 255.0f * m_fScreenFadeAlpha );
+                            fadeColor.nAlpha = ( unsigned char ) ( __FADE_CHANNEL_MAX * m_fScreenFadeAlpha );
 
                             SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle(
                                                                   0, 0,

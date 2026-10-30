@@ -30,8 +30,10 @@ Each item is described in full in the plan; what each change means for code buil
 - `BaseCommand` has a virtual destructor, and the command enum moved to `scripting/command.h`.
 - The per-stick dead-zone constants are replaced by one `DEFAULT_AXIS_DEADZONE` (same value),
   configurable per pad and axis.
-- `stLayer::nOpacity` (`GetLayer`/`SetLayer`) is 0..255, 255 = opaque. The old conversions were
-  not inverses: an opaque layer read 256, and `SetLayer(255)` hid the layer.
+- A layer's opacity (`GetLayer`/`SetLayer`) is `stLayer::fOpacity`, a float from 0 to 1 (1 =
+  opaque), as in Tiled and libtmx; it was `int nOpacity`, whose conversions were not inverses (an
+  opaque layer read 256, and `SetLayer(255)` hid the layer). A positional initializer still
+  compiles with the new meaning: `stLayer{ true, 128, ... }` is now clamped to opaque.
 - `IEngine` gains pure virtuals `SetBlendMode`/`GetBlendMode`, and `IDrawSurface` gains
   `BeginBlendMode`/`EndBlendMode`. Only a class implementing one of them must update.
 - Tile positions are in map space: `TileMapToTileMatrix` takes a map position (it added the
@@ -124,6 +126,11 @@ Each item is described in full in the plan; what each change means for code buil
 - A Tiled tile animation held its first frame for two of its durations every cycle (frames 0 1 2
   played as 0 1 2 0 0 1 2 ...). Each frame now shows once per cycle, for its own duration, so an
   animated tile's cycle is shorter by its first frame's duration.
+- A `GetLayer` followed by an unchanged `SetLayer` changed the layer: an opacity of 0.5 came
+  back as 0.502 (drawn with alpha 128 instead of 127), and a parallax of 0.3 as 0.30000001.
+  `SetLayer` now writes the opacity and the parallax only when they changed.
+- `SetScreenFade` did not clamp its value: a fade above 1 overflowed the alpha byte (undefined
+  behaviour; 1.5 drew a light fade instead of black). It is clamped to 0..1, and a NaN is no fade.
 - A tile object resized away from its tile's size ignored its object layer's tint (Tiled's
   `tintcolor`) and was drawn untinted; it now takes the tint, as a tile object at its own size and
   a turned one already did.
