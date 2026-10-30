@@ -33,6 +33,11 @@ namespace SunLight  {
             unsigned char  nBlue;
             unsigned char  nAlpha;
         };
+
+        // A colour's RGB multiplied by a tint's, channel by channel (c x t / 255, rounded to nearest):
+        // white leaves a colour as it is. The colour's alpha is kept; the tint's is not used. Tiled's
+        // layer and group tints (I8 of the master plan) and a sprite's tint (I10) all combine this way.
+        stColor MultiplyTint( stColor color, stColor tint );
     }
 }
 

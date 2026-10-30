@@ -332,7 +332,7 @@ namespace SunLight  {
          * @param fParentOpacity The opacity of every group ancestor of pLayer, multiplied together
          * (I8 of the master plan: Tiled draws a group's content with the group's opacity and tint
          * applied on top of each layer's own); 1 outside any group;
-         * @param parentTint Their tints, multiplied channel by channel (Shape::MultiplyTint); opaque
+         * @param parentTint Their tints, multiplied channel by channel (SunLight::Base::MultiplyTint); opaque
          * white outside any group;
          */
         void TileMapRenderer :: DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX, double fParentParallaxY,
@@ -370,7 +370,7 @@ namespace SunLight  {
                             // A group passes its own opacity and tint on, multiplied into what it was given.
                             DrawAllLayers( pLayer -> content.group_head, fEffectiveParallaxX, fEffectiveParallaxY,
                                            fParentOpacity * ( float ) pLayer -> opacity,
-                                           Shape :: MultiplyTint( parentTint, Shape :: ColorOf( pLayer -> tintcolor ) ) );   // recursive call
+                                           SunLight :: Base :: MultiplyTint( parentTint, Shape :: ColorOf( pLayer -> tintcolor ) ) );   // recursive call
                             break;
                         case L_OBJGR :
                             // S1b: shapes and text through the ObjectRenderer; tile objects come back here.

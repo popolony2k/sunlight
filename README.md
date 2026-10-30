@@ -174,7 +174,7 @@ Each sample takes its own directory as `argv[1]` and resolves its resources rela
 * [parallax](https://github.com/popolony2k/sunlight/blob/main/samples/parallax/docs/README.md) — layers scrolling at different speeds (Tiled's per-layer parallax) around a walking Sunny, on a map that wraps.
 * [zorder](https://github.com/popolony2k/sunlight/blob/main/samples/zorder/docs/README.md) — four overlapping sprites on one layer, each brought to the front with `Sprite::SetZOrder`.
 * [blend](https://github.com/popolony2k/sunlight/blob/main/samples/blend/docs/README.md) — blend modes (normal, add, multiply, subtract): a glow and a shadow sprite with their own mode (`Sprite::SetBlendMode`), and panels drawn by the game between `BeginBlendMode` and `EndBlendMode`, over a map or with no map.
-* [tint](https://github.com/popolony2k/sunlight/blob/main/samples/tint/docs/README.md) — layer tint at runtime through `GetLayer`/`SetLayer` on a tile, an image and an object layer, and a group's tint and opacity reaching the layers inside it.
+* [tint](https://github.com/popolony2k/sunlight/blob/main/samples/tint/docs/README.md) — layer tint at runtime through `GetLayer`/`SetLayer` on a tile, an image and an object layer, a group's tint and opacity reaching the layers inside it, and a sprite's own opacity and tint.
 
 ### Views
 

@@ -48,20 +48,12 @@
 #include "input/icontrollermanager.h"
 #include "base/color.h"
 #include "base/primitives.h"
+#include "backends/null/nullbackend.h"
+#include "renderer/view.h"
 
-
-namespace SunLight  {
-    namespace Backends  {
-        namespace Null  {
-            class NullBackend;
-        }
-    }
-}
 
 namespace SunLight  {
     namespace Renderer  {
-
-        class View;
 
         /**
          * Primitive structures definition.

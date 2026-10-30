@@ -2231,6 +2231,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I7 | Sprite-against-tile collisions tested the wrong tile; tile picking mixed screen and map space (reported by Scarab, its V11) | DONE |
 | I8 | Layer tint at runtime (`stLayer::tint`), and a group's tint and opacity reaching the layers inside it (asked for by Scarab, its V12) | DONE |
 | I9 | A layer's opacity as a float, 0..1 (`stLayer::fOpacity`); an unchanged `GetLayer`/`SetLayer` keeps the map's opacity and parallax exactly; `SetScreenFade` clamped to 0..1 | DONE |
+| I10 | Sprite opacity and tint (`Sprite::SetOpacity`/`SetTint`) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2575,6 +2576,39 @@ authored 0.5 came back as 128 / 255 = 0.502, drawn with alpha 128 instead of 127
 - **Sample:** `samples/tint`'s opacity key cycles 1.0, 0.75, 0.25 and 0.0, and its HUD shows the
   opacity as 0..1.
 - `doc/BREAKAGES.md` entry 58.
+
+**I10: sprite opacity and tint (DONE).** Found while checking every opacity in sunlight for I9: a
+sprite had none. A game could fade a sprite only by changing the colour of every frame canvas of
+every sequence (`Canvas::SetColor`, whose colour `TextureCanvas::Draw` uses as its tint).
+
+- **Design, decided with the owner:** opacity and tint, the two controls a layer has.
+  - `Sprite::SetOpacity( float )` / `GetOpacity()`: 0..1, 1 by default, clamped; a NaN leaves it.
+  - `Sprite::SetTint( stColor )` / `GetTint()`: opaque white by default; its RGB multiplies into the
+    frame's, its alpha is kept but not used.
+  - `Sprite::Draw()` multiplies both into the colour of the frame canvas it draws, for that draw
+    only, and puts the canvas's colour back after it, as it does for its blend mode and its held
+    frame: canvases are the caller's and may be shared. They multiply with the canvas's own colour
+    (a canvas alpha of 200 at opacity 0.5 draws 100). Skipped when they change nothing, so a sprite
+    without them draws exactly as before. Every frame, sequence and view takes them; `Unload()`
+    keeps them.
+  - A sprite still does not take its layer's opacity or tint (I8).
+- `MultiplyTint` moved from the renderer's shape helpers to `base/color.h` (`SunLight::Base`), so
+  the sprite module uses the same one as the layers without depending on the renderer.
+- **Tests** (`tests/test_spriteopacity.cpp`, through the mock engine, values worked out by hand):
+  the defaults; opacity 0.5 (alpha 127, and 100 over a canvas alpha of 200); a tint, alone and over a
+  canvas colour; both together (0.25: alpha 63); a sprite sharing the same canvas draws it plain, and
+  the canvas's colour is unchanged after the draw; every view pass; clamping and NaN; `Unload()`
+  keeps both. A new feature, so nothing to fail on the old code; instead, with the line that puts the
+  canvas's colour back removed, the shared-canvas and view tests fail.
+- **Sample:** `samples/tint` gained Sunny (area 5), on the object layer "houses": `6` cycles its
+  opacity, `7` its tint, and the layer's tint (key `3`) does not reach it. The owner checked it in
+  a real window.
+- **Code style, decided by the owner while reviewing it:** include directly, and forward-declare
+  only to break an include cycle. Three of sunlight's four forward declarations became includes
+  (`NullBackend` and `View` in `tilemaprenderer.h`, `Collider` in `colliderregistry.h`); the one
+  left is `view.h`'s `class TileMapRenderer;` (the renderer holds its views, a view points back at
+  it). `doc/CODE_STYLE.md` says so. No behaviour change.
+- `doc/BREAKAGES.md` entry 59.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
