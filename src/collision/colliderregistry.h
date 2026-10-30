@@ -24,12 +24,11 @@
 #include <deque>
 #include <vector>
 #include "colliderhandle.h"
+#include "collision/collider.h"
 
 
 namespace SunLight  {
     namespace Collision  {
-
-        class Collider;
 
         /**
          * @brief Stable indirection table between ColliderHandle values and

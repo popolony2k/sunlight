@@ -31,6 +31,9 @@
 namespace SunLight  {
     namespace Renderer  {
 
+        // The one forward declaration sunlight keeps (doc/CODE_STYLE.md): a View points back at
+        // its renderer and the renderer holds its views, so tilemaprenderer.h includes this header
+        // and this one cannot include it back.
         class TileMapRenderer;
 
         /**

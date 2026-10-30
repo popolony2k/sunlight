@@ -75,6 +75,9 @@ Each item is described in full in the plan; what each change means for code buil
   text-object families (`RegisterFont`), or draw by itself (`IFont`). `UnregisterFont( font )`
   removes it from every family and style it serves; `UnregisterFont( family, bold, italic )`
   removes one.
+- **Sprite opacity and tint:** `Sprite::SetOpacity` (0..1, clamped) and `Sprite::SetTint`, applied
+  to whatever frame the sprite draws, in every view, without changing its frames' own colours.
+  `SunLight::Base::MultiplyTint` (`base/color.h`) combines a colour with a tint.
 - **Layer tint at runtime:** `stLayer::tint` (`GetLayer`/`SetLayer`), the layer's Tiled
   `tintcolor`, alpha included, opaque white when the map has none; a change shows from the next
   frame.

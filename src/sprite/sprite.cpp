@@ -20,6 +20,12 @@
 
 #include "sprite/sprite.h"
 #include "engines/enginefactory.h"
+#include <algorithm>
+#include <cmath>
+
+#define __OPACITY_MIN   0.0f    // a sprite's opacity: fully transparent
+#define __OPACITY_MAX   1.0f    // a sprite's opacity: fully opaque (the default)
+#define __CHANNEL_MAX   0xFF    // a colour channel's full value: a tint channel that changes nothing
 
 
 namespace SunLight  {
@@ -35,6 +41,8 @@ namespace SunLight  {
             m_nZOrder = 0;
             m_bHasBlendMode = false;
             m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
+            m_fOpacity = __OPACITY_MAX;
+            m_Tint = WHITE_COLOR;
         }
 
         /**
@@ -365,6 +373,43 @@ namespace SunLight  {
         }
 
         /**
+         * @brief I10 of the master plan: the sprite's opacity, applied by Draw() (see the header).
+         * @param fOpacity 0 (transparent) to 1 (opaque), clamped; a NaN leaves the opacity as it was;
+         */
+        void Sprite :: SetOpacity( float fOpacity )  {
+
+            if( !std :: isnan( fOpacity ) )
+                m_fOpacity = std :: clamp( fOpacity, __OPACITY_MIN, __OPACITY_MAX );
+        }
+
+        /**
+         * @brief The sprite's opacity.
+         * @return 0..1; 1 by default;
+         */
+        float Sprite :: GetOpacity( void )  {
+
+            return m_fOpacity;
+        }
+
+        /**
+         * @brief I10 of the master plan: the sprite's tint, applied by Draw() (see the header).
+         * @param tint The tint; its alpha is kept but not used;
+         */
+        void Sprite :: SetTint( SunLight :: Base :: stColor tint )  {
+
+            m_Tint = tint;
+        }
+
+        /**
+         * @brief The sprite's tint, as SetTint gave it.
+         * @return The tint; opaque white by default;
+         */
+        SunLight :: Base :: stColor Sprite :: GetTint( void )  {
+
+            return m_Tint;
+        }
+
+        /**
          * Whether the active texture passes the viewport test that gates
          * Advance() and Draw() right now (see TextureCanvas::IsOnScreen): the
          * sprite is visible and has a valid active sequence.
@@ -465,7 +510,24 @@ namespace SunLight  {
                         engine.SetBlendMode( m_BlendMode );
                 }
 
+                // The sprite's opacity and tint (I10), multiplied into the frame canvas's own colour for
+                // this draw only and put back after it: the canvas may be another sprite's frame too, and
+                // its colour is its own. Skipped when they change nothing, so a sprite without them
+                // draws exactly as before.
+                SunLight :: Base :: stColor  &canvasColor = pTextureCanvas -> GetColor();
+                SunLight :: Base :: stColor   ownColor    = canvasColor;
+                bool                          bColored    = ( m_fOpacity != __OPACITY_MAX ) || ( m_Tint.nRed != __CHANNEL_MAX ) ||
+                                                            ( m_Tint.nGreen != __CHANNEL_MAX ) || ( m_Tint.nBlue != __CHANNEL_MAX );
+
+                if( bColored )  {
+                    canvasColor        = SunLight :: Base :: MultiplyTint( ownColor, m_Tint );
+                    canvasColor.nAlpha = ( unsigned char ) ( ownColor.nAlpha * m_fOpacity );
+                }
+
                 pTextureCanvas -> Draw();
+
+                if( bColored )
+                    canvasColor = ownColor;
 
                 if( bSwitch )
                     engine.SetBlendMode( previous );

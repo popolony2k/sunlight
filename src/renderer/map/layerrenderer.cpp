@@ -151,7 +151,7 @@ namespace SunLight  {
             tmx_tile      *pTile   = ( pBase -> animation_len != 0 ) ? map.AnimatedFrameOf( pBase, nGID ) : pBase;
             tmx_tileset   *pTs     = pTile -> tileset;
             void          *pImage  = ( pTile -> image != nullptr ) ? pTile -> image -> resource_image : pTs -> image -> resource_image;
-            SunLight :: Base :: stColor  tintColor = Shape :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );   // I8: with its groups'
+            SunLight :: Base :: stColor  tintColor = SunLight :: Base :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );   // I8: with its groups'
 
             int            nTileW   = ( int ) pTs -> tile_width;
             int            nTileH   = ( int ) pTs -> tile_height;
@@ -245,7 +245,7 @@ namespace SunLight  {
 
             tmx_image                             *pTmxImage = pLayer -> content.image;
             void                                   *pImage    = pTmxImage -> resource_image;
-            SunLight :: Base :: stColor         tintColor  = Shape :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
+            SunLight :: Base :: stColor         tintColor  = SunLight :: Base :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
             float                               fOpacity   = ( float ) pLayer -> opacity * context.fGroupOpacity;
             SunLight :: Base :: stDimension2D  clip;
             SunLight :: Base :: stDimension2D  dm         = { { ( int ) ( pLayer -> offsetx + context.camera.x ),
@@ -289,7 +289,7 @@ namespace SunLight  {
 
             // I8: the layer's own opacity and tint, with its enclosing groups' multiplied in (context).
             float                              fOpacity  = ( float ) pLayer -> opacity * context.fGroupOpacity;
-            SunLight :: Base :: stColor  tintColor = Shape :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
+            SunLight :: Base :: stColor  tintColor = SunLight :: Base :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
             Projection :: stTileRange   range;
 
             tmx_map                            *pTmxMap  = map.Tmx();

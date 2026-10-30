@@ -24,6 +24,7 @@
 #include <map>
 #include <memory>
 #include "base/blendmode.h"
+#include "base/color.h"
 #include "collision/collider.h"
 #include "sprite/texturemap.h"
 
@@ -58,6 +59,10 @@ namespace SunLight  {
             // I2 of the master plan: the mode this sprite draws by, if it has one (SetBlendMode).
             bool                            m_bHasBlendMode;
             SunLight :: Base :: BlendMode   m_BlendMode;
+
+            // I10 of the master plan: the sprite's opacity (0..1) and tint, applied by Draw().
+            float                           m_fOpacity;
+            SunLight :: Base :: stColor     m_Tint;
 
             public:
 
@@ -132,6 +137,19 @@ namespace SunLight  {
             bool HasBlendMode( void );
             // The mode set by SetBlendMode; BLEND_MODE_NORMAL when the sprite has none.
             SunLight :: Base :: BlendMode GetBlendMode( void );
+
+            // I10 of the master plan: the sprite's opacity, 0 (transparent) to 1 (opaque, the default),
+            // as a layer's (stLayer::fOpacity) - clamped; a NaN leaves it as it was. And its tint, opaque
+            // white (none) by default: its RGB multiplies into the frame's, as a layer's tint does into
+            // its tiles; its alpha is kept but not used - the opacity is the alpha control. Draw()
+            // applies both to the frame it draws, for that draw only: the frame canvases' own colours
+            // are never changed, and multiply into the result (a canvas alpha of 200 at opacity 0.5
+            // draws 100). Every frame, sequence and view takes them, until changed; Unload() does not
+            // touch them. A sprite does not take its layer's opacity or tint (I8).
+            void SetOpacity( float fOpacity );
+            float GetOpacity( void );
+            void SetTint( SunLight :: Base :: stColor tint );
+            SunLight :: Base :: stColor GetTint( void );
 
             // Whether the ACTIVE texture passes the viewport test that gates Advance() and Draw() in the
             // view being drawn (the sprite is visible, has an active sequence, and the texture's rectangle is

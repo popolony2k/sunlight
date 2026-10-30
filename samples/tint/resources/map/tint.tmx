@@ -132,5 +132,6 @@
   <object id="5" x="544" y="24" width="420" height="24"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">2. Image layer - key 2</text></object>
   <object id="6" x="32" y="392" width="420" height="24"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">3. Object layer - key 3</text></object>
   <object id="7" x="544" y="392" width="440" height="24"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">4. Group - keys 4 (tint), 5 (opacity)</text></object>
+  <object id="8" x="32" y="600" width="440" height="24"><text fontfamily="Sans" pixelsize="20" color="#ffffffff">5. Sprite - keys 6 (opacity), 7 (tint)</text></object>
  </objectgroup>
 </map>
