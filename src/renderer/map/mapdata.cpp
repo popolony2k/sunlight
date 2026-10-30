@@ -101,13 +101,15 @@ namespace SunLight  {
              * @param object Reference to receive the object's data if found;
              * @return true if an object with this name was found;
              */
-            bool FindObjectInLayers( tmx_layer* pLayer, const char* szObjectName, SunLight :: TileMap :: stObject& object )  {
+            tmx_object* FindObjectInLayers( tmx_layer* pLayer, const char* szObjectName )  {
 
                 for( ; pLayer != nullptr; pLayer = pLayer -> next )  {
 
                     if( pLayer -> type == L_GROUP )  {
-                        if( FindObjectInLayers( pLayer -> content.group_head, szObjectName, object ) )
-                            return true;
+                        tmx_object  *pFound = FindObjectInLayers( pLayer -> content.group_head, szObjectName );
+
+                        if( pFound != nullptr )
+                            return pFound;
 
                         continue;
                     }
@@ -117,20 +119,12 @@ namespace SunLight  {
 
                     for( tmx_object* pObject = pLayer -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )  {
 
-                        if( ( pObject -> name != nullptr ) && ( ::strcmp( pObject -> name, szObjectName ) == 0 ) )  {
-
-                            object.strName            = pObject -> name;
-                            object.dimension.pos.x    = ( int ) pObject -> x;
-                            object.dimension.pos.y    = ( int ) pObject -> y;
-                            object.dimension.size.nWidth  = ( int ) pObject -> width;
-                            object.dimension.size.nHeight = ( int ) pObject -> height;
-
-                            return true;
-                        }
+                        if( ( pObject -> name != nullptr ) && ( ::strcmp( pObject -> name, szObjectName ) == 0 ) )
+                            return pObject;
                     }
                 }
 
-                return false;
+                return nullptr;
             }
         }
 
@@ -271,7 +265,8 @@ namespace SunLight  {
         MapData :: MapData( tmx_map* pTmxMap, tmx_resource_manager* pTmxRcMgr, std :: unique_ptr<Projection :: IMapProjection> pProjection )
                 : m_pTmxMap( pTmxMap ),
                   m_pTmxRcMgr( pTmxRcMgr ),
-                  m_pProjection( std :: move( pProjection ) )  {
+                  m_pProjection( std :: move( pProjection ) ),
+                  m_nLoadMillis( SunLight :: General :: Clock :: NowMilliseconds() )  {
 
             SunLight :: Base :: stSize2D  mapPixelSize = m_pProjection -> MapPixelSize( m_pTmxMap );
 
@@ -297,7 +292,7 @@ namespace SunLight  {
         /**
          * @brief Free the map - libtmx releases its images through the texture hook - then the
          * Resource Manager it points into (the map held pointers into its external tilesets and
-         * templates, so only now). The animation state goes with the members, after the map.
+         * templates, so only now).
          */
         MapData :: ~MapData( void )  {
 
@@ -406,7 +401,29 @@ namespace SunLight  {
          */
         bool MapData :: FindObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) const  {
 
-            return FindObjectInLayers( m_pTmxMap -> ly_head, szObjectName, object );
+            tmx_object  *pObject = FindTmxObjectByName( szObjectName );
+
+            if( pObject == nullptr )
+                return false;
+
+            object.strName                = pObject -> name;
+            object.dimension.pos.x        = ( int ) pObject -> x;
+            object.dimension.pos.y        = ( int ) pObject -> y;
+            object.dimension.size.nWidth  = ( int ) pObject -> width;
+            object.dimension.size.nHeight = ( int ) pObject -> height;
+
+            return true;
+        }
+
+        /**
+         * @brief The libtmx object with this name (the first, walking the layers in order, groups
+         * included), as FindObjectByName finds it.
+         * @param szObjectName The object's name, as set in the map editor;
+         * @return The object; nullptr when there is none;
+         */
+        tmx_object* MapData :: FindTmxObjectByName( const char* szObjectName ) const  {
+
+            return FindObjectInLayers( m_pTmxMap -> ly_head, szObjectName );
         }
 
         /**
@@ -424,70 +441,66 @@ namespace SunLight  {
         }
 
         /**
-         * @brief The frame of an animated tile that is on screen now, advancing its animation by
-         * the clock (shared by tile layers and tile objects, so an animated tile moves the same
-         * way wherever it is drawn). A frame whose gid has no tile in the tile table has nothing
-         * to show: the base tile stays on screen for it.
+         * @brief The gid an animated tile shows now (I11 of the master plan): a pure function of
+         * the clock, as Tiled animates - the time since the map loaded, modulo the animation's
+         * cycle (the sum of its frame durations), walked through the frames. Every cell and tile
+         * object of a tile shows the same frame, a tile that was not drawn for a while shows the
+         * frame for the time now, and nothing is stored, so asking never changes the answer.
+         * Before I11 each tile kept a state advanced only when it was drawn: it paused off screen,
+         * and each frame's end was counted from the draw that noticed it, so a cycle stretched.
+         * A frame whose gid has no tile in the tile table has nothing to show: the tile's own gid
+         * stays (as before). A tile that is not animated, or a cycle of zero ms, shows its own gid
+         * or its first frame.
+         * @param pBase The tile as its gid names it;
+         * @param nGID The gid that named pBase, flip bits removed;
+         * @return The gid drawn now;
+         */
+        unsigned int MapData :: FrameGidOf( tmx_tile* pBase, unsigned int nGID ) const  {
+
+            if( ( pBase == nullptr ) || ( pBase -> animation_len == 0 ) )
+                return nGID;
+
+            uint64_t  nCycle = 0;
+
+            for( unsigned int nFrame = 0; nFrame < pBase -> animation_len; nFrame++ )
+                nCycle += pBase -> animation[nFrame].duration;
+
+            int64_t       nElapsed = SunLight :: General :: Clock :: NowMilliseconds() - m_nLoadMillis;
+            uint64_t      nInCycle = ( ( nCycle == 0 ) || ( nElapsed < 0 ) ) ? 0 : ( ( uint64_t ) nElapsed % nCycle );
+            unsigned int  nFrame   = 0;
+
+            // The frame whose span [start, start + duration) holds nInCycle.
+            while( ( nFrame + 1 < pBase -> animation_len ) && ( nInCycle >= pBase -> animation[nFrame].duration ) )  {
+                nInCycle -= pBase -> animation[nFrame].duration;
+                nFrame++;
+            }
+
+            tmx_tileset_list  *pTilesetList = TilesetListOf( pBase -> tileset );
+
+            if( pTilesetList == nullptr )
+                return nGID;
+
+            unsigned int  nFrameGID = pTilesetList -> firstgid + pBase -> animation[nFrame].tile_id;
+
+            // Same tilecount bound as TileAt: a frame gid past the tiles[] table has no tile to show.
+            if( ( nFrameGID >= m_pTmxMap -> tilecount ) || ( m_pTmxMap -> tiles[nFrameGID] == nullptr ) )
+                return nGID;
+
+            return nFrameGID;
+        }
+
+        /**
+         * @brief The tile an animated tile shows now: the tile of FrameGidOf's gid (shared by tile
+         * layers and tile objects, so an animated tile moves the same way wherever it is drawn).
          * @param pBase The tile as its gid names it (its animation_len is not zero);
          * @param nGID The gid that named pBase;
          * @return The tile to draw now; pBase when there is no other to show;
          */
-        tmx_tile* MapData :: AnimatedFrameOf( tmx_tile* pBase, unsigned int nGID )  {
+        tmx_tile* MapData :: AnimatedFrameOf( tmx_tile* pBase, unsigned int nGID ) const  {
 
-            tmx_tile  *pTile = pBase;
+            unsigned int  nFrameGID = FrameGidOf( pBase, nGID );
 
-            int64_t                    nMillis = SunLight :: General :: Clock :: NowMilliseconds();
-            __stTileAnimInfo           *pAnimInfo = ( __stTileAnimInfo * ) pTile -> user_data.pointer;
-            tmx_tileset_list           *pTilesetList;
-
-            if( !pAnimInfo )  {
-                std :: unique_ptr<__stTileAnimInfo>  pOwnedAnimInfo = std :: make_unique<__stTileAnimInfo>();
-
-                memset( pOwnedAnimInfo.get(), 0, sizeof( __stTileAnimInfo ) );
-                pOwnedAnimInfo -> nMillis   = nMillis;
-                pOwnedAnimInfo -> pNextTile = pTile;
-                pAnimInfo = pOwnedAnimInfo.get();
-                pTile -> user_data.pointer = pAnimInfo;
-                m_AnimInfoList.push_back( std :: move( pOwnedAnimInfo ) );
-            }
-
-            if( pAnimInfo -> nMillis <= nMillis )  {
-                unsigned int     nNextFrmGID;
-                _tmx_frame       *pTmxAnimFrm;
-
-                // The frame due now, then the counter steps on to the next one, wrapping after the last:
-                // each frame is shown once per cycle, for its own duration (0 1 2 0 1 2 ...). It used
-                // to wrap only when the frame after the last was due - setting the counter back to 0 AND
-                // showing frame 0 without stepping it on - so frame 0 came again on the next step and was
-                // held for two of its durations every cycle (0 1 2 0 0 1 2 0 0 ...).
-                pTmxAnimFrm = &pTile -> animation[pAnimInfo -> nCounter];
-                pAnimInfo -> nCounter = ( uint16_t ) ( ( pAnimInfo -> nCounter + 1 ) % pTile -> animation_len );
-
-                pTilesetList = TilesetListOf( pTile -> tileset );
-                pTile = nullptr;
-
-                if( pTilesetList )  {
-                    nNextFrmGID = ( pTilesetList -> firstgid + pTmxAnimFrm -> tile_id );
-                    // Same tilecount bound as TileAt: a frame gid past
-                    // the tiles[] table has no tile to show.
-                    pAnimInfo -> pNextTile = ( nNextFrmGID < m_pTmxMap -> tilecount ?
-                                               m_pTmxMap -> tiles[nNextFrmGID] : NULL );
-                    pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration + nMillis );
-                    pTile = pAnimInfo -> pNextTile;
-                }
-
-                if( !pTile )
-                    pTile = m_pTmxMap -> tiles[nGID];
-            }
-            else  {
-                pTile = ( ( __stTileAnimInfo * ) pTile -> user_data.pointer ) -> pNextTile;
-
-                // A frame with no tile (see above) keeps the base tile on screen.
-                if( !pTile )
-                    pTile = pBase;
-            }
-
-            return pTile;
+            return ( nFrameGID == nGID ) ? pBase : m_pTmxMap -> tiles[nFrameGID];
         }
     }
 }

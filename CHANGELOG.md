@@ -75,6 +75,9 @@ Each item is described in full in the plan; what each change means for code buil
   text-object families (`RegisterFont`), or draw by itself (`IFont`). `UnregisterFont( font )`
   removes it from every family and style it serves; `UnregisterFont( family, bold, italic )`
   removes one.
+- **The frame a tile shows:** `ITileMap::GetTileFrame( layer id, cell, gid )` and
+  `GetObjectTileFrame( name, gid )` read the gid an animated tile draws now (its own for a static
+  one), without changing it.
 - **Sprite opacity and tint:** `Sprite::SetOpacity` (0..1, clamped) and `Sprite::SetTint`, applied
   to whatever frame the sprite draws, in every view, without changing its frames' own colours.
   `SunLight::Base::MultiplyTint` (`base/color.h`) combines a colour with a tint.
@@ -126,6 +129,11 @@ Each item is described in full in the plan; what each change means for code buil
 - A TTF/OTF font was loaded with the 95 ASCII glyphs alone (raylib's `LoadFont`), so every accented
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
+- Tile animations follow the time since the map loaded, as Tiled animates them. Before, a tile
+  animated only while drawn - off screen, on a hidden layer or masked from a view it paused, and
+  stepped on one frame when drawn again - and each frame's end was counted from the draw that saw
+  the previous one end, so frames that are not a whole number of frames long ran late and a cycle
+  stretched.
 - A Tiled tile animation held its first frame for two of its durations every cycle (frames 0 1 2
   played as 0 1 2 0 0 1 2 ...). Each frame now shows once per cycle, for its own duration, so an
   animated tile's cycle is shorter by its first frame's duration.

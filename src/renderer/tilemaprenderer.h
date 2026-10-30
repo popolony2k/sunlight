@@ -421,6 +421,8 @@ namespace SunLight  {
 
             // Object management
             bool GetObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) override;
+            bool GetTileFrame( int nLayerId, const SunLight :: TileMap :: stMatrixPosition& pos, unsigned int& nGID ) override;
+            bool GetObjectTileFrame( const char* szObjectName, unsigned int& nGID ) override;
 
             // Collision management
             SunLight :: Collision :: ICollisionManager& GetCollisionManager( void ) override;

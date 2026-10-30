@@ -2232,6 +2232,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I8 | Layer tint at runtime (`stLayer::tint`), and a group's tint and opacity reaching the layers inside it (asked for by Scarab, its V12) | DONE |
 | I9 | A layer's opacity as a float, 0..1 (`stLayer::fOpacity`); an unchanged `GetLayer`/`SetLayer` keeps the map's opacity and parallax exactly; `SetScreenFade` clamped to 0..1 | DONE |
 | I10 | Sprite opacity and tint (`Sprite::SetOpacity`/`SetTint`) | DONE |
+| I11 | Tile animation by time, as Tiled animates (no pause off screen, no drift); `GetTileFrame`/`GetObjectTileFrame` read the frame shown (asked for by Scarab, its V13) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2609,6 +2610,41 @@ every sequence (`Canvas::SetColor`, whose colour `TextureCanvas::Draw` uses as i
   left is `view.h`'s `class TileMapRenderer;` (the renderer holds its views, a view points back at
   it). `doc/CODE_STYLE.md` says so. No behaviour change.
 - `doc/BREAKAGES.md` entry 59.
+
+**I11: tile animation by time, and the frame a tile shows (DONE).** Scarab asked for it (its V13): to
+test BREAKAGES 44 (each animated-tile frame once per cycle) without a window, it needs to read the
+frame an animated tile shows, and that lived only in `MapData`'s private per-tile state.
+
+- **What the old animation did** (`MapData::AnimatedFrameOf`): each animated tile kept a state
+  (`__stTileAnimInfo`: the frame's end, the next frame, the tile shown) in its libtmx `user_data`,
+  created and advanced only when the tile was drawn. Read in the code, two flaws: a tile not drawn
+  (off screen, a hidden layer, a view's mask) paused, and stepped on one frame when drawn again; and
+  each frame's end was counted from the draw that noticed the previous one was over, not from that
+  one's end, so a duration that is not a whole number of frames was held until the next draw (40 ms
+  at 60 fps is held 50 ms) and a cycle stretched. And a query of the frame would have had to advance it.
+- **Design, decided with the owner:** the frame is a function of the clock, as Tiled animates - the
+  time since the map loaded (`MapData::m_nLoadMillis`) modulo the cycle (the sum of the frame
+  durations), walked through the frames (`MapData::FrameGidOf`). No state: the struct, its heap
+  blocks, `m_AnimInfoList` and the use of `user_data` are gone. Every cell and tile object of a tile
+  shows the same frame; a tile not drawn for a while shows the frame for the time now; a frame's
+  boundaries are fixed points of the cycle. A frame with no tile keeps the tile's own gid, as before;
+  a cycle of 0 ms shows the first frame.
+- **The query:** `ITileMap::GetTileFrame( layer id, cell, gid )` and `GetObjectTileFrame( name, gid )`
+  (new pure virtuals; `tests/mock_tilemap.h` updated): the gid drawn now, flip bits removed - the
+  frame's for an animated tile, its own for a static one. false with no map, an unknown layer, a
+  layer that is not a tile layer, a cell off the layer or empty, an unknown object or one that is not
+  a tile object. They only read.
+- **Tests** (`tests/test_tileframe.cpp`, a real renderer over the mocks and a mock clock; Scarab's
+  frames, 100/200/300 ms): the frame at every boundary over cycles, the same for a cell, a tile
+  object and flipped ones; a static cell; asking 10 times changes nothing and the drawn frame is the
+  frame asked; a tile hidden from 0 to 300 ms shows gid 3 when drawn again; drawn at 0 and 150 ms, the
+  second frame still ends at 300 ms; every refusal. The pause and drift tests, built against
+  `feat/master_plan` in a worktree, fail on the old code (gid 2 for 3, both). The three existing
+  animation tests (`test_mapdata`, `test_layerrenderer`, `test_tileobjects`) pass unchanged: a tile
+  always on screen animates as before.
+- **Answered to Scarab:** every cell of the same animated tile is in phase (by design, as before);
+  the old pause and drift are gone.
+- `doc/BREAKAGES.md` entry 60.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
