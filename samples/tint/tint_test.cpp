@@ -70,8 +70,8 @@ namespace  {
                                 { "gold",         { 0xFF, 0xC8, 0x40, 0xFF } } };
     const size_t  __TINT_COUNT = sizeof( __TINTS ) / sizeof( __TINTS[0] );
 
-    // What the opacity key cycles the group through after its authored opacity (choice 0), of 255.
-    const int     __OPACITIES[] = { 255, 191, 64, 0 };
+    // What the opacity key cycles the group through after its authored opacity (choice 0), 0..1.
+    const float   __OPACITIES[] = { 1.0f, 0.75f, 0.25f, 0.0f };
     const size_t  __OPACITY_COUNT = sizeof( __OPACITIES ) / sizeof( __OPACITIES[0] );
 
     const SunLight :: Input :: KeyboardKey  __TINT_KEYS[] = { SunLight :: Input :: KEY_ONE,   SunLight :: Input :: KEY_TWO,
@@ -91,8 +91,8 @@ class TintSample : public SunLight :: TileMap :: ITileMapListener  {
     SunLight :: Base :: stColor  m_Authored[__TINTED_LAYER_COUNT];
     size_t                       m_nTintChoice[__TINTED_LAYER_COUNT] = {};
 
-    // The group's authored opacity (0..255), and which choice it shows (0 = authored, n = __OPACITIES[n - 1]).
-    int     m_nAuthoredOpacity = __OPAQUE;
+    // The group's authored opacity (0..1), and which choice it shows (0 = authored, n = __OPACITIES[n - 1]).
+    float   m_fAuthoredOpacity = __OPACITIES[0];
     size_t  m_nOpacityChoice   = 0;
 
     void ApplyTint( size_t nLayer )  {
@@ -106,6 +106,11 @@ class TintSample : public SunLight :: TileMap :: ITileMapListener  {
         m_Renderer.SetLayer( __TINTED_LAYERS[nLayer], layer );
     }
 
+    float GroupOpacity( void ) const  {
+
+        return ( m_nOpacityChoice == 0 ) ? m_fAuthoredOpacity : __OPACITIES[m_nOpacityChoice - 1];
+    }
+
     void ApplyGroupOpacity( void )  {
 
         SunLight :: TileMap :: stLayer  layer {};
@@ -113,7 +118,7 @@ class TintSample : public SunLight :: TileMap :: ITileMapListener  {
         if( !m_Renderer.GetLayer( __GROUP_LAYER, layer ) )
             return;
 
-        layer.nOpacity = ( m_nOpacityChoice == 0 ) ? m_nAuthoredOpacity : __OPACITIES[m_nOpacityChoice - 1];
+        layer.fOpacity = GroupOpacity();
         m_Renderer.SetLayer( __GROUP_LAYER, layer );
     }
 
@@ -140,7 +145,7 @@ class TintSample : public SunLight :: TileMap :: ITileMapListener  {
             m_Authored[nLayer] = m_Renderer.GetLayer( __TINTED_LAYERS[nLayer], layer ) ? layer.tint : __TINTS[0].color;
 
             if( strcmp( __TINTED_LAYERS[nLayer], __GROUP_LAYER ) == 0 )
-                m_nAuthoredOpacity = layer.nOpacity;
+                m_fAuthoredOpacity = layer.fOpacity;
         }
     }
 
@@ -176,9 +181,12 @@ class TintSample : public SunLight :: TileMap :: ITileMapListener  {
                              __HUD_X, __HUD_NOTE_Y, __FONT_SIZE, __OPAQUE, __OPAQUE, __OPAQUE, __OPAQUE );
 
         std :: string  strTints = "tile layer " + TintName( 0 ) + "   image layer " + TintName( 1 ) + "   object layer " + TintName( 2 );
-        std :: string  strGroup = "group " + TintName( 3 ) + ", opacity " +
-                                  std :: to_string( ( m_nOpacityChoice == 0 ) ? m_nAuthoredOpacity : __OPACITIES[m_nOpacityChoice - 1] ) +
-                                  "/255" + ( ( m_nOpacityChoice == 0 ) ? " authored" : "" );
+        char           szOpacity[__TINT_TEXT_SIZE];
+
+        snprintf( szOpacity, sizeof( szOpacity ), "%.2f", GroupOpacity() );
+
+        std :: string  strGroup = "group " + TintName( 3 ) + ", opacity " + szOpacity +
+                                  ( ( m_nOpacityChoice == 0 ) ? " authored" : "" );
 
         m_Renderer.DrawText( strTints.c_str(), __HUD_X, __HUD_STATE_Y, __FONT_SIZE, __OPAQUE, __OPAQUE, __OPAQUE, __OPAQUE );
         m_Renderer.DrawText( strGroup.c_str(), __HUD_X, __HUD_STATE_Y + __HUD_LINE_HEIGHT, __FONT_SIZE,

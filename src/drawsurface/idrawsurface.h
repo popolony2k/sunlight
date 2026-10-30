@@ -75,7 +75,7 @@ namespace SunLight  {
              * per-texture effect.
              *
              * @param fAlpha Fade amount, 0.0 (fully visible, no overlay) to
-             * 1.0 (fully black);
+             * 1.0 (fully black); clamped to that range, a NaN is no fade;
              */
             virtual void SetScreenFade( float fAlpha ) = 0;
 

@@ -289,23 +289,24 @@ TEST_SUITE( "renderer/layer_tint_groups" )  {
 
     TEST_CASE( "A group's tint and opacity set with SetLayer show from the next frame" )  {
 
-        const int  __GROUP_OPACITY = 51;   // of 255: written back as 0.2, drawn as 255 x 0.2 = 51
+        const float  __GROUP_OPACITY = 0.2f;
+        const int    __GROUP_ALPHA   = 51;     // 255 x 0.2
 
         Scene  scene( Attrs {} );
 
         scene.Set( "fog", [&]( SunLight :: TileMap :: stLayer& layer )  {
             layer.tint     = { 0x00, 0xFF, 0x80, 0xFF };
-            layer.nOpacity = __GROUP_OPACITY;
+            layer.fOpacity = __GROUP_OPACITY;
         } );
 
         std :: vector<Event>  tiles = scene.Tiles();
 
-        CheckColor( tiles[INNER_0].color,   0x00, 0xFF, 0x80, __GROUP_OPACITY );
-        CheckColor( tiles[DEEPEST_1].color, 0x00, 0xFF, 0x80, __GROUP_OPACITY );
+        CheckColor( tiles[INNER_0].color,   0x00, 0xFF, 0x80, __GROUP_ALPHA );
+        CheckColor( tiles[DEEPEST_1].color, 0x00, 0xFF, 0x80, __GROUP_ALPHA );
         CheckColor( tiles[AFTER_0].color,   0xFF, 0xFF, 0xFF, 0xFF );
 
         for( const Event& line : scene.Of( Event :: LINE ) )
-            CheckColor( line.color, 0xFF, 0x00, 0x00, __GROUP_OPACITY );   // the opacity, not the tint
+            CheckColor( line.color, 0xFF, 0x00, 0x00, __GROUP_ALPHA );   // the opacity, not the tint
     }
 
     TEST_CASE( "GetLayer reads a group's tint" )  {
