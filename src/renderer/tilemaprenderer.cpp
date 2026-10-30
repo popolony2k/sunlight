@@ -2125,6 +2125,51 @@ namespace SunLight  {
         }
 
         /**
+         * @brief I11 of the master plan: the gid a tile layer's cell draws now (see ITileMap).
+         */
+        bool TileMapRenderer :: GetTileFrame( int nLayerId, const SunLight :: TileMap :: stMatrixPosition& pos, unsigned int& nGID )  {
+
+            if( !m_pMap )
+                return false;
+
+            tmx_layer                      *pLayer = m_pMap -> FindLayer( nLayerId );
+            SunLight :: TileMap :: stTile   tile;
+
+            if( ( pLayer == nullptr ) || ( pLayer -> type != L_LAYER ) || !m_pMap -> TileAt( pos, pLayer, tile ) )
+                return false;
+
+            nGID = m_pMap -> FrameGidOf( tile.pTile, tile.nGID );
+
+            return true;
+        }
+
+        /**
+         * @brief I11 of the master plan: the gid a tile object draws now (see ITileMap).
+         */
+        bool TileMapRenderer :: GetObjectTileFrame( const char* szObjectName, unsigned int& nGID )  {
+
+            if( !m_pMap )
+                return false;
+
+            tmx_object  *pObject = m_pMap -> FindTmxObjectByName( szObjectName );
+            tmx_map     *pTmxMap = m_pMap -> Tmx();
+
+            if( ( pObject == nullptr ) || ( pObject -> obj_type != OT_TILE ) )
+                return false;
+
+            // The tile as DrawTileObject finds it: the gid without its flip bits, inside the tile table.
+            unsigned int  nObjectGID = pObject -> content.gid & TMX_FLIP_BITS_REMOVAL;
+
+            if( ( nObjectGID == 0 ) || ( pTmxMap -> tiles == nullptr ) || ( nObjectGID >= pTmxMap -> tilecount ) ||
+                ( pTmxMap -> tiles[nObjectGID] == nullptr ) )
+                return false;
+
+            nGID = m_pMap -> FrameGidOf( pTmxMap -> tiles[nObjectGID], nObjectGID );
+
+            return true;
+        }
+
+        /**
          * Return the reference to internal renderer collision manager.
          */
         SunLight :: Collision :: ICollisionManager& TileMapRenderer :: GetCollisionManager( void )  {

@@ -158,6 +158,14 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
         return false;
     }
 
+    bool GetTileFrame( int, const SunLight :: TileMap :: stMatrixPosition&, unsigned int& )  {
+        return false;
+    }
+
+    bool GetObjectTileFrame( const char*, unsigned int& )  {
+        return false;
+    }
+
     SunLight :: Collision :: ICollisionManager& GetCollisionManager( void )  {
         throw std :: logic_error( "MockTileMap::GetCollisionManager not mocked" );
     }

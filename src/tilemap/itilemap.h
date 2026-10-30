@@ -346,6 +346,30 @@ namespace SunLight  {
             virtual bool GetObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) = 0;
 
             /**
+             * @brief The gid a tile layer's cell draws now (I11 of the master plan): for an
+             * animated tile, the gid of the frame its animation shows at this moment; for a static
+             * one, its own gid. Flip bits removed. Only reads - asking never changes what is drawn
+             * (a tile's animation is a function of the time since the map loaded, see
+             * MapData::FrameGidOf).
+             * @param nLayerId The tile layer's id;
+             * @param pos The cell;
+             * @param nGID Receives the gid;
+             * @return false when no map is loaded, there is no layer with that id, it is not a tile
+             * layer, the cell is off the layer, or the cell is empty;
+             */
+            virtual bool GetTileFrame( int nLayerId, const SunLight :: TileMap :: stMatrixPosition& pos, unsigned int& nGID ) = 0;
+
+            /**
+             * @brief The same for a tile object (Tiled's tile objects), found by name as
+             * @ref GetObjectByName finds it: the gid it draws now, flip bits removed.
+             * @param szObjectName The object's name;
+             * @param nGID Receives the gid;
+             * @return false when no map is loaded, there is no object with that name, or it is not
+             * a tile object;
+             */
+            virtual bool GetObjectTileFrame( const char* szObjectName, unsigned int& nGID ) = 0;
+
+            /**
              * Return the reference to internal renderer collision manager.
              */
             virtual SunLight :: Collision :: ICollisionManager& GetCollisionManager( void ) = 0;

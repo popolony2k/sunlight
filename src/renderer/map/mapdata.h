@@ -26,7 +26,6 @@
 #include "tilemap/tilemapdefs.h"
 #include "renderer/projection/imapprojection.h"
 #include <cstdint>
-#include <deque>
 #include <memory>
 
 
@@ -48,20 +47,13 @@ namespace SunLight  {
          */
         class MapData  {
 
-            // The running state of one animated tile, kept in the tile's own user_data.
-            struct __stTileAnimInfo  {
-                int64_t      nMillis;
-                uint16_t     nCounter;
-                tmx_tile     *pNextTile;
-            };
-
             tmx_map                                                 *m_pTmxMap;
             tmx_resource_manager                                    *m_pTmxRcMgr;
             std :: unique_ptr<Projection :: IMapProjection>         m_pProjection;
             uint16_t                                                m_nPixelWidth;
             uint16_t                                                m_nPixelHeight;
             bool                                                    m_bUniformTileGrid;
-            std :: deque<std :: unique_ptr<__stTileAnimInfo>>       m_AnimInfoList;
+            int64_t                                                 m_nLoadMillis;   // the clock when the map loaded: tile animations' time 0 (I11)
 
             MapData( tmx_map* pTmxMap, tmx_resource_manager* pTmxRcMgr, std :: unique_ptr<Projection :: IMapProjection> pProjection );
 
@@ -86,7 +78,9 @@ namespace SunLight  {
             tmx_layer* FindLayer( const char* szLayerName ) const;
             bool TileAt( const SunLight :: TileMap :: stMatrixPosition& pos, tmx_layer* pLayer, SunLight :: TileMap :: stTile& tile ) const;
             bool FindObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) const;
-            tmx_tile* AnimatedFrameOf( tmx_tile* pBase, unsigned int nGID );
+            tmx_object* FindTmxObjectByName( const char* szObjectName ) const;
+            unsigned int FrameGidOf( tmx_tile* pBase, unsigned int nGID ) const;
+            tmx_tile* AnimatedFrameOf( tmx_tile* pBase, unsigned int nGID ) const;
         };
     }
 }
