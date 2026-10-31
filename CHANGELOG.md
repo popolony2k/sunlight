@@ -129,6 +129,7 @@ Each item is described in full in the plan; what each change means for code buil
 - A TTF/OTF font was loaded with the 95 ASCII glyphs alone (raylib's `LoadFont`), so every accented
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
+- An animated tile whose frames are all 0 ms shows its first frame; it showed its last.
 - Tile animations follow the time since the map loaded, as Tiled animates them. Before, a tile
   animated only while drawn - off screen, on a hidden layer or masked from a view it paused, and
   stepped on one frame when drawn again - and each frame's end was counted from the draw that saw
