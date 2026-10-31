@@ -2644,6 +2644,12 @@ frame an animated tile shows, and that lived only in `MapData`'s private per-til
   always on screen animates as before.
 - **Answered to Scarab:** every cell of the same animated tile is in phase (by design, as before);
   the old pause and drift are gone.
+- **Fix after the merge (found by Scarab in its V13):** an animation whose frames are all 0 ms showed
+  its LAST frame, drawn and asked alike, where this item says the first: with no cycle, the frame walk
+  stepped past every frame (`0 >= 0`). `FrameGidOf` no longer walks without a cycle. A 0 ms frame
+  inside a longer cycle is still never shown (it has no span). Two tests: all-zero frames show the
+  first at any time (it failed on `06009d4`, gid 6 for 5), and a 0 ms frame between two 100 ms ones is
+  skipped. Scarab's own V13 test confirmed everything else in I11 exactly, over 300 frames.
 - `doc/BREAKAGES.md` entry 60.
 
 

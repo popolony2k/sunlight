@@ -51,6 +51,10 @@ namespace  {
     const int           __GROUND_ID    = 1;
     const int           __FLIPPED_ID   = 2;
     const int           __THINGS_ID    = 3;
+    const int           __SPECIAL_ID   = 4;
+    const unsigned int  __ZERO_FIRST   = 5;     // tile 4: frames tile 4, tile 5, both 0 ms
+    const unsigned int  __MIXED_FIRST  = 7;     // tile 6: frames tile 6 (100 ms), tile 7 (0 ms), tile 5 (100 ms)
+    const unsigned int  __MIXED_LAST   = 6;
 
     // "ground": the animated tile, a static one and an empty cell. "flipped": the animated tile
     // flipped horizontally (gid 1 | 0x80000000), not visible. "things": the animated tile as a tile
@@ -58,14 +62,21 @@ namespace  {
     const char * const  __TMX =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"3\" height=\"1\""
-        " tilewidth=\"32\" tileheight=\"32\" nextlayerid=\"4\" nextobjectid=\"4\">"
-        "<tileset firstgid=\"1\" name=\"tiles\" tilewidth=\"32\" tileheight=\"32\" tilecount=\"4\" columns=\"4\">"
-        "<image source=\"tiles.png\" width=\"128\" height=\"32\"/>"
+        " tilewidth=\"32\" tileheight=\"32\" nextlayerid=\"5\" nextobjectid=\"4\">"
+        "<tileset firstgid=\"1\" name=\"tiles\" tilewidth=\"32\" tileheight=\"32\" tilecount=\"8\" columns=\"8\">"
+        "<image source=\"tiles.png\" width=\"256\" height=\"32\"/>"
         "<tile id=\"0\"><animation>"
         "<frame tileid=\"0\" duration=\"100\"/><frame tileid=\"1\" duration=\"200\"/><frame tileid=\"2\" duration=\"300\"/>"
+        "</animation></tile>"
+        "<tile id=\"4\"><animation>"
+        "<frame tileid=\"4\" duration=\"0\"/><frame tileid=\"5\" duration=\"0\"/>"
+        "</animation></tile>"
+        "<tile id=\"6\"><animation>"
+        "<frame tileid=\"6\" duration=\"100\"/><frame tileid=\"7\" duration=\"0\"/><frame tileid=\"5\" duration=\"100\"/>"
         "</animation></tile></tileset>"
         "<layer id=\"1\" name=\"ground\" width=\"3\" height=\"1\"><data encoding=\"csv\">1,4,0</data></layer>"
         "<layer id=\"2\" name=\"flipped\" width=\"3\" height=\"1\" visible=\"0\"><data encoding=\"csv\">2147483649,0,0</data></layer>"
+        "<layer id=\"4\" name=\"special\" width=\"3\" height=\"1\" visible=\"0\"><data encoding=\"csv\">5,7,0</data></layer>"
         "<objectgroup id=\"3\" name=\"things\">"
         "<object id=\"1\" name=\"torch\" gid=\"1\" x=\"0\" y=\"96\" width=\"32\" height=\"32\"/>"
         "<object id=\"2\" name=\"mirror\" gid=\"2147483649\" x=\"64\" y=\"96\" width=\"32\" height=\"32\"/>"
@@ -180,6 +191,36 @@ TEST_SUITE( "renderer/tile_frame" )  {
             CHECK( scene.ObjectFrame() == sample.nGID );                 // a tile object shows the same frame
             CHECK( scene.CellFrame( __FLIPPED_ID ) == sample.nGID );     // flip bits removed
             CHECK( scene.ObjectFrame( "mirror" ) == sample.nGID );
+        }
+    }
+
+    TEST_CASE( "An animation whose frames are all 0 ms shows its first frame" )  {
+
+        // Found by Scarab (its V13): with a cycle of 0 ms the frame walk stepped past every frame
+        // (0 >= 0) and showed the last one (gid 6), drawn and asked alike.
+        Scene  scene;
+
+        for( int64_t nMillis : { 0, 1, 100, 5000 } )  {
+            INFO( "at " << nMillis << " ms" );
+            scene.At( nMillis );
+            CHECK( scene.CellFrame( __SPECIAL_ID, 0 ) == __ZERO_FIRST );
+        }
+    }
+
+    TEST_CASE( "A 0 ms frame inside a longer cycle is never shown: it has no time to be shown in" )  {
+
+        // Frames tile 6 (100 ms), tile 7 (0 ms), tile 5 (100 ms): gid 7 in [0, 100), gid 6 in [100, 200).
+        Scene  scene;
+
+        struct stSample  { int64_t nMillis; unsigned int nGID; };
+
+        const stSample  samples[] = { { 0, __MIXED_FIRST }, { 99, __MIXED_FIRST }, { 100, __MIXED_LAST },
+                                      { 199, __MIXED_LAST }, { 200, __MIXED_FIRST } };
+
+        for( const stSample& sample : samples )  {
+            INFO( "at " << sample.nMillis << " ms" );
+            scene.At( sample.nMillis );
+            CHECK( scene.CellFrame( __SPECIAL_ID, 1 ) == sample.nGID );
         }
     }
 

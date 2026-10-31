@@ -449,8 +449,9 @@ namespace SunLight  {
          * Before I11 each tile kept a state advanced only when it was drawn: it paused off screen,
          * and each frame's end was counted from the draw that noticed it, so a cycle stretched.
          * A frame whose gid has no tile in the tile table has nothing to show: the tile's own gid
-         * stays (as before). A tile that is not animated, or a cycle of zero ms, shows its own gid
-         * or its first frame.
+         * stays (as before). A tile that is not animated shows its own gid. A frame of 0 ms inside a
+         * longer cycle is never shown (it has no span to be shown in); an animation whose frames are
+         * all 0 ms has no cycle at all, and shows its first frame.
          * @param pBase The tile as its gid names it;
          * @param nGID The gid that named pBase, flip bits removed;
          * @return The gid drawn now;
@@ -469,8 +470,10 @@ namespace SunLight  {
             uint64_t      nInCycle = ( ( nCycle == 0 ) || ( nElapsed < 0 ) ) ? 0 : ( ( uint64_t ) nElapsed % nCycle );
             unsigned int  nFrame   = 0;
 
-            // The frame whose span [start, start + duration) holds nInCycle.
-            while( ( nFrame + 1 < pBase -> animation_len ) && ( nInCycle >= pBase -> animation[nFrame].duration ) )  {
+            // The frame whose span [start, start + duration) holds nInCycle. With no cycle (every frame
+            // 0 ms) there is no span: the walk would step past every frame (0 >= 0) and stop on the
+            // last, so the first frame stays - found by Scarab (its V13).
+            while( ( nCycle != 0 ) && ( nFrame + 1 < pBase -> animation_len ) && ( nInCycle >= pBase -> animation[nFrame].duration ) )  {
                 nInCycle -= pBase -> animation[nFrame].duration;
                 nFrame++;
             }
