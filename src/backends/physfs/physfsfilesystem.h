@@ -22,6 +22,7 @@
 #define __PHYSFSFILESYSTEM_H__
 
 #include "filesystem/ifilesystem.h"
+#include <string>
 
 
 namespace SunLight  {
@@ -40,11 +41,11 @@ namespace SunLight  {
                 bool                m_bInitialized = false;
                 bool                m_bAnyMounted = false;
                 bool                m_bDefaultMountEnsured = false;
-                ReadFilterCallback  m_ReadFilter;  // empty (unset) by default
+                std :: string       m_strWriteDir;  // the write directory, also mounted at the front (empty: none)
 
                 /**
-                 * @brief Runs at most once, lazily, from @see Exists / @see
-                 * ReadFile - see those methods' own doc comments and this
+                 * @brief Runs at most once, lazily, from @see VirtualExists / @see
+                 * VirtualReadFile - see those methods' own doc comments and this
                  * method's definition for the full "why" (default fallback
                  * mount so a consumer that never calls @see Mount still
                  * gets plain OS-directory access, exactly as if this
@@ -58,9 +59,13 @@ namespace SunLight  {
                 void Shutdown( void ) override;
 
                 bool Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath ) override;
-                bool Exists( const std :: string& strVirtualPath ) override;
-                bool ReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData ) override;
-                void SetReadFilter( ReadFilterCallback callback ) override;
+                bool SetWriteDirectory( const std :: string& strRealPath ) override;
+
+                protected:
+
+                bool VirtualExists( const std :: string& strVirtualPath ) override;
+                bool VirtualReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData ) override;
+                bool VirtualWriteFile( const std :: string& strVirtualPath, const std :: vector<unsigned char>& data ) override;
             };
         }
     }

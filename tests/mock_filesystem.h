@@ -30,27 +30,45 @@
 typedef std :: vector<unsigned char>  Bytes;
 
 /**
- * @brief In-memory IFileSystem: a map of virtual path -> bytes.
+ * @brief In-memory IFileSystem: a map of virtual path -> bytes. Path schemes, host paths and
+ * the filters are IFileSystem's own; this holds only the virtual files. A virtual write needs
+ * SetWriteDirectory first, as with PhysFS, and lands in the same map.
  */
 class MemoryFileSystem : public SunLight :: FileSystem :: IFileSystem  {
 
     public:
 
     std :: map<std :: string, Bytes>  files;
+    std :: string                     strWriteDirectory;   // empty: none set
 
-    void SetReadFilter( ReadFilterCallback ) override {}
     bool Init( const char * ) override { return true; }
     void Shutdown( void ) override {}
     bool Mount( const std :: string &, const std :: string &, bool ) override { return true; }
-    bool Exists( const std :: string& strPath ) override { return files.count( strPath ) > 0; }
 
-    bool ReadFile( const std :: string& strPath, Bytes& out ) override  {
+    bool SetWriteDirectory( const std :: string& strRealPath ) override  {
+        strWriteDirectory = strRealPath;
+        return true;
+    }
+
+    protected:
+
+    bool VirtualExists( const std :: string& strPath ) override { return files.count( strPath ) > 0; }
+
+    bool VirtualReadFile( const std :: string& strPath, Bytes& out ) override  {
         auto  it = files.find( strPath );
 
         if( it == files.end() )
             return false;
 
         out = it -> second;
+        return true;
+    }
+
+    bool VirtualWriteFile( const std :: string& strPath, const Bytes& data ) override  {
+        if( strWriteDirectory.empty() )
+            return false;
+
+        files[strPath] = data;
         return true;
     }
 };

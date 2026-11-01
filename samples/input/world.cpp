@@ -20,6 +20,7 @@
 
 #include "world.h"
 #include "input/icontrollermanager.h"
+#include "filesystem/filesystemfactory.h"
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
@@ -73,7 +74,8 @@ namespace  {
 
     const size_t  __EVENT_LOG_LINES    = 6;
     const int     __NO_REBIND          = -1;
-    const char   *__BINDINGS_FILE_NAME = "sunlight_input_bindings.txt";
+    const char   *__BINDINGS_FILE_NAME = "sunlight_input_bindings.txt";   // a virtual path, in the write directory
+    const char   *__WRITE_DIRECTORY    = "sunlight_input";                // under the system's temporary folder
 
     // The keyboard player's actions, rebound with F1..F4 (same order).
     const int     __KEY_ACTION_COUNT   = 4;
@@ -234,8 +236,9 @@ void World :: HandleRebinding( void )  {
 }
 
 /**
- * @brief F5 saves every binding to a file, F9 loads it back (ActionMap::Save/Load). The file is
- * in the system's temporary directory, so the sample never writes into its own folder.
+ * @brief F5 saves every binding to a file, F9 loads it back (ActionMap::Save/Load). The file is a
+ * plain virtual path: it goes into the FileSystem's write directory, a folder under the system's
+ * temporary directory (see the constructor), so the sample never writes into its own folder.
  */
 void World :: HandleSaveLoad( void )  {
 
@@ -494,7 +497,14 @@ World :: World( void )  {
     m_nRebindAction  = __NO_REBIND;
     m_fDeadzone      = DEFAULT_AXIS_DEADZONE;
     m_strStatus      = "Ready";
-    m_strBindingsFile = ( std :: filesystem :: temp_directory_path( errorCode ) / __BINDINGS_FILE_NAME ).string();
+    m_strBindingsFile = __BINDINGS_FILE_NAME;
+
+    // I12 of the master plan: a virtual path is written into the FileSystem's write directory (and
+    // read back from it, ahead of the mounts), so Save and Load take the bare file name.
+    m_strWriteDirectory = ( std :: filesystem :: temp_directory_path( errorCode ) / __WRITE_DIRECTORY ).string();
+
+    if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().SetWriteDirectory( m_strWriteDirectory ) )
+        fprintf( stderr, "Cannot use %s to save the bindings\n", m_strWriteDirectory.c_str() );
 }
 
 /**
@@ -546,7 +556,7 @@ bool World :: Run( void )  {
     m_pRenderer -> AddTileMapListener( this );
 
     printf( "Arrows move K; F1-F4 rebind its actions, F5/F9 save/load them; A on a pad claims a player slot, B leaves it;\n" );
-    printf( "[ and ] change the stick dead zone. Esc quits. Bindings file: %s\n", m_strBindingsFile.c_str() );
+    printf( "[ and ] change the stick dead zone. Esc quits. Bindings file: %s in %s\n", m_strBindingsFile.c_str(), m_strWriteDirectory.c_str() );
 
     m_pRenderer -> Run();
     m_pRenderer -> Stop();

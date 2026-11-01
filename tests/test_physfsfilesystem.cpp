@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <physfs.h>
 #include "backends/physfs/physfsfilesystem.h"
 
@@ -303,5 +304,85 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
         CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
 
         fs.Shutdown();
+    }
+
+    // I12 of the master plan: the write directory.
+
+    TEST_CASE( "A virtual write needs a write directory" )  {
+
+        PhysFsFileSystem  fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        CHECK_FALSE( fs.WriteFile( "settings/bindings.txt", { 'a' } ) );
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "SetWriteDirectory creates the folder; a virtual write lands there, folders and all, and reads back" )  {
+
+        ScratchDirFixture           fixture;
+        PhysFsFileSystem            fs;
+        std :: filesystem :: path   writeDir = fixture.root / "user";     // does not exist yet
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.SetWriteDirectory( writeDir.string() ) );
+        CHECK( std :: filesystem :: is_directory( writeDir ) );
+
+        REQUIRE( fs.WriteFile( "settings/deep/bindings.txt", { 'h', 'i' } ) );
+
+        std :: ifstream  file( writeDir / "settings" / "deep" / "bindings.txt", std :: ios :: binary );
+        std :: string    strOnDisk( ( std :: istreambuf_iterator<char>( file ) ), std :: istreambuf_iterator<char>() );
+
+        CHECK( strOnDisk == "hi" );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "settings/deep/bindings.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "hi" );
+        CHECK( fs.Exists( "vpath://settings/deep/bindings.txt" ) );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "A file in the write directory wins over a mounted file of the same name" )  {
+
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );     // ships subdir/greeting.txt
+        REQUIRE( fs.SetWriteDirectory( ( fixture.root.parent_path() / "sunlight_physfs_user" ).string() ) );
+        REQUIRE( fs.WriteFile( "subdir/greeting.txt", { 'u', 's', 'e', 'r' } ) );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "subdir/greeting.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "user" );
+
+        fs.Shutdown();
+        std :: filesystem :: remove_all( fixture.root.parent_path() / "sunlight_physfs_user" );
+    }
+
+    TEST_CASE( "A write directory is not a mount: a consumer that never mounts still gets the working directory" )  {
+
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.SetWriteDirectory( ( fixture.root.parent_path() / "sunlight_physfs_user" ).string() ) );
+
+        std :: filesystem :: path  previousCwd = std :: filesystem :: current_path();
+
+        std :: filesystem :: current_path( fixture.root );
+
+        std :: vector<unsigned char>  data;
+        bool                          bRead = fs.ReadFile( "subdir/greeting.txt", data );
+
+        std :: filesystem :: current_path( previousCwd );
+
+        REQUIRE( bRead );
+        CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
+
+        fs.Shutdown();
+        std :: filesystem :: remove_all( fixture.root.parent_path() / "sunlight_physfs_user" );
     }
 }

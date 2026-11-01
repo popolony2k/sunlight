@@ -45,8 +45,19 @@ Each item is described in full in the plan; what each change means for code buil
   built-in one) instead of a file path, on `IEngine` and `IDrawSurface`; `LoadFont` returns a
   `std::shared_ptr<IFont>`; `RegisterFont( family, font, bold, italic )` takes a loaded font
   instead of a path. A game loads with `LoadFont`, then selects or registers the font.
+- `ActionMap::Load`/`Save` take a FileSystem path: a plain path is now a virtual path (mounts,
+  archives, the read filter; saves go into the write directory). Code that passed an OS path adds
+  `hpath://`. `IFileSystem`'s `Exists`/`ReadFile`/`SetReadFilter` are no longer virtual: a backend
+  implements `VirtualExists`/`VirtualReadFile`/`VirtualWriteFile` and `SetWriteDirectory`.
 
 ### Added
+
+- **Path schemes** in every FileSystem read and write: `vpath://` / `virtualpath://` (the default,
+  so a plain path means what it did) for a virtual path, `hostpath://` / `hpath://` for an OS path;
+  any other scheme is refused. `IFileSystem::WriteFile`, `SetWriteDirectory` (the folder a virtual
+  path is written into, also mounted first so saves read back and win over shipped files),
+  `SetWriteFilter` (the counterpart of the read filter, eg. to encrypt saves) and
+  `SetHostPathEnabled` (host paths on by default; off, every host path fails).
 
 - **Isometric, staggered and hexagonal maps** load and render, each behind an `IMapProjection`
   (orthogonal maps too), with visible-tile culling.
@@ -130,6 +141,9 @@ Each item is described in full in the plan; what each change means for code buil
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
 - An animated tile whose frames are all 0 ms shows its first frame; it showed its last.
+- `ActionMap::Load` read its file with `std::ifstream`, around the FileSystem: a bindings file inside
+  a mounted archive or behind the read filter (an encrypted pack) could not be loaded. It reads
+  through the FileSystem now, as every other resource.
 - Tile animations follow the time since the map loaded, as Tiled animates them. Before, a tile
   animated only while drawn - off screen, on a hidden layer or masked from a view it paused, and
   stepped on one frame when drawn again - and each frame's end was counted from the draw that saw

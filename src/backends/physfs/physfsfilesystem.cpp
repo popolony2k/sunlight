@@ -21,6 +21,8 @@
 #include "backends/physfs/physfsfilesystem.h"
 
 #include <physfs.h>
+#include <filesystem>
+#include <system_error>
 
 
 namespace SunLight  {
@@ -59,6 +61,7 @@ namespace SunLight  {
                     ::PHYSFS_deinit();
 
                 m_bInitialized = false;
+                m_strWriteDir.clear();      // PHYSFS_deinit forgets the write directory and every mount
             }
 
             /**
@@ -134,7 +137,40 @@ namespace SunLight  {
                     Mount( ".", "/", true );
             }
 
-            bool PhysFsFileSystem :: Exists( const std :: string& strVirtualPath )  {
+            /**
+             * @brief PHYSFS_setWriteDir, then the same folder mounted at the virtual root ahead of
+             * every other mount (PHYSFS_mount with append 0), so what is written reads back by the
+             * same virtual path and wins over a shipped file of the same name. It does not set
+             * m_bAnyMounted: a consumer that never mounts still gets the working directory mounted
+             * on the first read (EnsureReady), behind this folder. A previous write directory's
+             * mount is removed first.
+             */
+            bool PhysFsFileSystem :: SetWriteDirectory( const std :: string& strRealPath )  {
+
+                if( !m_bInitialized )
+                    Init( nullptr );
+
+                std :: error_code  errorCode;
+
+                std :: filesystem :: create_directories( strRealPath, errorCode );
+
+                if( ::PHYSFS_setWriteDir( strRealPath.c_str() ) == 0 )
+                    return false;
+
+                if( !m_strWriteDir.empty() )
+                    ::PHYSFS_unmount( m_strWriteDir.c_str() );
+
+                m_strWriteDir.clear();
+
+                if( ::PHYSFS_mount( strRealPath.c_str(), "/", 0 ) == 0 )
+                    return false;
+
+                m_strWriteDir = strRealPath;
+
+                return true;
+            }
+
+            bool PhysFsFileSystem :: VirtualExists( const std :: string& strVirtualPath )  {
 
                 EnsureReady();
 
@@ -148,7 +184,7 @@ namespace SunLight  {
              * same "load it all up front" assumption raylib's own
              * LoadFileData() already makes.
              */
-            bool PhysFsFileSystem :: ReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData )  {
+            bool PhysFsFileSystem :: VirtualReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData )  {
 
                 EnsureReady();
 
@@ -174,30 +210,37 @@ namespace SunLight  {
                 if( nRead != nSize )
                     return false;
 
-                // Apply the optional post-read filter, if one is
-                // registered - see IFileSystem::SetReadFilter's own doc
-                // comment. Only reached after a fully successful raw
-                // read; a missing/unreadable file already returned false
-                // above, so the filter never sees that case.
-                if( m_ReadFilter )  {
-                    std :: vector<unsigned char>  filtered;
-
-                    if( m_ReadFilter( data, filtered ) )
-                        data = std :: move( filtered );
-                }
-
+                // The read filter is IFileSystem::ReadFile's, applied after this returns.
                 outData = std :: move( data );
 
                 return true;
             }
 
             /**
-             * @brief See @see IFileSystem::SetReadFilter's own doc
-             * comment for the full rationale.
+             * @brief Writes the whole file into the write directory (SetWriteDirectory), creating the
+             * folders on the way (PHYSFS_mkdir creates every missing one); false with no write
+             * directory set. PhysFS takes a write path relative to the write directory.
              */
-            void PhysFsFileSystem :: SetReadFilter( ReadFilterCallback callback )  {
+            bool PhysFsFileSystem :: VirtualWriteFile( const std :: string& strVirtualPath, const std :: vector<unsigned char>& data )  {
 
-                m_ReadFilter = std :: move( callback );
+                if( m_strWriteDir.empty() || ( ::PHYSFS_getWriteDir() == nullptr ) )
+                    return false;
+
+                size_t  nLastSlash = strVirtualPath.find_last_of( '/' );
+
+                if( ( nLastSlash != std :: string :: npos ) && ( nLastSlash > 0 ) &&
+                    ( ::PHYSFS_mkdir( strVirtualPath.substr( 0, nLastSlash ).c_str() ) == 0 ) )
+                    return false;
+
+                PHYSFS_File  *pFile = ::PHYSFS_openWrite( strVirtualPath.c_str() );
+
+                if( !pFile )
+                    return false;
+
+                PHYSFS_sint64  nWritten = data.empty() ? 0 : ::PHYSFS_writeBytes( pFile, data.data(), ( PHYSFS_uint64 ) data.size() );
+                bool           bClosed  = ::PHYSFS_close( pFile ) != 0;
+
+                return bClosed && ( nWritten == ( PHYSFS_sint64 ) data.size() );
             }
         }
     }
