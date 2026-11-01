@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `4cb7262b3e4e5a7fce745053d716c977d29078b8` | **Breaking:** `IFileSystem` a pure interface again, with `BaseFileSystem` and `FilePath`; public `FilePath::ParentPath`/`JoinPath` (I13, asked for by Scarab). Sent with a three-line migration note | 62 |
 | `9789ac548c96c784762730d6a86446319db47f68` | A map loads through a path scheme (`vpath://`, `hpath://`): its tilesets, templates and images keep the scheme (I12 fix, found by Scarab) | 61 |
 | `6a039ec43215c71cfa6832cbace53e2e6e4e73cf` | **Breaking:** path schemes in the FileSystem (`vpath://`, `hpath://`), `WriteFile`, write directory, write filter, host-path switch; `ActionMap` loads and saves through the FileSystem (I12, found by Scarab) | 61 |
 | `56a73cd4de2868fe30e124e79340ea19d71feae7` | An animation whose frames are all 0 ms shows its first frame, not its last (I11 fix, found by Scarab in its V13) | 60 |
