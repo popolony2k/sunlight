@@ -36,6 +36,7 @@
 #include <memory>
 #include <string>
 #include "renderer/tilemaprenderer.h"
+#include "renderer/map/externalresources.h"
 #include "backends/physfs/physfsfilesystem.h"
 #include "mock_engine.h"
 #include "mock_window.h"
@@ -383,12 +384,17 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
 
                 CHECK( rig.pRenderer -> LoadMap( "maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
                 CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "tilesets/ground.png" );
+
+                // The same through a path scheme (found by Scarab after I12).
+                CHECK( rig.pRenderer -> LoadMap( "vpath://maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+                CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "vpath://tilesets/ground.png" );
             }
 
             {
                 NullRig  rig;       // reads the image itself, through the pack and its filter
 
                 CHECK( rig.pRenderer -> LoadMap( "maps/sub/embedded.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+                CHECK( rig.pRenderer -> LoadMap( "vpath://maps/sub/embedded.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
             }
 
             SunLight :: FileSystem :: FileSystemFactory :: SetFileSystem( nullptr );
@@ -396,5 +402,93 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
         }
 
         fs :: remove( zipPath );
+    }
+
+    // I12 fix (found by Scarab): a map loaded through a path scheme. The paths inside it are joined to
+    // the map's own path; the join used to drop the "//" of the scheme.
+
+    TEST_CASE( "DirectoryOfVirtualPath and JoinVirtualPath keep a path's scheme and collapse only the rest" )  {
+
+        using namespace SunLight :: Renderer :: ExternalResources;
+
+        CHECK( DirectoryOfVirtualPath( "vpath://maps/level.tmx" ) == "vpath://maps/" );
+        CHECK( DirectoryOfVirtualPath( "vpath://level.tmx" ) == "vpath://" );
+        CHECK( DirectoryOfVirtualPath( "hpath:///abs/x/level.tmx" ) == "hpath:///abs/x/" );
+        CHECK( DirectoryOfVirtualPath( "maps/level.tmx" ) == "maps/" );           // plain: as before
+        CHECK( DirectoryOfVirtualPath( "level.tmx" ) == "" );
+
+        CHECK( JoinVirtualPath( "vpath://a/", "../c.tsx" ) == "vpath://c.tsx" );
+        CHECK( JoinVirtualPath( "virtualpath://a/b/", "./c.tsx" ) == "virtualpath://a/b/c.tsx" );
+        CHECK( JoinVirtualPath( "vpath://", "c.tsx" ) == "vpath://c.tsx" );
+        CHECK( JoinVirtualPath( "vpath://a/", "../../c.tsx" ) == "" );               // above the root
+        CHECK( JoinVirtualPath( "hpath:///abs/x/", "c.tsx" ) == "hpath:///abs/x/c.tsx" );
+        CHECK( JoinVirtualPath( "hostpath:///abs/x/", "../y/c.tsx" ) == "hostpath:///abs/y/c.tsx" );
+        CHECK( JoinVirtualPath( "hpath://C:\\games\\maps\\", "..\\tiles\\c.tsx" ) == "hpath://C:/games/tiles/c.tsx" );
+        CHECK( JoinVirtualPath( "hpath://C:/maps/", "../../c.tsx" ) == "" );         // never above the drive
+        CHECK( JoinVirtualPath( "maps/", "hpath:///abs/c.tsx" ) == "hpath:///abs/c.tsx" );   // its own scheme wins
+        CHECK( JoinVirtualPath( "maps/sub/", "../../images/x.png" ) == "images/x.png" );    // plain: as before
+        CHECK( JoinVirtualPath( "", "maps/sub/../../images/x.png" ) == "images/x.png" );
+    }
+
+    TEST_CASE( "A map with an external tileset loads through vpath:// and virtualpath://" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+        Rig                      rig;
+
+        fsFixture.fs.files["maps/level.tmx"]      = ToBytes( g_szMap );
+        fsFixture.fs.files["tilesets/ground.tsx"] = ToBytes( g_szTileset );
+
+        REQUIRE( rig.pRenderer -> LoadMap( "vpath://maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "vpath://tilesets/ground.png" );
+        REQUIRE( rig.pRenderer -> LoadMap( "virtualpath://maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "virtualpath://tilesets/ground.png" );
+    }
+
+    TEST_CASE( "A map with only an embedded image loads through vpath://, the image read through the FileSystem" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+
+        fsFixture.fs.files["maps/sub/level.tmx"] = ToBytes( MapWithEmbeddedImage( "../../images/sprite.png" ).c_str() );
+        fsFixture.fs.files["images/sprite.png"]  = PngHeader( 64, 16 );
+
+        NullRig  rig;
+
+        CHECK( rig.pRenderer -> LoadMap( "vpath://maps/sub/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+    }
+
+    TEST_CASE( "Both maps load through hpath:// and hostpath:// from real files" )  {
+
+        namespace fs = std :: filesystem;
+
+        fs :: path  root = fs :: temp_directory_path() / "sunlight_scheme_maps";
+
+        fs :: remove_all( root );
+        fs :: create_directories( root / "maps" / "sub" );
+        fs :: create_directories( root / "tilesets" );
+        fs :: create_directories( root / "images" );
+        std :: ofstream( root / "maps" / "level.tmx", std :: ios :: binary ) << g_szMap;
+        std :: ofstream( root / "tilesets" / "ground.tsx", std :: ios :: binary ) << g_szTileset;
+        std :: ofstream( root / "maps" / "sub" / "embedded.tmx", std :: ios :: binary ) << MapWithEmbeddedImage( "../../images/sprite.png" );
+
+        {
+            Bytes  png = PngHeader( 64, 16 );
+
+            std :: ofstream( root / "images" / "sprite.png", std :: ios :: binary ).write( ( const char* ) png.data(), ( std :: streamsize ) png.size() );
+            std :: ofstream( root / "tilesets" / "ground.png", std :: ios :: binary ).write( ( const char* ) png.data(), ( std :: streamsize ) png.size() );
+        }
+
+        // The in-memory FileSystem holds nothing: every read is a host read.
+        MemoryFileSystemFixture  fsFixture;
+
+        {
+            NullRig  rig;
+
+            CHECK( rig.pRenderer -> LoadMap( ( "hpath://" + ( root / "maps" / "level.tmx" ).string() ).c_str(),
+                                             SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+            CHECK( rig.pRenderer -> LoadMap( ( "hostpath://" + ( root / "maps" / "sub" / "embedded.tmx" ).string() ).c_str(),
+                                             SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        }
+
+        fs :: remove_all( root );
     }
 }
