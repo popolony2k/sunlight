@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `6a039ec43215c71cfa6832cbace53e2e6e4e73cf` | **Breaking:** path schemes in the FileSystem (`vpath://`, `hpath://`), `WriteFile`, write directory, write filter, host-path switch; `ActionMap` loads and saves through the FileSystem (I12, found by Scarab) | 61 |
 | `56a73cd4de2868fe30e124e79340ea19d71feae7` | An animation whose frames are all 0 ms shows its first frame, not its last (I11 fix, found by Scarab in its V13) | 60 |
 | `06009d407e6e81e91ead381f102d3f6b8e8e746b` | Tile animation by time, as Tiled animates (no pause, no drift); `GetTileFrame`/`GetObjectTileFrame` read the frame a tile shows (I11, asked for by Scarab in its V13) | 60 |
 | `ef1499d811e87c520a3669c9754cf4e6893ff4a8` | Sprite opacity and tint (`Sprite::SetOpacity`/`SetTint`); code style: include directly, forward-declare only to break an include cycle (I10) | 59 |
