@@ -2691,6 +2691,19 @@ sample and the tests save to the OS temp folder; PhysFS cannot open an absolute 
   on the old code. The suite also passes in random order (PhysFS is process-global).
 - **Sample:** `samples/input` sets a write directory (`sunlight_input` in the OS temp folder) and
   saves and loads its bindings by a plain virtual name.
+- **Fix after the merge (found by Scarab, re-pinning to `6a039ec`):** a map could not be loaded through
+  a scheme path - `LoadMap( "vpath://..." )` or `( "hpath://..." )` failed, a plain path loaded. Every
+  path inside a map (external tilesets and templates, the map's images) is joined to the map's own path
+  by `ExternalResources::JoinVirtualPath`, which split on '/' and dropped the empty segments - the "//"
+  of the scheme with them ("vpath://maps/" + "ground.tsx" gave "vpath:/maps/ground.tsx"). A map with an
+  external tileset failed with libtmx's error, one with only an embedded image silently (its texture
+  failed). `DirectoryOfVirtualPath` and `JoinVirtualPath` now split the scheme off, collapse the rest
+  only and put it back; a host path keeps OS rules (absolute stays absolute, ".." never climbs above a
+  drive); a relative path with a scheme of its own is used alone. Tests: the helpers on scheme, host,
+  drive and plain paths; both maps through `vpath://`/`virtualpath://` (in memory and from the
+  encrypted `.zip`) and `hpath://`/`hostpath://` (real files) - five failed on `6a039ec`. raylib's
+  bitmap-font atlas path was checked too (`GetDirectoryPath` prefixes "./", which `ToVirtualPath`
+  strips, so a scheme survives): not affected.
 - `doc/BREAKAGES.md` entry 61.
 
 

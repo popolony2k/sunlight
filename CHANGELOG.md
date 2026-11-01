@@ -141,6 +141,8 @@ Each item is described in full in the plan; what each change means for code buil
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
 - An animated tile whose frames are all 0 ms shows its first frame; it showed its last.
+- A map loaded through a path scheme (`vpath://`, `hpath://`, ...) could not find its external
+  tilesets, templates or images: joining their paths to the map's dropped the scheme's "//".
 - `ActionMap::Load` read its file with `std::ifstream`, around the FileSystem: a bindings file inside
   a mounted archive or behind the read filter (an encrypted pack) could not be loaded. It reads
   through the FileSystem now, as every other resource.
