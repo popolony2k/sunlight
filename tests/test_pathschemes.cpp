@@ -31,9 +31,11 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include "filesystem/filepath.h"
 #include "mock_filesystem.h"
 
 typedef SunLight :: FileSystem :: IFileSystem  IFS;
+typedef SunLight :: FileSystem :: FilePath     FP;
 
 namespace  {
 
@@ -85,15 +87,15 @@ TEST_SUITE( "filesystem/path_schemes" )  {
 
         std :: string  strRest;
 
-        CHECK( IFS :: SplitPath( "maps/level.tmx", strRest ) == IFS :: PATH_SCHEME_VIRTUAL );
+        CHECK( FP :: SplitPath( "maps/level.tmx", strRest ) == FP :: PATH_SCHEME_VIRTUAL );
         CHECK( strRest == "maps/level.tmx" );
-        CHECK( IFS :: SplitPath( "vpath://maps/level.tmx", strRest ) == IFS :: PATH_SCHEME_VIRTUAL );
+        CHECK( FP :: SplitPath( "vpath://maps/level.tmx", strRest ) == FP :: PATH_SCHEME_VIRTUAL );
         CHECK( strRest == "maps/level.tmx" );
-        CHECK( IFS :: SplitPath( "virtualpath://maps/level.tmx", strRest ) == IFS :: PATH_SCHEME_VIRTUAL );
+        CHECK( FP :: SplitPath( "virtualpath://maps/level.tmx", strRest ) == FP :: PATH_SCHEME_VIRTUAL );
         CHECK( strRest == "maps/level.tmx" );
-        CHECK( IFS :: SplitPath( "hostpath:///home/me/a.txt", strRest ) == IFS :: PATH_SCHEME_HOST );
+        CHECK( FP :: SplitPath( "hostpath:///home/me/a.txt", strRest ) == FP :: PATH_SCHEME_HOST );
         CHECK( strRest == "/home/me/a.txt" );
-        CHECK( IFS :: SplitPath( "hpath://C:\\Users\\me\\a.txt", strRest ) == IFS :: PATH_SCHEME_HOST );
+        CHECK( FP :: SplitPath( "hpath://C:\\Users\\me\\a.txt", strRest ) == FP :: PATH_SCHEME_HOST );
         CHECK( strRest == "C:\\Users\\me\\a.txt" );
     }
 
@@ -101,11 +103,11 @@ TEST_SUITE( "filesystem/path_schemes" )  {
 
         std :: string  strRest;
 
-        CHECK( IFS :: SplitPath( "http://example.com/a", strRest ) == IFS :: PATH_SCHEME_UNKNOWN );
-        CHECK( IFS :: SplitPath( "VPATH://a", strRest ) == IFS :: PATH_SCHEME_UNKNOWN );     // schemes are lowercase
-        CHECK( IFS :: SplitPath( "maps/a://b", strRest ) == IFS :: PATH_SCHEME_VIRTUAL );
+        CHECK( FP :: SplitPath( "http://example.com/a", strRest ) == FP :: PATH_SCHEME_UNKNOWN );
+        CHECK( FP :: SplitPath( "VPATH://a", strRest ) == FP :: PATH_SCHEME_UNKNOWN );     // schemes are lowercase
+        CHECK( FP :: SplitPath( "maps/a://b", strRest ) == FP :: PATH_SCHEME_VIRTUAL );
         CHECK( strRest == "maps/a://b" );
-        CHECK( IFS :: SplitPath( "://a", strRest ) == IFS :: PATH_SCHEME_VIRTUAL );
+        CHECK( FP :: SplitPath( "://a", strRest ) == FP :: PATH_SCHEME_VIRTUAL );
     }
 
     TEST_CASE( "Every virtual spelling reads the same virtual file; an unknown scheme is refused everywhere" )  {
@@ -232,5 +234,46 @@ TEST_SUITE( "filesystem/path_schemes" )  {
         memory.SetWriteDirectory( "user" );
         CHECK( memory.WriteFile( "vpath://save.txt", ToBytes( "x" ) ) );
         CHECK( ToString( memory.files["save.txt"] ) == "x" );
+    }
+
+    // I13 of the master plan: the path helpers, public on IFileSystem (moved from the map loader).
+
+    TEST_CASE( "ParentPath and JoinPath keep a path's scheme and collapse only the rest" )  {
+
+        CHECK( FP :: ParentPath( "vpath://maps/level.tmx" ) == "vpath://maps/" );
+        CHECK( FP :: ParentPath( "vpath://level.tmx" ) == "vpath://" );
+        CHECK( FP :: ParentPath( "hpath:///abs/x/level.tmx" ) == "hpath:///abs/x/" );
+        CHECK( FP :: ParentPath( "maps/level.tmx" ) == "maps/" );           // plain: as before
+        CHECK( FP :: ParentPath( "level.tmx" ) == "" );
+
+        CHECK( FP :: JoinPath( "vpath://a/", "../c.tsx" ) == "vpath://c.tsx" );
+        CHECK( FP :: JoinPath( "virtualpath://a/b/", "./c.tsx" ) == "virtualpath://a/b/c.tsx" );
+        CHECK( FP :: JoinPath( "vpath://", "c.tsx" ) == "vpath://c.tsx" );
+        CHECK( FP :: JoinPath( "vpath://a/", "../../c.tsx" ) == "" );               // above the root
+        CHECK( FP :: JoinPath( "hpath:///abs/x/", "c.tsx" ) == "hpath:///abs/x/c.tsx" );
+        CHECK( FP :: JoinPath( "hostpath:///abs/x/", "../y/c.tsx" ) == "hostpath:///abs/y/c.tsx" );
+        CHECK( FP :: JoinPath( "hpath://C:\\games\\maps\\", "..\\tiles\\c.tsx" ) == "hpath://C:/games/tiles/c.tsx" );
+        CHECK( FP :: JoinPath( "hpath://C:/maps/", "../../c.tsx" ) == "" );         // never above the drive
+        CHECK( FP :: JoinPath( "maps/", "hpath:///abs/c.tsx" ) == "hpath:///abs/c.tsx" );   // its own scheme wins
+        CHECK( FP :: JoinPath( "maps/sub/", "../../images/x.png" ) == "images/x.png" );    // plain: as before
+        CHECK( FP :: JoinPath( "", "maps/sub/../../images/x.png" ) == "images/x.png" );
+    }
+
+    TEST_CASE( "ParentPath's result is what JoinPath expects: the trailing '/' is kept, and the pair builds a sibling's path" )  {
+
+        CHECK( FP :: ParentPath( "scripts/x/game.project" ) == "scripts/x/" );
+        CHECK( FP :: JoinPath( FP :: ParentPath( "scripts/x/game.project" ), "main.lua" ) == "scripts/x/main.lua" );
+        CHECK( FP :: JoinPath( FP :: ParentPath( "vpath://scripts/x/game.project" ), "main.lua" ) == "vpath://scripts/x/main.lua" );
+        CHECK( FP :: JoinPath( FP :: ParentPath( "game.project" ), "main.lua" ) == "main.lua" );
+        CHECK( FP :: JoinPath( FP :: ParentPath( "scripts/x/game.project" ), "vpath://main.lua" ) == "vpath://main.lua" );   // its own scheme wins
+    }
+
+    TEST_CASE( "A relative path starting with '/' stays inside the folder; only an empty or absolute folder gives an absolute path" )  {
+
+        CHECK( FP :: JoinPath( "app/", "/main.lua" ) == "app/main.lua" );
+        CHECK( FP :: JoinPath( "vpath://app/", "/main.lua" ) == "vpath://app/main.lua" );
+        CHECK( FP :: JoinPath( "", "/main.lua" ) == "/main.lua" );
+        CHECK( FP :: JoinPath( "/app/", "main.lua" ) == "/app/main.lua" );
+        CHECK( FP :: JoinPath( "hpath:///app/", "/main.lua" ) == "hpath:///app/main.lua" );
     }
 }

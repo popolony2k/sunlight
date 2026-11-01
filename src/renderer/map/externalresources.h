@@ -41,21 +41,6 @@ namespace SunLight  {
             };
 
             /**
-             * Directory part of a path, trailing '/' included ("" if it has none); a path scheme
-             * ("vpath://", "hpath://", ...) stays in front.
-             */
-            std :: string DirectoryOfVirtualPath( const std :: string& strPath );
-
-            /**
-             * strDir + strRelative as one path: backslashes become '/', and "." and ".."
-             * segments are collapsed LEXICALLY (the FileSystem rejects them). A ".." that would
-             * climb above the root gives "" - not a legal path. strDir's scheme stays in front and
-             * only the rest is collapsed; a host path keeps OS rules (absolute stays absolute, a
-             * drive is a root); a strRelative with its own scheme is used alone.
-             */
-            std :: string JoinVirtualPath( const std :: string& strDir, const std :: string& strRelative );
-
-            /**
              * Finds the external tilesets and templates that one XML document names, in order.
              */
             void ScanExternalReferences( const std :: string& strXml, std :: vector<ExternalReference>& references );

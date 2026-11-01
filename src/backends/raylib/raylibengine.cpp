@@ -21,6 +21,7 @@
 #include "backends/raylib/raylibengine.h"
 #include "backends/raylib/raylibfontglyphs.h"
 #include "filesystem/filesystemfactory.h"
+#include "filesystem/filepath.h"
 #include "window/windowfactory.h"
 
 #include <rlgl.h>
@@ -75,7 +76,7 @@ namespace SunLight  {
              * correctly regardless of whether raylib is configured with
              * it's own custom allocator.
              *
-             * Routes szFileName through IFileSystem::ToVirtualPath()
+             * Routes szFileName through FilePath::ToVirtualPath()
              * before reading it - not just a courtesy for a caller-
              * supplied real path, but a genuine necessity here: raylib's
              * own LoadBMFont (rtext.c) constructs a multi-file AngelCode
@@ -100,7 +101,7 @@ namespace SunLight  {
             static unsigned char* FileSystemLoadFileDataCallback( const char* szFileName, int* pDataSize )  {
 
                 std :: vector<unsigned char>  data;
-                std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
+                std :: string                 strVirtualPath = SunLight :: FileSystem :: FilePath :: ToVirtualPath( szFileName );
 
                 if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strVirtualPath, data ) )  {
                     *pDataSize = 0;
@@ -152,7 +153,7 @@ namespace SunLight  {
             static char* FileSystemLoadFileTextCallback( const char* szFileName )  {
 
                 std :: vector<unsigned char>  data;
-                std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
+                std :: string                 strVirtualPath = SunLight :: FileSystem :: FilePath :: ToVirtualPath( szFileName );
 
                 if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strVirtualPath, data ) )
                     return nullptr;

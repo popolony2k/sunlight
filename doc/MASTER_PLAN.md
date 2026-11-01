@@ -2234,6 +2234,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I10 | Sprite opacity and tint (`Sprite::SetOpacity`/`SetTint`) | DONE |
 | I11 | Tile animation by time, as Tiled animates (no pause off screen, no drift); `GetTileFrame`/`GetObjectTileFrame` read the frame shown (asked for by Scarab, its V13) | DONE |
 | I12 | Path schemes in the FileSystem (`vpath://`, `hpath://`), writing (`WriteFile`, write directory, write filter), a host-path switch; `ActionMap` loads and saves through it (found by Scarab) | DONE |
+| I13 | The scheme-aware path helpers public (`FilePath::ParentPath`/`JoinPath`, asked for by Scarab); `IFileSystem` a pure interface again, with `BaseFileSystem` and `FilePath` | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2705,6 +2706,39 @@ sample and the tests save to the OS temp folder; PhysFS cannot open an absolute 
   bitmap-font atlas path was checked too (`GetDirectoryPath` prefixes "./", which `ToVirtualPath`
   strips, so a scheme survives): not affected.
 - `doc/BREAKAGES.md` entry 61.
+
+**I13: public path helpers (DONE).** Scarab asked for it: it keeps its own copy of the two path helpers
+(to build its entry script's path from a project file's folder), and re-pinning to I12 showed they were
+not scheme-aware ("scripts/x/" + "vpath://main.lua" gave "scripts/x/vpath://main.lua"). sunlight's
+scheme-aware ones lived in the map loader's internals (`Renderer::ExternalResources`).
+
+- **Design, decided with the owner:** `ParentPath( path )` and `JoinPath( dir, relative )`, public and
+  static - pure string logic, the same for every backend. The code moved from
+  `ExternalResources::DirectoryOfVirtualPath`/`JoinVirtualPath` unchanged; the map loader calls the
+  public ones, so there is one implementation.
+- **`IFileSystem` an interface again (the owner's catch while reviewing it):** since I12 it held state
+  (the filters, the host-path switch) and non-virtual logic, and with static helpers on top, its `I`
+  promised an interface it no longer was. Split the standard way, with the codebase's `Base` convention
+  (`BaseCanvas`):
+  - `IFileSystem`: a pure interface - every method pure virtual (`Init`, `Shutdown`, `Mount`,
+    `SetWriteDirectory`, `Exists`, `ReadFile`, `WriteFile`, `SetReadFilter`, `SetWriteFilter`,
+    `SetHostPathEnabled`, `IsHostPathEnabled`). `FileSystemFactory::GetFileSystem()` still returns it,
+    so no caller changes.
+  - `BaseFileSystem` (new, abstract): I12's shared code - schemes, host-path I/O, the switch, both
+    filters - and the protected `Virtual*` methods; `PhysFsFileSystem` and the tests'
+    `MemoryFileSystem` derive from it.
+  - `FilePath` (new, stateless): `PathScheme`, `SplitPath`, `ParentPath`, `JoinPath`, `ToVirtualPath`.
+  - No aliases left on `IFileSystem` (owner's choice): Scarab moves three calls (`ToVirtualPath` twice,
+    `SplitPath` once) to `FilePath`.
+- **Documented and tested, as Scarab asked:** `ParentPath` keeps the trailing '/' and its result is what
+  `JoinPath` expects as `dir` (`JoinPath` glues the two as they are); a relative part starting with '/'
+  stays inside the folder ("dir/" + "/main.lua" gives "dir/main.lua" - every empty segment is dropped),
+  and the result is absolute only when the joined path starts with '/' (an empty or absolute folder).
+- **Tests:** the helper cases moved from `tests/test_externaltilesets.cpp` to `tests/test_pathschemes.cpp`
+  under the new names, plus the pair and the leading '/'; `tests/test_ifilesystem.cpp` (`ToVirtualPath`)
+  became `tests/test_filepath.cpp`. No behaviour changed, so nothing to fail on the old code: the same
+  756 tests pass before and after the split.
+- `doc/BREAKAGES.md` entry 62.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

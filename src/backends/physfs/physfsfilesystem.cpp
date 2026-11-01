@@ -210,7 +210,7 @@ namespace SunLight  {
                 if( nRead != nSize )
                     return false;
 
-                // The read filter is IFileSystem::ReadFile's, applied after this returns.
+                // The read filter is BaseFileSystem::ReadFile's, applied after this returns.
                 outData = std :: move( data );
 
                 return true;

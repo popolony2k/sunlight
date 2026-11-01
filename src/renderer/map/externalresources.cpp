@@ -20,7 +20,7 @@
 
 #include "renderer/map/externalresources.h"
 #include "filesystem/filesystemfactory.h"
-#include "filesystem/ifilesystem.h"
+#include "filesystem/filepath.h"
 #include <algorithm>
 #include <cctype>
 #include <cstring>
@@ -86,126 +86,6 @@ namespace SunLight  {
             }
             }
 
-            namespace  {
-
-                const size_t  __DRIVE_LENGTH = 2;     // a Windows drive segment: a letter and ':' ("C:")
-
-                // The scheme a path starts with, as written ("vpath://", "hpath://", ...; "" for none or an
-                // unknown one), and the path after it (I12 of the master plan: the path helpers work on
-                // that rest only, and put the scheme back, so "//" is never mistaken for an empty segment).
-                std :: string SchemeOf( const std :: string& strPath, std :: string& strRest, bool& bHost )  {
-
-                    SunLight :: FileSystem :: IFileSystem :: PathScheme  scheme = SunLight :: FileSystem :: IFileSystem :: SplitPath( strPath, strRest );
-
-                    bHost = ( scheme == SunLight :: FileSystem :: IFileSystem :: PATH_SCHEME_HOST );
-
-                    if( scheme == SunLight :: FileSystem :: IFileSystem :: PATH_SCHEME_UNKNOWN )
-                        strRest = strPath;
-
-                    return strPath.substr( 0, strPath.size() - strRest.size() );
-                }
-
-                // A Windows drive segment ("C:"), which only a host path can start with.
-                bool IsDrive( const std :: string& strPart )  {
-
-                    return ( strPart.size() == __DRIVE_LENGTH ) && isalpha( ( unsigned char ) strPart[0] ) && ( strPart[1] == ':' );
-                }
-
-                // backslashes become '/', and "." and ".." are collapsed LEXICALLY; "" when ".." would climb
-                // above the root (or above a host path's drive).
-                std :: string CollapsePath( const std :: string& strPath, bool bHost )  {
-
-                    std :: string  joined = strPath;
-
-                    std :: replace( joined.begin(), joined.end(), '\\', '/' );
-
-                    bool                          bAbsolute = ( !joined.empty() && joined[0] == '/' );
-                    bool                          bDrive    = false;
-                    std :: vector<std :: string>  parts;
-                    size_t                        nStart = 0;
-
-                    while( nStart <= joined.size() )  {
-                        size_t         nEnd  = joined.find( '/', nStart );
-                        std :: string  part;
-
-                        if( nEnd == std :: string :: npos )
-                            nEnd = joined.size();
-
-                        part   = joined.substr( nStart, nEnd - nStart );
-                        nStart = nEnd + 1;
-
-                        if( part.empty() || part == "." )
-                            continue;
-
-                        if( part == ".." )  {
-                            if( parts.empty() || ( bDrive && ( parts.size() == 1 ) ) )
-                                return std :: string();
-
-                            parts.pop_back();
-                            continue;
-                        }
-
-                        if( bHost && parts.empty() && !bAbsolute && IsDrive( part ) )
-                            bDrive = true;
-
-                        parts.push_back( part );
-                    }
-
-                    std :: string  result = ( bAbsolute ? "/" : "" );
-
-                    for( size_t nCount = 0; nCount < parts.size(); nCount++ )
-                        result += ( nCount ? "/" : "" ) + parts[nCount];
-
-                    return result;
-                }
-            }
-
-            /**
-             * Directory part of a path, trailing '/' included ("" if it has none). A scheme stays in front
-             * (I12 of the master plan): "vpath://maps/level.tmx" gives "vpath://maps/", and
-             * "vpath://level.tmx" gives "vpath://", so a join keeps the scheme.
-             */
-            std :: string DirectoryOfVirtualPath( const std :: string& strPath )  {
-
-                std :: string  strRest;
-                bool           bHost;
-                std :: string  strScheme = SchemeOf( strPath, strRest, bHost );
-
-                std :: replace( strRest.begin(), strRest.end(), '\\', '/' );
-
-                size_t  nSlash = strRest.find_last_of( '/' );
-
-                return strScheme + ( ( nSlash == std :: string :: npos ) ? std :: string() : strRest.substr( 0, nSlash + 1 ) );
-            }
-
-            /**
-             * strDir + strRelative as one path: backslashes become '/', and "." and ".." segments are
-             * collapsed LEXICALLY (the FileSystem rejects them). A ".." that would climb above the root gives
-             * "" - not a legal path. The scheme of strDir stays in front and the collapse works on the rest
-             * only (I12 of the master plan: it used to drop the "//" of "vpath://" as an empty segment, so a
-             * map loaded through a scheme could not find its tilesets or images - found by Scarab); a host
-             * path keeps the OS's rules: absolute stays absolute, and ".." never climbs above a drive
-             * ("C:"). A strRelative with a scheme of its own already says where it lives: it is used alone.
-             */
-            std :: string JoinVirtualPath( const std :: string& strDir, const std :: string& strRelative )  {
-
-                std :: string  strRest;
-                bool           bHost;
-                std :: string  strScheme = SchemeOf( strRelative, strRest, bHost );
-                std :: string  strJoined;
-
-                if( strScheme.empty() )  {
-                    strScheme  = SchemeOf( strDir, strJoined, bHost );
-                    strJoined += strRelative;
-                }
-                else
-                    strJoined = strRest;
-
-                std :: string  strCollapsed = CollapsePath( strJoined, bHost );
-
-                return strCollapsed.empty() ? std :: string() : ( strScheme + strCollapsed );
-            }
-
             /**
              * Collect every external reference in an XML document: a `<tileset source="...">`, and an
              * `<object template="...">`. (A plain scan for those two tags - the documents are Tiled's own
@@ -249,7 +129,7 @@ namespace SunLight  {
                                           std :: map<std :: string, std :: string>& loadedKeys,
                                           std :: set<std :: string>& visited )  {
 
-                std :: string  strPath = JoinVirtualPath( strReferencingDir, reference.strKey );
+                std :: string  strPath = SunLight :: FileSystem :: FilePath :: JoinPath( strReferencingDir, reference.strKey );
 
                 if( strPath.empty() )
                     return;
@@ -268,7 +148,7 @@ namespace SunLight  {
                     return;
 
                 std :: string                     strText( data.begin(), data.end() );
-                std :: string                     strDir = DirectoryOfVirtualPath( strPath );
+                std :: string                     strDir = SunLight :: FileSystem :: FilePath :: ParentPath( strPath );
                 std :: vector<ExternalReference>  nested;
 
                 ScanExternalReferences( strText, nested );

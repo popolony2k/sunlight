@@ -43,31 +43,14 @@ namespace SunLight  {
          * (matching the underlying PhysFS convention) - never an absolute
          * OS path, and never OS-specific separators.
          *
-         * Path schemes (I12 of the master plan): every path given to
-         * @see Exists, @see ReadFile and @see WriteFile may start with a
-         * scheme naming where it lives - "vpath://" or "virtualpath://"
-         * for a virtual path (the default: a path with no scheme is one,
-         * so every path written before schemes existed means what it
-         * did), and "hostpath://" or "hpath://" for a real OS path in the
-         * OS's own style (a Windows drive letter included). Any other
-         * scheme is refused. Schemes are lowercase. This class resolves the scheme, reads and
-         * writes host paths itself, honours the host-path switch and
-         * applies the read and write filters - once, for every backend;
-         * a backend implements only the virtual-path part (the protected
-         * Virtual* methods).
+         * Every path may carry a scheme - see FilePath (I12 of the master plan). This is a pure
+         * interface (I13): the shared behaviour every backend has - schemes, host paths, the
+         * host-path switch, the read and write filters - is BaseFileSystem's, which a backend
+         * derives from.
          */
         class IFileSystem  {
 
             public:
-
-            /**
-             * @brief Where a path lives, by its scheme (see the class comment).
-             */
-            enum PathScheme  {
-                PATH_SCHEME_VIRTUAL,    // no scheme, "vpath://" or "virtualpath://"
-                PATH_SCHEME_HOST,       // "hostpath://" or "hpath://"
-                PATH_SCHEME_UNKNOWN     // any other "<letters>://": refused
-            };
 
             /**
              * @brief Optional post-read transform: given the raw bytes
@@ -99,16 +82,6 @@ namespace SunLight  {
             virtual ~IFileSystem( void )  {}
 
             /**
-             * @brief The scheme a path starts with, and the path without it.
-             * A scheme is the letters before "://" at the start of the path;
-             * a path without one is virtual.
-             * @param strPath The path, with or without a scheme;
-             * @param strRest Receives the path without its scheme;
-             * @return Where the path lives;
-             */
-            static PathScheme SplitPath( const std :: string& strPath, std :: string& strRest );
-
-            /**
              * @brief Must be implemented to register an optional filter
              * applied to every @see ReadFile result, after the raw bytes
              * are read but before they reach the caller. Unset (the
@@ -119,7 +92,7 @@ namespace SunLight  {
              * @param callback The filter to apply, or an empty
              * ReadFilterCallback to clear a previously-set one;
              */
-            void SetReadFilter( ReadFilterCallback callback );
+            virtual void SetReadFilter( ReadFilterCallback callback ) = 0;
 
             /**
              * @brief Register an optional filter applied to the bytes of
@@ -129,7 +102,7 @@ namespace SunLight  {
              * @param callback The filter, or an empty WriteFilterCallback
              * to clear a previously-set one;
              */
-            void SetWriteFilter( WriteFilterCallback callback );
+            virtual void SetWriteFilter( WriteFilterCallback callback ) = 0;
 
             /**
              * @brief Allow or refuse host paths ("hostpath://", "hpath://").
@@ -141,58 +114,8 @@ namespace SunLight  {
              * affected.
              * @param bEnabled Whether host paths are allowed;
              */
-            void SetHostPathEnabled( bool bEnabled );
-            bool IsHostPathEnabled( void ) const;
-
-            /**
-             * @brief Converts a real, OS-native path into its own legal
-             * virtual-path equivalent - normalizing '\' to '/', stripping
-             * a Windows drive letter prefix ("C:", "D:", ...), and
-             * stripping a leading "./". A real path is always safe to
-             * pass as @see Mount's own strRealPath (source) argument, in
-             * whatever native format the OS gives it - but never as
-             * strMountPoint (destination), and never as @see ReadFile/
-             * @see Exists's own strVirtualPath: PhysFS's own path
-             * sanitizer (verified directly in it's own source) rejects
-             * both a raw ':' anywhere in the string, and a "." path
-             * segment specifically - which a leading "./" always produces
-             * - as outright illegal, not just a mount-point restriction.
-             *
-             * The "./" case is a real, live-reproduced bug distinct from
-             * the drive-letter one: raylib's own LoadBMFont (rtext.c)
-             * builds a multi-file AngelCode BMFont's atlas image path via
-             * GetDirectoryPath(fileName), which - confirmed directly in
-             * raylib's own source - always prepends "./" to the result
-             * whenever fileName has no drive letter and doesn't already
-             * start with '/' (the common, relative-path case). A
-             * LoadFont("resources/fonts/foo.fnt") call therefore reaches
-             * RaylibEngine's own FileSystemLoadFileDataCallback asking to
-             * read "./resources/fonts/foo.png" - which PHYSFS_openRead()
-             * silently rejects, with no trace at all (that total silence
-             * is itself the diagnostic tell), falling back to raylib's
-             * default font with no visible error. Single-file TTF/OTF
-             * fonts are unaffected - no such internally-constructed
-             * secondary path exists for them.
-             *
-             * Idempotent - safe to call on a string that's already a
-             * legal virtual path (eg. "/", or this method's own prior
-             * output), since none of these transformations touch it
-             * further. A consumer needing to mount it's own real
-             * directory "at itself" must call this explicitly and use the
-             * *same* resulting string both as Mount()'s own mountPoint
-             * argument and as the prefix for any virtual path it later
-             * constructs against that mount (eg. exposing it to a
-             * scripting layer as an "application directory" global) -
-             * Mount() itself cannot safely do this conversion internally
-             * on the caller's behalf, since ReadFile/Exists lookups
-             * against virtual paths built from the *unconverted* real
-             * path would then no longer match whatever Mount() actually
-             * mounted things at.
-             *
-             * @param strRealPath Real, OS-native path to convert;
-             * @return strRealPath's own equivalent, legal virtual path;
-             */
-            static std :: string ToVirtualPath( const std :: string& strRealPath );
+            virtual void SetHostPathEnabled( bool bEnabled ) = 0;
+            virtual bool IsHostPathEnabled( void ) const = 0;
 
             /**
              * @brief Must be implemented to perform whatever one-time
@@ -259,7 +182,7 @@ namespace SunLight  {
              * otherwise, for an unknown scheme, or a host path while host
              * paths are refused;
              */
-            bool Exists( const std :: string& strPath );
+            virtual bool Exists( const std :: string& strPath ) = 0;
 
             /**
              * @brief Read an entire file into memory in one call, from a
@@ -272,7 +195,7 @@ namespace SunLight  {
              * couldn't be read, for an unknown scheme, or a host path
              * while host paths are refused;
              */
-            bool ReadFile( const std :: string& strPath, std :: vector<unsigned char>& outData );
+            virtual bool ReadFile( const std :: string& strPath, std :: vector<unsigned char>& outData ) = 0;
 
             /**
              * @brief Write an entire file in one call, through the write
@@ -285,21 +208,7 @@ namespace SunLight  {
              * virtual path while no write directory is set, an unknown
              * scheme, or a host path while host paths are refused;
              */
-            bool WriteFile( const std :: string& strPath, const std :: vector<unsigned char>& data );
-
-            protected:
-
-            // The virtual-path part a backend implements: the path has no scheme, and no filter
-            // is applied here (WriteFile/ReadFile apply them).
-            virtual bool VirtualExists( const std :: string& strVirtualPath ) = 0;
-            virtual bool VirtualReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData ) = 0;
-            virtual bool VirtualWriteFile( const std :: string& strVirtualPath, const std :: vector<unsigned char>& data ) = 0;
-
-            private:
-
-            ReadFilterCallback   m_ReadFilter;               // empty (unset) by default
-            WriteFilterCallback  m_WriteFilter;              // empty (unset) by default
-            bool                 m_bHostPathEnabled = true;
+            virtual bool WriteFile( const std :: string& strPath, const std :: vector<unsigned char>& data ) = 0;
         };
     }
 }

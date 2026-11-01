@@ -26,6 +26,7 @@
 #include "renderer/projection/staggeredprojection.h"
 #include "renderer/projection/hexagonalprojection.h"
 #include "filesystem/filesystemfactory.h"
+#include "filesystem/filepath.h"
 #include "engines/enginefactory.h"
 #include "general/clock.h"
 #include <cstdio>
@@ -69,7 +70,7 @@ namespace SunLight  {
              * "resources/tilemap/shapes/../../sprites/x.png". The FileSystem rejects "." and ".."
              * segments (PhysFS: PHYSFS_ERR_BAD_FILENAME), and libtmx then refused the whole map.
              * Found by Scarab. Both kinds of path are therefore collapsed the same way
-             * (JoinVirtualPath: backslashes become '/', "." and ".." resolved lexically). A path that
+             * (FilePath::JoinPath: backslashes become '/', "." and ".." resolved lexically). A path that
              * would climb above the root is not a legal virtual path, so it is passed on as written,
              * and fails as it did before.
              * @param szFileName Texture file name;
@@ -77,7 +78,7 @@ namespace SunLight  {
             void* TextureLoaderCallback( const char* szFileName )  {
 
                 int             nWidth, nHeight;
-                std :: string  strResolved = ExternalResources :: JoinVirtualPath( ExternalResources :: ImageBase(), szFileName );
+                std :: string  strResolved = SunLight :: FileSystem :: FilePath :: JoinPath( ExternalResources :: ImageBase(), szFileName );
 
                 return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strResolved.empty() ? szFileName : strResolved.c_str(),
                                                                                        nWidth, nHeight );
@@ -179,7 +180,7 @@ namespace SunLight  {
             if( !externalReferences.empty() )  {
                 std :: map<std :: string, std :: string>  loadedKeys;
                 std :: set<std :: string>                 visited;
-                std :: string                             strMapDir = ExternalResources :: DirectoryOfVirtualPath( szTmxMapFile );
+                std :: string                             strMapDir = SunLight :: FileSystem :: FilePath :: ParentPath( szTmxMapFile );
 
                 // libtmx's allocator hooks default to NULL and are only set up by its own tmx_load*/
                 // tmx_rcmgr_load* entry points - NOT by tmx_make_resource_manager(), which allocates
