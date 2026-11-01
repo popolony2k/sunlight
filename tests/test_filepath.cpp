@@ -19,21 +19,21 @@
  */
 
 #include <doctest/doctest.h>
-#include "filesystem/ifilesystem.h"
+#include "filesystem/filepath.h"
 
 using namespace SunLight :: FileSystem;
 
-TEST_SUITE( "filesystem/IFileSystem::ToVirtualPath" )  {
+TEST_SUITE( "filesystem/FilePath::ToVirtualPath" )  {
 
     TEST_CASE( "Strips a Windows drive letter and normalizes backslashes" )  {
 
-        CHECK( IFileSystem :: ToVirtualPath( "D:\\Projects\\game-engine\\build\\games\\caravellius.zip" )
+        CHECK( FilePath :: ToVirtualPath( "D:\\Projects\\game-engine\\build\\games\\caravellius.zip" )
                == "/Projects/game-engine/build/games/caravellius.zip" );
     }
 
     TEST_CASE( "Strips a lowercase drive letter just as well" )  {
 
-        CHECK( IFileSystem :: ToVirtualPath( "c:\\Users\\dev" ) == "/Users/dev" );
+        CHECK( FilePath :: ToVirtualPath( "c:\\Users\\dev" ) == "/Users/dev" );
     }
 
     TEST_CASE( "Normalizes backslashes even without a drive letter" )  {
@@ -41,23 +41,23 @@ TEST_SUITE( "filesystem/IFileSystem::ToVirtualPath" )  {
         // eg. a UNC-style or already-rooted path with no drive letter -
         // strVirtual[1] isn't ':', so the drive-letter strip is skipped,
         // but every '\' still becomes '/'.
-        CHECK( IFileSystem :: ToVirtualPath( "\\\\server\\share\\file.txt" ) == "//server/share/file.txt" );
+        CHECK( FilePath :: ToVirtualPath( "\\\\server\\share\\file.txt" ) == "//server/share/file.txt" );
     }
 
     TEST_CASE( "Leaves a POSIX absolute path untouched" )  {
 
-        CHECK( IFileSystem :: ToVirtualPath( "/home/user/game" ) == "/home/user/game" );
+        CHECK( FilePath :: ToVirtualPath( "/home/user/game" ) == "/home/user/game" );
     }
 
     TEST_CASE( "Leaves a relative path untouched" )  {
 
-        CHECK( IFileSystem :: ToVirtualPath( "samples/orthogonal/" ) == "samples/orthogonal/" );
+        CHECK( FilePath :: ToVirtualPath( "samples/orthogonal/" ) == "samples/orthogonal/" );
     }
 
     TEST_CASE( "Is idempotent - safe to call on it's own prior output" )  {
 
-        std :: string  strOnce = IFileSystem :: ToVirtualPath( "D:\\Projects\\game" );
-        std :: string  strTwice = IFileSystem :: ToVirtualPath( strOnce );
+        std :: string  strOnce = FilePath :: ToVirtualPath( "D:\\Projects\\game" );
+        std :: string  strTwice = FilePath :: ToVirtualPath( strOnce );
 
         CHECK( strOnce == strTwice );
         CHECK( strTwice == "/Projects/game" );
@@ -65,9 +65,9 @@ TEST_SUITE( "filesystem/IFileSystem::ToVirtualPath" )  {
 
     TEST_CASE( "Handles empty and single-character strings without crashing" )  {
 
-        CHECK( IFileSystem :: ToVirtualPath( "" ) == "" );
-        CHECK( IFileSystem :: ToVirtualPath( "/" ) == "/" );
-        CHECK( IFileSystem :: ToVirtualPath( "D" ) == "D" );
+        CHECK( FilePath :: ToVirtualPath( "" ) == "" );
+        CHECK( FilePath :: ToVirtualPath( "/" ) == "/" );
+        CHECK( FilePath :: ToVirtualPath( "D" ) == "D" );
     }
 
     TEST_CASE( "Strips a leading './' - the exact shape raylib's own GetDirectoryPath() produces" )  {
@@ -76,7 +76,7 @@ TEST_SUITE( "filesystem/IFileSystem::ToVirtualPath" )  {
         // then TextFormat("%s/%s", ..., "foo.png") -> "./resources/fonts/foo.png" -
         // a leading "./" is a "." path segment, which PhysFS's own path
         // sanitizer rejects outright (not just a whole-string special case).
-        CHECK( IFileSystem :: ToVirtualPath( "./resources/fonts/caravellius8x8.png" )
+        CHECK( FilePath :: ToVirtualPath( "./resources/fonts/caravellius8x8.png" )
                == "resources/fonts/caravellius8x8.png" );
     }
 
@@ -84,16 +84,16 @@ TEST_SUITE( "filesystem/IFileSystem::ToVirtualPath" )  {
 
         // A dotfile-style name ('.hidden') must survive untouched - only
         // the specific two-character './' prefix is stripped.
-        CHECK( IFileSystem :: ToVirtualPath( ".hidden" ) == ".hidden" );
-        CHECK( IFileSystem :: ToVirtualPath( "resources/./fonts/foo.png" ) == "resources/./fonts/foo.png" );
+        CHECK( FilePath :: ToVirtualPath( ".hidden" ) == ".hidden" );
+        CHECK( FilePath :: ToVirtualPath( "resources/./fonts/foo.png" ) == "resources/./fonts/foo.png" );
     }
 
     TEST_CASE( "'./' stripping composes with backslash normalization and is idempotent" )  {
 
-        CHECK( IFileSystem :: ToVirtualPath( ".\\resources\\fonts\\foo.png" ) == "resources/fonts/foo.png" );
+        CHECK( FilePath :: ToVirtualPath( ".\\resources\\fonts\\foo.png" ) == "resources/fonts/foo.png" );
 
-        std :: string  strOnce = IFileSystem :: ToVirtualPath( "./resources/fonts/foo.png" );
-        std :: string  strTwice = IFileSystem :: ToVirtualPath( strOnce );
+        std :: string  strOnce = FilePath :: ToVirtualPath( "./resources/fonts/foo.png" );
+        std :: string  strTwice = FilePath :: ToVirtualPath( strOnce );
 
         CHECK( strOnce == strTwice );
         CHECK( strTwice == "resources/fonts/foo.png" );

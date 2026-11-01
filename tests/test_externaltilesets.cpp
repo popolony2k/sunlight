@@ -36,7 +36,6 @@
 #include <memory>
 #include <string>
 #include "renderer/tilemaprenderer.h"
-#include "renderer/map/externalresources.h"
 #include "backends/physfs/physfsfilesystem.h"
 #include "mock_engine.h"
 #include "mock_window.h"
@@ -407,28 +406,6 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
     // I12 fix (found by Scarab): a map loaded through a path scheme. The paths inside it are joined to
     // the map's own path; the join used to drop the "//" of the scheme.
 
-    TEST_CASE( "DirectoryOfVirtualPath and JoinVirtualPath keep a path's scheme and collapse only the rest" )  {
-
-        using namespace SunLight :: Renderer :: ExternalResources;
-
-        CHECK( DirectoryOfVirtualPath( "vpath://maps/level.tmx" ) == "vpath://maps/" );
-        CHECK( DirectoryOfVirtualPath( "vpath://level.tmx" ) == "vpath://" );
-        CHECK( DirectoryOfVirtualPath( "hpath:///abs/x/level.tmx" ) == "hpath:///abs/x/" );
-        CHECK( DirectoryOfVirtualPath( "maps/level.tmx" ) == "maps/" );           // plain: as before
-        CHECK( DirectoryOfVirtualPath( "level.tmx" ) == "" );
-
-        CHECK( JoinVirtualPath( "vpath://a/", "../c.tsx" ) == "vpath://c.tsx" );
-        CHECK( JoinVirtualPath( "virtualpath://a/b/", "./c.tsx" ) == "virtualpath://a/b/c.tsx" );
-        CHECK( JoinVirtualPath( "vpath://", "c.tsx" ) == "vpath://c.tsx" );
-        CHECK( JoinVirtualPath( "vpath://a/", "../../c.tsx" ) == "" );               // above the root
-        CHECK( JoinVirtualPath( "hpath:///abs/x/", "c.tsx" ) == "hpath:///abs/x/c.tsx" );
-        CHECK( JoinVirtualPath( "hostpath:///abs/x/", "../y/c.tsx" ) == "hostpath:///abs/y/c.tsx" );
-        CHECK( JoinVirtualPath( "hpath://C:\\games\\maps\\", "..\\tiles\\c.tsx" ) == "hpath://C:/games/tiles/c.tsx" );
-        CHECK( JoinVirtualPath( "hpath://C:/maps/", "../../c.tsx" ) == "" );         // never above the drive
-        CHECK( JoinVirtualPath( "maps/", "hpath:///abs/c.tsx" ) == "hpath:///abs/c.tsx" );   // its own scheme wins
-        CHECK( JoinVirtualPath( "maps/sub/", "../../images/x.png" ) == "images/x.png" );    // plain: as before
-        CHECK( JoinVirtualPath( "", "maps/sub/../../images/x.png" ) == "images/x.png" );
-    }
 
     TEST_CASE( "A map with an external tileset loads through vpath:// and virtualpath://" )  {
 

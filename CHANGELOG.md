@@ -47,11 +47,18 @@ Each item is described in full in the plan; what each change means for code buil
   instead of a path. A game loads with `LoadFont`, then selects or registers the font.
 - `ActionMap::Load`/`Save` take a FileSystem path: a plain path is now a virtual path (mounts,
   archives, the read filter; saves go into the write directory). Code that passed an OS path adds
-  `hpath://`. `IFileSystem`'s `Exists`/`ReadFile`/`SetReadFilter` are no longer virtual: a backend
-  implements `VirtualExists`/`VirtualReadFile`/`VirtualWriteFile` and `SetWriteDirectory`.
+  `hpath://`.
+- `IFileSystem` is a pure interface; the shared behaviour (path schemes, host paths, the host-path
+  switch, the filters) is the new abstract `BaseFileSystem`'s, which a backend derives from,
+  implementing `VirtualExists`/`VirtualReadFile`/`VirtualWriteFile` plus `Init`/`Shutdown`/`Mount`/
+  `SetWriteDirectory`. The static path helpers moved to a new `FilePath` class:
+  `IFileSystem::ToVirtualPath` and `IFileSystem::SplitPath` are now `FilePath::ToVirtualPath` and
+  `FilePath::SplitPath` (and `IFileSystem::PathScheme` is `FilePath::PathScheme`).
 
 ### Added
 
+- `FilePath::ParentPath` and `FilePath::JoinPath`: the scheme-aware path helpers the map loader uses,
+  public - a file's folder, and a path relative to it.
 - **Path schemes** in every FileSystem read and write: `vpath://` / `virtualpath://` (the default,
   so a plain path means what it did) for a virtual path, `hostpath://` / `hpath://` for an OS path;
   any other scheme is refused. `IFileSystem::WriteFile`, `SetWriteDirectory` (the folder a virtual

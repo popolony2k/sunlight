@@ -21,6 +21,7 @@
 #include "backends/null/nullengine.h"
 #include "backends/null/imageheader.h"
 #include "filesystem/filesystemfactory.h"
+#include "filesystem/filepath.h"
 #include <cstdint>
 #include <vector>
 
@@ -80,7 +81,7 @@ namespace SunLight  {
                                                                          int& nHeight )  {
 
                 std :: vector<unsigned char>  data;
-                std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
+                std :: string                 strVirtualPath = SunLight :: FileSystem :: FilePath :: ToVirtualPath( szFileName );
                 int                           nReadWidth  = 0;
                 int                           nReadHeight = 0;
 
@@ -220,7 +221,7 @@ namespace SunLight  {
 
                 if( ( szFilePath == nullptr ) || ( szFilePath[0] == '\0' ) ||
                     !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().Exists(
-                         SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFilePath ) ) )
+                         SunLight :: FileSystem :: FilePath :: ToVirtualPath( szFilePath ) ) )
                     return nullptr;
 
                 return std :: make_shared<NullFont>();

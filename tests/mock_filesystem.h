@@ -26,15 +26,16 @@
 #include <vector>
 #include <sstream>
 #include "filesystem/filesystemfactory.h"
+#include "filesystem/basefilesystem.h"
 
 typedef std :: vector<unsigned char>  Bytes;
 
 /**
  * @brief In-memory IFileSystem: a map of virtual path -> bytes. Path schemes, host paths and
- * the filters are IFileSystem's own; this holds only the virtual files. A virtual write needs
+ * the filters are BaseFileSystem's; this holds only the virtual files. A virtual write needs
  * SetWriteDirectory first, as with PhysFS, and lands in the same map.
  */
-class MemoryFileSystem : public SunLight :: FileSystem :: IFileSystem  {
+class MemoryFileSystem : public SunLight :: FileSystem :: BaseFileSystem  {
 
     public:
 

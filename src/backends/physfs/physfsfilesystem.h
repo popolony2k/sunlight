@@ -21,7 +21,7 @@
 #ifndef __PHYSFSFILESYSTEM_H__
 #define __PHYSFSFILESYSTEM_H__
 
-#include "filesystem/ifilesystem.h"
+#include "filesystem/basefilesystem.h"
 #include <string>
 
 
@@ -36,7 +36,7 @@ namespace SunLight  {
              * interface wants - this class is a thin adapter translating
              * SunLight's own plain types at the boundary, nothing more.
              */
-            class PhysFsFileSystem : public IFileSystem  {
+            class PhysFsFileSystem : public BaseFileSystem  {
 
                 bool                m_bInitialized = false;
                 bool                m_bAnyMounted = false;
