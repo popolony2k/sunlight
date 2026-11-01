@@ -125,16 +125,21 @@ namespace SunLight  {
                                          int nGamePadId, float fAxisThreshold ) const = 0;
 
             /**
-             * @brief Save every current binding to a plain text file.
-             * @param strPath The file path to write;
+             * @brief Save every current binding to a plain text file, through
+             * SunLight::FileSystem (I12 of the master plan): a virtual path ("vpath://", or no
+             * scheme) is written into the write directory (IFileSystem::SetWriteDirectory), a host
+             * path ("hpath://") to the OS.
+             * @param strPath The path to write;
              * @return true on success, false if the file could not be written;
              */
             virtual bool Save( const std :: string& strPath ) const = 0;
 
             /**
              * @brief Load bindings from a plain text file, replacing every binding this map
-             * currently holds. Left unchanged if the file can't be read or parsed.
-             * @param strPath The file path to read;
+             * currently holds. Left unchanged if the file can't be read or parsed. Read through
+             * SunLight::FileSystem (I12 of the master plan): a virtual path (the default) honours the
+             * mounts - an archive included - and the read filter; "hpath://" reads an OS file.
+             * @param strPath The path to read;
              * @return true on success, false if the file could not be read or parsed;
              */
             virtual bool Load( const std :: string& strPath ) = 0;

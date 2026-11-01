@@ -2233,6 +2233,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I9 | A layer's opacity as a float, 0..1 (`stLayer::fOpacity`); an unchanged `GetLayer`/`SetLayer` keeps the map's opacity and parallax exactly; `SetScreenFade` clamped to 0..1 | DONE |
 | I10 | Sprite opacity and tint (`Sprite::SetOpacity`/`SetTint`) | DONE |
 | I11 | Tile animation by time, as Tiled animates (no pause off screen, no drift); `GetTileFrame`/`GetObjectTileFrame` read the frame shown (asked for by Scarab, its V13) | DONE |
+| I12 | Path schemes in the FileSystem (`vpath://`, `hpath://`), writing (`WriteFile`, write directory, write filter), a host-path switch; `ActionMap` loads and saves through it (found by Scarab) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2651,6 +2652,46 @@ frame an animated tile shows, and that lived only in `MapData`'s private per-til
   first at any time (it failed on `06009d4`, gid 6 for 5), and a 0 ms frame between two 100 ms ones is
   skipped. Scarab's own V13 test confirmed everything else in I11 exactly, over 300 frames.
 - `doc/BREAKAGES.md` entry 60.
+
+**I12: path schemes and writing in the FileSystem (DONE).** Scarab found, planning its C1, that
+`ActionMap::Load` read with a raw `std::ifstream` - the one resource read in sunlight that went around
+the FileSystem - so a bindings file inside a mounted `.zip` or an encrypted pack could not be loaded.
+Switching `Load` alone to the FileSystem would have broken `Save` -> `Load` with an OS path (the input
+sample and the tests save to the OS temp folder; PhysFS cannot open an absolute OS path).
+
+- **Design, decided with the owner:** path schemes, in `IFileSystem` itself, for every read and write
+  in sunlight - "the kind of situation IFileSystem was created for" (owner).
+  - No scheme, `vpath://` or `virtualpath://`: a virtual path, the default - every path written
+    before means what it did. `hostpath://` or `hpath://`: an OS path, the OS's own style. Any other
+    `<letters>://` is refused; schemes are lowercase; "://" after a non-letter is not a scheme.
+  - `IFileSystem` resolves the scheme, does host-path I/O, applies the host-path switch and both
+    filters, once for every backend: `Exists`, `ReadFile`, `WriteFile`, `SetReadFilter` are no longer
+    virtual; a backend implements the protected `VirtualExists`/`VirtualReadFile`/`VirtualWriteFile`
+    and `SetWriteDirectory`.
+  - `WriteFile`: a virtual path into the write directory (archives are read-only; with none set it
+    fails), a host path to the OS; missing folders are created either way.
+  - `SetWriteDirectory( real folder )`: created if missing, set as PhysFS's write directory and
+    mounted at the virtual root ahead of every mount, so a save reads back by the same path and wins
+    over a shipped file of the same name. It is not a mount for the automatic mount of the working
+    directory.
+  - `SetWriteFilter`, the counterpart of the read filter: asked by the owner whether a `vpath` save
+    works with an encrypted pack - it goes into the write directory, never the archive, and without a
+    write filter a plain save would read back through the pack's decrypting read filter as garbage.
+    With both set, saves are encrypted and read back. The read filter applies to host reads too.
+  - `SetHostPathEnabled` (on by default): off, every host-path read, write and check fails - for a
+    scripting layer that must stay inside the virtual space. Mounting is not affected.
+  - `ActionMap::Load`/`Save` go through it; a plain path is virtual.
+- **Tests:** `tests/test_pathschemes.cpp` (schemes and refusals, host read/write/exists with folders,
+  the switch, the read filter on host reads, the write filter and the encrypted round trip, a virtual
+  write needing a write directory); `tests/test_physfsfilesystem.cpp` (no write directory, the folder
+  created and the file written and read back, the write directory winning over a mount, the working
+  directory still mounted); `tests/test_actionmap.cpp` (Load from a file that exists nowhere on disk,
+  through a read filter, from a mounted `.zip`; Save into the write directory and back; the round
+  trips with `hpath://`). The three Load tests, built against `feat/master_plan` in a worktree, fail
+  on the old code. The suite also passes in random order (PhysFS is process-global).
+- **Sample:** `samples/input` sets a write directory (`sunlight_input` in the OS temp folder) and
+  saves and loads its bindings by a plain virtual name.
+- `doc/BREAKAGES.md` entry 61.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

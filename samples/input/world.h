@@ -66,7 +66,8 @@ class World : public SunLight :: TileMap :: ITileMapListener  {
     std :: map<int, bool>                                       m_PrevKeyDown;
     std :: map<std :: pair<int, int>, bool>                     m_PrevButtonDown;    // by (pad id, button)
 
-    std :: string                                               m_strBindingsFile;
+    std :: string                                               m_strBindingsFile;     // a virtual path (I12)
+    std :: string                                               m_strWriteDirectory;   // where it is written, a real folder
 
     bool KeyPressedOnce( SunLight :: Input :: KeyboardKey key );
     bool ButtonPressedOnce( int nGamePadId, SunLight :: Input :: GamepadButton button );

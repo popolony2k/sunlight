@@ -41,7 +41,7 @@
 * **Input:** keyboard and gamepad handlers, connected-gamepad list and hot-plug, player slots, rebindable named actions saved to a file, dead zones per pad and axis, and gamepad rumble.
 * **Drawing without a map:** shapes, sprites, text and filled rectangles on a plain drawing surface, for menus and HUDs.
 * **Sound and scripting:** a sound manager, and a script processor for timed sequences such as cutscenes.
-* **Resources:** a virtual filesystem over loose folders or archives (PhysFS), with an optional read filter (e.g. decryption).
+* **Resources:** a virtual filesystem over loose folders or archives (PhysFS), with optional read and write filters (e.g. decryption and encryption), a write directory for saves, and path schemes (`vpath://`, the default, and `hpath://` for an OS path).
 * **Headless runs:** a null backend that needs no display, with virtual time, for tests and automation.
 
 ## Requirements :memo:

@@ -25,7 +25,10 @@
 
 #include <doctest/doctest.h>
 #include "input/actionmap.h"
+#include "backends/physfs/physfsfilesystem.h"
+#include "mock_filesystem.h"
 #include "mock_input.h"
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
@@ -38,6 +41,12 @@ namespace  {
     std :: filesystem :: path TempBindingsPath( const char* szName )  {
 
         return std :: filesystem :: temp_directory_path() / szName;
+    }
+
+    // An OS file, as ActionMap::Save/Load take it since I12: a host path (a plain path is virtual).
+    std :: string HostPath( const std :: filesystem :: path& path )  {
+
+        return "hpath://" + path.string();
     }
 }
 
@@ -184,11 +193,11 @@ TEST_SUITE( "input/ActionMap" )  {
         saved.BindGamepadAxis( "MoveLeft", GAMEPAD_AXIS_LEFT_X, -1 );
         saved.BindGamepadAxis( "MoveRight", GAMEPAD_AXIS_LEFT_X, 1 );
 
-        REQUIRE( saved.Save( path.string() ) == true );
+        REQUIRE( saved.Save( HostPath( path ) ) == true );
 
         ActionMap  loaded;
 
-        REQUIRE( loaded.Load( path.string() ) == true );
+        REQUIRE( loaded.Load( HostPath( path ) ) == true );
 
         CHECK( loaded.GetBinding( "Jump" ).type == ACTION_BINDING_KEY );
         CHECK( loaded.GetBinding( "Jump" ).nCode == KEY_SPACE );
@@ -208,12 +217,12 @@ TEST_SUITE( "input/ActionMap" )  {
         ActionMap                   saved;
 
         saved.BindKey( "Jump", KEY_SPACE );
-        saved.Save( path.string() );
+        saved.Save( HostPath( path ) );
 
         ActionMap  loaded;
 
         loaded.BindKey( "Stale", KEY_A );
-        REQUIRE( loaded.Load( path.string() ) == true );
+        REQUIRE( loaded.Load( HostPath( path ) ) == true );
 
         CHECK( loaded.GetBinding( "Jump" ).nCode == KEY_SPACE );
         CHECK( loaded.GetBinding( "Stale" ).type == ACTION_BINDING_NONE );
@@ -227,7 +236,7 @@ TEST_SUITE( "input/ActionMap" )  {
 
         map.BindKey( "Jump", KEY_SPACE );
 
-        CHECK( map.Load( TempBindingsPath( "sunlight_test_actionmap_missing.bindings" ).string() ) == false );
+        CHECK( map.Load( HostPath( TempBindingsPath( "sunlight_test_actionmap_missing.bindings" ) ) ) == false );
         CHECK( map.GetBinding( "Jump" ).nCode == KEY_SPACE );
     }
 
@@ -243,10 +252,102 @@ TEST_SUITE( "input/ActionMap" )  {
         ActionMap  map;
 
         map.BindKey( "Fire", KEY_SPACE );
-        CHECK( map.Load( path.string() ) == false );
+        CHECK( map.Load( HostPath( path ) ) == false );
         CHECK( map.GetBinding( "Fire" ).nCode == KEY_SPACE );
         CHECK( map.GetBinding( "Jump" ).type == ACTION_BINDING_NONE );
 
         std :: filesystem :: remove( path );
+    }
+
+    // I12 of the master plan: Load and Save go through SunLight::FileSystem, so a bindings file inside
+    // a mounted archive or an encrypted pack loads (found by Scarab: Load used a raw std::ifstream).
+
+    TEST_CASE( "Load reads a virtual path through the FileSystem: a file that exists nowhere on disk" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+        ActionMap                map;
+        std :: string            strShipped = "# defaults\nJump=KEY:32\nFire=BUTTON:7\n";
+
+        fsFixture.fs.files["config/default.bindings"] = Bytes( strShipped.begin(), strShipped.end() );
+
+        REQUIRE( map.Load( "config/default.bindings" ) == true );
+        CHECK( map.GetBinding( "Jump" ).type == ACTION_BINDING_KEY );
+        CHECK( map.GetBinding( "Jump" ).nCode == KEY_SPACE );
+        CHECK( map.GetBinding( "Fire" ).type == ACTION_BINDING_GAMEPAD_BUTTON );
+        CHECK( map.GetBinding( "Fire" ).nCode == 7 );
+        CHECK( map.Load( "vpath://config/default.bindings" ) == true );
+    }
+
+    TEST_CASE( "Load reads through the read filter: an encrypted bindings file" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+        ActionMap                map;
+        std :: string            strShipped = "Jump=KEY:32\n";
+
+        for( char& c : strShipped )
+            c = ( char ) ( c ^ 0x5A );
+
+        fsFixture.fs.files["config/default.bindings"] = Bytes( strShipped.begin(), strShipped.end() );
+        fsFixture.fs.SetReadFilter( []( const Bytes& in, Bytes& out )  {
+            out = in;
+
+            for( unsigned char& c : out )
+                c = ( unsigned char ) ( c ^ 0x5A );
+
+            return true;
+        } );
+
+        REQUIRE( map.Load( "config/default.bindings" ) == true );
+        CHECK( map.GetBinding( "Jump" ).nCode == KEY_SPACE );
+    }
+
+    TEST_CASE( "Save writes a virtual path into the write directory, and Load reads it back" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+        ActionMap                saved;
+        ActionMap                loaded;
+
+        saved.BindKey( "Jump", KEY_SPACE );
+        CHECK( saved.Save( "user/my.bindings" ) == false );          // no write directory yet
+
+        fsFixture.fs.SetWriteDirectory( "user" );
+        REQUIRE( saved.Save( "user/my.bindings" ) == true );
+        REQUIRE( loaded.Load( "user/my.bindings" ) == true );
+        CHECK( loaded.GetBinding( "Jump" ).nCode == KEY_SPACE );
+    }
+
+    TEST_CASE( "Load reads a bindings file packed in a mounted .zip, with no copy on disk" )  {
+
+        namespace fs = std :: filesystem;
+
+        fs :: path  scratch = fs :: temp_directory_path() / "sunlight_actionmap_zip";
+        fs :: path  zipPath = fs :: temp_directory_path() / "sunlight_actionmap_zip.zip";
+
+        fs :: remove_all( scratch );
+        fs :: remove( zipPath );
+        fs :: create_directories( scratch / "config" );
+        std :: ofstream( scratch / "config" / "default.bindings", std :: ios :: binary ) << "Jump=KEY:32\n";
+
+        std :: string  strZipCmd = "cmake -E chdir \"" + scratch.string() + "\" cmake -E tar cf \"" + zipPath.string() + "\" --format=zip .";
+
+        REQUIRE( std :: system( strZipCmd.c_str() ) == 0 );
+        fs :: remove_all( scratch );                                  // only the archive is left
+
+        {
+            SunLight :: FileSystem :: PhysFs :: PhysFsFileSystem  packFs;
+            ActionMap                                             map;
+
+            REQUIRE( packFs.Init( "sunlight_tests" ) );
+            REQUIRE( packFs.Mount( zipPath.string(), "/", true ) );
+            SunLight :: FileSystem :: FileSystemFactory :: SetFileSystem( &packFs );
+
+            CHECK( map.Load( "config/default.bindings" ) == true );
+            CHECK( map.GetBinding( "Jump" ).nCode == KEY_SPACE );
+
+            SunLight :: FileSystem :: FileSystemFactory :: SetFileSystem( nullptr );
+            packFs.Shutdown();
+        }
+
+        fs :: remove( zipPath );
     }
 }

@@ -19,8 +19,9 @@
  */
 
 #include "input/actionmap.h"
-#include <fstream>
+#include "filesystem/filesystemfactory.h"
 #include <sstream>
+#include <vector>
 
 namespace SunLight  {
     namespace Input  {
@@ -135,12 +136,14 @@ namespace SunLight  {
             }
         }
 
+        /**
+         * @brief Writes through SunLight::FileSystem (I12 of the master plan): a virtual path into
+         * the write directory, a host path ("hpath://...") to the OS, through the write filter if
+         * one is set. It wrote a plain OS path with std::ofstream before.
+         */
         bool ActionMap :: Save( const std :: string& strPath ) const  {
 
-            std :: ofstream  file( strPath );
-
-            if( !file.is_open() )
-                return false;
+            std :: ostringstream  file;
 
             file << __COMMENT_PREFIX << " sunlight action map\n";
 
@@ -159,7 +162,10 @@ namespace SunLight  {
                 file << '\n';
             }
 
-            return true;
+            std :: string  strText = file.str();
+
+            return SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().WriteFile( strPath,
+                                                                                           std :: vector<unsigned char>( strText.begin(), strText.end() ) );
         }
 
         // Parses one non-comment, non-blank line into an action name and its binding. Returns
@@ -221,12 +227,20 @@ namespace SunLight  {
             }
         }
 
+        /**
+         * @brief Reads through SunLight::FileSystem (I12 of the master plan), so a bindings file
+         * inside a mounted archive or an encrypted pack loads - mounts and the read filter apply,
+         * and "hpath://..." reads an OS file. It read a plain OS path with std::ifstream before,
+         * the one resource read in sunlight that went around the FileSystem (found by Scarab).
+         */
         bool ActionMap :: Load( const std :: string& strPath )  {
 
-            std :: ifstream  file( strPath );
+            std :: vector<unsigned char>  data;
 
-            if( !file.is_open() )
+            if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strPath, data ) )
                 return false;
+
+            std :: istringstream  file( std :: string( data.begin(), data.end() ) );
 
             std :: map<std :: string, SunLight :: Input :: stActionBinding>  newBindings;
             std :: string                                                    strLine;
