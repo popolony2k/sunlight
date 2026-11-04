@@ -202,13 +202,38 @@ namespace SunLight  {
              * filter if one is set, replacing any file there: a virtual
              * path into the write directory (@see SetWriteDirectory), a
              * host path to the OS. Missing folders on the way are created.
+             * Atomic (I14 of the master plan): the bytes go to a temporary
+             * file beside the target ("<name>.tmp"), flushed to the disk,
+             * which then replaces the target in one rename - a crash, a
+             * power loss or a full disk leaves the old file or the new one,
+             * never an empty or half-written one. A process killed in the
+             * middle can leave the ".tmp" beside the target; the next write
+             * of that file replaces it.
              * @param strPath The path;
              * @param data The bytes;
-             * @return true on success; false if it couldn't be written, a
-             * virtual path while no write directory is set, an unknown
-             * scheme, or a host path while host paths are refused;
+             * @return true on success; false if it couldn't be written (the
+             * old file then is as it was), a virtual path while no write
+             * directory is set, an unknown scheme, or a host path while host
+             * paths are refused;
              */
             virtual bool WriteFile( const std :: string& strPath, const std :: vector<unsigned char>& data ) = 0;
+
+            /**
+             * @brief Remove a file (I14 of the master plan), under the same
+             * rules as @see WriteFile: a virtual path only inside the write
+             * directory - never a file of a mounted archive or folder, which
+             * are read-only, so removing a saved file there makes a shipped
+             * file of the same name readable again - and a host path only
+             * while host paths are allowed. Files only: a folder is never
+             * removed.
+             * @param strPath The path;
+             * @return true if a file was removed; false if there was none
+             * (so a caller can tell nothing was there), it is a folder, it
+             * couldn't be removed, a virtual path while no write directory
+             * is set, an unknown scheme, or a host path while host paths
+             * are refused;
+             */
+            virtual bool RemoveFile( const std :: string& strPath ) = 0;
         };
     }
 }

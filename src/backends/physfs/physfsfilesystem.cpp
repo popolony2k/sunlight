@@ -170,6 +170,14 @@ namespace SunLight  {
                 return true;
             }
 
+            /**
+             * @brief Whether anything is at a virtual path in any mount - the write directory first,
+             * when one is set - with the working directory mounted first if nothing was (EnsureReady).
+             * PHYSFS_exists answers for any entry it finds (getRealDirHandle in physfs.c), so a folder
+             * counts as well as a file.
+             * @param strVirtualPath The virtual path, without its scheme;
+             * @return true if PhysFS finds a file or a folder there;
+             */
             bool PhysFsFileSystem :: VirtualExists( const std :: string& strVirtualPath )  {
 
                 EnsureReady();
@@ -218,29 +226,37 @@ namespace SunLight  {
 
             /**
              * @brief Writes the whole file into the write directory (SetWriteDirectory), creating the
-             * folders on the way (PHYSFS_mkdir creates every missing one); false with no write
-             * directory set. PhysFS takes a write path relative to the write directory.
+             * folders on the way; false with no write directory set. Atomic (I14 of the master plan):
+             * PHYSFS_openWrite truncates the target before the first byte (physfs.h) and PhysFS has no
+             * rename, so the write goes to the write directory's real folder through
+             * BaseFileSystem::WriteRealFile - a temporary file beside the target, flushed, then renamed
+             * over it. The virtual path is mapped inside that folder with PhysFS's own rules
+             * (RealWritePath), so it can never leave it. PhysFS reads the folder as it is on the disk
+             * (a mounted native directory), so the new file reads back at once.
              */
             bool PhysFsFileSystem :: VirtualWriteFile( const std :: string& strVirtualPath, const std :: vector<unsigned char>& data )  {
 
-                if( m_strWriteDir.empty() || ( ::PHYSFS_getWriteDir() == nullptr ) )
+                std :: string  strRealPath;
+
+                if( !RealWritePath( m_strWriteDir, strVirtualPath, strRealPath ) )
                     return false;
 
-                size_t  nLastSlash = strVirtualPath.find_last_of( '/' );
+                return WriteRealFile( strRealPath, data );
+            }
 
-                if( ( nLastSlash != std :: string :: npos ) && ( nLastSlash > 0 ) &&
-                    ( ::PHYSFS_mkdir( strVirtualPath.substr( 0, nLastSlash ).c_str() ) == 0 ) )
+            /**
+             * @brief Removes a file of the write directory only (I14 of the master plan): the mounts
+             * are read-only, so a shipped file of the same name stays, and reads again once the saved
+             * one, which shadowed it, is gone. False with no write directory set.
+             */
+            bool PhysFsFileSystem :: VirtualRemoveFile( const std :: string& strVirtualPath )  {
+
+                std :: string  strRealPath;
+
+                if( !RealWritePath( m_strWriteDir, strVirtualPath, strRealPath ) )
                     return false;
 
-                PHYSFS_File  *pFile = ::PHYSFS_openWrite( strVirtualPath.c_str() );
-
-                if( !pFile )
-                    return false;
-
-                PHYSFS_sint64  nWritten = data.empty() ? 0 : ::PHYSFS_writeBytes( pFile, data.data(), ( PHYSFS_uint64 ) data.size() );
-                bool           bClosed  = ::PHYSFS_close( pFile ) != 0;
-
-                return bClosed && ( nWritten == ( PHYSFS_sint64 ) data.size() );
+                return RemoveRealFile( strRealPath );
             }
         }
     }

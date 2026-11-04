@@ -20,10 +20,19 @@
 
 #include "filesystem/basefilesystem.h"
 #include "filesystem/filepath.h"
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <system_error>
+
+#if defined( _WIN32 )
+    #include <io.h>             // _commit, _fileno
+#else
+    #include <unistd.h>         // fsync, fileno
+#endif
+
+#define __TEMP_SUFFIX      ".tmp"     // the atomic write's temporary file: "<name>.tmp", beside the target
 
 
 namespace SunLight  {
@@ -54,46 +63,91 @@ namespace SunLight  {
                 return true;
             }
 
-            // A host file written whole, in binary, its missing folders created first.
-            bool WriteHostFile( const std :: string& strPath, const std :: vector<unsigned char>& data )  {
+            /**
+             * @brief Writes bytes to a new file and makes them durable: written, flushed to the OS,
+             * then flushed to the disk itself, and closed - each step checked. The one place with
+             * platform code (I14 of the master plan): the C++ standard library cannot force data to
+             * the disk (std::ofstream::flush only reaches the OS cache, and a stream gives no OS
+             * handle to sync), so this uses C's FILE with the OS's own sync - fsync( fileno() ) on
+             * POSIX, _commit( _fileno() ) on Windows - and _wfopen on Windows, so a path with
+             * non-ASCII characters (wide there) opens too. Without the sync a power loss could keep
+             * a later rename and lose these bytes on some filesystems - the empty file the atomic
+             * write is there to avoid.
+             * @param path The file to create (replaced if it exists);
+             * @param data The bytes;
+             * @return true if every byte reached the disk and the file closed cleanly;
+             */
+            bool WriteDurably( const std :: filesystem :: path& path, const std :: vector<unsigned char>& data )  {
 
-                std :: error_code             errorCode;
-                std :: filesystem :: path     parent = std :: filesystem :: path( strPath ).parent_path();
+#if defined( _WIN32 )
+                FILE  *pFile = ::_wfopen( path.c_str(), L"wb" );
+#else
+                FILE  *pFile = ::fopen( path.c_str(), "wb" );
+#endif
 
-                if( !parent.empty() )
-                    std :: filesystem :: create_directories( parent, errorCode );
-
-                std :: ofstream  file( strPath, std :: ios :: binary | std :: ios :: trunc );
-
-                if( !file.is_open() )
+                if( pFile == nullptr )
                     return false;
 
-                file.write( ( const char * ) data.data(), ( std :: streamsize ) data.size() );
+                bool  bWritten = data.empty() || ( ::fwrite( data.data(), 1, data.size(), pFile ) == data.size() );
 
-                return file.good();
+                bWritten = ( ::fflush( pFile ) == 0 ) && bWritten;
+#if defined( _WIN32 )
+                bWritten = ( ::_commit( ::_fileno( pFile ) ) == 0 ) && bWritten;
+#else
+                bWritten = ( ::fsync( ::fileno( pFile ) ) == 0 ) && bWritten;
+#endif
+                bWritten = ( ::fclose( pFile ) == 0 ) && bWritten;
+
+                return bWritten;
             }
         }
 
+        /**
+         * @brief Keeps the read filter. ReadFile applies it to every successful read - virtual and
+         * host paths alike - after the raw bytes are read; an empty callback clears it.
+         * @param callback The filter, or an empty ReadFilterCallback;
+         */
         void BaseFileSystem :: SetReadFilter( ReadFilterCallback callback )  {
 
             m_ReadFilter = std :: move( callback );
         }
 
+        /**
+         * @brief Keeps the write filter. WriteFile applies it to the bytes before they are written -
+         * virtual and host paths alike; an empty callback clears it.
+         * @param callback The filter, or an empty WriteFilterCallback;
+         */
         void BaseFileSystem :: SetWriteFilter( WriteFilterCallback callback )  {
 
             m_WriteFilter = std :: move( callback );
         }
 
+        /**
+         * @brief Allows or refuses host paths: Exists, ReadFile, WriteFile and RemoveFile check it
+         * before touching a host path. Virtual paths, Mount and SetWriteDirectory never do.
+         * @param bEnabled Whether host paths are allowed (true until changed);
+         */
         void BaseFileSystem :: SetHostPathEnabled( bool bEnabled )  {
 
             m_bHostPathEnabled = bEnabled;
         }
 
+        /**
+         * @brief Whether host paths are allowed.
+         * @return true unless SetHostPathEnabled( false ) was called;
+         */
         bool BaseFileSystem :: IsHostPathEnabled( void ) const  {
 
             return m_bHostPathEnabled;
         }
 
+        /**
+         * @brief Whether something is there: a virtual path is the backend's answer (VirtualExists,
+         * across its mounts - the PhysFS backend counts a folder too); a host path must be a regular
+         * file on the OS, checked only while host paths are allowed; an unknown scheme is never there.
+         * @param strPath The path;
+         * @return true if the backend finds it (virtual) or a regular file is there (host);
+         */
         bool BaseFileSystem :: Exists( const std :: string& strPath )  {
 
             std :: string       strRest;
@@ -150,6 +204,15 @@ namespace SunLight  {
             return true;
         }
 
+        /**
+         * @brief Writes a whole file: an unknown scheme, or a host path while host paths are refused,
+         * is refused before anything is touched; the write filter, if set, turns the bytes into what
+         * is written; a host path is written by WriteRealFile (atomic), a virtual path by the backend
+         * (VirtualWriteFile, into its write directory - atomic too in the PhysFS backend).
+         * @param strPath The path;
+         * @param data The bytes, before the write filter;
+         * @return true on success; false otherwise, the old file then left as it was;
+         */
         bool BaseFileSystem :: WriteFile( const std :: string& strPath, const std :: vector<unsigned char>& data )  {
 
             std :: string                 strRest;
@@ -165,7 +228,139 @@ namespace SunLight  {
 
             const std :: vector<unsigned char>  &bytes = bFiltered ? filtered : data;
 
-            return ( scheme == FilePath :: PATH_SCHEME_HOST ) ? WriteHostFile( strRest, bytes ) : VirtualWriteFile( strRest, bytes );
+            return ( scheme == FilePath :: PATH_SCHEME_HOST ) ? WriteRealFile( strRest, bytes ) : VirtualWriteFile( strRest, bytes );
+        }
+
+        /**
+         * @brief Removes a file (I14 of the master plan): a virtual path through the backend
+         * (VirtualRemoveFile - inside its write directory only, never a mounted archive or folder);
+         * a host path by RemoveRealFile, only while host paths are allowed; an unknown scheme is
+         * refused. Files only: a folder is never removed.
+         * @param strPath The path;
+         * @return true if a file was removed; false if none was there, it is a folder, it could not
+         * be removed, or the path is refused;
+         */
+        bool BaseFileSystem :: RemoveFile( const std :: string& strPath )  {
+
+            std :: string  strRest;
+
+            switch( FilePath :: SplitPath( strPath, strRest ) )  {
+                case FilePath :: PATH_SCHEME_VIRTUAL :
+                    return VirtualRemoveFile( strRest );
+
+                case FilePath :: PATH_SCHEME_HOST :
+                    return m_bHostPathEnabled && RemoveRealFile( strRest );
+
+                default :
+                    return false;
+            }
+        }
+
+        /**
+         * @brief The atomic write (I14 of the master plan). The bytes go to "<target>.tmp" in the
+         * target's own folder - the same volume, so the rename that follows replaces the target in
+         * one step - and are made durable before it (WriteDurably: checked to the last byte and
+         * flushed to the disk, for a power loss), then the file is renamed over the target
+         * (std::filesystem::rename, which replaces an existing file). Any failure removes the
+         * temporary file - only one this call created - and leaves the target as it was. Missing
+         * folders on the way are created, as before.
+         * @param strRealPath The OS path of the file to write;
+         * @param data The bytes (already through the write filter);
+         * @return true on success; false with the target as it was;
+         */
+        bool BaseFileSystem :: WriteRealFile( const std :: string& strRealPath, const std :: vector<unsigned char>& data )  {
+
+            std :: error_code             errorCode;
+            std :: filesystem :: path     target( strRealPath );
+            std :: filesystem :: path     temp = target;
+
+            temp += __TEMP_SUFFIX;
+
+            if( target.has_parent_path() )
+                std :: filesystem :: create_directories( target.parent_path(), errorCode );
+
+            if( std :: filesystem :: exists( temp, errorCode ) && !std :: filesystem :: is_regular_file( temp, errorCode ) )
+                return false;           // something else holds the temporary name: never remove it
+
+            bool  bWritten = WriteDurably( temp, data );
+
+            if( bWritten )
+                std :: filesystem :: rename( temp, target, errorCode );
+
+            if( !bWritten || errorCode )  {
+                std :: error_code  removeCode;
+
+                std :: filesystem :: remove( temp, removeCode );
+
+                return false;
+            }
+
+            return true;
+        }
+
+        /**
+         * @brief Removes a regular file, never a folder (I14 of the master plan): anything that is
+         * not a regular file - nothing at all, a folder - is left and answered false.
+         * @param strRealPath The OS path of the file;
+         * @return true if a file was removed;
+         */
+        bool BaseFileSystem :: RemoveRealFile( const std :: string& strRealPath )  {
+
+            std :: error_code  errorCode;
+
+            if( !std :: filesystem :: is_regular_file( strRealPath, errorCode ) )
+                return false;
+
+            return std :: filesystem :: remove( strRealPath, errorCode ) && !errorCode;
+        }
+
+        /**
+         * @brief A virtual path's file inside a real write directory. A leading '/' and empty segments
+         * are dropped, as PhysFS drops them; ".", "..", ':' and '\\' are refused, as PhysFS refuses them
+         * (its sanitizePlatformIndependentPath), so the file is always inside strWriteDir.
+         * @param strWriteDir The write directory's real folder ("" when none is set);
+         * @param strVirtualPath The virtual path, without its scheme;
+         * @param strRealPath Receives the file's real path;
+         * @return false when there is no write directory, the path is empty, or it is refused;
+         */
+        bool BaseFileSystem :: RealWritePath( const std :: string& strWriteDir, const std :: string& strVirtualPath, std :: string& strRealPath )  {
+
+            if( strWriteDir.empty() )
+                return false;
+
+            std :: filesystem :: path  real( strWriteDir );
+            bool                       bAny  = false;
+            size_t                     nStart = 0;
+
+            if( ( strVirtualPath.find( ':' ) != std :: string :: npos ) || ( strVirtualPath.find( '\\' ) != std :: string :: npos ) )
+                return false;
+
+            while( nStart <= strVirtualPath.size() )  {
+                size_t  nEnd = strVirtualPath.find( '/', nStart );
+
+                if( nEnd == std :: string :: npos )
+                    nEnd = strVirtualPath.size();
+
+                std :: string  strPart = strVirtualPath.substr( nStart, nEnd - nStart );
+
+                nStart = nEnd + 1;
+
+                if( strPart.empty() )
+                    continue;
+
+                if( ( strPart == "." ) || ( strPart == ".." ) )
+                    return false;
+
+                real /= strPart;
+                bAny  = true;
+            }
+
+            if( !bAny )
+                return false;
+
+            strRealPath = real.string();
+
+            return true;
         }
     }
 }

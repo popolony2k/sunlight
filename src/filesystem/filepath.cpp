@@ -109,8 +109,15 @@ namespace SunLight  {
         }
 
         /**
-         * @brief See the declaration (ifilesystem.h). Only letters before "://" make a scheme, so a
-         * virtual path that happens to hold "://" further on is still a virtual path.
+         * @brief The scheme a path starts with, and the path after it. Only letters before "://" at
+         * the very start make a scheme, so a virtual path that happens to hold "://" further on is
+         * still a virtual path. "vpath" and "virtualpath" are virtual, "hostpath" and "hpath" are
+         * host, compared as written (lowercase); any other is unknown, and then strRest is the
+         * whole path.
+         * @param strPath The path, with or without a scheme;
+         * @param strRest Receives the path without its scheme (the whole path when there is none, or
+         * an unknown one);
+         * @return Where the path lives;
          */
         FilePath :: PathScheme FilePath :: SplitPath( const std :: string& strPath, std :: string& strRest )  {
 
@@ -142,8 +149,12 @@ namespace SunLight  {
         }
 
         /**
-         * @brief See the declaration (ifilesystem.h). Moved here from the map loader's
-         * ExternalResources::DirectoryOfVirtualPath (I13 of the master plan), unchanged.
+         * @brief The folder part of a path, its trailing '/' kept, its scheme kept in front: the
+         * scheme is split off (SchemeOf), backslashes become '/', and everything up to the last '/'
+         * is kept. Moved here from the map loader's ExternalResources::DirectoryOfVirtualPath (I13 of
+         * the master plan), unchanged.
+         * @param strPath The path, with or without a scheme;
+         * @return The scheme and the folder part ("" for the folder part when there is no '/');
          */
         std :: string FilePath :: ParentPath( const std :: string& strPath )  {
 
@@ -159,10 +170,16 @@ namespace SunLight  {
         }
 
         /**
-         * @brief See the declaration (ifilesystem.h). Moved here from the map loader's
-         * ExternalResources::JoinVirtualPath (I13 of the master plan), unchanged: the scheme of
-         * strDir stays in front and only the rest is collapsed (it used to drop the "//" of a
-         * scheme as an empty segment - found by Scarab after I12).
+         * @brief strDir and strRelative as one path. A strRelative with a scheme of its own is used
+         * alone; otherwise strDir's scheme is split off, the rest of strDir and strRelative are
+         * glued as they are and collapsed (CollapsePath: backslashes to '/', empty and "." segments
+         * dropped, ".." resolved, never above the root or a host path's drive), and the scheme put
+         * back. Moved here from the map loader's ExternalResources::JoinVirtualPath (I13 of the
+         * master plan), unchanged - it used to drop the "//" of a scheme as an empty segment, found
+         * by Scarab after I12.
+         * @param strDir The folder, with or without a scheme (as ParentPath gives it);
+         * @param strRelative The path relative to it;
+         * @return The joined path; "" when ".." would climb above the root or a drive;
          */
         std :: string FilePath :: JoinPath( const std :: string& strDir, const std :: string& strRelative )  {
 
@@ -184,8 +201,12 @@ namespace SunLight  {
         }
 
         /**
-         * @brief See this method's own declaration (ifilesystem.h) for
-         * the full rationale.
+         * @brief A real, OS-native path as a legal virtual path: backslashes become '/', a drive
+         * letter prefix ("C:" - a ':' at index 1) is stripped, and a leading "./" is stripped. PhysFS
+         * rejects ':' and a "." segment (its sanitizePlatformIndependentPath); the declaration in
+         * filepath.h has the full rationale (raylib's BMFont atlas path). Idempotent.
+         * @param strRealPath The real, OS-native path;
+         * @return Its virtual-path equivalent;
          */
         std :: string FilePath :: ToVirtualPath( const std :: string& strRealPath )  {
 
