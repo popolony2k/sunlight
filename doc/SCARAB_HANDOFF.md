@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `b778188443842351c079b88cc8c59e87b87e2e1c` | `WriteFile` atomic and durable (temporary file, synced to the disk, renamed over the target); `IFileSystem::RemoveFile` (I14, asked for by Scarab for its C1c) | 63 |
 | `4cb7262b3e4e5a7fce745053d716c977d29078b8` | **Breaking:** `IFileSystem` a pure interface again, with `BaseFileSystem` and `FilePath`; public `FilePath::ParentPath`/`JoinPath` (I13, asked for by Scarab). Sent with a three-line migration note | 62 |
 | `9789ac548c96c784762730d6a86446319db47f68` | A map loads through a path scheme (`vpath://`, `hpath://`): its tilesets, templates and images keep the scheme (I12 fix, found by Scarab) | 61 |
 | `6a039ec43215c71cfa6832cbace53e2e6e4e73cf` | **Breaking:** path schemes in the FileSystem (`vpath://`, `hpath://`), `WriteFile`, write directory, write filter, host-path switch; `ActionMap` loads and saves through the FileSystem (I12, found by Scarab) | 61 |
