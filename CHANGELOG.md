@@ -57,6 +57,8 @@ Each item is described in full in the plan; what each change means for code buil
 
 ### Added
 
+- `IFileSystem::RemoveFile`: removes a file - inside the write directory for a virtual path (never a
+  mounted archive's or folder's), an OS file for a host path while host paths are allowed; files only.
 - `FilePath::ParentPath` and `FilePath::JoinPath`: the scheme-aware path helpers the map loader uses,
   public - a file's folder, and a path relative to it.
 - **Path schemes** in every FileSystem read and write: `vpath://` / `virtualpath://` (the default,
@@ -148,6 +150,9 @@ Each item is described in full in the plan; what each change means for code buil
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
 - An animated tile whose frames are all 0 ms shows its first frame; it showed its last.
+- `IFileSystem::WriteFile` truncated the target before writing, so a crash, a power loss or a full
+  disk lost the old file. It now writes a temporary file beside it, syncs it to the disk and renames it
+  over the target: the old file or the new one, never an empty one.
 - A map loaded through a path scheme (`vpath://`, `hpath://`, ...) could not find its external
   tilesets, templates or images: joining their paths to the map's dropped the scheme's "//".
 - `ActionMap::Load` read its file with `std::ifstream`, around the FileSystem: a bindings file inside

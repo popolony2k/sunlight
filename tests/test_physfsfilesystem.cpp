@@ -20,6 +20,7 @@
 
 #include <doctest/doctest.h>
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -89,6 +90,7 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
         REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );
 
         CHECK( fs.Exists( "/subdir/greeting.txt" ) );
+        CHECK( fs.Exists( "/subdir" ) );        // PHYSFS_exists answers for a folder too (see VirtualExists)
         CHECK_FALSE( fs.Exists( "/subdir/does_not_exist.txt" ) );
 
         std :: vector<unsigned char>  data;
@@ -383,6 +385,127 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
         CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
 
         fs.Shutdown();
+        std :: filesystem :: remove_all( fixture.root.parent_path() / "sunlight_physfs_user" );
+    }
+
+    // I14 of the master plan: the virtual write is atomic, and RemoveFile.
+
+    TEST_CASE( "A virtual write replaces the old file atomically, reads back at once, and leaves no temporary file" )  {
+
+        ScratchDirFixture           fixture;
+        PhysFsFileSystem            fs;
+        std :: filesystem :: path   writeDir = fixture.root / "user";
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.SetWriteDirectory( writeDir.string() ) );
+        REQUIRE( fs.WriteFile( "saves/slot1.json", { 'o', 'l', 'd' } ) );
+        REQUIRE( fs.WriteFile( "saves/slot1.json", { 'n', 'e', 'w', '!' } ) );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "saves/slot1.json", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "new!" );
+        CHECK_FALSE( std :: filesystem :: exists( writeDir / "saves" / "slot1.json.tmp" ) );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "A failed virtual write leaves the old file as it was" )  {
+
+        ScratchDirFixture           fixture;
+        PhysFsFileSystem            fs;
+        std :: filesystem :: path   writeDir = fixture.root / "user";
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.SetWriteDirectory( writeDir.string() ) );
+        REQUIRE( fs.WriteFile( "slot1.json", { 'o', 'l', 'd' } ) );
+        std :: filesystem :: create_directories( writeDir / "slot1.json.tmp" );    // the temporary name is taken
+
+        CHECK_FALSE( fs.WriteFile( "slot1.json", { 'n', 'e', 'w' } ) );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "slot1.json", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "old" );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "A virtual write or remove never leaves the write directory" )  {
+
+        ScratchDirFixture           fixture;
+        PhysFsFileSystem            fs;
+        std :: filesystem :: path   writeDir = fixture.root / "user";
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.SetWriteDirectory( writeDir.string() ) );
+
+        CHECK_FALSE( fs.WriteFile( "../escaped.txt", { 'x' } ) );
+        CHECK_FALSE( fs.WriteFile( "saves/../../escaped.txt", { 'x' } ) );
+        CHECK_FALSE( fs.WriteFile( "./x.txt", { 'x' } ) );
+        CHECK_FALSE( fs.WriteFile( "C:/x.txt", { 'x' } ) );
+        CHECK_FALSE( fs.WriteFile( "", { 'x' } ) );
+        CHECK_FALSE( std :: filesystem :: exists( fixture.root / "escaped.txt" ) );
+        CHECK_FALSE( fs.RemoveFile( "../subdir/greeting.txt" ) );
+        CHECK( std :: filesystem :: exists( fixture.root / "subdir" / "greeting.txt" ) );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "RemoveFile removes a saved file only: a shipped file of the same name stays, and reads again" )  {
+
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( fixture.root.string(), "/", true ) );                    // ships subdir/greeting.txt
+        CHECK_FALSE( fs.RemoveFile( "subdir/greeting.txt" ) );                       // no write directory
+
+        REQUIRE( fs.SetWriteDirectory( ( fixture.root.parent_path() / "sunlight_physfs_user" ).string() ) );
+        CHECK_FALSE( fs.RemoveFile( "subdir/greeting.txt" ) );                       // only the mount has it
+
+        REQUIRE( fs.WriteFile( "subdir/greeting.txt", { 'u', 's', 'e', 'r' } ) );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "subdir/greeting.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "user" );
+
+        CHECK( fs.RemoveFile( "subdir/greeting.txt" ) );
+        REQUIRE( fs.ReadFile( "subdir/greeting.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );   // the shipped one again
+        CHECK( std :: filesystem :: exists( fixture.root / "subdir" / "greeting.txt" ) );
+        CHECK_FALSE( fs.RemoveFile( "subdir/greeting.txt" ) );                       // the saved one is gone
+
+        fs.Shutdown();
+        std :: filesystem :: remove_all( fixture.root.parent_path() / "sunlight_physfs_user" );
+    }
+
+    TEST_CASE( "RemoveFile never removes a file of a mounted .zip" )  {
+
+        ScratchDirFixture           fixture;
+        std :: filesystem :: path   zipPath = fixture.root.parent_path() / "sunlight_physfs_remove.zip";
+
+        std :: filesystem :: remove( zipPath );
+
+        std :: string  strZipCmd = "cmake -E chdir \"" + fixture.root.string() + "\" cmake -E tar cf \"" + zipPath.string() + "\" --format=zip .";
+
+        REQUIRE( std :: system( strZipCmd.c_str() ) == 0 );
+
+        PhysFsFileSystem  fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( zipPath.string(), "/", true ) );
+        REQUIRE( fs.SetWriteDirectory( ( fixture.root.parent_path() / "sunlight_physfs_user" ).string() ) );
+        CHECK_FALSE( fs.RemoveFile( "subdir/greeting.txt" ) );
+
+        std :: vector<unsigned char>  data;
+
+        REQUIRE( fs.ReadFile( "subdir/greeting.txt", data ) );
+        CHECK( std :: string( data.begin(), data.end() ) == "hello from physfs" );
+
+        fs.Shutdown();
+        std :: filesystem :: remove( zipPath );
         std :: filesystem :: remove_all( fixture.root.parent_path() / "sunlight_physfs_user" );
     }
 }

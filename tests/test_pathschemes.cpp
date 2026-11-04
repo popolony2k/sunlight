@@ -276,4 +276,84 @@ TEST_SUITE( "filesystem/path_schemes" )  {
         CHECK( FP :: JoinPath( "/app/", "main.lua" ) == "/app/main.lua" );
         CHECK( FP :: JoinPath( "hpath:///app/", "/main.lua" ) == "hpath:///app/main.lua" );
     }
+
+    // I14 of the master plan: WriteFile is atomic (a temporary file beside the target, flushed, then
+    // renamed over it), and RemoveFile.
+
+    TEST_CASE( "An atomic host write replaces the old file, reads back at once, and leaves no temporary file" )  {
+
+        HostScratch       scratch;
+        MemoryFileSystem  memory;
+        Bytes             data;
+
+        REQUIRE( memory.WriteFile( scratch.Host( "save.json" ), ToBytes( "old" ) ) );
+        REQUIRE( memory.WriteFile( scratch.Host( "save.json" ), ToBytes( "new and longer" ) ) );
+        CHECK( scratch.OnDisk( "save.json" ) == "new and longer" );
+        REQUIRE( memory.ReadFile( scratch.Host( "save.json" ), data ) );
+        CHECK( ToString( data ) == "new and longer" );
+        CHECK_FALSE( fs :: exists( scratch.root / "save.json.tmp" ) );
+
+        REQUIRE( memory.WriteFile( scratch.Host( "save.json" ), ToBytes( "" ) ) );     // empty is a valid write
+        CHECK( scratch.OnDisk( "save.json" ) == "" );
+    }
+
+    TEST_CASE( "A failed host write leaves the old file byte-identical and no temporary file of its own" )  {
+
+        HostScratch       scratch;
+        MemoryFileSystem  memory;
+
+        REQUIRE( memory.WriteFile( scratch.Host( "save.json" ), ToBytes( "precious" ) ) );
+
+        // The temporary name is taken by a folder: the write cannot start, and the folder is not touched.
+        fs :: create_directories( scratch.root / "save.json.tmp" );
+        CHECK_FALSE( memory.WriteFile( scratch.Host( "save.json" ), ToBytes( "lost?" ) ) );
+        CHECK( scratch.OnDisk( "save.json" ) == "precious" );
+        CHECK( fs :: is_directory( scratch.root / "save.json.tmp" ) );
+        fs :: remove( scratch.root / "save.json.tmp" );
+
+        // The target is a folder: the rename fails, the temporary file is removed, the folder stays.
+        fs :: create_directories( scratch.root / "folder" );
+        CHECK_FALSE( memory.WriteFile( scratch.Host( "folder" ), ToBytes( "x" ) ) );
+        CHECK( fs :: is_directory( scratch.root / "folder" ) );
+        CHECK_FALSE( fs :: exists( scratch.root / "folder.tmp" ) );
+    }
+
+    TEST_CASE( "RemoveFile removes a host file; false when there is none, for a folder, with host paths refused or an unknown scheme" )  {
+
+        HostScratch       scratch;
+        MemoryFileSystem  memory;
+        Bytes             data;
+
+        REQUIRE( memory.WriteFile( scratch.Host( "save.json" ), ToBytes( "x" ) ) );
+        CHECK( memory.RemoveFile( scratch.Host( "save.json" ) ) );
+        CHECK_FALSE( memory.Exists( scratch.Host( "save.json" ) ) );
+        CHECK_FALSE( memory.ReadFile( scratch.Host( "save.json" ), data ) );
+        CHECK_FALSE( memory.RemoveFile( scratch.Host( "save.json" ) ) );           // nothing there any more
+
+        fs :: create_directories( scratch.root / "folder" );
+        CHECK_FALSE( memory.RemoveFile( scratch.Host( "folder" ) ) );              // files only
+        CHECK( fs :: is_directory( scratch.root / "folder" ) );
+
+        REQUIRE( memory.WriteFile( scratch.Host( "kept.json" ), ToBytes( "x" ) ) );
+        memory.SetHostPathEnabled( false );
+        CHECK_FALSE( memory.RemoveFile( scratch.Host( "kept.json" ) ) );
+        CHECK( fs :: exists( scratch.root / "kept.json" ) );
+        memory.SetHostPathEnabled( true );
+
+        CHECK_FALSE( memory.RemoveFile( "http://kept.json" ) );
+    }
+
+    TEST_CASE( "RemoveFile on a virtual path: only with a write directory, and only what is there" )  {
+
+        MemoryFileSystem  memory;
+
+        memory.files["save.json"] = ToBytes( "x" );
+        CHECK_FALSE( memory.RemoveFile( "save.json" ) );                           // no write directory
+        CHECK( memory.files.count( "save.json" ) == 1 );
+
+        memory.SetWriteDirectory( "user" );
+        CHECK( memory.RemoveFile( "vpath://save.json" ) );
+        CHECK_FALSE( memory.Exists( "save.json" ) );
+        CHECK_FALSE( memory.RemoveFile( "save.json" ) );
+    }
 }

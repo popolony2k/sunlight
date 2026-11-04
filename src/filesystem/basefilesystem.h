@@ -52,12 +52,23 @@ namespace SunLight  {
             bool Exists( const std :: string& strPath ) override;
             bool ReadFile( const std :: string& strPath, std :: vector<unsigned char>& outData ) override;
             bool WriteFile( const std :: string& strPath, const std :: vector<unsigned char>& data ) override;
+            bool RemoveFile( const std :: string& strPath ) override;
 
             protected:
 
             virtual bool VirtualExists( const std :: string& strVirtualPath ) = 0;
             virtual bool VirtualReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData ) = 0;
             virtual bool VirtualWriteFile( const std :: string& strVirtualPath, const std :: vector<unsigned char>& data ) = 0;
+            virtual bool VirtualRemoveFile( const std :: string& strVirtualPath ) = 0;
+
+            // I14 of the master plan: what a backend whose write directory is a real folder uses, as
+            // WriteFile and RemoveFile do for host paths. WriteRealFile is the atomic write (a temporary
+            // file beside the target, flushed to the disk, then renamed over it); RemoveRealFile removes
+            // a file, never a folder; RealWritePath maps a virtual path to the file inside a real write
+            // directory, refusing what PhysFS refuses (".", "..", ':', '\') so it never leaves the folder.
+            static bool WriteRealFile( const std :: string& strRealPath, const std :: vector<unsigned char>& data );
+            static bool RemoveRealFile( const std :: string& strRealPath );
+            static bool RealWritePath( const std :: string& strWriteDir, const std :: string& strVirtualPath, std :: string& strRealPath );
         };
     }
 }

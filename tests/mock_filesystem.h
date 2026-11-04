@@ -72,6 +72,13 @@ class MemoryFileSystem : public SunLight :: FileSystem :: BaseFileSystem  {
         files[strPath] = data;
         return true;
     }
+
+    bool VirtualRemoveFile( const std :: string& strPath ) override  {
+        if( strWriteDirectory.empty() )
+            return false;
+
+        return files.erase( strPath ) > 0;
+    }
 };
 
 /**

@@ -2235,6 +2235,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I11 | Tile animation by time, as Tiled animates (no pause off screen, no drift); `GetTileFrame`/`GetObjectTileFrame` read the frame shown (asked for by Scarab, its V13) | DONE |
 | I12 | Path schemes in the FileSystem (`vpath://`, `hpath://`), writing (`WriteFile`, write directory, write filter), a host-path switch; `ActionMap` loads and saves through it (found by Scarab) | DONE |
 | I13 | The scheme-aware path helpers public (`FilePath::ParentPath`/`JoinPath`, asked for by Scarab); `IFileSystem` a pure interface again, with `BaseFileSystem` and `FilePath` | DONE |
+| I14 | `WriteFile` atomic and durable (a temporary file, flushed to the disk, renamed over the target); `IFileSystem::RemoveFile` (asked for by Scarab) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2739,6 +2740,49 @@ scheme-aware ones lived in the map loader's internals (`Renderer::ExternalResour
   became `tests/test_filepath.cpp`. No behaviour changed, so nothing to fail on the old code: the same
   756 tests pass before and after the split.
 - `doc/BREAKAGES.md` entry 62.
+
+**I14: atomic writes, and RemoveFile (DONE).** Scarab asked for both, for its save-game API (its C1c).
+
+- **What was wrong:** both write paths truncated the target before the first byte - the virtual one
+  through `PHYSFS_openWrite` (physfs.h: "if it does exist, it is truncated"), the host one through
+  `std::ofstream` with `trunc` - so a crash, a power loss or a full disk in between left an empty or
+  half-written file, and the previous good copy was gone with it. `ActionMap::Save` had the same exposure.
+- **Design, decided with the owner:**
+  - `BaseFileSystem::WriteRealFile`, used by host writes and by the PhysFS backend's virtual writes:
+    the bytes go to "<target>.tmp" beside the target (the same volume), are made durable
+    (`WriteDurably`: written, flushed, synced to the disk, closed, each step checked), and the file is
+    renamed over the target with `std::filesystem::rename`. Any failure removes the temporary file -
+    only one the write created - and leaves the target as it was.
+  - The sync to the disk: the owner weighed a single source with no platform code (std::ofstream:
+    safe on a crash or a kill, the data being in the OS cache) against surviving a power loss too,
+    and chose the power loss. The C++ standard library cannot force data to the disk (a stream's
+    flush reaches the OS cache only and gives no OS handle), so `WriteDurably` is the one place with
+    platform code: `fsync( fileno() )` on POSIX, `_commit( _fileno() )` and `_wfopen` (wide paths) on
+    Windows.
+  - PhysFS has no rename, so a virtual write now goes to the write directory's real folder
+    (`RealWritePath`: the virtual path mapped inside it with PhysFS's own rules - ".", "..", ':' and
+    '\' refused - so it can never leave it). PhysFS reads a mounted native folder as it is on disk, so
+    the file reads back at once.
+  - `IFileSystem::RemoveFile( path )`: the same scheme rules as `WriteFile`; a virtual path only inside
+    the write directory - never a file of a mounted archive or folder, so removing a saved file makes
+    a shipped one of the same name readable again; a host path only while host paths are allowed;
+    files only, never a folder; false when nothing is there.
+  - A process killed mid-write can leave "<name>.tmp" beside the target; the next write replaces it.
+- **Every method in the `.cpp` documented** (owner's rule, from this item): `BaseFileSystem`,
+  `FilePath` and `PhysFsFileSystem::VirtualExists` gained the comments they lacked, each checked
+  against the code - which found that PhysFS's `Exists` answers true for a folder too (`PHYSFS_exists`
+  -> `getRealDirHandle`, physfs.c), now said and pinned by a test.
+- **Tests** (`tests/test_pathschemes.cpp`, `tests/test_physfsfilesystem.cpp`): an overwrite reads back
+  the new bytes and leaves no temporary file (host and virtual); a write that cannot start (the
+  temporary name taken by a folder) or cannot finish (the target a folder) returns false, leaves the
+  old file byte-identical and no temporary file of its own; a virtual write or remove never leaves the
+  write directory; `RemoveFile` on host and virtual paths, a missing file, a folder, host paths off, an
+  unknown scheme, no write directory; a saved file removed lets the shipped one (a mounted folder)
+  read again; a mounted `.zip`'s file is never removed. The two "failed write keeps the old file"
+  tests, built against `feat/master_plan` in a worktree, fail on the old code (it wrote over the file).
+  An actual crash or power cut cannot be reproduced in a test: these pin the mechanism that makes them
+  harmless. Windows' rename over an existing file is proven by the overwrite tests on CI's Windows job.
+- `doc/BREAKAGES.md` entry 63.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

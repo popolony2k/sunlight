@@ -42,6 +42,9 @@ namespace SunLight  {
          */
         class FilePath  {
 
+            // Each method's parameters and result are documented with its definition (filepath.cpp);
+            // here, what it is for.
+
             public:
 
             /**
@@ -57,9 +60,6 @@ namespace SunLight  {
              * @brief The scheme a path starts with, and the path without it.
              * A scheme is the letters before "://" at the start of the path;
              * a path without one is virtual.
-             * @param strPath The path, with or without a scheme;
-             * @param strRest Receives the path without its scheme;
-             * @return Where the path lives;
              */
             static PathScheme SplitPath( const std :: string& strPath, std :: string& strRest );
 
@@ -69,9 +69,6 @@ namespace SunLight  {
              * gives "vpath://maps/", "vpath://level.tmx" gives "vpath://"). Its result is what
              * @ref JoinPath expects as strDir: the pair builds a path relative to a file's folder.
              * Pure string logic, the same for every backend (I13 of the master plan).
-             * @param strPath The path, with or without a scheme;
-             * @return The folder part, trailing '/' included; "" when there is none (after any
-             * scheme);
              */
             static std :: string ParentPath( const std :: string& strPath );
 
@@ -86,10 +83,6 @@ namespace SunLight  {
              * never climbs above a Windows drive ("C:"). A strRelative with a scheme of its own
              * already says where it lives and is used alone. Pure string logic, the same for every
              * backend (I13 of the master plan).
-             * @param strDir The folder, with or without a scheme;
-             * @param strRelative The path relative to it;
-             * @return The joined path; "" when ".." would climb above the root (or a drive) - not
-             * a legal path;
              */
             static std :: string JoinPath( const std :: string& strDir, const std :: string& strRelative );
 
@@ -138,8 +131,6 @@ namespace SunLight  {
              * path would then no longer match whatever Mount() actually
              * mounted things at.
              *
-             * @param strRealPath Real, OS-native path to convert;
-             * @return strRealPath's own equivalent, legal virtual path;
              */
             static std :: string ToVirtualPath( const std :: string& strRealPath );
         };

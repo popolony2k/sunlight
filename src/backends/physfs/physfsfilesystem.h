@@ -66,6 +66,7 @@ namespace SunLight  {
                 bool VirtualExists( const std :: string& strVirtualPath ) override;
                 bool VirtualReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData ) override;
                 bool VirtualWriteFile( const std :: string& strVirtualPath, const std :: vector<unsigned char>& data ) override;
+                bool VirtualRemoveFile( const std :: string& strVirtualPath ) override;
             };
         }
     }
