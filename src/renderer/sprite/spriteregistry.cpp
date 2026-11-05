@@ -205,13 +205,15 @@ namespace SunLight  {
          * L3 of the master plan: a layer's own sprites draw in ascending z-order, stably - equal
          * values (every sprite at the default 0, among others) keep the order they were added in
          * (Add's push_back), so an all-zero layer's draw order is byte-identical to before L3.
-         * Re-sorted on every call rather than only when a z-order actually changed: stable_sort on
-         * an already-correctly-ordered deque reproduces that same order exactly, so sorting
-         * unconditionally is always correct, and SpriteList's raw pointers give it std::deque's
-         * own random-access iterators, keeping the sort itself cheap (O(n log n) comparisons) even
-         * at this frequency - a dirty-flag optimization was not worth the extra sprite-to-renderer
-         * wiring it would need (Sprite has no back-channel to its owning renderer) for a cost no
-         * test or real workload here has shown to matter.
+         *
+         * The layer's list itself is never sorted (I15 of the master plan): each pass copies it into
+         * m_DrawOrder and stable-sorts the copy, so the sort always starts from the added order. It
+         * used to sort the list in place and keep the result, so the next frame's sort started from
+         * the previous frame's order - equal z-orders then kept the order of the last change, not
+         * the added order (a sprite raised for a moment and put back among its equals stayed moved;
+         * found by Scarab). Sorting on every pass rather than only on a change keeps no state to
+         * get wrong; the copy reuses m_DrawOrder's storage, and the sort is O(n log n) on pointers.
+         * Drawing from the copy also leaves the list free to change while sprites draw.
          *
          * With a single view each sprite is updated (Sprite::Update: Advance then Draw). With
          * several (bMultiView), several passes may draw a sprite in one frame (one per view showing
@@ -232,12 +234,14 @@ namespace SunLight  {
             if( itLayer == m_Layers.end() )
                 return;
 
-            std :: stable_sort( itLayer -> second.begin(), itLayer -> second.end(),
-                                 []( SunLight :: Sprite :: Sprite* pLeft, SunLight :: Sprite :: Sprite* pRight )  {
-                                     return pLeft -> GetZOrder() < pRight -> GetZOrder();
-                                 } );
+            m_DrawOrder.assign( itLayer -> second.begin(), itLayer -> second.end() );
 
-            for( SunLight :: Sprite :: Sprite* pSprite : itLayer -> second )  {
+            std :: stable_sort( m_DrawOrder.begin(), m_DrawOrder.end(),
+                                []( SunLight :: Sprite :: Sprite* pLeft, SunLight :: Sprite :: Sprite* pRight )  {
+                                    return pLeft -> GetZOrder() < pRight -> GetZOrder();
+                                } );
+
+            for( SunLight :: Sprite :: Sprite* pSprite : m_DrawOrder )  {
                 if( !bMultiView )  {
                     pSprite -> Update();
                     continue;

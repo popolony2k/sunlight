@@ -43,13 +43,17 @@ namespace SunLight  {
 
             typedef std :: deque<SunLight :: Sprite :: Sprite*>  SpriteList;
 
-            std :: map<int, SpriteList>                m_Layers;            // ascending layer id: the mapless draw order
+            std :: map<int, SpriteList>                m_Layers;            // ascending layer id: the mapless draw order; each list in added order, never sorted (I15)
             std :: set<SunLight :: Sprite :: Sprite*>  m_Parented;          // a superset of m_Layers' sprites (see MarkParented)
 
             // Multi-pass frame: the sprites already advanced this frame, and those a pass reached but
             // had not on screen (yet) - see UpdateLayer.
             std :: set<SunLight :: Sprite :: Sprite*>  m_FrameAdvanced;
             std :: set<SunLight :: Sprite :: Sprite*>  m_FramePending;
+
+            // I15 of the master plan: the layer being drawn, sorted by z-order - a copy of its list
+            // made for each pass, reused so it allocates only while it grows (see UpdateLayer).
+            std :: vector<SunLight :: Sprite :: Sprite*>  m_DrawOrder;
 
             public:
 

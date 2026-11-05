@@ -2236,6 +2236,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I12 | Path schemes in the FileSystem (`vpath://`, `hpath://`), writing (`WriteFile`, write directory, write filter), a host-path switch; `ActionMap` loads and saves through it (found by Scarab) | DONE |
 | I13 | The scheme-aware path helpers public (`FilePath::ParentPath`/`JoinPath`, asked for by Scarab); `IFileSystem` a pure interface again, with `BaseFileSystem` and `FilePath` | DONE |
 | I14 | `WriteFile` atomic and durable (a temporary file, flushed to the disk, renamed over the target); `IFileSystem::RemoveFile` (asked for by Scarab) | DONE |
+| I15 | Sprites with equal z-orders draw in the order they were added on every frame, whatever z-orders changed before (found by Scarab) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2783,6 +2784,28 @@ scheme-aware ones lived in the map loader's internals (`Renderer::ExternalResour
   An actual crash or power cut cannot be reproduced in a test: these pin the mechanism that makes them
   harmless. Windows' rename over an existing file is proven by the overwrite tests on CI's Windows job.
 - `doc/BREAKAGES.md` entry 63.
+
+**I15: equal z-orders keep the added order (DONE).** Scarab found it while planning its C3
+(`sprite_set_z_order` for Lua): sprites with equal z-orders did not keep the order they were added in
+once any z-order had changed - against L3's promise (BREAKAGES 37) and its own test names.
+
+- **Cause:** `SpriteRegistry::UpdateLayer` stable-sorted the layer's OWN list in place every frame and
+  kept it, so each frame's sort started from the previous frame's order. A sprite raised for a moment
+  (eg. a hit flash in front) and put back to 0 stayed moved among its equals: two sprites A, B drew
+  A B, then B A with A raised, and still B A with A back at 0. Its comment reasoned that "stable_sort
+  on an already-correctly-ordered deque reproduces that same order" - true, but it only shows sorting
+  twice changes nothing, not that the order does not depend on past changes. The tests checked only a
+  first frame, and `samples/zorder` only ever raised a card higher.
+- **Fix:** the layer's list stays in the added order and is never sorted; each pass copies it into a
+  reused buffer (`m_DrawOrder`) and stable-sorts the copy. No per-sprite state; drawing from the copy
+  also leaves the list free to change while sprites draw. The comment says so.
+- **Tests:** `tests/test_spriteregistry.cpp` (raise and put back over later frames; three sprites with
+  mixed changes; a removed and re-added sprite is last among its equals) and
+  `tests/test_spritezorder.cpp` (through the renderer, two later frames). Both fail with the in-place
+  sort put back.
+- **Sample:** `samples/zorder` gained key `0` - every card the same z-order - and the stack goes back
+  to its starting order however the cards were raised.
+- `doc/BREAKAGES.md` entry 64.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
