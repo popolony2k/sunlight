@@ -216,6 +216,29 @@ TEST_SUITE( "sprite/z_order" )  {
         CHECK( scene.TileHandles() == expected );
     }
 
+    TEST_CASE( "A sprite raised for a moment and put back draws in its added place again, in later frames too" )  {
+
+        // I15 of the master plan, found by Scarab: equal z-orders kept the order of the last change,
+        // because the layer's list was sorted in place and the next frame sorted that order.
+        void  * const  hA = ( void* ) 0x5001;
+        void  * const  hB = ( void* ) 0x5002;
+
+        Scene      scene;
+        SpriteRig  a( scene, 1, hA );
+        SpriteRig  b( scene, 1, hB );
+
+        scene.RunFrames( 1 );
+        CHECK( scene.TileHandles() == std :: vector<void*> { hA, hB } );
+
+        a.sprite.SetZOrder( 1 );
+        scene.RunFrames( 1 );
+        CHECK( scene.TileHandles() == std :: vector<void*> { hB, hA } );
+
+        a.sprite.SetZOrder( 0 );
+        scene.RunFrames( 2 );                             // and the frame after
+        CHECK( scene.TileHandles() == std :: vector<void*> { hA, hB, hA, hB } );
+    }
+
     TEST_CASE( "Sprites on different layers keep their own layer's draw order, whatever their z-values" )  {
 
         Scene  scene;

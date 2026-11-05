@@ -53,6 +53,7 @@ class World  {
     int  m_nNextZOrder;
 
     void BringToFront( int nCardIndex, SunLight :: Input :: ControllerType type, int nId );
+    void ResetZOrders( SunLight :: Input :: ControllerType type, int nId );
 
     bool LoadSprites( void );
 

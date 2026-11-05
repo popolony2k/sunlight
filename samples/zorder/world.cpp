@@ -48,6 +48,8 @@ namespace  {
     // viewport's own origin, camera ignored - at this sample's default zoom (1.0, never
     // changed) that is simply position + viewport origin). Staggered diagonally so each one
     // overlaps the next, the only way a draw-order change is visible at all.
+    const int  __EQUAL_Z_ORDER = 0;   // key 0: every card the same z-order (ResetZOrders)
+
     const int  __CARD_X[World :: __CARD_COUNT] = { 280, 330, 380, 430 };
     const int  __CARD_Y[World :: __CARD_COUNT] = { 260, 300, 340, 380 };
 }
@@ -64,6 +66,21 @@ namespace  {
 void World :: BringToFront( int nCardIndex, SunLight :: Input :: ControllerType type, int nId )  {
 
     m_Sprites[nCardIndex] -> SetZOrder( m_nNextZOrder++ );
+}
+
+/**
+ * @brief Gives every card the same z-order, 0 (I15 of the master plan): sprites with equal z-orders
+ * draw in the order they were added, whatever z-orders they had before, so the stack goes back to
+ * its starting order - red, green, blue, gold, back to front - however the cards were raised. Before
+ * I15 equal z-orders kept the order of the last change, and the stack stayed as it was. A card raised
+ * afterwards still goes on top: m_nNextZOrder stays above 0.
+ * @param type Controller type described by SunLight :: Input :: ControllerType;
+ * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler;
+ */
+void World :: ResetZOrders( SunLight :: Input :: ControllerType type, int nId )  {
+
+    for( int nIdx = 0; nIdx < __CARD_COUNT; nIdx++ )
+        m_Sprites[nIdx] -> SetZOrder( __EQUAL_Z_ORDER );
 }
 
 bool World :: LoadSprites( void )  {
@@ -130,6 +147,8 @@ bool World :: Run( void )  {
                                            std :: bind( &World :: BringToFront, this, 2, std :: placeholders :: _1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_FOUR,
                                            std :: bind( &World :: BringToFront, this, 3, std :: placeholders :: _1, std :: placeholders :: _2 ) );
+    m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_ZERO,
+                                           std :: bind( &World :: ResetZOrders, this, std :: placeholders :: _1, std :: placeholders :: _2 ) );
 
     viewport.pos.x = __VIEWPORT_POS_X;
     viewport.pos.y = __VIEWPORT_POS_Y;
@@ -154,7 +173,8 @@ bool World :: Run( void )  {
     }
 
     printf( "Four overlapping cards, back to front: red, green, blue, gold.\n" );
-    printf( "Press 1, 2, 3 or 4 to bring that card to the front of the stack. Esc quits.\n" );
+    printf( "Press 1, 2, 3 or 4 to bring that card to the front of the stack, 0 to give every card the same\n" );
+    printf( "z-order (the starting order comes back). Esc quits.\n" );
 
     m_pRenderer -> Run();
     m_pRenderer -> Stop();

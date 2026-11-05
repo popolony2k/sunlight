@@ -4,13 +4,16 @@
       (AddSprite), registered against this same layer id (1) so their visibility follows it. -->
  <objectgroup id="1" name="labels" color="#ffffffff">
   <object id="1" name="title" x="100" y="100" width="0" height="0">
-   <text fontfamily="Sans" pixelsize="20" color="#ffffff00">Sprite draw order within a layer (L3 of the master plan)</text>
+   <text fontfamily="Sans" pixelsize="20" color="#ffffff00">Sprite draw order in a layer (L3)</text>
   </object>
   <object id="2" name="instructions" x="100" y="140" width="0" height="0">
-   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">Press 1, 2, 3 or 4 to bring that card to the front</text>
+   <text fontfamily="Sans" pixelsize="20" color="#ffffffff">1-4: bring that card to the front</text>
   </object>
   <object id="3" name="initial-order" x="100" y="175" width="0" height="0">
-   <text fontfamily="Sans" pixelsize="16" color="#ffffffff">Starting order, back to front: red, green, blue, gold</text>
+   <text fontfamily="Sans" pixelsize="16" color="#ffffffff">Start, back to front: red, green, blue, gold</text>
+  </object>
+  <object id="4" name="equal-order" x="100" y="200" width="0" height="0">
+   <text fontfamily="Sans" pixelsize="16" color="#ffffffff">0: every card the same z-order (back to start)</text>
   </object>
  </objectgroup>
 </map>

@@ -29,18 +29,21 @@ This produces the `zorder_test` executable under `build/samples/zorder/`, along 
 | `2` | Bring the green card to the front |
 | `3` | Bring the blue card to the front |
 | `4` | Bring the gold card to the front |
+| `0` | Give every card the same z-order (0) |
 | `Esc` | Quit |
 
 ## What to look for
 
 - The cards start stacked back to front as red, green, blue and gold, each 120 x 120 pixels and offset from the one before, so every card is partly covered.
 - Pressing a card's key puts it on top at once, and it stays there until another card is brought forward. Pressing the same key again changes nothing visible: the card is already on top.
+- Pressing `0` gives every card the same z-order: the stack goes back to its starting order, red, green, blue, gold, however the cards were raised before - sprites with equal z-orders always draw in the order they were added. Press a card's key, then `0`, a few times: the stack is the starting one every time.
 - All four cards are on the same layer, so this is draw order inside one layer. Layers are still drawn in map order, and a sprite is drawn with its own layer.
 
 ## In the code
 
 - `World::LoadSprites()` ([world.cpp](/samples/zorder/world.cpp)) gives the cards z-orders 0 to 3 and registers them on layer 1 with `AddSprite`.
-- `World::BringToFront()` gives the chosen card a z-order higher than any card has had so far. The renderer sorts each layer's sprites by z-order every frame, so the change shows on the next frame. Sprites with the same z-order keep the order they were added in.
+- `World::BringToFront()` gives the chosen card a z-order higher than any card has had so far. The renderer sorts each layer's sprites by z-order every frame, so the change shows on the next frame. Sprites with the same z-order keep the order they were added in - on every frame, whatever z-orders they had before (I15 of the master plan).
+- `World::ResetZOrders()` (key `0`) sets every card's z-order to 0.
 
 ## Assets
 

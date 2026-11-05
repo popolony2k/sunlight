@@ -193,6 +193,51 @@ TEST_SUITE( "renderer/SpriteRegistry" )  {
         CHECK( fixture.engine.events.empty() );
     }
 
+    TEST_CASE( "Equal z-orders keep the added order on every frame, whatever z-orders changed before" )  {
+
+        // I15 of the master plan, found by Scarab: the list was sorted in place, so each frame's sort
+        // started from the previous frame's order - B, A stayed after A went back to 0.
+        MockEngineFixture  fixture;
+        TestSprite         a( fixture.engine, H1 );
+        TestSprite         b( fixture.engine, H2 );
+        TestSprite         c( fixture.engine, H3 );
+        SpriteRegistry     registry;
+
+        auto  Frame = [&]( void )  {
+            fixture.engine.events.clear();
+            registry.UpdateLayer( 1, false );
+            return Drawn( fixture.engine );
+        };
+
+        registry.Add( 1, &a.sprite );
+        registry.Add( 1, &b.sprite );
+        CHECK( Frame() == std :: vector<void*> { H1, H2 } );
+
+        a.sprite.SetZOrder( 1 );                          // raised for a moment
+        CHECK( Frame() == std :: vector<void*> { H2, H1 } );
+
+        a.sprite.SetZOrder( 0 );                          // and put back among its equals
+        CHECK( Frame() == std :: vector<void*> { H1, H2 } );
+        CHECK( Frame() == std :: vector<void*> { H1, H2 } );
+
+        // Three sprites, mixed changes: whenever they are equal again, the added order comes back.
+        registry.Add( 1, &c.sprite );
+        b.sprite.SetZOrder( 2 );
+        c.sprite.SetZOrder( 1 );
+        CHECK( Frame() == std :: vector<void*> { H1, H3, H2 } );
+        a.sprite.SetZOrder( 3 );
+        CHECK( Frame() == std :: vector<void*> { H3, H2, H1 } );
+        a.sprite.SetZOrder( 0 );
+        b.sprite.SetZOrder( 0 );
+        c.sprite.SetZOrder( 0 );
+        CHECK( Frame() == std :: vector<void*> { H1, H2, H3 } );
+
+        // Removed and added again, a sprite is last among its equals: that is its new added order.
+        registry.Remove( 1, &a.sprite );
+        registry.Add( 1, &a.sprite );
+        CHECK( Frame() == std :: vector<void*> { H2, H3, H1 } );
+    }
+
     TEST_CASE( "Across several view passes a sprite advances once per frame: every pass draws the frame a single view draws" )  {
 
         // One canvas with its own tile animation (a 64 px wide texture, 16 px tiles, circular): every
