@@ -108,6 +108,11 @@ namespace SunLight  {
             // byte-identical to this project's pre-L1 behavior.
             stVector                                   m_EffectiveLayerCameraPos;
 
+            // I16 of the master plan: how deep DrawAllLayers is (a group recurses), so
+            // CurrentDrawContext uses m_EffectiveLayerCameraPos only while a layer is being drawn,
+            // and the active view's own camera at any other time.
+            int                                        m_nLayerDrawDepth = 0;
+
             // I8 of the master plan: the opacity and tint the layer being drawn inherits from its
             // enclosing groups (DrawAllLayers), passed to the drawing classes through the DrawContext.
             // 1 and white outside any group, and again once the map is drawn.

@@ -27,6 +27,7 @@
  */
 
 #include <doctest/doctest.h>
+#include <functional>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -92,6 +93,76 @@ namespace  {
 
             return found;
         }
+    };
+
+    // I16 of the master plan: a 200 x 200 map of two empty object groups; the second, drawn last,
+    // gets strLastAttrs (a parallax factor, an opacity). Loaded top-left in a (10, 10, 1000, 800)
+    // viewport at zoom 1, so a point at map (x, y) with the camera at (cx, cy) is drawn at
+    // (x - cx + 10, y - cy + 10).
+    struct MapScene  {
+
+        MockEngineFixture                   engineFixture;
+        MockWindowFixture                   windowFixture;
+        MemoryFileSystemFixture             fsFixture;
+        std :: unique_ptr<TileMapRenderer>  pRenderer;
+
+        MapScene( const std :: string& strLastAttrs )  {
+            std :: string  str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                                 "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"200\" height=\"200\""
+                                 " tilewidth=\"16\" tileheight=\"16\" nextlayerid=\"3\">"
+                                 "<objectgroup id=\"1\" name=\"first\"/>"
+                                 "<objectgroup id=\"2\" name=\"last\" " + strLastAttrs + "/></map>";
+
+            fsFixture.fs.files["maps/parallax.tmx"] = Bytes( str.begin(), str.end() );
+
+            RendererConfig  config;
+
+            config.fWidth   = 1260.0f;
+            config.fHeight  = 920.0f;
+            config.viewport = Rect( 10, 10, 1000, 800 );
+
+            pRenderer = TileMapRenderer :: Create( config, nullptr );
+
+            REQUIRE( pRenderer != nullptr );
+            REQUIRE( pRenderer -> Start() == true );
+            REQUIRE( pRenderer -> LoadMap( "maps/parallax.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        }
+
+        ~MapScene( void )  {
+            if( pRenderer )
+                pRenderer -> Stop();
+        }
+
+        void RunFrame( void )  {
+            engineFixture.engine.events.clear();
+            windowFixture.window.nEndFrameCalls          = 0;
+            windowFixture.window.nFramesUntilShouldClose = 1;
+            pRenderer -> Run();
+        }
+
+        // The FILL a point at map (500, 500) draws, drawn now.
+        Event PointAt500( void )  {
+            engineFixture.engine.events.clear();
+            pRenderer -> DrawPoint( 500, 500, __WHITE, 4.0 );
+
+            std :: vector<Event>  fills;
+
+            for( const Event& evt : engineFixture.engine.events )
+                if( evt.kind == Event :: FILL )
+                    fills.push_back( evt );
+
+            REQUIRE( fills.size() == 1 );
+
+            return fills[0];
+        }
+    };
+
+    // What the game draws in its OnUpdate, during the frame (after the map's view passes).
+    struct GameDraw : public SunLight :: TileMap :: ITileMapListener  {
+        std :: function<void( void )>  draw;
+
+        void OnUpdate( SunLight :: TileMap :: ITileMap& ) override  { if( draw ) draw(); }
+        void OnStop( void ) override                               {}
     };
 
     // A one-object TMX map (the polyline object XML spliced in as given), loaded and rendered -
@@ -301,5 +372,98 @@ TEST_SUITE( "renderer/shapesurface" )  {
         REQUIRE( spans.size() == 2 );
         CHECK( spans[0].x == 110.0f );  CHECK( spans[0].y == 109.0f );  CHECK( spans[0].w == 10.0f );
         CHECK( spans[1].x == 110.0f );  CHECK( spans[1].y == 110.0f );  CHECK( spans[1].w == 10.0f );
+    }
+
+    // I16 of the master plan, found by Scarab: a shape drawn outside the map's layers used the camera
+    // of the LAST layer drawn (its parallax applied), and with no map, none at all.
+
+    TEST_CASE( "A shape drawn after the map uses the view's own camera, whatever the last layer's parallax" )  {
+
+        for( const char* szLast : { "", "parallaxx=\"0.5\" parallaxy=\"0.5\"", "parallaxx=\"0\" parallaxy=\"0\"" } )  {
+            INFO( "last layer: " << szLast );
+
+            MapScene  scene( szLast );
+
+            scene.pRenderer -> SetCameraPosition( 200, 160 );
+            scene.RunFrame();
+
+            Event  point = scene.PointAt500();
+
+            CHECK( point.x == 310.0f );                  // 500 - 200 + 10 (was 660 at 0.5, 1010 at 0)
+            CHECK( point.y == 350.0f );                  // 500 - 160 + 10
+        }
+    }
+
+    TEST_CASE( "A shape drawn after the map carries no group opacity, and follows the camera at parallax 1" )  {
+
+        MapScene  scene( "opacity=\"0.5\"" );
+
+        scene.RunFrame();
+        CHECK( scene.PointAt500().x == 510.0f );         // camera 0
+
+        scene.pRenderer -> SetCameraPosition( 200, 160 );
+        scene.RunFrame();
+
+        Event  point = scene.PointAt500();
+
+        CHECK( point.x == 310.0f );
+        CHECK( point.y == 350.0f );
+        CHECK( point.color.nAlpha == 0xFF );
+    }
+
+    TEST_CASE( "A shape drawn before the first frame uses the view's camera too" )  {
+
+        MapScene  scene( "parallaxx=\"0.5\" parallaxy=\"0.5\"" );
+
+        scene.pRenderer -> SetCameraPosition( 200, 160 );
+
+        Event  point = scene.PointAt500();
+
+        CHECK( point.x == 310.0f );
+        CHECK( point.y == 350.0f );
+    }
+
+    TEST_CASE( "A shape drawn from OnUpdate with several views uses the default view's camera" )  {
+
+        MapScene                                  scene( "parallaxx=\"0.5\" parallaxy=\"0.5\"" );
+        GameDraw                                  game;
+        std :: vector<Event>                      fills;
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pExtra = scene.pRenderer -> CreateView( Rect( 600, 10, 300, 300 ) );
+
+        REQUIRE( pExtra != nullptr );
+        pExtra -> SetCameraPosition( 40, 30 );            // the extra view's own camera, not used here
+        scene.pRenderer -> SetCameraPosition( 200, 160 );   // the default view's
+        game.draw = [&]( void )  {
+            size_t  nBefore = scene.engineFixture.engine.events.size();
+
+            scene.pRenderer -> DrawPoint( 500, 500, __WHITE, 4.0 );
+
+            for( size_t nEvent = nBefore; nEvent < scene.engineFixture.engine.events.size(); nEvent++ )
+                if( scene.engineFixture.engine.events[nEvent].kind == Event :: FILL )
+                    fills.push_back( scene.engineFixture.engine.events[nEvent] );
+        };
+        scene.pRenderer -> AddTileMapListener( &game );
+        scene.RunFrame();
+        scene.pRenderer -> RemoveTileMapListener( &game );
+
+        REQUIRE( fills.size() == 1 );
+        CHECK( fills[0].x == 310.0f );
+        CHECK( fills[0].y == 350.0f );
+    }
+
+    TEST_CASE( "With no map, a shape follows the camera as well (one rule, map or no map)" )  {
+
+        MaplessScene  scene;
+
+        scene.pRenderer -> DrawPoint( 500, 500, __WHITE, 4.0 );
+        REQUIRE( scene.Of( Event :: FILL ).size() == 1 );
+        CHECK( scene.Of( Event :: FILL )[0].x == 510.0f );   // camera 0: as before
+
+        scene.engine().events.clear();
+        scene.pRenderer -> SetCameraPosition( 200, 160 );
+        scene.pRenderer -> DrawPoint( 500, 500, __WHITE, 4.0 );
+        REQUIRE( scene.Of( Event :: FILL ).size() == 1 );
+        CHECK( scene.Of( Event :: FILL )[0].x == 310.0f );   // it ignored the camera before (510)
+        CHECK( scene.Of( Event :: FILL )[0].y == 350.0f );
     }
 }

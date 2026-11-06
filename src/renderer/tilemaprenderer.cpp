@@ -174,16 +174,25 @@ namespace SunLight  {
 
         /**
          * @brief The DrawContext of what is being drawn right now (S1a of the master plan): the
-         * active view's rectangle and zoom (GetViewport, the view a pass activated) and the camera
-         * offset of the layer being drawn (m_EffectiveLayerCameraPos, its parallax applied) - read
-         * at the moment of the call, exactly what the shape code read from the renderer itself
-         * before it moved into ShapeRenderer.
+         * active view's rectangle and zoom (GetViewport, the view a pass activated) and a camera
+         * offset, read at the moment of the call.
+         *
+         * The camera (I16 of the master plan): while a layer is being drawn (DrawAllLayers, its
+         * objects and sprites) it is that layer's, its parallax applied (m_EffectiveLayerCameraPos);
+         * at any other time - a game's own IShapeSurface drawing from OnUpdate, between frames, before
+         * the first one, with no map - it is the active view's own camera, the camera a layer of
+         * parallax 1 is drawn with. It was always m_EffectiveLayerCameraPos, which nothing reset after
+         * the pass, so a shape drawn after the map took the LAST layer's parallax camera (a parallax
+         * sky drawn last shifted every debug shape), and with no map, zero (the camera was ignored).
+         * Found by Scarab. After the view passes the default view is active again (DrawViewPasses),
+         * so a shape drawn from OnUpdate uses the default view's camera.
+         * @return The view's rectangle and zoom, the camera, and the group opacity and tint;
          */
         DrawContext TileMapRenderer :: CurrentDrawContext( void )  {
 
             return DrawContext { GetViewport().GetDimension2D(),
                                  GetViewport().GetZoomProperties().fZoomFactor,
-                                 m_EffectiveLayerCameraPos,
+                                 ( m_nLayerDrawDepth > 0 ) ? m_EffectiveLayerCameraPos : ActiveCamera().Position(),
                                  m_fGroupOpacity,
                                  m_GroupTint };
         }
@@ -338,6 +347,8 @@ namespace SunLight  {
         void TileMapRenderer :: DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX, double fParentParallaxY,
                                                float fParentOpacity, SunLight :: Base :: stColor parentTint )  {
 
+            m_nLayerDrawDepth++;            // I16: CurrentDrawContext uses the layer's camera from here on
+
             while( pLayer )  {
 
                 /*
@@ -428,6 +439,8 @@ namespace SunLight  {
             // DrawContext built after it (a game's own IShapeSurface drawing) carries a group's values.
             m_fGroupOpacity = fParentOpacity;
             m_GroupTint     = parentTint;
+
+            m_nLayerDrawDepth--;            // I16: back to the active view's own camera once the whole map is drawn
         }
 
         /**
