@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `ad84cca1320fb0464cb13e44c4e0710d27ca3731` | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera, map or no map (I16, found by Scarab) | 65 |
 | `51a3bbb6ea205d7a26e3db1bd66bbd61984dcfbe` | Sprites with equal z-orders draw in the order they were added on every frame, whatever z-orders changed before (I15, found by Scarab) | 64 |
 | `b778188443842351c079b88cc8c59e87b87e2e1c` | `WriteFile` atomic and durable (temporary file, synced to the disk, renamed over the target); `IFileSystem::RemoveFile` (I14, asked for by Scarab for its C1c) | 63 |
 | `4cb7262b3e4e5a7fce745053d716c977d29078b8` | **Breaking:** `IFileSystem` a pure interface again, with `BaseFileSystem` and `FilePath`; public `FilePath::ParentPath`/`JoinPath` (I13, asked for by Scarab). Sent with a three-line migration note | 62 |
