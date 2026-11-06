@@ -2237,6 +2237,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I13 | The scheme-aware path helpers public (`FilePath::ParentPath`/`JoinPath`, asked for by Scarab); `IFileSystem` a pure interface again, with `BaseFileSystem` and `FilePath` | DONE |
 | I14 | `WriteFile` atomic and durable (a temporary file, flushed to the disk, renamed over the target); `IFileSystem::RemoveFile` (asked for by Scarab) | DONE |
 | I15 | Sprites with equal z-orders draw in the order they were added on every frame, whatever z-orders changed before (found by Scarab) | DONE |
+| I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2806,6 +2807,32 @@ once any z-order had changed - against L3's promise (BREAKAGES 37) and its own t
 - **Sample:** `samples/zorder` gained key `0` - every card the same z-order - and the stack goes back
   to its starting order however the cards were raised.
 - `doc/BREAKAGES.md` entry 64.
+
+**I16: shapes drawn outside the map use the view's camera (DONE).** Scarab found it while planning
+its C2 (`shape_draw_*` for Lua): a shape drawn through `IShapeSurface` after the map pass (eg. from
+`OnUpdate`) used the parallax camera of the LAST layer drawn, not the view's own camera.
+
+- **Cause:** `TileMapRenderer::CurrentDrawContext()` read `m_EffectiveLayerCameraPos`, which
+  `DrawAllLayers` sets per layer (that layer's parallax applied) and nothing reset after the pass - I8
+  restored the group opacity and tint there, not the camera. With a parallax sky, far background or fog
+  drawn last, every debug shape, path or range ring was shifted, by an amount that changed with the
+  layer order (Scarab measured parallax 0.5: 660, 630 instead of 310, 350; 0: the camera ignored). With
+  no map it stayed zero, so a mapless shape ignored the camera altogether. The shape tests and
+  `samples/surface` never loaded a map.
+- **Fix:** `DrawAllLayers` counts how deep it is (`m_nLayerDrawDepth`; a group recurses);
+  `CurrentDrawContext()` uses the layer's camera only while a layer is being drawn, and the active
+  view's own camera (`ActiveCamera().Position()`, the camera a layer of parallax 1 is drawn with) at
+  any other time. After the view passes the default view is active again, so a shape drawn from
+  `OnUpdate` uses the default view's camera. Map objects keep their layer's camera, unchanged.
+- **The mapless case, decided by the owner (option A):** one rule, map or no map - `IShapeSurface`
+  coordinates are map coordinates, drawn at (position - camera) x zoom + viewport origin. A mapless
+  game that moves its camera now sees its shapes move with it (no sample or peer does: checked).
+- **Tests** (`tests/test_shapesurface.cpp`, with a map at last): a point drawn after the frame with the
+  last layer at parallax 1, 0.5 and 0, the camera at (200, 160) - (310, 350) every time; no group
+  opacity carried; drawn before the first frame; drawn from `OnUpdate` with an extra view (the default
+  view's camera); mapless, the camera moved. Built with the old code, four fail with Scarab's numbers
+  (660, 630; 1010, 910; 565, 570; the mapless 510, 510).
+- `doc/BREAKAGES.md` entry 65.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

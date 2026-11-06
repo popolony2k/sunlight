@@ -150,6 +150,9 @@ Each item is described in full in the plan; what each change means for code buil
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
 - An animated tile whose frames are all 0 ms shows its first frame; it showed its last.
+- A shape drawn through `IShapeSurface` outside the map's layers (eg. from `OnUpdate`) used the
+  parallax camera of the last layer drawn instead of the view's own camera, and with no map ignored
+  the camera. It now uses the active view's camera (after the view passes, the default view's).
 - Sprites with equal z-orders kept the order of the last z-order change instead of the order they
   were added in (a sprite raised and put back stayed moved among its equals): each layer was sorted in
   place and the next frame sorted that order. A copy is sorted now, from the added order every time.
