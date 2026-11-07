@@ -495,6 +495,10 @@ namespace SunLight  {
             for( View* pView : m_PassViews )  {
                 ActivateView( pView );
 
+                // I19a: a view below full opacity draws into a target of its own, laid over the frame
+                // at its opacity once the pass is done (outside its clip, which ends first).
+                bool  bOwnTarget = BeginViewTarget( *pView );
+
                 // The whole pass is cut to its view's rectangle (the engine's clip stack keeps any
                 // clip a draw starts inside it), so nothing the pass draws lands outside its view.
                 SunLight :: Base :: stDimension2D  &passRect = pView -> m_pViewport -> GetDimension2D();
@@ -516,6 +520,9 @@ namespace SunLight  {
                 DrawPassContent();
 
                 SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
+
+                if( bOwnTarget )
+                    EndViewTarget( *pView );
             }
 
             ActivateView( pDefault );
@@ -544,6 +551,79 @@ namespace SunLight  {
                 if( m_pActiveView -> IsLayerShown( nLayerId ) )
                     HandleSpriteUpdate( nLayerId );
             }
+        }
+
+        /**
+         * @brief Start drawing a view below full opacity into a render target of its own (I19a of
+         * the master plan), or tell the caller to draw it as always. The target has the frame's
+         * size (the frame's own render target, m_pRenderTexture), so the pass draws at exactly the
+         * coordinates it uses in the frame - its clip, the view's rectangle, keeps everything
+         * outside that rectangle transparent - and the composite (EndViewTarget) lays the whole
+         * target over the frame. It is made on first use and kept (the frame's size is fixed when
+         * the renderer is built, RendererConfig), and cleared to transparent for every pass. Begun
+         * inside the frame's target: the engine's targets nest (IEngine::BeginRenderTarget).
+         * @param view The view whose pass is about to be drawn;
+         * @return true when the pass now draws into the view's target (EndViewTarget must follow);
+         * false at full opacity, where nothing changed;
+         */
+        bool TileMapRenderer :: BeginViewTarget( View& view )  {
+
+            if( view.m_fOpacity >= __OPACITY_MAX )
+                return false;
+
+            SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+
+            if( !view.m_hTarget )
+                view.m_hTarget = engine.LoadRenderTarget( ( int ) m_fWindowWidth, ( int ) m_fWindowHeight );
+
+            engine.BeginRenderTarget( view.m_hTarget );
+            engine.ClearBackground( TRANSPARENT_COLOR );
+
+            return true;
+        }
+
+        /**
+         * @brief End a pass BeginViewTarget redirected, and lay the view's target over the frame at
+         * the view's opacity (IEngine::CompositeRenderTarget: premultiplied, which is what normal
+         * blending into a transparent target leaves). At opacity 0 the composite is skipped: the
+         * pass was still drawn, so its sprites advanced as at any opacity, but nothing shows.
+         * @param view The view whose pass was drawn into its target;
+         */
+        void TileMapRenderer :: EndViewTarget( View& view )  {
+
+            SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+
+            engine.EndRenderTarget();
+
+            if( view.m_fOpacity > __OPACITY_MIN )
+                engine.CompositeRenderTarget( view.m_hTarget,
+                                              SunLight :: Base :: stRectangle { 0.0f, 0.0f, m_fWindowWidth, m_fWindowHeight },
+                                              view.m_fOpacity );
+        }
+
+        /**
+         * @brief Release a view's render target (I19a), if it has one: on RemoveView, on Stop and
+         * when a started renderer is destroyed - while the window, and so the engine's render
+         * context, is still open.
+         * @param view The view whose target goes;
+         */
+        void TileMapRenderer :: ReleaseViewTarget( View& view )  {
+
+            if( view.m_hTarget )  {
+                SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( view.m_hTarget );
+                view.m_hTarget = nullptr;
+            }
+        }
+
+        /**
+         * @brief ReleaseViewTarget for every view, the default one included (I19a).
+         */
+        void TileMapRenderer :: ReleaseViewTargets( void )  {
+
+            ReleaseViewTarget( *m_pDefaultView );
+
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )
+                ReleaseViewTarget( *pView );
         }
 
         /**
@@ -579,6 +659,8 @@ namespace SunLight  {
                      * visibility are the only new inputs, and default to "show all").
                      */
                     if( m_pDefaultView -> m_bVisible )  {
+                        bool  bOwnTarget = BeginViewTarget( *m_pDefaultView );   // I19a: below full opacity
+
                         // Study: nothing cuts the single view's draws in software any more, so the viewport
                         // is the clip for the whole frame (the view passes set their own).
                         SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
@@ -588,6 +670,9 @@ namespace SunLight  {
                             ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nHeight } );
                         DrawPassContent();
                         SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
+
+                        if( bOwnTarget )
+                            EndViewTarget( *m_pDefaultView );
                     }
                 }
                 else  {
@@ -860,6 +945,11 @@ namespace SunLight  {
              * that a held handle is inert afterwards instead of pointing
              * into freed memory.
              */
+            // I19a: the views' own render targets go while the engine can still release them - a
+            // started renderer's window is still open (Stop releases them otherwise).
+            if( m_bIsStarted )
+                ReleaseViewTargets();
+
             for( std :: shared_ptr<View>& pView : m_ExtraViews )
                 pView -> Detach();
 
@@ -1294,6 +1384,7 @@ namespace SunLight  {
                     std :: shared_ptr<View>  pRemoved = * itView;
 
                     m_ExtraViews.erase( itView );
+                    ReleaseViewTarget( *pRemoved );     // I19a: its own render target, if it had one
                     pRemoved -> Detach();
 
                     return true;
@@ -2353,6 +2444,8 @@ namespace SunLight  {
                     SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( m_pRenderTexture );
                     m_pRenderTexture = nullptr;
                 }
+
+                ReleaseViewTargets();               // I19a: the views' own render targets, while the window is open
 
                 // Closing the window fires its close handlers first (see
                 // IWindow::AddCloseHandler), which is where a backend engine

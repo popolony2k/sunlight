@@ -72,6 +72,8 @@ namespace SunLight  {
             SunLight :: Base :: stColor            m_Background;
             bool                                   m_bMaskIsWhitelist;    // false: m_MaskIds are the HIDDEN layers; true: the SHOWN ones
             std :: set<int>                        m_MaskIds;
+            float                                  m_fOpacity;            // I19a: 1 draws as always; below 1 through m_hTarget
+            SunLight :: Base :: TextureHandle      m_hTarget;             // the view's own render target, frame-sized; nullptr until needed
 
             template<class Function>
             void Run( Function function );
@@ -109,6 +111,8 @@ namespace SunLight  {
             bool GetVisible( void ) override;
             void SetDrawOrder( int nOrder ) override;
             int GetDrawOrder( void ) override;
+            void SetOpacity( float fOpacity ) override;
+            float GetOpacity( void ) override;
             void SetClearBackground( bool bClear ) override;
             bool GetClearBackground( void ) override;
             void SetBackgroundColor( const SunLight :: Base :: stColor& color ) override;

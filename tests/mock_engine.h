@@ -23,6 +23,7 @@
 
 #include "engines/iengine.h"
 #include "engines/enginefactory.h"
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -108,7 +109,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     // Every draw-ish call in order, for tests that care about WHICH pass drew what and in what order
     // (the multi-view frame): kind + the rectangle it was given (x, y, w, h; zeros where it has none).
     struct Event  {
-        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED, LINE, ELLIPSE, TILE_ROTATED, TEXT_ROTATED, BLEND };   // BLEND: blendMode = the mode set   // TILE_ROTATED: x, y = anchor, w, h = dest size, scale = rotation, srcX, srcY = origin. TEXT_ROTATED: x, y = top-left corner, scale = rotation, nFontSize, text   // LINE: x, y = first end, w, h = second end, scale = thickness. ELLIPSE: x, y = centre, w, h = radii   // CLIP_BEGIN: x, y, w, h = the rectangle
+        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED, LINE, ELLIPSE, TILE_ROTATED, TEXT_ROTATED, BLEND, COMPOSITE };   // COMPOSITE: x, y, w, h = dest, scale = opacity, handle = the target   // BLEND: blendMode = the mode set   // TILE_ROTATED: x, y = anchor, w, h = dest size, scale = rotation, srcX, srcY = origin. TEXT_ROTATED: x, y = top-left corner, scale = rotation, nFontSize, text   // LINE: x, y = first end, w, h = second end, scale = thickness. ELLIPSE: x, y = centre, w, h = radii   // CLIP_BEGIN: x, y, w, h = the rectangle
 
         Kind   kind;
         float  x, y, w, h;
@@ -154,6 +155,21 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     SunLight :: Base :: TextureHandle   hLoadRenderTargetResult    = ( SunLight :: Base :: TextureHandle )  0x2;
     SunLight :: Base :: TextureHandle   hLastUnloadedRenderTarget  = nullptr;
     SunLight :: Base :: TextureHandle   hLastBegunRenderTarget     = nullptr;
+    // I19a: when set, every LoadRenderTarget returns a handle of its own (0x100, 0x101, ...) instead
+    // of hLoadRenderTargetResult, and records the size it was asked for.
+    bool                                bDistinctRenderTargets     = false;
+    std :: vector<std :: pair<int, int>>  renderTargetSizes;
+    // Begin/End/Composite of render targets in order (I19a: nesting), apart from `events` so the
+    // tests that read `events` from the first draw stay as they are. kind: 'B', 'E' or 'C'.
+    // nEventIndex: events.size() at the call, so a test can tell which `events` were drawn into which target.
+    struct RenderTargetEvent  {
+        char                               kind;
+        SunLight :: Base :: TextureHandle  handle;
+        float                              fOpacity;
+        size_t                             nEventIndex;
+    };
+    std :: vector<RenderTargetEvent>    renderTargetEvents;
+    std :: vector<SunLight :: Base :: TextureHandle>  unloadedRenderTargets;
     SunLight :: Base :: stRectangle     lastDrawTextureScaledSource { 0, 0, 0, 0 };
     SunLight :: Base :: stRectangle     lastDrawTextureScaledDest   { 0, 0, 0, 0 };
 
@@ -287,23 +303,45 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     }
 
     SunLight :: Base :: TextureHandle LoadRenderTarget( int nWidth, int nHeight )  {
+        const uintptr_t  nFirstDistinct = 0x100;
+
+        renderTargetSizes.push_back( { nWidth, nHeight } );
+
+        SunLight :: Base :: TextureHandle  hResult = bDistinctRenderTargets ?
+                                             ( SunLight :: Base :: TextureHandle ) ( nFirstDistinct + nLoadRenderTargetCalls ) :
+                                             hLoadRenderTargetResult;
+
         nLoadRenderTargetCalls++;
-        return hLoadRenderTargetResult;
+        return hResult;
     }
 
     void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
         nUnloadRenderTargetCalls++;
         hLastUnloadedRenderTarget = hRenderTarget;
+        unloadedRenderTargets.push_back( hRenderTarget );
     }
 
     void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
         nBeginRenderTargetCalls++;
         hLastBegunRenderTarget = hRenderTarget;
         currentBlendMode       = SunLight :: Base :: BLEND_MODE_NORMAL;     // as IEngine says; not a SetBlendMode call
+        renderTargetEvents.push_back( RenderTargetEvent { 'B', hRenderTarget, 0.0f, events.size() } );
     }
 
     void EndRenderTarget( void )  {
         nEndRenderTargetCalls++;
+        currentBlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;           // the target drawn into next starts so
+        renderTargetEvents.push_back( RenderTargetEvent { 'E', nullptr, 0.0f, events.size() } );
+    }
+
+    void CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                const SunLight :: Base :: stRectangle& dest,
+                                float fOpacity )  {
+        Event  event { Event :: COMPOSITE, dest.x, dest.y, dest.width, dest.height, fOpacity, 0.0f, hRenderTarget,
+                       SunLight :: Base :: stColor { 0, 0, 0, 0 } };
+
+        renderTargetEvents.push_back( RenderTargetEvent { 'C', hRenderTarget, fOpacity, events.size() } );
+        events.push_back( event );
     }
 
     SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget )  {

@@ -32,6 +32,9 @@
 
 // BLEND_MODE_MULTIPLY's fragment shader (see RaylibEngine::SetBlendMode): raylib's default
 // GLSL 330 fragment shader (rlgl.h, rlLoadShaderDefault), with its colour premultiplied by its alpha.
+#define __COMPOSITE_OPACITY_MIN   0.0f     // CompositeRenderTarget: draws nothing
+#define __COMPOSITE_OPACITY_MAX   1.0f     // CompositeRenderTarget: the target as it is
+#define __COMPOSITE_CHANNEL_MAX   255.0f   // a tint channel at an opacity of 1
 #define __MULTIPLY_SHADER_330  "#version 330\n"                                                     \
                                "in vec2 fragTexCoord;\n"                                            \
                                "in vec4 fragColor;\n"                                               \
@@ -822,24 +825,84 @@ namespace SunLight  {
              * pixel left its alpha at 0.69 x 0.69 + 0.31 = 0.79, and the frame - drawn onto the
              * window over black (TileMapRenderer::Run) - came out about that much darker. Found by
              * Scarab (semi-transparent Tiled layers greyer than in Tiled).
+             *
+             * Calls nest (I19a): the target is pushed on m_RenderTargetStack, and ::BeginTextureMode
+             * binds it straight over whichever one was bound (it sets the framebuffer, viewport and
+             * projection itself - rcore.c), drawing raylib's pending batch into the old one first.
              * @param hRenderTarget The render target to draw into;
              */
             void RaylibEngine :: BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
 
+                m_RenderTargetStack.push_back( hRenderTarget );
                 ::BeginTextureMode( *reinterpret_cast<RenderTexture2D*>( hRenderTarget ) );
                 SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
             }
 
             /**
-             * @brief Stop redirecting drawing into whichever render target
-             * the matching @see BeginRenderTarget call started, back to raylib's default blending
-             * (and its default shader, should the frame have ended in BLEND_MODE_MULTIPLY).
+             * @brief Stop redirecting drawing into whichever render target the matching
+             * @see BeginRenderTarget call started. With an outer target still on m_RenderTargetStack
+             * (I19a), that one is begun again, in BLEND_MODE_NORMAL: raylib's ::EndTextureMode always
+             * unbinds to the window's framebuffer (rcore.c: rlDisableFramebuffer, the window's
+             * viewport), never to the target bound before, so ending an inner target with it would
+             * send the rest of the outer target's drawing to the window. With none, back to the
+             * window and raylib's default blending (and its default shader, should the frame have
+             * ended in BLEND_MODE_MULTIPLY).
              */
             void RaylibEngine :: EndRenderTarget( void )  {
+
+                if( !m_RenderTargetStack.empty() )
+                    m_RenderTargetStack.pop_back();
+
+                if( !m_RenderTargetStack.empty() )  {
+                    ::BeginTextureMode( *reinterpret_cast<RenderTexture2D*>( m_RenderTargetStack.back() ) );
+                    SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
+                    return;
+                }
 
                 SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
                 ::EndBlendMode();
                 ::EndTextureMode();
+            }
+
+            /**
+             * @brief Draw a whole render target at dest, faded by fOpacity, as premultiplied colour
+             * (I19a; see IEngine::CompositeRenderTarget for why). The factors: colour (one, one minus
+             * source alpha), alpha "over" (one, one minus source alpha) - and the tint scales all four
+             * channels by the opacity (raylib's default shader multiplies the texel by the tint), so
+             * colour x opacity + destination x (1 - alpha x opacity). The multiply shader is switched
+             * off for it (the texel must reach the blending as it is), and SetBlendMode then puts the
+             * mode that was set back, shader and all. The source rectangle's negative height flips
+             * the texture, which is stored bottom-up (OpenGL), as TileMapRenderer::Run does for the
+             * frame.
+             * @param hRenderTarget The render target to draw;
+             * @param dest Where to draw it, in the current target's pixels;
+             * @param fOpacity 0 (nothing) to 1 (as it is), clamped;
+             */
+            void RaylibEngine :: CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                                        const SunLight :: Base :: stRectangle& dest,
+                                                        float fOpacity )  {
+
+                RenderTexture2D  *pRenderTarget = reinterpret_cast<RenderTexture2D*>( hRenderTarget );
+                float            fClamped      = std :: clamp( fOpacity, __COMPOSITE_OPACITY_MIN, __COMPOSITE_OPACITY_MAX );
+                unsigned char    nChannel      = ( unsigned char ) ( fClamped * __COMPOSITE_CHANNEL_MAX );
+
+                if( m_bMultiplyShaderActive )  {
+                    ::EndShaderMode();
+                    m_bMultiplyShaderActive = false;
+                }
+
+                ::rlSetBlendFactorsSeparate( RL_ONE, RL_ONE_MINUS_SRC_ALPHA,     // colour: premultiplied
+                                             RL_ONE, RL_ONE_MINUS_SRC_ALPHA,     // alpha: "over"
+                                             RL_FUNC_ADD, RL_FUNC_ADD );
+                ::BeginBlendMode( BLEND_CUSTOM_SEPARATE );
+
+                ::DrawTexturePro( pRenderTarget -> texture,
+                                  Rectangle { 0.0f, 0.0f, ( float ) pRenderTarget -> texture.width, -( float ) pRenderTarget -> texture.height },
+                                  Rectangle { dest.x, dest.y, dest.width, dest.height },
+                                  Vector2 { 0.0f, 0.0f }, 0.0f,
+                                  Color { nChannel, nChannel, nChannel, nChannel } );
+
+                SetBlendMode( m_BlendMode );
             }
 
             /**

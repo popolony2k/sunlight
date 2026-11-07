@@ -53,6 +53,7 @@ namespace SunLight  {
 #define MAGENTA_COLOR       SunLight :: Base :: stColor  { 255, 0, 255, 255 }
 #define CYAN_COLOR          SunLight :: Base :: stColor  { 0, 255, 255, 255 }
 #define GRAY_COLOR          SunLight :: Base :: stColor  { 128, 128, 128, 255 }
+#define TRANSPARENT_COLOR   SunLight :: Base :: stColor  { 0, 0, 0, 0 }
 #define DARK_RED_COLOR      SunLight :: Base :: stColor  { 128, 0, 0, 255 }
 #define DARK_GREEN_COLOR    SunLight :: Base :: stColor  { 0, 100, 0, 255 }
 #define DARK_BLUE_COLOR     SunLight :: Base :: stColor  { 0, 0, 139, 255 }

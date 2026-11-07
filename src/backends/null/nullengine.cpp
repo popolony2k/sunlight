@@ -147,7 +147,20 @@ namespace SunLight  {
                 m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
             }
 
+            /**
+             * @brief Nothing is drawn into a target, so there is nothing to go back to: calls nest
+             * (IEngine::EndRenderTarget) with no state to keep.
+             */
             void NullEngine :: EndRenderTarget( void )  {
+            }
+
+            /**
+             * @brief Nothing is drawn, so nothing is composited (I19a), and the blend mode stays as
+             * it was, as IEngine::CompositeRenderTarget says.
+             */
+            void NullEngine :: CompositeRenderTarget( SunLight :: Base :: TextureHandle,
+                                                      const SunLight :: Base :: stRectangle&,
+                                                      float )  {
             }
 
             /**

@@ -117,6 +117,9 @@ namespace SunLight  {
                 void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void EndRenderTarget( void ) override;
+                void CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                            const SunLight :: Base :: stRectangle& dest,
+                                            float fOpacity ) override;
                 SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget ) override;
 
                 void DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,

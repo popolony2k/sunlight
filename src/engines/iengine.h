@@ -325,6 +325,11 @@ namespace SunLight  {
              * the matching @see EndRenderTarget call. Drawing into it
              * starts in BLEND_MODE_NORMAL (see @see SetBlendMode).
              *
+             * Calls NEST (I19a of the master plan): a render target begun
+             * while another one is being drawn into is drawn into until its
+             * own @see EndRenderTarget, which goes back to the outer one -
+             * a view drawn into a target of its own inside the frame's.
+             *
              * @param hRenderTarget The render target to draw into;
              */
             virtual void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) = 0;
@@ -332,9 +337,35 @@ namespace SunLight  {
             /**
              * @brief Must be implemented to stop redirecting drawing into
              * whichever render target the matching @see BeginRenderTarget
-             * call started, resuming normal drawing.
+             * call started: drawing goes back to the render target that was
+             * being drawn into before it (calls nest), or to the window when
+             * there was none. The target drawn into next starts in
+             * BLEND_MODE_NORMAL.
              */
             virtual void EndRenderTarget( void ) = 0;
+
+            /**
+             * @brief Must be implemented to draw a whole render target into
+             * whatever is being drawn into now, at the given rectangle, faded
+             * by an opacity (I19a of the master plan: a view drawn at an
+             * opacity). The target is expected to have been cleared to
+             * transparent and drawn into in BLEND_MODE_NORMAL: its colour is
+             * then already multiplied by its own alpha (normal blending over
+             * a transparent pixel leaves colour x alpha), so it is combined
+             * as PREMULTIPLIED - colour x opacity + destination x (1 - alpha x
+             * opacity) - never as straight alpha, which would multiply a
+             * semi-transparent pixel by its alpha a second time and darken
+             * it. The destination's alpha combines as "over", as for every
+             * mode. Leaves the blend mode as it was.
+             *
+             * @param hRenderTarget The render target to draw (not the one
+             * being drawn into);
+             * @param dest Where to draw it, in the current target's pixels;
+             * @param fOpacity 0 (nothing) to 1 (as it is);
+             */
+            virtual void CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                                const SunLight :: Base :: stRectangle& dest,
+                                                float fOpacity ) = 0;
 
             /**
              * @brief Must be implemented to make every following draw combine with what is already
