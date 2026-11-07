@@ -2240,6 +2240,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
 | I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
+| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | PLANNED |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2879,6 +2880,65 @@ scroll limit is 314.
   map at a fractional zoom). The tables that pinned the old values were replaced. Built with the old
   code, all five fail.
 - `doc/BREAKAGES.md` entry 67.
+
+**I19: worlds - several maps at once (PLANNED).** Scarab's C7, designed with its session and agreed
+by both owners. Games want different maps on screen at the same time: split-screen with players on
+different maps, a world map beside the local one, a picture-in-picture dungeon, a menu over a map, a
+cross-fade between two maps. Today a renderer holds one map (`m_pMap`), `LoadMap` replaces it, every
+view shows it, and a second renderer is no way around it (one window per process).
+
+- **The design: a world, not a map, is the unit** (as Godot's `World2D`). A world holds one or more
+  maps, each at an offset in the world's own coordinates, and owns the sprites and the collision
+  rules; a view shows one world (`IView::SetWorld`). Isolated maps are several worlds of one map at
+  (0, 0); a Tiled `.world` file is one world of several maps at their offsets, where a sprite walks
+  across a map edge without being moved. Doing `.world` now (owner's decision) settles where sprites
+  and collisions live once, instead of moving them out of the map later.
+- **Nothing changes for existing games.** A default world: `LoadMap` puts its single map there at
+  (0, 0), the default view shows it, and the single-map API (`LoadMap`, `GetTile`,
+  `TileMapToTileMatrix`, ...) acts on it - not on "the default view's world", which a view can
+  switch. Mapless sprites stay in the default world. Caravellius and every sample are unchanged.
+- **What a `MapData` already gives:** its own libtmx Resource Manager, textures and animation clock;
+  the camera already lives in each view.
+- **Decisions (both owners):**
+  - Coordinates: each world has its own; a map's tiles sit at their map position plus the map's
+    offset. A sprite moves to another world by being removed from one and added to the other (the
+    game converts its position).
+  - Layer ids: a world-level id per layer NAME. Tiled's layer ids are unique only within one map; a
+    name present in the world's first map keeps that map's id, a name first seen in a later map gets
+    a new id above the highest assigned. Sprites, collision rules and view layer masks take these;
+    a lookup by name gives one. A one-map world uses that map's own ids. Layers are drawn layer by
+    layer over every visible map, so a sprite draws correctly on both sides of a map edge.
+  - Collisions per world: a sprite tests the tiles of every map it overlaps; two worlds never
+    collide. A collision listener is registered per world (each world has its own collision
+    manager), so `ICollisionListener` keeps its signatures; Scarab registers an adapter per world
+    that carries the world's handle.
+  - Unloading a world (or one of its maps) DETACHES its sprites - their colliders and registrations
+    go - without `Sprite::Unload`; the game releases or moves them. The legacy `UnloadMap` keeps
+    calling `Sprite::Unload` on its sprites, as today.
+  - Every live world updates each frame (animations, collisions), shown by a view or not.
+  - Every map of a world is loaded at once (loading only the maps near the camera, Tiled's adjacent-
+    maps option, is left for later).
+  - Every map's animation clock keeps reading the process-global `Clock`, so the null backend's
+    virtual time drives all of them exactly (already true: `MapData` reads `Clock::NowMilliseconds`).
+  - Camera behaviour stays per view: alignment, scroll limits and `FitToMap` use the bounding box of
+    the world's maps and the view's own zoom, at `SetWorld` and when the world loads.
+  - `.world` files are JSON, read with nlohmann/json, declared as Scarab declares it (`FetchContent`
+    name `nlohmann_json`, target `nlohmann_json`, so one copy in Scarab's build), linked privately.
+- **To verify before building:** the exact `.world` format against Tiled's own source (the map list,
+  and the pattern form that places maps by file name); how Tiled places isometric, staggered and
+  hexagonal maps in a world (orthogonal is supported first). A tileset shared by two maps is loaded
+  twice for now; a shared texture cache can come later.
+- **Phases, each its own PR and pin for Scarab, each planned with the owner first:**
+  - **I19a** per-view opacity (Scarab asked for it first: a cross-fade, a menu over a map);
+  - **I19b** the world container: the default world, `LoadMap` unchanged;
+  - **I19c** views show a world (`IView::SetWorld`);
+  - **I19d** several worlds (load, unload with detach, per-world listeners);
+  - **I19e** map offsets and several maps drawn per view, layers matched by name;
+  - **I19f** collisions across map edges;
+  - **I19g** `.world` loading.
+- **Scarab's side** (its C7, planned with sunlight): `world_load( path )` (a `.tmx` or a `.world`)
+  returning a handle, `world_unload`, `view_set_world`, an optional world on the sprite and collision
+  functions; `tilemap_load_map` and every existing call stay on the default world.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
