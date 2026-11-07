@@ -354,78 +354,66 @@ TEST_SUITE( "Hexagonal projection" )  {
         }
     }
 
-    TEST_CASE( "Map to tile matrix round-trips every cell of a 4x3 map, axis Y index odd hexside 20" )  {
+    // I17 of the master plan: a point in a cell's own hexagon picks that cell - its centre, and a point
+    // just inside each of its four extremes (the two sides across the staggered axis, the two tips along
+    // it) - on both axes, both indexes and several side lengths (0 is the staggered map's diamond). These
+    // replace round trips of a point 1 pixel inside each box's corner, which passed while the old floor put
+    // every hexagon's far tip (bottom on axis Y, right on axis X) in the next line: Scarab's probe of cell
+    // centres alone found hexagonal right, and checking its tips found the same bug as staggered.
+    TEST_CASE( "Map to tile matrix picks the cell whose hexagon holds the point, every axis, index and side length" )  {
 
-        HexagonalProjection  projection;
-        tmx_map              map = MakeMap( 4, 3, 60, 50, SA_Y, SI_ODD, 20 );
-        SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
+        struct stCase  { unsigned int nWidth, nHeight, nTileW, nTileH; tmx_stagger_axis axis; tmx_stagger_index index; int nSide; };
 
-        for( int nRow = 0; nRow < 3; nRow++ )  {
-            for( int nCol = 0; nCol < 4; nCol++ )  {
-                INFO( "col=" << nCol << " row=" << nRow );
+        const stCase  cases[] = { { 4, 3, 60, 50, SA_Y, SI_ODD, 20 }, { 4, 3, 60, 50, SA_Y, SI_EVEN, 20 },
+                                  { 4, 3, 60, 50, SA_X, SI_ODD, 20 }, { 4, 3, 60, 50, SA_X, SI_EVEN, 20 },
+                                  { 8, 6, 60, 50, SA_Y, SI_ODD, 20 }, { 5, 4, 60, 50, SA_Y, SI_ODD, 10 },
+                                  { 5, 4, 64, 48, SA_X, SI_EVEN, 0 }, { 6, 5, 64, 64, SA_X, SI_ODD, 32 },
+                                  { 1, 1, 60, 50, SA_Y, SI_ODD, 20 } };
+        const int     __INSIDE = 2;     // pixels inside an extreme
 
-                stMatrixPosition  pos { nRow, nCol };
-                SunLight :: Base :: stCoordinate2D  topLeft = projection.TileDrawPosition( pos, &map, 60, 50, 0, 0 );
-                SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
+        for( const stCase& c : cases )  {
+            HexagonalProjection           projection;
+            tmx_map                       map     = MakeMap( c.nWidth, c.nHeight, c.nTileW, c.nTileH, c.axis, c.index, c.nSide );
+            SunLight :: Base :: stSize2D  mapSize = projection.MapPixelSize( &map );
+            int                           nHalfW  = ( int ) c.nTileW / 2;
+            int                           nHalfH  = ( int ) c.nTileH / 2;
 
-                stMatrixPosition  back {};
-                bool  bFound = projection.MapToTileMatrix( probe, &map,
-                                                            mapSize.nWidth, mapSize.nHeight, back );
+            for( int nRow = 0; nRow < ( int ) c.nHeight; nRow++ )  {
+                for( int nCol = 0; nCol < ( int ) c.nWidth; nCol++ )  {
+                    SunLight :: Base :: stCoordinate2D  box = projection.TileDrawPosition( { nRow, nCol }, &map, c.nTileW, c.nTileH, 0, 0 );
+                    int                                 nCx = box.x + nHalfW;
+                    int                                 nCy = box.y + nHalfH;
+                    SunLight :: Base :: stCoordinate2D  probes[] = { { nCx, nCy },
+                                                                     { box.x + __INSIDE, nCy }, { box.x + ( int ) c.nTileW - __INSIDE, nCy },
+                                                                     { nCx, box.y + __INSIDE }, { nCx, box.y + ( int ) c.nTileH - __INSIDE } };
 
-                REQUIRE( bFound == true );
-                CHECK( back.nTileCol == nCol );
-                CHECK( back.nTileRow == nRow );
+                    for( const SunLight :: Base :: stCoordinate2D& probe : probes )  {
+                        INFO( c.nWidth << "x" << c.nHeight << " " << c.nTileW << "x" << c.nTileH << std :: string( c.axis == SA_X ? " X" : " Y" )
+                                       << std :: string( c.index == SI_EVEN ? " even" : " odd" ) << " side=" << c.nSide << " col=" << nCol
+                                       << " row=" << nRow << " probe=(" << probe.x << ", " << probe.y << ")" );
+
+                        stMatrixPosition  back {};
+
+                        REQUIRE( projection.MapToTileMatrix( probe, &map, mapSize.nWidth, mapSize.nHeight, back ) == true );
+                        CHECK( back.nTileCol == nCol );
+                        CHECK( back.nTileRow == nRow );
+                    }
+                }
             }
         }
     }
 
-    TEST_CASE( "Map to tile matrix round-trips every cell of a 4x3 map, axis X index even hexside 20" )  {
+    TEST_CASE( "Map to tile matrix finds no cell in the map rectangle's ragged edges, outside every hexagon" )  {
 
         HexagonalProjection  projection;
-        tmx_map              map = MakeMap( 4, 3, 50, 60, SA_X, SI_EVEN, 20 );
-        SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
 
-        for( int nRow = 0; nRow < 3; nRow++ )  {
-            for( int nCol = 0; nCol < 4; nCol++ )  {
-                INFO( "col=" << nCol << " row=" << nRow );
+        for( tmx_stagger_axis axis : { SA_Y, SA_X } )  {
+            tmx_map                       map     = MakeMap( 4, 3, 60, 50, axis, SI_ODD, 20 );
+            SunLight :: Base :: stSize2D  mapSize = projection.MapPixelSize( &map );
+            stMatrixPosition              pos {};
 
-                stMatrixPosition  pos { nRow, nCol };
-                SunLight :: Base :: stCoordinate2D  topLeft = projection.TileDrawPosition( pos, &map, 50, 60, 0, 0 );
-                SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
-
-                stMatrixPosition  back {};
-                bool  bFound = projection.MapToTileMatrix( probe, &map,
-                                                            mapSize.nWidth, mapSize.nHeight, back );
-
-                REQUIRE( bFound == true );
-                CHECK( back.nTileCol == nCol );
-                CHECK( back.nTileRow == nRow );
-            }
-        }
-    }
-
-    TEST_CASE( "Map to tile matrix round-trips with a different hexsidelength (10), axis Y index odd" )  {
-
-        HexagonalProjection  projection;
-        tmx_map              map = MakeMap( 4, 3, 60, 50, SA_Y, SI_ODD, 10 );
-        SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
-
-        for( int nRow = 0; nRow < 3; nRow++ )  {
-            for( int nCol = 0; nCol < 4; nCol++ )  {
-                INFO( "col=" << nCol << " row=" << nRow );
-
-                stMatrixPosition  pos { nRow, nCol };
-                SunLight :: Base :: stCoordinate2D  topLeft = projection.TileDrawPosition( pos, &map, 60, 50, 0, 0 );
-                SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
-
-                stMatrixPosition  back {};
-                bool  bFound = projection.MapToTileMatrix( probe, &map,
-                                                            mapSize.nWidth, mapSize.nHeight, back );
-
-                REQUIRE( bFound == true );
-                CHECK( back.nTileCol == nCol );
-                CHECK( back.nTileRow == nRow );
-            }
+            INFO( std :: string( axis == SA_X ? "axis X" : "axis Y" ) );
+            CHECK( projection.MapToTileMatrix( { 1, 1 }, &map, mapSize.nWidth, mapSize.nHeight, pos ) == false );
         }
     }
 

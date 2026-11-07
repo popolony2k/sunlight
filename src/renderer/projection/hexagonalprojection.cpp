@@ -30,6 +30,24 @@ namespace SunLight  {
 
                 const int    __NO_GRID_CELLS     = 0;      // the near edge of every map's grid
                 const float  __HALF_TILE_DIVISOR = 2.0f;   // the non-staggered axis still steps by half a tile
+                const int    __NEXT_LINE         = 1;      // the line (row or column) next to another
+                const int    __LINES_PER_PAIR    = 2;      // an unshifted line and a shifted one make one pair
+
+                // Whether a point (px, py), relative to a cell's tileWidth x tileHeight box, is inside that
+                // cell's hexagon (I17 of the master plan), inclusive. The hexagon's two sides of hexsidelength
+                // run along the staggered axis (vertical for SA_Y, horizontal for SA_X) through the box's
+                // middle; its two points sit on the box's edges across that axis. With hexsidelength 0 it is
+                // the staggered map's diamond.
+                bool InHexagon( float fPx, float fPy, float fHalfW, float fHalfH, float fHalfSide, bool bAxisY )  {
+
+                    float  fDx = std :: fabs( fPx - fHalfW );
+                    float  fDy = std :: fabs( fPy - fHalfH );
+
+                    if( bAxisY )
+                        return ( fDx <= fHalfW ) && ( ( fDy <= fHalfSide ) || ( ( fDy - fHalfSide ) * fHalfW <= ( fHalfH - fHalfSide ) * ( fHalfW - fDx ) ) );
+
+                    return ( fDy <= fHalfH ) && ( ( fDx <= fHalfSide ) || ( ( fDx - fHalfSide ) * fHalfH <= ( fHalfW - fHalfSide ) * ( fHalfH - fDy ) ) );
+                }
 
                 // Whether the row (SA_Y) or column (SA_X) at nLineIndex is one of the shifted ones, per
                 // libtmx's stagger_index - identical to StaggeredProjection's own helper (hexsidelength plays
@@ -82,6 +100,11 @@ namespace SunLight  {
                 }
             }
 
+            /**
+             * @brief The hexagonal grid's box: on the staggered axis the lines a pitch ((tile + hexsidelength) / 2) apart plus the last cell's remainder, on the other whole tiles plus the half a tile the shifted lines stick out.
+             * @param pMap The map, as libtmx parsed it;
+             * @return The map's pixel size;
+             */
             SunLight :: Base :: stSize2D HexagonalProjection :: MapPixelSize( tmx_map* pMap ) const  {
 
                 float  fHalfW = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
@@ -102,6 +125,16 @@ namespace SunLight  {
                                                        ( int ) ( pMap -> height * pMap -> tile_height + fHalfH ) };
             }
 
+            /**
+             * @brief The cell's top-left corner (CellTopLeft): whole tiles on the unstaggered axis, a pitch per line on the staggered one, with each shifted line (stagger_index) moved half a tile along the other axis; plus the layer's offset.
+             * @param pos The cell's row and column;
+             * @param pMap The map, as libtmx parsed it;
+             * @param nTileWidth Unused: the lattice steps by the map's own tile size;
+             * @param nTileHeight Unused, likewise;
+             * @param nLayerOffsetX The layer's own x offset, added to the cell's corner;
+             * @param nLayerOffsetY The layer's own y offset, likewise;
+             * @return The cell's top-left corner, in map pixels;
+             */
             SunLight :: Base :: stCoordinate2D HexagonalProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition& pos,
                                                                                          tmx_map* pMap,
                                                                                          int /* nTileWidth */,
@@ -114,6 +147,15 @@ namespace SunLight  {
                 return SunLight :: Base :: stCoordinate2D { cell.x + nLayerOffsetX, cell.y + nLayerOffsetY };
             }
 
+            /**
+             * @brief A true hexagon hit-test (I17), StaggeredProjection's method with the pitch: the rectangle two pitches long anchored at an unshifted line, its hexagon (InHexagon) for that line's cell, and the rest of the rectangle for the shifted lines either side. False outside the map's pixel rectangle and on its ragged edges, outside every hexagon.
+             * @param coord The coordinate, in map pixels;
+             * @param pMap The map, as libtmx parsed it;
+             * @param nMapPixelWidth MapPixelSize's width, already computed;
+             * @param nMapPixelHeight MapPixelSize's height, likewise;
+             * @param pos Receives the cell's row and column, when the point is in a cell;
+             * @return Whether the point is in one of the map's cells;
+             */
             bool HexagonalProjection :: MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                                          tmx_map* pMap,
                                                          int nMapPixelWidth,
@@ -132,36 +174,84 @@ namespace SunLight  {
                 float  fHalfW = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
                 float  fHalfH = ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR;
 
-                // A single direct floor against the cell's own line shift, no second overlap candidate - the
-                // same simplification StaggeredProjection settled on after mutation-testing showed the extra
-                // candidate was dead weight for the only precision this method promises (a point near a cell's
-                // own anchor corner). Re-verified here, not assumed to carry over unchanged (E3a's own note):
-                // see test_hexagonalprojection.cpp's round-trip suite and its own mutation check.
-                if( EffectiveAxis( pMap ) == SA_Y )  {
-                    float  fPitchY = StaggerPitch( pMap -> tile_height, pMap -> hexsidelength );
-                    int    nRow    = ( int ) std :: floor( fMapY / fPitchY );
-                    float  fShiftX = IsShiftedLine( nRow, pMap -> stagger_index ) ? fHalfW : 0.0f;
-                    int    nCol    = ( int ) std :: floor( ( fMapX - fShiftX ) / ( float ) pMap -> tile_width );
+                // A true hexagon hit-test (I17 of the master plan), the same method as StaggeredProjection's:
+                // on the staggered axis the lines are a pitch apart (StaggerPitch) and the boxes overlap there,
+                // so a box cannot tell which hexagon a point is in. The unshifted lines tile the plane with
+                // rectangles one tile wide and two pitches long (the hexagon, then the shifted cells' sides
+                // beside it); a point in the rectangle's hexagon is that cell, and every other point belongs
+                // to the shifted line before or after it, whose cells start half a tile further along. The
+                // hexagon test is inclusive and the rest goes to the neighbours, so every point falls in
+                // exactly one cell. It used to floor against the pitch and the shifted line's half tile, which
+                // got a cell's centre and its sides right but put the tip past the pitch in the next line
+                // (found checking Scarab's report: the bottom tip of every hexagon on axis Y, the right one
+                // on axis X, picked a neighbour).
+                bool   bAxisY    = ( EffectiveAxis( pMap ) == SA_Y );
+                float  fTileW    = ( float ) pMap -> tile_width;
+                float  fTileH    = ( float ) pMap -> tile_height;
+                float  fHalfSide = ( float ) pMap -> hexsidelength / __HALF_TILE_DIVISOR;
+                int    nFirst    = IsShiftedLine( __NO_GRID_CELLS, pMap -> stagger_index ) ? __NEXT_LINE : __NO_GRID_CELLS;
+                int    nRow;
+                int    nCol;
 
-                    pos = { nRow, nCol };
+                if( bAxisY )  {
+                    float  fPitch = StaggerPitch( pMap -> tile_height, pMap -> hexsidelength );
+                    int    nPair  = ( int ) std :: floor( ( fMapY - nFirst * fPitch ) / ( fPitch * __LINES_PER_PAIR ) );
+                    int    nLine  = nFirst + ( nPair * __LINES_PER_PAIR );
+                    int    nRectX = ( int ) std :: floor( fMapX / fTileW );
+                    float  fPx    = fMapX - ( nRectX * fTileW );
+                    float  fPy    = fMapY - ( nLine * fPitch );
+
+                    nRow = nLine;
+                    nCol = nRectX;
+
+                    if( !InHexagon( fPx, fPy, fHalfW, fHalfH, fHalfSide, true ) )  {
+                        nRow = nLine + ( ( fPy < fHalfH ) ? -__NEXT_LINE : __NEXT_LINE );
+                        nCol = nRectX - ( ( fPx < fHalfW ) ? __NEXT_LINE : __NO_GRID_CELLS );   // a shifted cell starts half a tile right
+                    }
                 }
                 else  {
-                    float  fPitchX = StaggerPitch( pMap -> tile_width, pMap -> hexsidelength );
-                    int    nCol    = ( int ) std :: floor( fMapX / fPitchX );
-                    float  fShiftY = IsShiftedLine( nCol, pMap -> stagger_index ) ? fHalfH : 0.0f;
-                    int    nRow    = ( int ) std :: floor( ( fMapY - fShiftY ) / ( float ) pMap -> tile_height );
+                    float  fPitch = StaggerPitch( pMap -> tile_width, pMap -> hexsidelength );
+                    int    nPair  = ( int ) std :: floor( ( fMapX - nFirst * fPitch ) / ( fPitch * __LINES_PER_PAIR ) );
+                    int    nLine  = nFirst + ( nPair * __LINES_PER_PAIR );
+                    int    nRectY = ( int ) std :: floor( fMapY / fTileH );
+                    float  fPx    = fMapX - ( nLine * fPitch );
+                    float  fPy    = fMapY - ( nRectY * fTileH );
 
-                    pos = { nRow, nCol };
+                    nCol = nLine;
+                    nRow = nRectY;
+
+                    if( !InHexagon( fPx, fPy, fHalfW, fHalfH, fHalfSide, false ) )  {
+                        nCol = nLine + ( ( fPx < fHalfW ) ? -__NEXT_LINE : __NEXT_LINE );
+                        nRow = nRectY - ( ( fPy < fHalfH ) ? __NEXT_LINE : __NO_GRID_CELLS );   // a shifted cell starts half a tile down
+                    }
                 }
+
+                // Inside the map's pixel rectangle but outside every hexagon (its ragged edges): no cell.
+                if( ( nCol < __NO_GRID_CELLS ) || ( nCol >= ( int ) pMap -> width ) ||
+                    ( nRow < __NO_GRID_CELLS ) || ( nRow >= ( int ) pMap -> height ) )
+                    return false;
+
+                pos = { nRow, nCol };
 
                 return true;
             }
 
+            /**
+             * @brief One whole tile of the map (its tile_width by tile_height), the same convention as orthogonal.
+             * @param pMap The map, as libtmx parsed it;
+             * @return The default step, in map pixels;
+             */
             SunLight :: Base :: stSize2D HexagonalProjection :: DefaultScrollStep( tmx_map* pMap ) const  {
 
                 return SunLight :: Base :: stSize2D { ( int ) pMap -> tile_width, ( int ) pMap -> tile_height };
             }
 
+            /**
+             * @brief Each axis's exact bound against a cell's whole tile rectangle - on the staggered axis through the pitch - clamped to the grid.
+             * @param pMap The map, as libtmx parsed it;
+             * @param mapPixelRect The rectangle to test, in map pixel space;
+             * @return The matrix range that could touch it, clamped to the map's grid;
+             */
             stTileRange HexagonalProjection :: VisibleTileRange( tmx_map* pMap,
                                                                   const SunLight :: Base :: stRectangle& mapPixelRect ) const  {
 

@@ -145,19 +145,21 @@ TEST_SUITE( "renderer/viewport semantics" )  {
 
     TEST_CASE( "LoadMap alignments at Caravellius' viewport (10, 10, 1240, 900), zoom 3.8125: pinned camera positions" )  {
 
-        // 640 x 640 map. Legacy (10, 10, 1250, 910) gave exactly these; (10, 10, 1240, 900) shows the same
-        // area and must too. Note BOTTOM_RIGHT / CENTER_WIDTH_BOTTOM: y = 10, not 260 - they snap to a
-        // whole multiple of the viewport's bottom edge (910): 640 mod 910 = 640, so map height - 640 = 0.
+        // 640 x 640 map; 1240 / 3.8125 = 325.25 and 900 / 3.8125 = 236.07 map pixels visible. A far edge
+        // (I18 of the master plan) is where scrolling stops: ceil(325.25 - 640) = -314, ceil(236.07 - 640) =
+        // -403 (GetCameraPosition reports them negated). They used to ignore the zoom and snap to the
+        // viewport's bottom edge coordinate: TOP_RIGHT -600, BOTTOM_RIGHT (-600, 10), BOTTOM_LEFT -260 -
+        // the two bottoms did not even agree. The centred ones are unchanged.
         struct  { int nAlignment; int nX; int nY; }  expected[] = {
             { ITM :: MAP_ALIGNMENT_CENTER,               157,  202 },
-            { ITM :: MAP_ALIGNMENT_TOP_RIGHT,           -600,    0 },
+            { ITM :: MAP_ALIGNMENT_TOP_RIGHT,            314,    0 },
             { ITM :: MAP_ALIGNMENT_TOP_LEFT,               0,    0 },
-            { ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT,        -600,   10 },
-            { ITM :: MAP_ALIGNMENT_BOTTOM_LEFT,            0, -260 },
+            { ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT,         314,  403 },
+            { ITM :: MAP_ALIGNMENT_BOTTOM_LEFT,            0,  403 },
             { ITM :: MAP_ALIGNMENT_CENTER_WIDTH_TOP,     157,    0 },
-            { ITM :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM,  157,   10 },
+            { ITM :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM,  157,  403 },
             { ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_LEFT,     0,  202 },
-            { ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT, -600,  202 },
+            { ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT,  314,  202 },
         };
 
         MemoryFileSystemFixture  fixture;
@@ -178,7 +180,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         }
     }
 
-    TEST_CASE( "LoadMap alignments equal the legacy code on the same visible area - every alignment, several viewports and zooms" )  {
+    TEST_CASE( "LoadMap's centred and top-left alignments equal the legacy code; its far edges are where scrolling stops - several viewports and zooms" )  {
 
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
@@ -199,6 +201,18 @@ TEST_SUITE( "renderer/viewport semantics" )  {
                 pRenderer -> GetCameraPosition( nX, nY );
                 LegacyAlignment( nAlignment, 640, 640, v.nPosX, v.nPosY, v.nPosX + v.nWidth, v.nPosY + v.nHeight, fZoom, nExpX, nExpY );
 
+                // I18: a far edge (right, bottom) is the scroll limit - ceil(visible - map), reported negated.
+                bool  bRight  = ( nAlignment == ITM :: MAP_ALIGNMENT_TOP_RIGHT ) || ( nAlignment == ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT ) ||
+                                ( nAlignment == ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT );
+                bool  bBottom = ( nAlignment == ITM :: MAP_ALIGNMENT_BOTTOM_LEFT ) || ( nAlignment == ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT ) ||
+                                ( nAlignment == ITM :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM );
+
+                if( bRight )
+                    nExpX = ( int ) -std :: ceil( ( ( float ) v.nWidth / fZoom ) - 640.0f );
+
+                if( bBottom )
+                    nExpY = ( int ) -std :: ceil( ( ( float ) v.nHeight / fZoom ) - 640.0f );
+
                 nCompared++;
 
                 if( ( nX != nExpX ) || ( nY != nExpY ) )
@@ -212,11 +226,12 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         CHECK( nMismatches == 0 );
     }
 
-    TEST_CASE( "The bottom alignments snap to a whole multiple of the viewport's bottom edge (pos.y + height), so a taller map lands further along" )  {
+    TEST_CASE( "A bottom alignment puts a tall map's bottom edge on the view's bottom edge, at a fractional zoom" )  {
 
-        // BOTTOM_RIGHT / CENTER_WIDTH_BOTTOM put the camera at (map height - map height mod bottom edge + pos.y).
-        // Map 1920 tall, viewport (10, 10, 1240, 900) -> bottom edge 910: 1920 mod 910 = 100, so y = -(1920 - 100 + 10) = -1830.
-        // (Legacy (10, 10, 1250, 910) gave the same, because it IS the same bottom edge.)
+        // I18 of the master plan. Map 1920 tall, viewport (10, 10, 1240, 900), zoom 3.8125: 236.07 map pixels
+        // visible, so y = ceil(236.07 - 1920) = -1683, the map's bottom edge on the view's. It used to snap to a
+        // whole multiple of the viewport's bottom edge coordinate (910): 1920 mod 910 = 100, so -1830 - the
+        // view went 147 map pixels past the map's bottom.
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/tall.tmx"] = MakeSquareTmx( 120, 16 );          // 1920 x 1920
 
@@ -242,7 +257,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         int  nX = 0, nY = 0;
 
         pRenderer -> GetCameraPosition( nX, nY );
-        CHECK( nY == 1830 );                       // GetCameraPosition reports the negated camera: camera y = -1830
+        CHECK( nY == 1683 );                       // GetCameraPosition reports the negated camera: camera y = -1683
         pRenderer -> Stop();
     }
 

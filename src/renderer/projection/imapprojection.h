@@ -86,18 +86,20 @@ namespace SunLight  {
                                                                               int nLayerOffsetY ) const = 0;
 
                 /**
-                 * @brief Which matrix cell a map-pixel coordinate falls in: the inverse of a cell's TileDrawPosition
-                 * for the map's own grid (no layer offset), in the same map-pixel space - no camera, zoom or
-                 * viewport origin (I7 of the master plan: tile picking and collisions are worked out in map
-                 * space, so a sprite's view and the camera never enter). Only checks that the coordinate is
-                 * inside the map's own pixel bounds (see MapPixelSize); the final check against the matrix's
-                 * actual row/column counts is the same for every orientation, so it stays in TileMapRenderer.
+                 * @brief Which matrix cell a map-pixel coordinate falls in: the cell whose own shape (a rectangle,
+                 * a diamond or a hexagon, by orientation) holds the point, for the map's own grid (no layer
+                 * offset), in the same map-pixel space as TileDrawPosition - no camera, zoom or viewport origin
+                 * (I7 of the master plan: tile picking and collisions are worked out in map space, so a sprite's
+                 * view and the camera never enter). A point outside the map's own pixel bounds (see
+                 * MapPixelSize) has no cell; nor, for a map whose cells do not fill that rectangle (isometric's
+                 * empty corners, staggered and hexagonal's ragged edges - I17), a point outside every cell.
+                 * TileMapRenderer still checks the result against the matrix's actual row/column counts.
                  * @param coord The coordinate, in map pixels;
                  * @param pMap The map, as libtmx parsed it;
                  * @param nMapPixelWidth MapPixelSize's width, already computed;
                  * @param nMapPixelHeight MapPixelSize's height, likewise;
-                 * @param pos Receives the matrix position, when the coordinate is inside the map's pixel bounds;
-                 * @return Whether the coordinate is inside the map's pixel bounds;
+                 * @param pos Receives the matrix position, when the coordinate is in a cell;
+                 * @return Whether the coordinate is in one of the map's cells;
                  */
                 virtual bool MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                               tmx_map* pMap,

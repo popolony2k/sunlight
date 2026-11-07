@@ -2238,6 +2238,8 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I14 | `WriteFile` atomic and durable (a temporary file, flushed to the disk, renamed over the target); `IFileSystem::RemoveFile` (asked for by Scarab) | DONE |
 | I15 | Sprites with equal z-orders draw in the order they were added on every frame, whatever z-orders changed before (found by Scarab) | DONE |
 | I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
+| I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
+| I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2833,6 +2835,50 @@ its C2 (`shape_draw_*` for Lua): a shape drawn through `IShapeSurface` after the
   view's camera); mapless, the camera moved. Built with the old code, four fail with Scarab's numbers
   (660, 630; 1010, 910; 565, 570; the mapless 510, 510).
 - `doc/BREAKAGES.md` entry 65.
+
+**I17: tile picking on non-orthogonal maps (DONE).** Scarab found it while probing its picking API:
+on the isometric sample, `TileMapToTileMatrix` at each of the 48 cells' own centres picked a
+neighbour every time; on the staggered sample, about half.
+
+- **Cause:** each projection's `MapToTileMatrix` inverted the lattice from the cell's BOUNDING-BOX
+  corner, which is exact only at that corner. An isometric diamond's top vertex is half a tile right
+  of it, so a centre floored into the next column. Staggered and hexagonal used the rectangular
+  "which box" step alone, so every point in a box's corners (a neighbour's diamond or hexagon) picked
+  the box's own cell. Scarab probed only the hexagonal centres, which happen to be right; a probe at
+  the far tips (bottom for axis Y, right for axis X) failed 48 of 48, so hexagonal was fixed too.
+- **Fix:** a true hit-test, as Tiled's own `screenToTileCoords`. Isometric: the point measured in half
+  tiles from the diamond's top vertex, then the two floors of the inverse. Staggered: the box anchored
+  at an unshifted line; inside its diamond, that cell; otherwise the corner decides the neighbour (line
+  plus or minus one, and the column or row before it on the near half). Hexagonal: the same, with a
+  box two stagger pitches long and a hexagon test (`InHexagon`; side 0 is the staggered diamond). A
+  point inside the map's rectangle but outside every cell returns false. Orthogonal is unchanged.
+- **Tests:** every cell of several maps (sizes, tile sizes, both stagger axes and indices, hex sides
+  20, 10, 0 and 32) picks itself at its centre and just inside each of its four vertices (a hexagon's
+  two sides and two tips); the empty corners and ragged edges return false. Built with the old code they fail (isometric
+  picks column 1 for 0; hexagonal fails at the bottom tip).
+- **Samples:** the comments in `samples/{isometric,isometric_haptics,staggered,hexagonal}/world.h` no
+  longer say the inverse is exact only at a cell's corner.
+- `doc/BREAKAGES.md` entry 66.
+
+**I18: far-edge alignments are the scroll limit (DONE).** Scarab found it beside I17:
+`MAP_ALIGNMENT_TOP_RIGHT` at Caravellius's viewport gave a camera of -600 on a 640-wide map, where the
+scroll limit is 314.
+
+- **Cause:** `Camera::Align` put a far edge at the map size minus the map size modulo the viewport's
+  far-edge COORDINATE (pos + size), with no zoom: a number that matched the far edge only when the
+  zoom was 1 and the map an exact multiple. `BOTTOM_LEFT` and `BOTTOM_RIGHT` even used different
+  formulas.
+- **Fix:** every far edge uses `FarCameraLimit`, the limit scrolling already stops at:
+  `ceil(viewport size / zoom - map size)`. A map smaller than the view is pushed against the view's
+  far edge. `TOP_LEFT` and the centred alignments are unchanged.
+- **Caravellius (accepted by the owner):** every stage loads with `CENTER_WIDTH_BOTTOM`; the corsair
+  stage starts at camera y 10003 instead of 10020, its bottom edge now exactly on the view's.
+- **Tests:** `tests/test_cameraunit.cpp` (zooms 1, 2, 3.8125 and 0.5, against the scrolled camera;
+  Caravellius's stage; a narrow map aligned right) and `tests/test_viewport_semantics.cpp` (the
+  640 x 640 table at Caravellius's viewport, every alignment over several viewports and zooms, a tall
+  map at a fractional zoom). The tables that pinned the old values were replaced. Built with the old
+  code, all five fail.
+- `doc/BREAKAGES.md` entry 67.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

@@ -57,9 +57,10 @@ class World : public SunLight :: Collision :: ICollisionListener,
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteSunny;
     std :: unique_ptr<SunLight :: Canvas :: TextureCanvas>      m_pCanvasSunny;
 
-    // Sunny's own grid cell, tracked explicitly rather than re-derived from her pixel position
-    // (TileMapToTileMatrix) - that inverse is exact only at a cell's own corner (see above), not
-    // reliable mid-animation, so the logical cell she occupies is state this class owns instead.
+    // Sunny's own grid cell, tracked explicitly rather than re-derived from her pixel position: in
+    // the middle of a step's animation she is between two cells, so the cell she logically occupies
+    // is state this class owns. (TileMapToTileMatrix does pick the cell under a point - a true
+    // diamond or hexagon hit-test, I17 of the master plan - but a moving sprite's point is not her cell.)
     int                                                        m_nSunnyRow = 4;
     int                                                        m_nSunnyCol = 2;
 

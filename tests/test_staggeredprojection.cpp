@@ -260,59 +260,64 @@ TEST_SUITE( "Staggered projection" )  {
         CHECK( destBig.y == 24 );
     }
 
-    TEST_CASE( "Map to tile matrix round-trips every cell of a 4x3 map, axis Y index odd" )  {
+    // I17 of the master plan, found by Scarab: a point in a cell's own diamond picks that cell - its
+    // centre, and a point just inside each of its four vertices - on both axes and both stagger indexes.
+    // These replace round trips of a point 1 pixel inside each bounding box's corner, which pinned the old
+    // convention: the old inverse floored against the staggered axis's half-tile step and put every cell's
+    // centre in the next line.
+    TEST_CASE( "Map to tile matrix picks the cell whose diamond holds the point, every axis and index" )  {
 
-        StaggeredProjection  projection;
-        tmx_map              map = MakeMap( 4, 3, 64, 48, SA_Y, SI_ODD );
-        SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
+        struct stCase  { unsigned int nWidth, nHeight, nTileW, nTileH; tmx_stagger_axis axis; tmx_stagger_index index; };
 
-        for( int nRow = 0; nRow < 3; nRow++ )  {
-            for( int nCol = 0; nCol < 4; nCol++ )  {
-                INFO( "col=" << nCol << " row=" << nRow );
+        const stCase  cases[] = { { 4, 3, 64, 48, SA_Y, SI_ODD }, { 4, 3, 64, 48, SA_Y, SI_EVEN },
+                                  { 4, 3, 64, 48, SA_X, SI_ODD }, { 4, 3, 64, 48, SA_X, SI_EVEN },
+                                  { 8, 6, 64, 48, SA_Y, SI_ODD }, { 5, 7, 32, 16, SA_X, SI_EVEN },
+                                  { 7, 5, 32, 16, SA_Y, SI_EVEN }, { 1, 1, 64, 32, SA_Y, SI_ODD } };
+        const int     __INSIDE = 2;     // pixels inside a vertex
 
-                stMatrixPosition  pos { nRow, nCol };
-                SunLight :: Base :: stCoordinate2D  topLeft = projection.TileDrawPosition( pos, &map, 64, 48, 0, 0 );
+        for( const stCase& c : cases )  {
+            StaggeredProjection           projection;
+            tmx_map                       map     = MakeMap( c.nWidth, c.nHeight, c.nTileW, c.nTileH, c.axis, c.index );
+            SunLight :: Base :: stSize2D  mapSize = projection.MapPixelSize( &map );
+            int                           nHalfW  = ( int ) c.nTileW / 2;
+            int                           nHalfH  = ( int ) c.nTileH / 2;
 
-                // A point just inside the cell's own top-left corner - NOT the bounding box's center: a
-                // neighbouring cell's box overlaps this one by half its width/height on the staggered
-                // axis (E2a), so the center of one cell's box can land inside another cell's own span.
-                // Only a point near THIS cell's own anchor corner is unambiguous (see StaggeredProjection's
-                // own doc comment).
-                SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
+            for( int nRow = 0; nRow < ( int ) c.nHeight; nRow++ )  {
+                for( int nCol = 0; nCol < ( int ) c.nWidth; nCol++ )  {
+                    SunLight :: Base :: stCoordinate2D  box = projection.TileDrawPosition( { nRow, nCol }, &map, c.nTileW, c.nTileH, 0, 0 );
+                    int                                 nCx = box.x + nHalfW;
+                    int                                 nCy = box.y + nHalfH;
+                    SunLight :: Base :: stCoordinate2D  probes[] = { { nCx, nCy },
+                                                                     { nCx - nHalfW + __INSIDE, nCy }, { nCx + nHalfW - __INSIDE, nCy },
+                                                                     { nCx, nCy - nHalfH + __INSIDE }, { nCx, nCy + nHalfH - __INSIDE } };
 
-                stMatrixPosition  back {};
-                bool  bFound = projection.MapToTileMatrix( probe, &map,
-                                                            mapSize.nWidth, mapSize.nHeight, back );
+                    for( const SunLight :: Base :: stCoordinate2D& probe : probes )  {
+                        INFO( c.nWidth << "x" << c.nHeight << " " << c.nTileW << "x" << c.nTileH << std :: string( c.axis == SA_X ? " X" : " Y" )
+                                       << std :: string( c.index == SI_EVEN ? " even" : " odd" ) << " col=" << nCol << " row=" << nRow
+                                       << " probe=(" << probe.x << ", " << probe.y << ")" );
 
-                REQUIRE( bFound == true );
-                CHECK( back.nTileCol == nCol );
-                CHECK( back.nTileRow == nRow );
+                        stMatrixPosition  back {};
+
+                        REQUIRE( projection.MapToTileMatrix( probe, &map, mapSize.nWidth, mapSize.nHeight, back ) == true );
+                        CHECK( back.nTileCol == nCol );
+                        CHECK( back.nTileRow == nRow );
+                    }
+                }
             }
         }
     }
 
-    TEST_CASE( "Map to tile matrix round-trips every cell of a 4x3 map, axis X index even" )  {
+    TEST_CASE( "Map to tile matrix finds no cell in the map rectangle's ragged edges, outside every diamond" )  {
 
         StaggeredProjection  projection;
-        tmx_map              map = MakeMap( 4, 3, 64, 48, SA_X, SI_EVEN );
-        SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
 
-        for( int nRow = 0; nRow < 3; nRow++ )  {
-            for( int nCol = 0; nCol < 4; nCol++ )  {
-                INFO( "col=" << nCol << " row=" << nRow );
+        for( tmx_stagger_axis axis : { SA_Y, SA_X } )  {
+            tmx_map                       map     = MakeMap( 4, 3, 64, 48, axis, SI_ODD );
+            SunLight :: Base :: stSize2D  mapSize = projection.MapPixelSize( &map );
+            stMatrixPosition              pos {};
 
-                stMatrixPosition  pos { nRow, nCol };
-                SunLight :: Base :: stCoordinate2D  topLeft = projection.TileDrawPosition( pos, &map, 64, 48, 0, 0 );
-                SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
-
-                stMatrixPosition  back {};
-                bool  bFound = projection.MapToTileMatrix( probe, &map,
-                                                            mapSize.nWidth, mapSize.nHeight, back );
-
-                REQUIRE( bFound == true );
-                CHECK( back.nTileCol == nCol );
-                CHECK( back.nTileRow == nRow );
-            }
+            INFO( std :: string( axis == SA_X ? "axis X" : "axis Y" ) );
+            CHECK( projection.MapToTileMatrix( { 1, 1 }, &map, mapSize.nWidth, mapSize.nHeight, pos ) == false );
         }
     }
 
