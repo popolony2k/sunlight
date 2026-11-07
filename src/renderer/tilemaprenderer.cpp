@@ -101,12 +101,41 @@ namespace SunLight  {
 
 
         /**
+         * @brief The active world's map (I19b of the master plan): the default world's, always, for
+         * now - LoadMap fills the default world, and every draw, lookup and update reads the active one.
+         * @return The map, or nullptr when none is loaded;
+         */
+        MapData* TileMapRenderer :: Map( void ) const  {
+
+            return m_pActiveWorld -> Map();
+        }
+
+        /**
+         * @brief The active world's sprites (I19b): the ones registered per layer and the ones this
+         * renderer is the parent of (see SpriteRegistry).
+         * @return The registry;
+         */
+        SpriteRegistry& TileMapRenderer :: Sprites( void )  {
+
+            return m_pActiveWorld -> Sprites();
+        }
+
+        /**
+         * @brief The active world's collision rules and colliders (I19b).
+         * @return Its CollisionManager;
+         */
+        SunLight :: Collision :: CollisionManager& TileMapRenderer :: Collisions( void )  {
+
+            return m_pActiveWorld -> Collisions();
+        }
+
+        /**
          * @brief The loaded map's libtmx map, or nullptr when no map is loaded (S1c1: it lives in
          * MapData). The renderer's "is a map loaded" checks read this.
          */
         tmx_map* TileMapRenderer :: Tmx( void ) const  {
 
-            return m_pMap ? m_pMap -> Tmx() : nullptr;
+            return Map() ? Map() -> Tmx() : nullptr;
         }
 
         /**
@@ -115,7 +144,7 @@ namespace SunLight  {
          */
         uint16_t TileMapRenderer :: MapPixelWidth( void ) const  {
 
-            return m_pMap ? m_pMap -> PixelWidth() : 0;
+            return Map() ? Map() -> PixelWidth() : 0;
         }
 
         /**
@@ -123,7 +152,7 @@ namespace SunLight  {
          */
         uint16_t TileMapRenderer :: MapPixelHeight( void ) const  {
 
-            return m_pMap ? m_pMap -> PixelHeight() : 0;
+            return Map() ? Map() -> PixelHeight() : 0;
         }
 
         /**
@@ -133,7 +162,7 @@ namespace SunLight  {
          */
         tmx_layer* TileMapRenderer :: GetLayer( int nLayerId )  {
 
-            return m_pMap ? m_pMap -> FindLayer( nLayerId ) : nullptr;
+            return Map() ? Map() -> FindLayer( nLayerId ) : nullptr;
         }
 
         /**
@@ -143,7 +172,7 @@ namespace SunLight  {
          */
         tmx_layer* TileMapRenderer :: GetLayer( const char* szLayerName )  {
 
-            return m_pMap ? m_pMap -> FindLayer( szLayerName ) : nullptr;
+            return Map() ? Map() -> FindLayer( szLayerName ) : nullptr;
         }
 
         /**
@@ -158,10 +187,10 @@ namespace SunLight  {
          */
         void TileMapRenderer :: UnloadSprites( void )  {
 
-            for( const std :: pair<int, SunLight :: Sprite :: Sprite*>& registration : m_Sprites.Registrations() )
-                m_CollisionManager.RemoveCollider( registration.first, &registration.second -> GetCollider() );
+            for( const std :: pair<int, SunLight :: Sprite :: Sprite*>& registration : Sprites().Registrations() )
+                Collisions().RemoveCollider( registration.first, &registration.second -> GetCollider() );
 
-            m_Sprites.UnloadAll();
+            Sprites().UnloadAll();
         }
 
         /**
@@ -387,7 +416,7 @@ namespace SunLight  {
                             // S1b: shapes and text through the ObjectRenderer; tile objects come back here.
                             m_ObjectRenderer.Draw( CurrentDrawContext(), pLayer, m_Fonts,
                                                    [this]( tmx_object* pObject, tmx_layer* pObjectLayer, float fOpacity )  {
-                                                       m_LayerRenderer.DrawTileObject( CurrentDrawContext(), *m_pMap, pObject, pObjectLayer, fOpacity );
+                                                       m_LayerRenderer.DrawTileObject( CurrentDrawContext(), *Map(), pObject, pObjectLayer, fOpacity );
                                                    } );
                             break;
                         case L_IMAGE :
@@ -398,7 +427,7 @@ namespace SunLight  {
                                 m_LayerRenderer.DrawImageLayer( CurrentDrawContext(), pLayer );
                             break;
                         case L_LAYER :
-                            m_LayerRenderer.DrawTileLayer( CurrentDrawContext(), *m_pMap, pLayer );
+                            m_LayerRenderer.DrawTileLayer( CurrentDrawContext(), *Map(), pLayer );
                             break;
                         case L_NONE :
                             // libtmx never gives a layer this kind: it skips any element that is not
@@ -408,7 +437,7 @@ namespace SunLight  {
                     }
 
                     /*
-                     * Runtime-added sprites (AddSprite/m_Sprites, keyed by
+                     * Runtime-added sprites (AddSprite/Sprites(), keyed by
                      * this layer's own id) follow a parent-child visibility
                      * hierarchy with their container TMX layer, by design: if
                      * the layer itself is invisible, every sprite registered
@@ -478,7 +507,7 @@ namespace SunLight  {
 
             View  *pDefault = m_pDefaultView.get();
 
-            m_Sprites.BeginFrame();
+            Sprites().BeginFrame();
             m_PassViews.clear();
 
             if( pDefault -> m_bVisible )
@@ -529,7 +558,7 @@ namespace SunLight  {
 
             // Sprites some pass reached but no pass had on screen: advanced once, exactly as a
             // single view would (see SpriteRegistry::UpdateLayer). They draw nothing.
-            m_Sprites.EndFrame();
+            Sprites().EndFrame();
         }
 
         /**
@@ -547,7 +576,7 @@ namespace SunLight  {
                 return;
             }
 
-            for( int nLayerId : m_Sprites.LayerIds() )  {
+            for( int nLayerId : Sprites().LayerIds() )  {
                 if( m_pActiveView -> IsLayerShown( nLayerId ) )
                     HandleSpriteUpdate( nLayerId );
             }
@@ -651,7 +680,7 @@ namespace SunLight  {
             // with AddSprite (which has always accepted a mapless caller) - before M2 this whole
             // block was skipped without a map, so such a sprite's collider was updated every frame
             // but the sprite itself was never drawn.
-            if( Tmx() || !m_Sprites.Empty() )  {
+            if( Tmx() || !Sprites().Empty() )  {
                 if( m_ExtraViews.empty() )  {
                     /*
                      * The single-view frame - every renderer that never calls CreateView -
@@ -724,7 +753,7 @@ namespace SunLight  {
          */
         void TileMapRenderer :: HandleUserCollisions( void )  {
 
-            m_CollisionManager.Update();
+            Collisions().Update();
         }
 
         /**
@@ -733,7 +762,7 @@ namespace SunLight  {
          */
         void TileMapRenderer :: HandleSpriteUpdate( int nLayerId )  {
 
-            m_Sprites.UpdateLayer( nLayerId, !m_ExtraViews.empty() );
+            Sprites().UpdateLayer( nLayerId, !m_ExtraViews.empty() );
         }
 
         /**
@@ -828,7 +857,8 @@ namespace SunLight  {
          * @param config The renderer configuration;
          */
         TileMapRenderer :: TileMapRenderer( const SunLight :: Renderer :: RendererConfig& config ) :
-                                            m_CollisionManager( this )  {
+                                            m_pDefaultWorld( std :: make_shared<World>( this ) ),
+                                            m_pActiveWorld( m_pDefaultWorld.get() )  {
 
             // Select the backend FIRST: everything below (the input
             // handler, anything that touches the engine) must already see
@@ -961,18 +991,18 @@ namespace SunLight  {
 
             /*
              * Every sprite that still has this renderer as its parent (registered or removed with
-             * RemoveSprite - see m_Sprites) is let go: after this destructor its parent pointer
+             * RemoveSprite - see Sprites()) is let go: after this destructor its parent pointer
              * would point at a dead renderer, and so would that of its collider and of the canvases that
              * followed it (Sprite::SetParent moves them). A sprite that was destroyed earlier already
              * told us (ChildRemoved) and is not in the set. Iterated over a copy: SetParent calls back
              * into ChildRemoved, which erases from the set.
              */
-            for( SunLight :: Sprite :: Sprite* pSprite : m_Sprites.ParentedSprites() )  {
+            for( SunLight :: Sprite :: Sprite* pSprite : Sprites().ParentedSprites() )  {
                 if( pSprite -> GetParent() == this )
                     pSprite -> SetParent( nullptr );
             }
 
-            m_Sprites.ClearParented();
+            Sprites().ClearParented();
 
             if( !m_pNullBackend )
                 s_nLiveDefaultBackendRenderers--;
@@ -1024,11 +1054,11 @@ namespace SunLight  {
         void TileMapRenderer :: ChildRemoved( SunLight :: Canvas :: BaseCanvas* pChild )  {
 
             std :: vector<int>              layerIds;
-            SunLight :: Sprite :: Sprite  *pSprite = m_Sprites.Forget( pChild, layerIds );
+            SunLight :: Sprite :: Sprite  *pSprite = Sprites().Forget( pChild, layerIds );
 
             if( pSprite )  {
                 for( int nLayerId : layerIds )
-                    m_CollisionManager.RemoveCollider( nLayerId, &pSprite -> GetCollider() );
+                    Collisions().RemoveCollider( nLayerId, &pSprite -> GetCollider() );
             }
         }
 
@@ -1335,8 +1365,8 @@ namespace SunLight  {
 
             pView -> m_pViewport -> SetDimension2D( rect );
 
-            if( m_pMap )  {
-                SunLight :: Base :: stSize2D  step = m_pMap -> DefaultScrollStep();
+            if( Map() )  {
+                SunLight :: Base :: stSize2D  step = Map() -> DefaultScrollStep();
 
                 pView -> m_Camera.SetScrollStep( step.nWidth, step.nHeight );
             }
@@ -1966,7 +1996,7 @@ namespace SunLight  {
                                                                           tmx_tile* pTile )  {
 
             tmx_tileset                         *pTs = pTile -> tileset;
-            SunLight :: Base :: stCoordinate2D  corner = m_pMap -> MapProjection().TileDrawPosition( pos, Tmx(), pTs -> tile_width,
+            SunLight :: Base :: stCoordinate2D  corner = Map() -> MapProjection().TileDrawPosition( pos, Tmx(), pTs -> tile_width,
                                                                                                          pTs -> tile_height,
                                                                                                          pLayer -> offsetx,
                                                                                                          pLayer -> offsety );
@@ -1992,7 +2022,7 @@ namespace SunLight  {
 
             // The gid and tile (S1c1: MapData::TileAt, which also refuses a position off the map - A6 - and
             // a gid past libtmx's tiles[] table). With no map there is no tile: it used to dereference null.
-            if( !m_pMap || !m_pMap -> TileAt( pos, layer.pLayer, tile ) )
+            if( !Map() || !Map() -> TileAt( pos, layer.pLayer, tile ) )
                 return false;
 
             tile.dimension = TileMapRect( pos, layer.pLayer, tile.pTile );
@@ -2041,7 +2071,7 @@ namespace SunLight  {
 
             tiles.clear();
 
-            if( !m_pMap || ( layer.pLayer == nullptr ) || ( layer.pLayer -> type != L_LAYER ) )
+            if( !Map() || ( layer.pLayer == nullptr ) || ( layer.pLayer -> type != L_LAYER ) )
                 return false;
 
             tmx_layer                       *pLayer  = layer.pLayer;
@@ -2056,11 +2086,11 @@ namespace SunLight  {
                 mapRect.y -= camera.y;
             }
 
-            if( m_pMap -> IsUniformTileGrid() )  {
+            if( Map() -> IsUniformTileGrid() )  {
                 float  fPadX = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_width );
                 float  fPadY = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_height );
 
-                range = m_pMap -> MapProjection().VisibleTileRange( pTmxMap, SunLight :: Base :: stRectangle {
+                range = Map() -> MapProjection().VisibleTileRange( pTmxMap, SunLight :: Base :: stRectangle {
                             mapRect.x - pLayer -> offsetx - fPadX, mapRect.y - pLayer -> offsety - fPadY,
                             mapRect.width + ( 2 * fPadX ), mapRect.height + ( 2 * fPadY ) } );
             }
@@ -2073,7 +2103,7 @@ namespace SunLight  {
                     SunLight :: TileMap :: stMatrixPosition  pos = { nRow, nCol };
                     SunLight :: TileMap :: stTile            tile;
 
-                    if( !m_pMap -> TileAt( pos, pLayer, tile ) || ( tile.pTile -> collision == nullptr ) )
+                    if( !Map() -> TileAt( pos, pLayer, tile ) || ( tile.pTile -> collision == nullptr ) )
                         continue;
 
                     tile.dimension = TileMapRect( pos, pLayer, tile.pTile );
@@ -2109,8 +2139,8 @@ namespace SunLight  {
         bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                                      SunLight :: TileMap :: stMatrixPosition& pos )  {
 
-            if( m_pMap )  {
-                if( m_pMap -> MapProjection().MapToTileMatrix( coord, Tmx(), MapPixelWidth(), MapPixelHeight(), pos ) )  {
+            if( Map() )  {
+                if( Map() -> MapProjection().MapToTileMatrix( coord, Tmx(), MapPixelWidth(), MapPixelHeight(), pos ) )  {
 
                     // Both edges: GetTile indexes gids[] with these, and a
                     // row/column past the far edge would read past the array (A6).
@@ -2141,7 +2171,7 @@ namespace SunLight  {
                 // The new map loaded: only now does the previous one (if any) go - destroying its
                 // MapData frees it, its textures and its Resource Manager; the sprites registered with
                 // AddSprite stay registered, as they always did across a LoadMap.
-                m_pMap = std :: move( pNewMap );
+                m_pDefaultWorld -> SetMap( std :: move( pNewMap ) );
 
                 uint16_t  nMapWidth  = MapPixelWidth();
                 uint16_t  nMapHeight = MapPixelHeight();
@@ -2155,7 +2185,7 @@ namespace SunLight  {
                 */                /*
                 * Set scrolling properties.
                 */
-                SunLight :: Base :: stSize2D  defaultStep = m_pMap -> DefaultScrollStep();
+                SunLight :: Base :: stSize2D  defaultStep = Map() -> DefaultScrollStep();
 
                 // For every view: "-1" means the tile size of the map they now show.
                 m_pDefaultView -> m_Camera.ResolveScrollStep( defaultStep );
@@ -2174,9 +2204,9 @@ namespace SunLight  {
          */
         bool TileMapRenderer :: UnloadMap( void )  {
 
-            if( m_pMap )  {
+            if( Map() )  {
                 UnloadSprites();
-                m_pMap.reset();   // frees the map, its textures, its Resource Manager and its tile animations
+                m_pDefaultWorld -> UnloadMap();   // frees the map, its textures, its Resource Manager and its tile animations
 
                 return true;
             }
@@ -2222,10 +2252,10 @@ namespace SunLight  {
          */
         bool TileMapRenderer :: GetObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object )  {
 
-            if( !m_pMap )
+            if( !Map() )
                 return false;
 
-            return m_pMap -> FindObjectByName( szObjectName, object );
+            return Map() -> FindObjectByName( szObjectName, object );
         }
 
         /**
@@ -2233,16 +2263,16 @@ namespace SunLight  {
          */
         bool TileMapRenderer :: GetTileFrame( int nLayerId, const SunLight :: TileMap :: stMatrixPosition& pos, unsigned int& nGID )  {
 
-            if( !m_pMap )
+            if( !Map() )
                 return false;
 
-            tmx_layer                      *pLayer = m_pMap -> FindLayer( nLayerId );
+            tmx_layer                      *pLayer = Map() -> FindLayer( nLayerId );
             SunLight :: TileMap :: stTile   tile;
 
-            if( ( pLayer == nullptr ) || ( pLayer -> type != L_LAYER ) || !m_pMap -> TileAt( pos, pLayer, tile ) )
+            if( ( pLayer == nullptr ) || ( pLayer -> type != L_LAYER ) || !Map() -> TileAt( pos, pLayer, tile ) )
                 return false;
 
-            nGID = m_pMap -> FrameGidOf( tile.pTile, tile.nGID );
+            nGID = Map() -> FrameGidOf( tile.pTile, tile.nGID );
 
             return true;
         }
@@ -2252,11 +2282,11 @@ namespace SunLight  {
          */
         bool TileMapRenderer :: GetObjectTileFrame( const char* szObjectName, unsigned int& nGID )  {
 
-            if( !m_pMap )
+            if( !Map() )
                 return false;
 
-            tmx_object  *pObject = m_pMap -> FindTmxObjectByName( szObjectName );
-            tmx_map     *pTmxMap = m_pMap -> Tmx();
+            tmx_object  *pObject = Map() -> FindTmxObjectByName( szObjectName );
+            tmx_map     *pTmxMap = Map() -> Tmx();
 
             if( ( pObject == nullptr ) || ( pObject -> obj_type != OT_TILE ) )
                 return false;
@@ -2268,7 +2298,7 @@ namespace SunLight  {
                 ( pTmxMap -> tiles[nObjectGID] == nullptr ) )
                 return false;
 
-            nGID = m_pMap -> FrameGidOf( pTmxMap -> tiles[nObjectGID], nObjectGID );
+            nGID = Map() -> FrameGidOf( pTmxMap -> tiles[nObjectGID], nObjectGID );
 
             return true;
         }
@@ -2278,7 +2308,7 @@ namespace SunLight  {
          */
         SunLight :: Collision :: ICollisionManager& TileMapRenderer :: GetCollisionManager( void )  {
 
-            return m_CollisionManager;
+            return m_pDefaultWorld -> Collisions();
         }
 
         /**
@@ -2313,18 +2343,18 @@ namespace SunLight  {
 
             if( m_bIsStarted && ( ( Tmx() == nullptr ) || GetLayer( nLayerId ) ) )  {
                 // Opened before the checks below, as it always was (see SpriteRegistry::OpenLayer).
-                m_Sprites.OpenLayer( nLayerId );
+                Sprites().OpenLayer( nLayerId );
 
-                if( !m_Sprites.Contains( nLayerId, &sprite ) &&
-                    m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() ) )  {
+                if( !Sprites().Contains( nLayerId, &sprite ) &&
+                    Collisions().AddCollider( nLayerId, &sprite.GetCollider() ) )  {
 
                     sprite.SetParent( this );
                     // L1 of the master plan: so a world-space sprite's own GetCameraOffset
                     // can later ask for THIS layer's parallax factor, at any time, with no
                     // dependency on whether a render pass has ever run.
                     sprite.SetParallaxLayerId( nLayerId );
-                    m_Sprites.MarkParented( &sprite );
-                    m_Sprites.Add( nLayerId, &sprite );
+                    Sprites().MarkParented( &sprite );
+                    Sprites().Add( nLayerId, &sprite );
                     return true;
                 }
             }
@@ -2340,9 +2370,9 @@ namespace SunLight  {
          */
         bool TileMapRenderer :: RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
-            if( m_bIsStarted && m_Sprites.Contains( nLayerId, &sprite ) )  {
-                m_CollisionManager.RemoveCollider( nLayerId, &sprite.GetCollider() );
-                m_Sprites.Remove( nLayerId, &sprite );
+            if( m_bIsStarted && Sprites().Contains( nLayerId, &sprite ) )  {
+                Collisions().RemoveCollider( nLayerId, &sprite.GetCollider() );
+                Sprites().Remove( nLayerId, &sprite );
 
                 return true;
             }

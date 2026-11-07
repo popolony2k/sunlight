@@ -297,7 +297,7 @@ corner, and the line turns with it. A turned text block is never culled by its u
 - Sample: `samples/shapes/resources/map/rotation.tmx` has turned tiles and text at 90° and 45°. Checked by eye: it works.
 - Full suite under AddressSanitizer: 390 test cases pass with no reports.
 
-**D1a: rotated shape outlines (IN PROGRESS).** Each point of a rectangle, polyline or polygon turns about the
+**D1a: rotated shape outlines (DONE).** Each point of a rectangle, polyline or polygon turns about the
 object's stored point in map units, before the zoom is applied. The turn is clockwise on screen, and it is exact
 for quarter turns: cosine and sine within 1e-12 of zero count as zero (`Shape::Rotate`). An object with no
 rotation gets 0, so its output is unchanged.
@@ -2240,7 +2240,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
 | I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
-| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a done) |
+| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a, I19b done) |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2881,7 +2881,7 @@ scroll limit is 314.
   code, all five fail.
 - `doc/BREAKAGES.md` entry 67.
 
-**I19: worlds - several maps at once (PLANNED).** Scarab's C7, designed with its session and agreed
+**I19: worlds - several maps at once (IN PROGRESS).** Scarab's C7, designed with its session and agreed
 by both owners. Games want different maps on screen at the same time: split-screen with players on
 different maps, a world map beside the local one, a picture-in-picture dungeon, a menu over a map, a
 cross-fade between two maps. Today a renderer holds one map (`m_pMap`), `LoadMap` replaces it, every
@@ -2928,10 +2928,12 @@ view shows it, and a second renderer is no way around it (one window per process
   and the pattern form that places maps by file name); how Tiled places isometric, staggered and
   hexagonal maps in a world (orthogonal is supported first). A tileset shared by two maps is loaded
   twice for now; a shared texture cache can come later.
-- **Phases, each its own PR and pin for Scarab, each planned with the owner first:**
+- **Phases, each planned with the owner first and merged as its own PR.** No pin goes to Scarab per
+  phase (owner's decision, 2026-11-07): Scarab gets one handoff - the final commit and a guide to every
+  phase - once the whole of I19 is done on sunlight's side.
   - **I19a** per-view opacity (Scarab asked for it first: a cross-fade, a menu over a map) - DONE,
     see below;
-  - **I19b** the world container: the default world, `LoadMap` unchanged;
+  - **I19b** the world container: the default world, `LoadMap` unchanged - DONE, see below;
   - **I19c** views show a world (`IView::SetWorld`);
   - **I19d** several worlds (load, unload with detach, per-world listeners);
   - **I19e** map offsets and several maps drawn per view, layers matched by name;
@@ -2970,6 +2972,29 @@ ignored, as `Sprite::SetOpacity` (I10).
 - **Sample:** `samples/multiview` gained key `5` (the close-up's opacity 1, 0.5, 0) and key `6` (a
   one-second cross-fade between the main view and an overlay of the same map without its sky).
 - `doc/BREAKAGES.md` entry 68.
+
+**I19b: the world container (DONE).** A refactor with no change for any game: the renderer's map
+(`MapData`), its `SpriteRegistry` and its `CollisionManager` moved into a new internal class, `World`
+(`src/renderer/world/`), and the renderer holds a DEFAULT world (`std::shared_ptr`, as world handles
+will be in I19d) and an ACTIVE world pointer, as it has a default and an active view.
+
+- Every use of the three members now goes through `Map()`, `Sprites()` and `Collisions()`, which
+  read the active world; `LoadMap`/`UnloadMap` write to the default world, and `GetCollisionManager`
+  returns its collision manager. The active world is the default one always, until a view can show
+  another (I19c).
+- Inside `World` the members are declared so the map is destroyed first, then the collision rules, then
+  the sprite lists - the renderer's own order before.
+- Kept as they were, for later phases: sprites keep the renderer as their parent; the collision
+  manager still asks the renderer for layers and colliding tiles (renderer-wide today; per world in
+  I19d, when a second world first exists); no public API yet (`SetWorld` is I19c, world handles I19d).
+- **Tests:** the 780 existing tests pass unchanged - the proof nothing changed; `tests/test_world.cpp`
+  adds a new world (empty), its map (held, freed once by `UnloadMap` or by a second `SetMap`, sprites
+  and colliders left alone) and the renderer's default world outliving its maps (the same collision
+  manager before, between and after them).
+- `world.h`'s include guard is `__RENDERER_WORLD_H__`: ten samples have a `world.h` guarded by
+  `__WORLD_H__`, and building them hid one header behind the other (the samples, not the tests, caught it).
+  Neither peer has a `World` class or that guard (read only).
+- No `doc/BREAKAGES.md` entry: nothing changes for Scarab or Caravellius.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
