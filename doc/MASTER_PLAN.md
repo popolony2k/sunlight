@@ -2240,7 +2240,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
 | I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
-| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | PLANNED |
+| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a done) |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2929,7 +2929,8 @@ view shows it, and a second renderer is no way around it (one window per process
   hexagonal maps in a world (orthogonal is supported first). A tileset shared by two maps is loaded
   twice for now; a shared texture cache can come later.
 - **Phases, each its own PR and pin for Scarab, each planned with the owner first:**
-  - **I19a** per-view opacity (Scarab asked for it first: a cross-fade, a menu over a map);
+  - **I19a** per-view opacity (Scarab asked for it first: a cross-fade, a menu over a map) - DONE,
+    see below;
   - **I19b** the world container: the default world, `LoadMap` unchanged;
   - **I19c** views show a world (`IView::SetWorld`);
   - **I19d** several worlds (load, unload with detach, per-world listeners);
@@ -2939,6 +2940,36 @@ view shows it, and a second renderer is no way around it (one window per process
 - **Scarab's side** (its C7, planned with sunlight): `world_load( path )` (a `.tmx` or a `.world`)
   returning a handle, `world_unload`, `view_set_world`, an optional world on the sprite and collision
   functions; `tilemap_load_map` and every existing call stay on the default world.
+
+**I19a: view opacity (DONE).** `IView::SetOpacity`/`GetOpacity`, 0..1, 1 by default, clamped, a NaN
+ignored, as `Sprite::SetOpacity` (I10).
+
+- **Composited, not faded draw by draw.** Applying the opacity to each tile and sprite (as a group's
+  opacity is) would show a view's own floor through its own walls mid cross-fade. Below 1 the view's
+  pass - its background included - is drawn into a render target of its own, cleared transparent, and
+  that image is laid over the frame at the opacity. The target has the frame's size (fixed by
+  `RendererConfig`), so the pass draws at its usual coordinates and its clip keeps the rest
+  transparent; it is made on first use, kept, and released by `RemoveView`, `Stop` and the destructor
+  of a started renderer. At 1 nothing changes: no target, no composite. At 0 the pass still runs
+  (sprites advance only in a pass that reaches them) and the composite is skipped.
+- **Premultiplied composite** (`IEngine::CompositeRenderTarget`, new): I1's normal blending (colour by
+  source alpha, alpha "over") into a transparent target leaves colour x alpha, so the target is
+  combined as colour x opacity + destination x (1 - alpha x opacity); straight alpha would multiply a
+  semi-transparent pixel by its alpha twice. Blend modes inside the view combine with what the view
+  drew, not with what is under it.
+- **Nested render targets.** raylib's `EndTextureMode` always unbinds to the window (rcore.c), so the
+  view's target ended inside the frame's would have sent the rest of the frame to the window.
+  `RaylibEngine` keeps a stack: `EndRenderTarget` begins the outer target again
+  (`BeginTextureMode` rebinds the framebuffer, viewport and projection). `IEngine` documents nesting.
+- **Tests** (`tests/test_viewpasses.cpp`, `MockEngine` logging render-target calls with their place in
+  the draw log): the value; no target at 1; an extra view's pass in its own frame-sized target -
+  cleared transparent, its background and tiles in it, the default view's not - composited over the
+  whole frame at its opacity; the default view alone likewise, over the frame's background; at 0
+  drawn but not composited, its sprite animating; the target made once and reused; released on
+  `RemoveView`, `Stop` and destruction.
+- **Sample:** `samples/multiview` gained key `5` (the close-up's opacity 1, 0.5, 0) and key `6` (a
+  one-second cross-fade between the main view and an overlay of the same map without its sky).
+- `doc/BREAKAGES.md` entry 68.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

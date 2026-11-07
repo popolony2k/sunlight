@@ -178,7 +178,7 @@ Each sample takes its own directory as `argv[1]` and resolves its resources rela
 
 ### Views
 
-* [multiview](https://github.com/popolony2k/sunlight/blob/main/samples/multiview/docs/README.md) — the same map and the same character shown in three places at once (a main view, a minimap, and a zoomed close-up that follows the character), demonstrating `sunlight`'s multiple views (`TileMapRenderer::CreateView`) and world-space sprites (`Sprite::SetWorldSpace`).
+* [multiview](https://github.com/popolony2k/sunlight/blob/main/samples/multiview/docs/README.md) — the same map and the same character shown in three places at once (a main view, a minimap, and a zoomed close-up that follows the character), demonstrating `sunlight`'s multiple views (`TileMapRenderer::CreateView`), world-space sprites (`Sprite::SetWorldSpace`) and view opacity (`IView::SetOpacity`: a cross-fade between two views).
 * [multiview_overlap](https://github.com/popolony2k/sunlight/blob/main/samples/multiview_overlap/docs/README.md) — `multiview` with the views overlapping the main view, testing the clipping at each view's edges.
 
 ### Input and rumble

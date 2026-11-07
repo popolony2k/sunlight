@@ -26,6 +26,9 @@
 
 #include <doctest/doctest.h>
 #include <vector>
+#include <string>
+#include <cmath>
+#include <algorithm>
 #include <memory>
 #include <sstream>
 #include "renderer/tilemaprenderer.h"
@@ -87,7 +90,10 @@ namespace  {
         MemoryFileSystemFixture             fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        Scene( void )  {
+        // bDistinctRenderTargets: every render target gets a handle of its own (MockEngine), the
+        // frame's own being the first, 0x100 (I19a).
+        explicit Scene( bool bDistinctRenderTargets = false )  {
+            engine().bDistinctRenderTargets = bDistinctRenderTargets;
             fsFixture.fs.files["maps/tiled.tmx"] = MakeTiledTmx();
 
             RendererConfig  config;
@@ -113,6 +119,7 @@ namespace  {
         // Run exactly nFrames frames, starting the event log fresh.
         void RunFrames( int nFrames )  {
             engine().events.clear();
+            engine().renderTargetEvents.clear();
             windowFixture.window.nEndFrameCalls          = 0;
             windowFixture.window.nFramesUntilShouldClose = nFrames;
             pRenderer -> Run();
@@ -1196,6 +1203,239 @@ TEST_SUITE( "renderer/viewpasses" )  {
         scene.RunFrames( 1 );
         CHECK( rig.sprite.IsOnScreen() == true );
     }
+    // I19a of the master plan: a view below full opacity. With Scene( true ) the frame's render target is
+    // 0x100 and the first view target 0x101.
+    const SunLight :: Base :: TextureHandle  g_FrameTarget = ( SunLight :: Base :: TextureHandle ) 0x100;
+    const SunLight :: Base :: TextureHandle  g_ViewTarget  = ( SunLight :: Base :: TextureHandle ) 0x101;
+
+    typedef MockEngine :: RenderTargetEvent  RtEvent;
+
+    // The render-target calls of the last RunFrames, as a string ("BBECE": begin, begin, end, composite, end).
+    std :: string RtKinds( Scene& scene )  {
+        std :: string  str;
+
+        for( const RtEvent& evt : scene.engine().renderTargetEvents )
+            str += evt.kind;
+
+        return str;
+    }
+
+    // Index (into renderTargetEvents) of the first event of that kind and handle at/after nFrom, or -1.
+    int RtIndex( Scene& scene, char kind, SunLight :: Base :: TextureHandle handle, int nFrom = 0 )  {
+        std :: vector<RtEvent>  &rt = scene.engine().renderTargetEvents;
+
+        for( int nIdx = nFrom; nIdx < ( int ) rt.size(); nIdx++ )
+            if( ( rt[nIdx].kind == kind ) && ( ( handle == nullptr ) || ( rt[nIdx].handle == handle ) ) )
+                return nIdx;
+
+        return -1;
+    }
+
+    // Tile draws in [nFirst, nEnd) of the event log that landed inside the rectangle.
+    int TilesBetween( Scene& scene, size_t nFirst, size_t nEnd, const SunLight :: Base :: stDimension2D& rect )  {
+        int  nCount = 0;
+
+        for( size_t nIdx = nFirst; nIdx < nEnd; nIdx++ )  {
+            const Event  &evt = scene.engine().events[nIdx];
+
+            if( ( evt.kind == Event :: TILE ) &&
+                ( evt.x >= rect.pos.x ) && ( evt.x < rect.pos.x + rect.size.nWidth ) &&
+                ( evt.y >= rect.pos.y ) && ( evt.y < rect.pos.y + rect.size.nHeight ) )
+                nCount++;
+        }
+
+        return nCount;
+    }
+
+    TEST_CASE( "A view's opacity: 1 by default, clamped to 0..1, a NaN ignored, kept by a removed view" )  {
+
+        Scene  scene;
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+        CHECK( scene.pRenderer -> GetDefaultView().GetOpacity() == 1.0f );
+        CHECK( pView -> GetOpacity() == 1.0f );
+
+        pView -> SetOpacity( 0.25f );
+        CHECK( pView -> GetOpacity() == 0.25f );
+        pView -> SetOpacity( 1.5f );
+        CHECK( pView -> GetOpacity() == 1.0f );
+        pView -> SetOpacity( -0.5f );
+        CHECK( pView -> GetOpacity() == 0.0f );
+        pView -> SetOpacity( 0.75f );
+        pView -> SetOpacity( std :: nanf( "" ) );
+        CHECK( pView -> GetOpacity() == 0.75f );
+
+        REQUIRE( scene.pRenderer -> RemoveView( pView ) == true );
+        pView -> SetOpacity( 0.5f );
+        CHECK( pView -> GetOpacity() == 0.5f );
+    }
+
+    TEST_CASE( "At full opacity a view draws as always: no render target of its own, nothing composited" )  {
+
+        Scene  scene( true );
+
+        scene.pRenderer -> CreateView( g_SideRect );
+        scene.RunFrames( 2 );
+
+        CHECK( scene.engine().nLoadRenderTargetCalls == 1 );          // the frame's own, at Start
+        CHECK( RtKinds( scene ) == "BEBE" );                            // the frame's target, twice
+        CHECK( scene.Count( Event :: COMPOSITE ) == 0 );
+    }
+
+    TEST_CASE( "Below full opacity a view's pass is drawn into a frame-sized target of its own, then laid over the frame at its opacity" )  {
+
+        Scene  scene( true );
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+        pView -> SetOpacity( 0.5f );
+        scene.RunFrames( 1 );
+
+        REQUIRE( scene.engine().renderTargetSizes.size() == 2 );
+        CHECK( scene.engine().renderTargetSizes[1] == std :: pair<int, int>( 1260, 920 ) );   // the frame's size
+
+        // The frame's target, the view's nested in it, back out, the composite into the frame's, the frame's end.
+        REQUIRE( RtKinds( scene ) == "BBECE" );
+
+        std :: vector<RtEvent>  &rt = scene.engine().renderTargetEvents;
+
+        CHECK( rt[0].handle == g_FrameTarget );
+        CHECK( rt[1].handle == g_ViewTarget );
+        CHECK( rt[3].handle == g_ViewTarget );
+        CHECK( rt[3].fOpacity == 0.5f );
+
+        // Into the view's target: first cleared transparent, then the view's background, then its tiles.
+        size_t  nBegin = rt[1].nEventIndex;
+        size_t  nEnd   = rt[2].nEventIndex;
+
+        REQUIRE( nBegin < nEnd );
+        CHECK( scene.engine().events[nBegin].kind == Event :: CLEAR );
+        CHECK( scene.engine().events[nBegin].color.nAlpha == 0 );           // TRANSPARENT_COLOR
+        CHECK( scene.engine().events[nBegin].color.nRed   == 0 );
+        CHECK( scene.engine().events[nBegin + 1].kind == Event :: CLIP_BEGIN );
+        CHECK( scene.engine().events[nBegin + 2].kind == Event :: FILL );   // after the pass's clip begins
+        CHECK( TilesBetween( scene, nBegin, nEnd, g_SideRect ) == 18 );       // the whole map, as an extra view draws it
+        CHECK( TilesBetween( scene, nBegin, nEnd, g_DefaultRect ) == 0 );     // the default view's pass is not in it
+
+        // The default view's own pass went straight into the frame, before.
+        CHECK( TilesBetween( scene, 0, nBegin, g_DefaultRect ) == 19 );
+
+        // The composite: the whole target over the whole frame.
+        const Event  &composite = scene.engine().events[rt[3].nEventIndex];
+
+        CHECK( composite.kind == Event :: COMPOSITE );
+        CHECK( composite.handle == g_ViewTarget );
+        CHECK( composite.x == 0.0f );
+        CHECK( composite.y == 0.0f );
+        CHECK( composite.w == 1260.0f );
+        CHECK( composite.h == 920.0f );
+        CHECK( composite.scale == 0.5f );
+    }
+
+    TEST_CASE( "The default view alone below full opacity goes through its own target too, over the frame's background" )  {
+
+        Scene  scene( true );
+
+        scene.pRenderer -> GetDefaultView().SetOpacity( 0.25f );
+        scene.RunFrames( 1 );
+
+        REQUIRE( RtKinds( scene ) == "BBECE" );
+
+        std :: vector<RtEvent>  &rt = scene.engine().renderTargetEvents;
+
+        CHECK( rt[1].handle == g_ViewTarget );
+        CHECK( rt[3].fOpacity == 0.25f );
+
+        // The frame's clear (its background) is in the frame's target, before; the map's tiles are in the view's.
+        CHECK( scene.FrameClear() == 0 );
+        CHECK( scene.FrameClear() < ( int ) rt[1].nEventIndex );
+        CHECK( TilesBetween( scene, 0, rt[1].nEventIndex, g_DefaultRect ) == 0 );
+        CHECK( TilesBetween( scene, rt[1].nEventIndex, rt[2].nEventIndex, g_DefaultRect ) == 19 );
+    }
+
+    TEST_CASE( "At opacity 0 the pass is still drawn into its target - its sprites keep animating - but nothing is laid over the frame" )  {
+
+        Scene      scene( true );
+        SpriteRig  rig( scene, 1 );
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+        // Only the extra view shows the sprite's layer.
+        scene.pRenderer -> GetDefaultView().ShowLayer( 1, false );
+        pView -> SetOpacity( 0.0f );
+
+        std :: vector<std :: vector<float>>  frames = SpriteFrames( scene, 3 );
+
+        CHECK( RtKinds( scene ) == "BBEE" );                            // drawn into, never composited
+        CHECK( scene.Count( Event :: COMPOSITE ) == 0 );
+
+        for( int nFrame = 0; nFrame < 3; nFrame++ )
+            REQUIRE( frames[nFrame].size() == 1 );                      // drawn (into the target) every frame
+
+        CHECK( frames[0][0] != frames[1][0] );                          // and it animated
+        CHECK( frames[1][0] != frames[2][0] );
+    }
+
+    TEST_CASE( "A view's target is made once and used every frame; going back to full opacity draws as always again" )  {
+
+        Scene  scene( true );
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+        pView -> SetOpacity( 0.5f );
+        scene.RunFrames( 3 );
+
+        CHECK( scene.engine().nLoadRenderTargetCalls == 2 );           // the frame's and the view's
+        CHECK( RtKinds( scene ) == "BBECEBBECEBBECE" );
+        CHECK( RtIndex( scene, 'B', g_ViewTarget, 6 ) == 6 );           // the same target, frame after frame
+
+        pView -> SetOpacity( 1.0f );
+        scene.RunFrames( 1 );
+
+        CHECK( RtKinds( scene ) == "BE" );
+        CHECK( scene.engine().nLoadRenderTargetCalls == 2 );
+    }
+
+    TEST_CASE( "A view's target is released on RemoveView, on Stop, and when a started renderer is destroyed" )  {
+
+        SUBCASE( "RemoveView" )  {
+            Scene  scene( true );
+            std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+            pView -> SetOpacity( 0.5f );
+            scene.RunFrames( 1 );
+            REQUIRE( scene.engine().unloadedRenderTargets.empty() );
+
+            REQUIRE( scene.pRenderer -> RemoveView( pView ) == true );
+            REQUIRE( scene.engine().unloadedRenderTargets.size() == 1 );
+            CHECK( scene.engine().unloadedRenderTargets[0] == g_ViewTarget );
+        }
+
+        SUBCASE( "Stop" )  {
+            Scene  scene( true );
+
+            scene.pRenderer -> GetDefaultView().SetOpacity( 0.5f );
+            scene.RunFrames( 1 );
+            scene.pRenderer -> Stop();
+
+            std :: vector<SunLight :: Base :: TextureHandle>  &unloaded = scene.engine().unloadedRenderTargets;
+
+            CHECK( std :: count( unloaded.begin(), unloaded.end(), g_ViewTarget ) == 1 );
+            CHECK( std :: count( unloaded.begin(), unloaded.end(), g_FrameTarget ) == 1 );
+        }
+
+        SUBCASE( "a started renderer destroyed without Stop" )  {
+            Scene  scene( true );
+            std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+            pView -> SetOpacity( 0.5f );
+            scene.RunFrames( 1 );
+            scene.pRenderer.reset();
+
+            std :: vector<SunLight :: Base :: TextureHandle>  &unloaded = scene.engine().unloadedRenderTargets;
+
+            CHECK( std :: count( unloaded.begin(), unloaded.end(), g_ViewTarget ) == 1 );
+            CHECK( pView -> IsRemoved() == true );
+        }
+    }
+
 }
 
 TEST_SUITE( "renderer/viewhandles" )  {

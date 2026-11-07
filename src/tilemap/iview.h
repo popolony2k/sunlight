@@ -175,6 +175,28 @@ namespace SunLight  {
             virtual int GetDrawOrder( void ) = 0;
 
             /**
+             * @brief The view's OPACITY (I19a of the master plan): 1 (the
+             * default) draws the view as always; below 1 the view is drawn
+             * whole into a render target of its own and that image is laid
+             * over what is under the view at this opacity - a cross-fade is
+             * two views over the same rectangle, the upper one going from 0
+             * to 1; a menu over a map is an upper view at any opacity. The
+             * view's FINISHED image is faded, not each thing in it: at 0.5 a
+             * wall still hides the floor behind it, and the view's own
+             * background (@see SetClearBackground) fades with it. Blend
+             * modes used inside the view (sprites', a game's) combine with
+             * what the view itself drew, not with what is under it. At 0
+             * nothing is shown, but the view is still drawn into its target,
+             * so its sprites keep animating exactly as at any other opacity.
+             * The default view fades over the frame's background color.
+             *
+             * Clamped to 0..1; a NaN leaves the opacity as it was. The view's
+             * own data: it works on a removed view too.
+             */
+            virtual void SetOpacity( float fOpacity ) = 0;
+            virtual float GetOpacity( void ) = 0;
+
+            /**
              * @brief Whether the view's rectangle is filled with a
              * background color before its layers are drawn, and with which.
              * For a view made by CreateView this is what stops the scene

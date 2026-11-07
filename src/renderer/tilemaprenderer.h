@@ -228,6 +228,10 @@ namespace SunLight  {
             SunLight :: Base :: stColor BackgroundColorOf( View& view );
             void DrawViewPasses( void );
             void DrawPassContent( void );
+            bool BeginViewTarget( View& view );
+            void EndViewTarget( View& view );
+            void ReleaseViewTarget( View& view );
+            void ReleaseViewTargets( void );
 
             // Internal layer handlers
             void CopyLayerToTmx( tmx_layer* pTmxLayer, SunLight :: TileMap :: stLayer& layer );

@@ -105,6 +105,9 @@ namespace SunLight  {
                 void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void EndRenderTarget( void ) override;
+                void CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                            const SunLight :: Base :: stRectangle& dest,
+                                            float fOpacity ) override;
                 void SetBlendMode( SunLight :: Base :: BlendMode mode ) override;
                 SunLight :: Base :: BlendMode GetBlendMode( void ) override;
                 SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget ) override;
@@ -160,6 +163,10 @@ namespace SunLight  {
                 // it; nullptr selects raylib's own built-in GetFontDefault(),
                 // which this class never owns and must never Unload.
                 std :: shared_ptr<SunLight :: Font :: IFont>  m_pActiveFont;
+
+                // The render targets being drawn into, innermost last (I19a): raylib's EndTextureMode
+                // always goes back to the window, so EndRenderTarget re-begins the one before it.
+                std :: vector<SunLight :: Base :: TextureHandle>  m_RenderTargetStack;
 
                 // The mode SetBlendMode set last (I2).
                 SunLight :: Base :: BlendMode  m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;

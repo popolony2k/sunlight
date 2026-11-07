@@ -63,6 +63,11 @@ Each item is described in full in the plan; what each change means for code buil
 
 ### Added
 
+- View opacity: `IView::SetOpacity`/`GetOpacity` (0..1, 1 by default). Below 1 a view is drawn into a
+  render target of its own and its finished image is laid over what is under it at that opacity - a
+  cross-fade between two views, a menu over a map. At 0 nothing shows and its sprites keep animating.
+  `IEngine` gains a pure virtual `CompositeRenderTarget`, and render targets nest
+  (`EndRenderTarget` goes back to the target drawn into before). `TRANSPARENT_COLOR`.
 - `IFileSystem::RemoveFile`: removes a file - inside the write directory for a virtual path (never a
   mounted archive's or folder's), an OS file for a host path while host paths are allowed; files only.
 - `FilePath::ParentPath` and `FilePath::JoinPath`: the scheme-aware path helpers the map loader uses,
