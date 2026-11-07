@@ -225,8 +225,19 @@ namespace SunLight  {
 
         /**
          * @brief Place the camera for a map just loaded with the given alignment (moved from
-         * TileMapRenderer::LoadMap as it was). Only the axes the alignment names are set:
+         * TileMapRenderer::LoadMap). Only the axes the alignment names are set:
          * MAP_ALIGNMENT_TOP_LEFT, for one, leaves the position as it is.
+         *
+         * A far edge (right, bottom; I18 of the master plan) puts the camera exactly where
+         * MoveLeft/MoveUp stop - FarCameraLimit: the map's far edge on the viewport's far edge, the
+         * visible size being the viewport's divided by the zoom, rounded up to a whole map pixel so
+         * no gap shows. A map smaller than the view is pushed against that edge. It used to ignore
+         * the zoom - right: -(map - viewport width) - and the bottom alignments snapped to a whole
+         * multiple of the viewport's bottom edge coordinate (pos.y + height; BOTTOM_LEFT did not,
+         * so the two bottoms disagreed): at Caravellius' zoom 3.8125 a right alignment put a 640
+         * wide map 600 map pixels off, and its tall stage started 17 map pixels past the map's
+         * bottom (found by Scarab). The centred alignments already divided by the zoom and are
+         * unchanged.
          * @param nAlignment A SunLight::TileMap::ITileMap::MapAlignment value;
          * @param nMapWidth The map's width, in map pixels;
          * @param nMapHeight The map's height, in map pixels;
@@ -245,32 +256,32 @@ namespace SunLight  {
             // exact alignment it always produced for the same visible area.
             int                                  nVpRight    = vp.pos.x + vp.size.nWidth;
             int                                  nVpBottom   = vp.pos.y + vp.size.nHeight;
-            int                                  nVpHeight   = ( nVpBottom > 0 ?
-                                                                 std :: abs( ( ( nMapHeight / nVpBottom ) * nVpBottom ) - nMapHeight ) : 0 );
+            float                                fFarX       = FarCameraLimit( vp.size.nWidth, fZoomFactor, nMapWidth );    // I18
+            float                                fFarY       = FarCameraLimit( vp.size.nHeight, fZoomFactor, nMapHeight );
 
 
             // Setup alignment
             switch( nAlignment & __ALIGNMENT_MASK )  {
                 case SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_RIGHT :
-                    m_Position.x = ( float ) -( nMapWidth - nVpRight + vp.pos.x );
+                    m_Position.x = fFarX;
                     break;
 
                 case SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT : // Nothing to do
                     break;
 
                 case SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_BOTTOM_RIGHT :
-                    m_Position.x = ( float ) -( nMapWidth - nVpRight + vp.pos.x );
-                    m_Position.y = ( float ) -( nMapHeight - nVpHeight + vp.pos.y );
+                    m_Position.x = fFarX;
+                    m_Position.y = fFarY;
                     break;
 
                 case SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_BOTTOM_LEFT :
-                    m_Position.y = ( float ) -( nMapHeight - nVpBottom + vp.pos.y );
+                    m_Position.y = fFarY;
                     break;
 
                 case SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM :
                     m_Position.x = -round( ( ( ( ( nMapWidth * fZoomFactor ) -
                                                 nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
-                    m_Position.y = ( float ) -( nMapHeight - nVpHeight + vp.pos.y );
+                    m_Position.y = fFarY;
                     break;
 
                 case SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_CENTER_WIDTH_TOP :
@@ -284,7 +295,7 @@ namespace SunLight  {
                     break;
 
                 case SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT :
-                    m_Position.x = ( float ) -( nMapWidth - nVpRight + vp.pos.x );
+                    m_Position.x = fFarX;
                     m_Position.y = -round( ( ( ( ( nMapHeight * fZoomFactor ) -
                                                 nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
                     break;

@@ -54,6 +54,12 @@ Each item is described in full in the plan; what each change means for code buil
   `SetWriteDirectory`. The static path helpers moved to a new `FilePath` class:
   `IFileSystem::ToVirtualPath` and `IFileSystem::SplitPath` are now `FilePath::ToVirtualPath` and
   `FilePath::SplitPath` (and `IFileSystem::PathScheme` is `FilePath::PathScheme`).
+- The far-edge map alignments (`MAP_ALIGNMENT_TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_RIGHT`,
+  `CENTER_WIDTH_BOTTOM`, `CENTER_HEIGHT_RIGHT`) put the map's far edge on the view's far edge, at any
+  zoom: the camera starts where scrolling stops. They ignored the zoom and snapped to the viewport's
+  far-edge coordinate, so the view started past the map or short of its edge (and `BOTTOM_LEFT` and
+  `BOTTOM_RIGHT` disagreed). A game that starts at a bottom or right alignment starts at a different
+  camera position.
 
 ### Added
 
@@ -150,6 +156,10 @@ Each item is described in full in the plan; what each change means for code buil
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
 - An animated tile whose frames are all 0 ms shows its first frame; it showed its last.
+- `TileMapToTileMatrix` on an isometric, staggered or hexagonal map picked a neighbour of the cell
+  under the point (in the isometric sample, none of the 48 cells picked itself at its own centre). It
+  is now a true diamond or hexagon hit-test, and returns false for a point in the map's rectangle
+  outside every cell (its empty corners, its ragged edges).
 - A shape drawn through `IShapeSurface` outside the map's layers (eg. from `OnUpdate`) used the
   parallax camera of the last layer drawn instead of the view's own camera, and with no map ignored
   the camera. It now uses the active view's camera (after the view passes, the default view's).

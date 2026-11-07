@@ -30,6 +30,9 @@ namespace SunLight  {
 
                 const int    __NO_GRID_CELLS       = 0;    // the near edge of every map's grid
                 const float  __HALF_TILE_DIVISOR   = 2.0f; // the staggered axis steps by half a tile
+                const int    __NEXT_LINE           = 1;    // the line (row or column) next to another
+                const int    __LINES_PER_PAIR      = 2;    // an unshifted line and a shifted one make one whole tile
+                const float  __DIAMOND_RADIUS      = 1.0f; // |dx| / halfW + |dy| / halfH within a diamond (I17)
                 const int    __SHIFT_LINE_MARGIN   = 1;    // VisibleTileRange's extra line of slack on the
                                                             // staggered axis' lower bound, to cover both
                                                             // possible shifts (0 and half a tile) - see below
@@ -81,6 +84,11 @@ namespace SunLight  {
                 }
             }
 
+            /**
+             * @brief The staggered grid's box: on the staggered axis (height + 1) half tiles, on the other whole tiles plus the half a tile the shifted lines stick out.
+             * @param pMap The map, as libtmx parsed it;
+             * @return The map's pixel size;
+             */
             SunLight :: Base :: stSize2D StaggeredProjection :: MapPixelSize( tmx_map* pMap ) const  {
 
                 float  fHalfW = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
@@ -95,6 +103,16 @@ namespace SunLight  {
                                                        ( int ) ( pMap -> height * pMap -> tile_height + fHalfH ) };
             }
 
+            /**
+             * @brief The cell's top-left corner (CellTopLeft): whole tiles on the unstaggered axis, half tiles on the staggered one, with each shifted line (stagger_index) moved half a tile along the other axis; plus the layer's offset.
+             * @param pos The cell's row and column;
+             * @param pMap The map, as libtmx parsed it;
+             * @param nTileWidth Unused: the lattice steps by the map's own tile size;
+             * @param nTileHeight Unused, likewise;
+             * @param nLayerOffsetX The layer's own x offset, added to the cell's corner;
+             * @param nLayerOffsetY The layer's own y offset, likewise;
+             * @return The cell's top-left corner, in map pixels;
+             */
             SunLight :: Base :: stCoordinate2D StaggeredProjection :: TileDrawPosition( const SunLight :: TileMap :: stMatrixPosition& pos,
                                                                                          tmx_map* pMap,
                                                                                          int /* nTileWidth */,
@@ -107,6 +125,15 @@ namespace SunLight  {
                 return SunLight :: Base :: stCoordinate2D { cell.x + nLayerOffsetX, cell.y + nLayerOffsetY };
             }
 
+            /**
+             * @brief A true diamond hit-test (I17): the whole-tile rectangle anchored at an unshifted line, its inscribed diamond for that line's cell, and the rectangle's corners for the shifted lines either side. False outside the map's pixel rectangle and on its ragged edges, outside every diamond.
+             * @param coord The coordinate, in map pixels;
+             * @param pMap The map, as libtmx parsed it;
+             * @param nMapPixelWidth MapPixelSize's width, already computed;
+             * @param nMapPixelHeight MapPixelSize's height, likewise;
+             * @param pos Receives the cell's row and column, when the point is in a cell;
+             * @return Whether the point is in one of the map's cells;
+             */
             bool StaggeredProjection :: MapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                                          tmx_map* pMap,
                                                          int nMapPixelWidth,
@@ -125,40 +152,81 @@ namespace SunLight  {
                 float  fHalfW = ( float ) pMap -> tile_width  / __HALF_TILE_DIVISOR;
                 float  fHalfH = ( float ) pMap -> tile_height / __HALF_TILE_DIVISOR;
 
-                // The staggered lattice's cells overlap their neighbour on the staggered axis by half (E2a),
-                // the same shape of ambiguity IsometricProjection's own MapToTileMatrix has - but unlike
-                // that lattice's coupled (col, row) solve, a single floor directly against the OWN line's
-                // shift is already exact for this method's only required precision, a point near a cell's
-                // own anchor corner: a first version of this method tried a neighbouring second candidate
-                // and picked whichever one's own corner was closer, reasoning the overlap could make the
-                // naive floor land one line short; mutation-testing that reasoning (forcing the first,
-                // un-disambiguated candidate on every call) left the full per-cell round-trip suite - every
-                // cell of two differently-staggered 4x3 grids - still passing, proving the second candidate
-                // never actually won the tie-break for the precision this interface promises. Removed rather
-                // than kept as untested, unexercised complexity.
-                if( EffectiveAxis( pMap ) == SA_Y )  {
-                    int    nRow    = ( int ) std :: floor( fMapY / fHalfH );
-                    float  fShiftX = IsShiftedLine( nRow, pMap -> stagger_index ) ? fHalfW : 0.0f;
-                    int    nCol    = ( int ) std :: floor( ( fMapX - fShiftX ) / ( float ) pMap -> tile_width );
+                // A true diamond hit-test (I17 of the master plan). Each cell's diamond is inscribed in its
+                // tileWidth x tileHeight box (CellTopLeft), and on the staggered axis the lines are only half
+                // a tile apart, so the boxes overlap and a box cannot tell which diamond a point is in. The
+                // lines that are NOT shifted tile the plane with whole-tile rectangles, each holding one of
+                // their diamonds; the four corners of a rectangle outside that diamond belong to the shifted
+                // lines either side (rows above/below for SA_Y, columns left/right for SA_X), whose cells
+                // start half a tile further along. So: the rectangle, then the diamond, then the corner.
+                // The diamond test is inclusive and the corners take the rest, so every point falls in
+                // exactly one cell. It used to floor the point against the staggered axis's half-tile step,
+                // which put a cell's own centre in the next line (found by Scarab: 0 of 48 cells of the
+                // staggered sample picked themselves).
+                bool   bAxisY    = ( EffectiveAxis( pMap ) == SA_Y );
+                float  fTileW    = ( float ) pMap -> tile_width;
+                float  fTileH    = ( float ) pMap -> tile_height;
+                int    nFirst    = IsShiftedLine( __NO_GRID_CELLS, pMap -> stagger_index ) ? __NEXT_LINE : __NO_GRID_CELLS;
+                int    nRow;
+                int    nCol;
 
-                    pos = { nRow, nCol };
+                if( bAxisY )  {
+                    int    nPair  = ( int ) std :: floor( ( fMapY - nFirst * fHalfH ) / fTileH );
+                    int    nLine  = nFirst + ( nPair * __LINES_PER_PAIR );
+                    int    nRectX = ( int ) std :: floor( fMapX / fTileW );
+                    float  fPx    = fMapX - ( nRectX * fTileW );
+                    float  fPy    = fMapY - ( nLine * fHalfH );
+
+                    nRow = nLine;
+                    nCol = nRectX;
+
+                    if( ( std :: fabs( fPx - fHalfW ) / fHalfW ) + ( std :: fabs( fPy - fHalfH ) / fHalfH ) > __DIAMOND_RADIUS )  {
+                        nRow = nLine + ( ( fPy < fHalfH ) ? -__NEXT_LINE : __NEXT_LINE );
+                        nCol = nRectX - ( ( fPx < fHalfW ) ? __NEXT_LINE : __NO_GRID_CELLS );   // a shifted cell starts half a tile right
+                    }
                 }
                 else  {
-                    int    nCol    = ( int ) std :: floor( fMapX / fHalfW );
-                    float  fShiftY = IsShiftedLine( nCol, pMap -> stagger_index ) ? fHalfH : 0.0f;
-                    int    nRow    = ( int ) std :: floor( ( fMapY - fShiftY ) / ( float ) pMap -> tile_height );
+                    int    nPair  = ( int ) std :: floor( ( fMapX - nFirst * fHalfW ) / fTileW );
+                    int    nLine  = nFirst + ( nPair * __LINES_PER_PAIR );
+                    int    nRectY = ( int ) std :: floor( fMapY / fTileH );
+                    float  fPx    = fMapX - ( nLine * fHalfW );
+                    float  fPy    = fMapY - ( nRectY * fTileH );
 
-                    pos = { nRow, nCol };
+                    nCol = nLine;
+                    nRow = nRectY;
+
+                    if( ( std :: fabs( fPx - fHalfW ) / fHalfW ) + ( std :: fabs( fPy - fHalfH ) / fHalfH ) > __DIAMOND_RADIUS )  {
+                        nCol = nLine + ( ( fPx < fHalfW ) ? -__NEXT_LINE : __NEXT_LINE );
+                        nRow = nRectY - ( ( fPy < fHalfH ) ? __NEXT_LINE : __NO_GRID_CELLS );   // a shifted cell starts half a tile down
+                    }
                 }
+
+                // Inside the map's pixel rectangle but outside every diamond (its ragged edges): no cell.
+                if( ( nCol < __NO_GRID_CELLS ) || ( nCol >= ( int ) pMap -> width ) ||
+                    ( nRow < __NO_GRID_CELLS ) || ( nRow >= ( int ) pMap -> height ) )
+                    return false;
+
+                pos = { nRow, nCol };
 
                 return true;
             }
 
+            /**
+             * @brief One whole tile of the map (its tile_width by tile_height), the same convention as orthogonal.
+             * @param pMap The map, as libtmx parsed it;
+             * @return The default step, in map pixels;
+             */
             SunLight :: Base :: stSize2D StaggeredProjection :: DefaultScrollStep( tmx_map* pMap ) const  {
 
                 return SunLight :: Base :: stSize2D { ( int ) pMap -> tile_width, ( int ) pMap -> tile_height };
             }
 
+            /**
+             * @brief Bounds loose enough for either shift of a staggered line (0 or half a tile), clamped to the grid.
+             * @param pMap The map, as libtmx parsed it;
+             * @param mapPixelRect The rectangle to test, in map pixel space;
+             * @return The matrix range that could touch it, clamped to the map's grid;
+             */
             stTileRange StaggeredProjection :: VisibleTileRange( tmx_map* pMap,
                                                                   const SunLight :: Base :: stRectangle& mapPixelRect ) const  {
 

@@ -154,35 +154,60 @@ TEST_SUITE( "Isometric projection" )  {
         CHECK( destBig.y == 32 );
     }
 
-    TEST_CASE( "Map to tile matrix round-trips every cell of a 3x4 map, at the default view state" )  {
+    // I17 of the master plan, found by Scarab: a point in a cell's own diamond picks that cell - its
+    // centre, and a point just inside each of its four vertices. These replace a round trip of a point 1
+    // pixel inside each bounding box's corner, which pinned the old box convention: that point is mostly
+    // outside the cell's own diamond (cell (0, 0)'s box of the 8 x 6 sample starts at x = 160, its diamond
+    // at 192), and the old inverse picked the right neighbour for every cell's centre.
+    TEST_CASE( "Map to tile matrix picks the cell whose diamond holds the point: its centre and just inside its four vertices" )  {
 
-        IsometricProjection  projection;
-        tmx_map              map = MakeMap( 3, 4, 64, 32 );
-        SunLight :: Base :: stSize2D       mapSize = projection.MapPixelSize( &map );
+        struct stCase  { unsigned int nWidth, nHeight, nTileW, nTileH; };
 
-        for( int nRow = 0; nRow < 4; nRow++ )  {
-            for( int nCol = 0; nCol < 3; nCol++ )  {
-                INFO( "col=" << nCol << " row=" << nRow );
+        const stCase  cases[] = { { 3, 4, 64, 32 }, { 8, 6, 64, 32 }, { 5, 5, 32, 16 }, { 1, 1, 64, 32 } };
+        const int     __INSIDE = 2;     // pixels inside a vertex
 
-                stMatrixPosition  pos { nRow, nCol };
-                SunLight :: Base :: stCoordinate2D  topLeft = projection.TileDrawPosition( pos, &map, 32, 32, 0, 0 );
+        for( const stCase& c : cases )  {
+            IsometricProjection           projection;
+            tmx_map                       map     = MakeMap( c.nWidth, c.nHeight, c.nTileW, c.nTileH );
+            SunLight :: Base :: stSize2D  mapSize = projection.MapPixelSize( &map );
+            int                           nHalfW  = ( int ) c.nTileW / 2;
+            int                           nHalfH  = ( int ) c.nTileH / 2;
 
-                // A point just inside the cell's own top-left corner - NOT the bounding box's center: a
-                // neighboring cell's box overlaps this one by half its width/height (the lattice steps by
-                // tileWidth/2 and tileHeight/2 per cell, half the box's own size), so the center of one cell's
-                // box can land exactly on another cell's own top-left corner and round-trip to the wrong cell.
-                // Only a point near THIS cell's own anchor corner is unambiguous.
-                SunLight :: Base :: stCoordinate2D  probe { topLeft.x + 1, topLeft.y + 1 };
+            for( int nRow = 0; nRow < ( int ) c.nHeight; nRow++ )  {
+                for( int nCol = 0; nCol < ( int ) c.nWidth; nCol++ )  {
+                    SunLight :: Base :: stCoordinate2D  box = projection.TileDrawPosition( { nRow, nCol }, &map, c.nTileW, c.nTileH, 0, 0 );
+                    int                                 nCx = box.x + nHalfW;
+                    int                                 nCy = box.y + nHalfH;
+                    SunLight :: Base :: stCoordinate2D  probes[] = { { nCx, nCy },
+                                                                     { nCx - nHalfW + __INSIDE, nCy }, { nCx + nHalfW - __INSIDE, nCy },
+                                                                     { nCx, nCy - nHalfH + __INSIDE }, { nCx, nCy + nHalfH - __INSIDE } };
 
-                stMatrixPosition  back {};
-                bool  bFound = projection.MapToTileMatrix( probe, &map,
-                                                            mapSize.nWidth, mapSize.nHeight, back );
+                    for( const SunLight :: Base :: stCoordinate2D& probe : probes )  {
+                        INFO( c.nWidth << "x" << c.nHeight << " " << c.nTileW << "x" << c.nTileH << " col=" << nCol << " row=" << nRow
+                                       << " probe=(" << probe.x << ", " << probe.y << ")" );
 
-                REQUIRE( bFound == true );
-                CHECK( back.nTileCol == nCol );
-                CHECK( back.nTileRow == nRow );
+                        stMatrixPosition  back {};
+
+                        REQUIRE( projection.MapToTileMatrix( probe, &map, mapSize.nWidth, mapSize.nHeight, back ) == true );
+                        CHECK( back.nTileCol == nCol );
+                        CHECK( back.nTileRow == nRow );
+                    }
+                }
             }
         }
+    }
+
+    TEST_CASE( "Map to tile matrix finds no cell in the map rectangle's empty corners, outside every diamond" )  {
+
+        IsometricProjection           projection;
+        tmx_map                       map     = MakeMap( 3, 2, 64, 32 );
+        SunLight :: Base :: stSize2D  mapSize = projection.MapPixelSize( &map );
+        stMatrixPosition              pos {};
+
+        CHECK( projection.MapToTileMatrix( { 1, 1 }, &map, mapSize.nWidth, mapSize.nHeight, pos ) == false );
+        CHECK( projection.MapToTileMatrix( { mapSize.nWidth - 2, 1 }, &map, mapSize.nWidth, mapSize.nHeight, pos ) == false );
+        CHECK( projection.MapToTileMatrix( { 1, mapSize.nHeight - 2 }, &map, mapSize.nWidth, mapSize.nHeight, pos ) == false );
+        CHECK( projection.MapToTileMatrix( { mapSize.nWidth - 2, mapSize.nHeight - 2 }, &map, mapSize.nWidth, mapSize.nHeight, pos ) == false );
     }
 
     TEST_CASE( "Map to tile matrix refuses a coordinate outside the map's own pixel bounds" )  {

@@ -26,6 +26,7 @@
  */
 
 #include <doctest/doctest.h>
+#include <cmath>
 #include "renderer/camera/camera.h"
 #include "tilemap/itilemap.h"
 
@@ -159,8 +160,9 @@ TEST_SUITE( "renderer/Camera" )  {
 
     TEST_CASE( "Align: each alignment's position; only the axes it names are set" )  {
 
-        // A 640 x 480 map, the viewport at (10, 20), 300 x 200, zoom 2. Its right edge is 310, its
-        // bottom 220; the bottom alignments' "visible height" is |(480 / 220) x 220 - 480| = 40.
+        // A 640 x 480 map, the viewport at (10, 20), 300 x 200, zoom 2: 150 x 100 map pixels visible. A far
+        // edge (I18 of the master plan) is where MoveLeft/MoveUp stop: x = 150 - 640 = -490, y = 100 - 480 =
+        // -380 (it used to ignore the zoom: -340 and -280, and the bottom-right snapped to -460).
         SunLight :: Base :: stDimension2D  vp = Rect( 10, 20, 300, 200 );
 
         auto  aligned = [&vp]( int nAlignment )  {
@@ -177,16 +179,16 @@ TEST_SUITE( "renderer/Camera" )  {
         CHECK( pos.y == -2.0f );
 
         pos = aligned( ITM :: MAP_ALIGNMENT_TOP_RIGHT );
-        CHECK( pos.x == -( 640 - 310 + 10 ) );                               // -340
+        CHECK( pos.x == -490.0f );
         CHECK( pos.y == -2.0f );
 
         pos = aligned( ITM :: MAP_ALIGNMENT_BOTTOM_LEFT );
         CHECK( pos.x == -1.0f );
-        CHECK( pos.y == -( 480 - 220 + 20 ) );                               // -280
+        CHECK( pos.y == -380.0f );
 
         pos = aligned( ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT );
-        CHECK( pos.x == -340.0f );
-        CHECK( pos.y == -( 480 - 40 + 20 ) );                                // -460
+        CHECK( pos.x == -490.0f );
+        CHECK( pos.y == -380.0f );
 
         pos = aligned( ITM :: MAP_ALIGNMENT_CENTER );
         CHECK( pos.x == -245.0f );                                           // -round(((1280 - 310 + 10) / 2) / 2)
@@ -198,15 +200,65 @@ TEST_SUITE( "renderer/Camera" )  {
 
         pos = aligned( ITM :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM );
         CHECK( pos.x == -245.0f );
-        CHECK( pos.y == -460.0f );
+        CHECK( pos.y == -380.0f );
 
         pos = aligned( ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_LEFT );
         CHECK( pos.x == -1.0f );
         CHECK( pos.y == -190.0f );
 
         pos = aligned( ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT );
-        CHECK( pos.x == -340.0f );
+        CHECK( pos.x == -490.0f );
         CHECK( pos.y == -190.0f );
+    }
+
+    TEST_CASE( "Align: a far edge is where scrolling stops, at any zoom; a map smaller than the view is pushed against it" )  {
+
+        // I18 of the master plan: aligned to the bottom-right is exactly the camera after scrolling up and
+        // left as far as it goes - the map's far edges on the viewport's, rounded up to a whole map pixel.
+        const float  zooms[] = { 1.0f, 2.0f, 3.8125f, 0.5f };
+
+        for( float fZoom : zooms )  {
+            INFO( "zoom " << fZoom );
+
+            SunLight :: Base :: stDimension2D  vp = Rect( 10, 10, 1240, 900 );
+            Camera                             aligned;
+            Camera                             scrolled;
+
+            aligned.Align( ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT, 640, 2000, vp, fZoom );
+
+            scrolled.SetScrollStep( 7, 7 );
+            for( int nStep = 0; nStep < 10000; nStep++ )  {
+                scrolled.MoveUp( vp.size.nHeight, fZoom, 2000 );
+                scrolled.MoveLeft( vp.size.nWidth, fZoom, 640 );
+            }
+
+            float  fFarX = std :: ceil( ( 1240.0f / fZoom ) - 640.0f );
+            float  fFarY = std :: ceil( ( 900.0f / fZoom ) - 2000.0f );
+
+            CHECK( aligned.Position().x == fFarX );
+            CHECK( aligned.Position().y == fFarY );
+
+            if( fFarX <= 0.0f )                                                  // wider than the view: it scrolls there
+                CHECK( aligned.Position().x == scrolled.Position().x );
+
+            if( fFarY <= 0.0f )
+                CHECK( aligned.Position().y == scrolled.Position().y );
+        }
+
+        // Caravellius' viewport and zoom: 1240 / 3.8125 = 325.25 and 900 / 3.8125 = 236.07 visible. Its tall
+        // stage (320 x 10240) starts at y = ceil(236.07 - 10240) = -10003, its bottom edge on the view's (it
+        // was -10020: the view went 16 map pixels past the map's bottom).
+        Camera  stage;
+
+        stage.Align( ITM :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM, 320, 10240, Rect( 10, 10, 1240, 900 ), 3.8125f );
+        CHECK( stage.Position().y == -10003.0f );
+        CHECK( stage.Position().x == 3.0f );                                     // centred: unchanged
+
+        // A map narrower than the view: its right edge on the view's right edge (a positive camera).
+        Camera  narrow;
+
+        narrow.Align( ITM :: MAP_ALIGNMENT_TOP_RIGHT, 100, 100, Rect( 0, 0, 400, 300 ), 1.0f );
+        CHECK( narrow.Position().x == 300.0f );
     }
 
     TEST_CASE( "ForParallax: exactly the camera at factor 1; otherwise the layer placed as Tiled places it, about the view's centre" )  {
