@@ -24,7 +24,9 @@
 #include <vector>
 #include "base/color.h"
 #include "base/viewport.h"
+#include <memory>
 #include "tilemap/tilemapdefs.h"
+#include "tilemap/iworld.h"
 
 
 namespace SunLight  {
@@ -173,6 +175,28 @@ namespace SunLight  {
              */
             virtual void SetDrawOrder( int nOrder ) = 0;
             virtual int GetDrawOrder( void ) = 0;
+
+            /**
+             * @brief The WORLD the view shows (I19c of the master plan, see @see IWorld): its map,
+             * the sprites on its layers. A view made by CreateView shows the default world until
+             * told otherwise; the DEFAULT view always shows the default world - so the renderer's own
+             * single-map calls and its own camera calls always agree on what they act on - and
+             * refuses another (a whole screen of another world is an extra view over it; the
+             * default view can be hidden, SetVisible). The view's camera, zoom, scroll limits and
+             * FitToMap then work on that world's map; the camera is not moved (FitToMap or
+             * SetCameraPosition place it), and a scroll step of -1 is resolved for the new map.
+             * When the world is removed (ITileMap::RemoveWorld) the view goes back to the default world.
+             * @param pWorld A world of this view's renderer, not removed;
+             * @return false (nothing changed) for the default view, an empty or removed world,
+             * another renderer's world, or a removed view;
+             */
+            virtual bool SetWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) = 0;
+
+            /**
+             * @brief The world the view shows: the default world unless SetWorld chose another.
+             * A removed view still answers with the last one.
+             */
+            virtual std :: shared_ptr<SunLight :: TileMap :: IWorld> GetWorld( void ) = 0;
 
             /**
              * @brief The view's OPACITY (I19a of the master plan): 1 (the

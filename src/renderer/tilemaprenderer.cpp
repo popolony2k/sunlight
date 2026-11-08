@@ -507,7 +507,12 @@ namespace SunLight  {
 
             View  *pDefault = m_pDefaultView.get();
 
-            Sprites().BeginFrame();
+            // I19c: every world's sprites start the frame (each pass draws its own view's world).
+            m_pDefaultWorld -> Sprites().BeginFrame();
+
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )
+                pWorld -> Sprites().BeginFrame();
+
             m_PassViews.clear();
 
             if( pDefault -> m_bVisible )
@@ -527,6 +532,8 @@ namespace SunLight  {
                 // I19a: a view below full opacity draws into a target of its own, laid over the frame
                 // at its opacity once the pass is done (outside its clip, which ends first).
                 bool  bOwnTarget = BeginViewTarget( *pView );
+
+                m_DrawnWorlds.insert( m_pActiveWorld );    // I19c: this pass draws its view's world
 
                 // The whole pass is cut to its view's rectangle (the engine's clip stack keeps any
                 // clip a draw starts inside it), so nothing the pass draws lands outside its view.
@@ -557,8 +564,11 @@ namespace SunLight  {
             ActivateView( pDefault );
 
             // Sprites some pass reached but no pass had on screen: advanced once, exactly as a
-            // single view would (see SpriteRegistry::UpdateLayer). They draw nothing.
-            Sprites().EndFrame();
+            // single view would (see SpriteRegistry::UpdateLayer). They draw nothing. In every world.
+            m_pDefaultWorld -> Sprites().EndFrame();
+
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )
+                pWorld -> Sprites().EndFrame();
         }
 
         /**
@@ -680,7 +690,9 @@ namespace SunLight  {
             // with AddSprite (which has always accepted a mapless caller) - before M2 this whole
             // block was skipped without a map, so such a sprite's collider was updated every frame
             // but the sprite itself was never drawn.
-            if( Tmx() || !Sprites().Empty() )  {
+            m_DrawnWorlds.clear();
+
+            if( AnyWorldHasContent() )  {
                 if( m_ExtraViews.empty() )  {
                     /*
                      * The single-view frame - every renderer that never calls CreateView -
@@ -689,6 +701,8 @@ namespace SunLight  {
                      */
                     if( m_pDefaultView -> m_bVisible )  {
                         bool  bOwnTarget = BeginViewTarget( *m_pDefaultView );   // I19a: below full opacity
+
+                        m_DrawnWorlds.insert( m_pDefaultWorld.get() );
 
                         // Study: nothing cuts the single view's draws in software any more, so the viewport
                         // is the clip for the whole frame (the view passes set their own).
@@ -708,6 +722,8 @@ namespace SunLight  {
                     DrawViewPasses();
                 }
             }
+
+            AdvanceUndrawnWorlds();          // I19c: a world no pass drew still advances its sprites
 
             if( m_bDrawFPS )
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawFPS( 0, 0 );
@@ -749,11 +765,21 @@ namespace SunLight  {
         }
 
         /**
-         * Handle user collisions;
+         * Handle user collisions: every world's rules, the default world's first, then the others in
+         * creation order (I19c of the master plan - every live world updates, shown or not). Each
+         * world's manager reads its own map (World is its ITileSource). Over a copy of the world
+         * list: a listener may create or remove worlds.
          */
         void TileMapRenderer :: HandleUserCollisions( void )  {
 
-            Collisions().Update();
+            m_pDefaultWorld -> Collisions().Update();
+
+            std :: vector<std :: shared_ptr<World>>  worlds = m_ExtraWorlds;
+
+            for( std :: shared_ptr<World>& pWorld : worlds )  {
+                if( !pWorld -> IsRemoved() )
+                    pWorld -> Collisions().Update();
+            }
         }
 
         /**
@@ -857,8 +883,9 @@ namespace SunLight  {
          * @param config The renderer configuration;
          */
         TileMapRenderer :: TileMapRenderer( const SunLight :: Renderer :: RendererConfig& config ) :
-                                            m_pDefaultWorld( std :: make_shared<World>( this ) ),
-                                            m_pActiveWorld( m_pDefaultWorld.get() )  {
+                                            m_pDefaultWorld( std :: make_shared<World>( this, 0 ) ),
+                                            m_pActiveWorld( m_pDefaultWorld.get() ),
+                                            m_nNextWorldId( 1 )  {
 
             // Select the backend FIRST: everything below (the input
             // handler, anything that touches the engine) must already see
@@ -881,6 +908,7 @@ namespace SunLight  {
             // The default view (id 0) uses this renderer's own root viewport in place and
             // starts out active - see ActivateView.
             m_pDefaultView                = std :: make_shared<View>( this, 0, &GetViewport() );
+            m_pDefaultView -> m_pWorld    = m_pDefaultWorld;      // I19c: and always will
             m_pActiveView                 = m_pDefaultView.get();
             m_nNextViewId                 = 1;
             m_pRenderTexture              = nullptr;
@@ -980,6 +1008,18 @@ namespace SunLight  {
             if( m_bIsStarted )
                 ReleaseViewTargets();
 
+            // I19c: the default world is the one the calls below act on, whatever was active.
+            ActivateView( m_pDefaultView.get() );
+            m_pActiveWorld = m_pDefaultWorld.get();
+
+            // I19c: every world made by CreateWorld lets go of its sprites (they are the game's: no longer
+            // registered, no longer parented to a dead renderer) and of its map, then becomes inert.
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                DetachSprites( *pWorld, true );
+                pWorld -> FreeMap();
+                pWorld -> Detach();
+            }
+
             for( std :: shared_ptr<View>& pView : m_ExtraViews )
                 pView -> Detach();
 
@@ -1003,6 +1043,7 @@ namespace SunLight  {
             }
 
             Sprites().ClearParented();
+            m_pDefaultWorld -> Detach();
 
             if( !m_pNullBackend )
                 s_nLiveDefaultBackendRenderers--;
@@ -1053,12 +1094,20 @@ namespace SunLight  {
          */
         void TileMapRenderer :: ChildRemoved( SunLight :: Canvas :: BaseCanvas* pChild )  {
 
-            std :: vector<int>              layerIds;
-            SunLight :: Sprite :: Sprite  *pSprite = Sprites().Forget( pChild, layerIds );
+            // I19c: whichever world it is in - every world is searched (a sprite is in one at a time).
+            std :: vector<World*>  worlds { m_pDefaultWorld.get() };
 
-            if( pSprite )  {
-                for( int nLayerId : layerIds )
-                    Collisions().RemoveCollider( nLayerId, &pSprite -> GetCollider() );
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )
+                worlds.push_back( pWorld.get() );
+
+            for( World* pWorld : worlds )  {
+                std :: vector<int>              layerIds;
+                SunLight :: Sprite :: Sprite  *pSprite = pWorld -> Sprites().Forget( pChild, layerIds );
+
+                if( pSprite )  {
+                    for( int nLayerId : layerIds )
+                        pWorld -> Collisions().RemoveCollider( nLayerId, &pSprite -> GetCollider() );
+                }
             }
         }
 
@@ -1323,6 +1372,11 @@ namespace SunLight  {
 
             View  *pPrevious = m_pActiveView;
 
+            // I19c: the world comes with the view - the one every map, sprite and collision call then
+            // reads (the default view's is always the default world).
+            if( pView != nullptr )
+                m_pActiveWorld = pView -> m_pWorld.get();
+
             if( ( pView == nullptr ) || ( pView == pPrevious ) )
                 return pPrevious;
 
@@ -1362,6 +1416,8 @@ namespace SunLight  {
         std :: shared_ptr<SunLight :: TileMap :: IView> TileMapRenderer :: CreateView( const SunLight :: Base :: stDimension2D& rect )  {
 
             std :: shared_ptr<View>  pView = std :: make_shared<View>( this, m_nNextViewId, nullptr );
+
+            pView -> m_pWorld = m_pDefaultWorld;      // I19c: until SetWorld says otherwise
 
             pView -> m_pViewport -> SetDimension2D( rect );
 
@@ -1447,6 +1503,345 @@ namespace SunLight  {
         int TileMapRenderer :: GetViewCount( void )  {
 
             return ( int ) m_ExtraViews.size() + 1;
+        }
+
+        /**
+         * @brief Make a world the ACTIVE one (I19c of the master plan): the one Map, Sprites and
+         * Collisions read. World's own operations use it (World::Run), and ActivateView does it with
+         * every view. Activating nullptr changes nothing.
+         * @param pWorld The world;
+         * @return The world that was active, so the caller can put it back;
+         */
+        World* TileMapRenderer :: ActivateWorld( World* pWorld )  {
+
+            World  *pPrevious = m_pActiveWorld;
+
+            if( pWorld != nullptr )
+                m_pActiveWorld = pWorld;
+
+            return pPrevious;
+        }
+
+        /**
+         * @brief This renderer's world behind a handle: the default world or one made by CreateWorld,
+         * compared by object (another renderer's world, or a removed one, is not found).
+         * @param pWorld The handle;
+         * @return The world, or nullptr;
+         */
+        World* TileMapRenderer :: FindWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) const  {
+
+            if( !pWorld )
+                return nullptr;
+
+            if( pWorld.get() == static_cast<SunLight :: TileMap :: IWorld*>( m_pDefaultWorld.get() ) )
+                return m_pDefaultWorld.get();
+
+            for( const std :: shared_ptr<World>& pOwn : m_ExtraWorlds )  {
+                if( pWorld.get() == static_cast<SunLight :: TileMap :: IWorld*>( pOwn.get() ) )
+                    return pOwn.get();
+            }
+
+            return nullptr;
+        }
+
+        /**
+         * @brief The renderer's own shared reference to one of its worlds.
+         * @param pWorld The world (FindWorld's);
+         * @return The reference; empty when it is not this renderer's;
+         */
+        std :: shared_ptr<World> TileMapRenderer :: OwningHandle( World* pWorld ) const  {
+
+            if( pWorld == m_pDefaultWorld.get() )
+                return m_pDefaultWorld;
+
+            for( const std :: shared_ptr<World>& pOwn : m_ExtraWorlds )  {
+                if( pOwn.get() == pWorld )
+                    return pOwn;
+            }
+
+            return nullptr;
+        }
+
+        /**
+         * @brief Whether a sprite is registered in a world other than the active one (I19c: a sprite
+         * belongs to one world at a time, so AddSprite refuses it there).
+         * @param sprite The sprite;
+         * @return true when another world holds it;
+         */
+        bool TileMapRenderer :: InAnotherWorld( SunLight :: Sprite :: Sprite& sprite )  {
+
+            if( ( m_pDefaultWorld.get() != m_pActiveWorld ) && m_pDefaultWorld -> Sprites().ContainsAnywhere( &sprite ) )
+                return true;
+
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                if( ( pWorld.get() != m_pActiveWorld ) && pWorld -> Sprites().ContainsAnywhere( &sprite ) )
+                    return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * @brief IWorld::LoadMap (I19c): load a map into a world, replacing its map only once the new
+         * one loaded. No camera moves (unlike LoadMap's alignment): the views showing it keep theirs;
+         * their "-1" scroll steps are resolved for the new map. Its sprites stay registered.
+         * @param world The world;
+         * @param szTmxMapFile The map, a FileSystem path;
+         * @return false when not started or the map cannot be loaded;
+         */
+        bool TileMapRenderer :: LoadWorldMap( World& world, const char* szTmxMapFile )  {
+
+            if( !m_bIsStarted )
+                return false;
+
+            std :: unique_ptr<MapData>  pNewMap = MapData :: Load( szTmxMapFile );
+
+            if( !pNewMap )
+                return false;
+
+            world.SetMap( std :: move( pNewMap ) );
+            ResolveScrollSteps( world );
+
+            return true;
+        }
+
+        /**
+         * @brief IWorld::UnloadMap (I19c): free a world's map and DETACH its sprites - their
+         * registrations and colliders go, the sprites are neither destroyed nor emptied and stay
+         * parented, as after RemoveSprite. (The older UnloadMap also unloads the default world's
+         * sprites - Sprite::Unload - and keeps doing so.)
+         * @param world The world;
+         * @return false when it had no map;
+         */
+        bool TileMapRenderer :: UnloadWorldMap( World& world )  {
+
+            if( !world.Map() )
+                return false;
+
+            DetachSprites( world, false );
+            world.FreeMap();
+
+            return true;
+        }
+
+        /**
+         * @brief Take every sprite out of a world without touching the sprite (I19c): each
+         * registration and its collider go. With bReleaseParents the sprites this renderer is the
+         * parent of are let go too (RemoveWorld, the destructor): Sprite::SetParent( nullptr ), so no
+         * sprite keeps a parent pointer into a renderer it no longer belongs to.
+         * @param world The world;
+         * @param bReleaseParents Whether the sprites stop being this renderer's children;
+         */
+        void TileMapRenderer :: DetachSprites( World& world, bool bReleaseParents )  {
+
+            for( const std :: pair<int, SunLight :: Sprite :: Sprite*>& registration : world.Sprites().Registrations() )  {
+                world.Collisions().RemoveCollider( registration.first, &registration.second -> GetCollider() );
+                world.Sprites().Remove( registration.first, registration.second );
+            }
+
+            if( bReleaseParents )  {
+                // Over a copy (ParentedSprites): SetParent calls back into ChildRemoved, which erases.
+                for( SunLight :: Sprite :: Sprite* pSprite : world.Sprites().ParentedSprites() )  {
+                    if( pSprite -> GetParent() == this )
+                        pSprite -> SetParent( nullptr );
+                }
+
+                world.Sprites().ClearParented();
+            }
+        }
+
+        /**
+         * @brief Resolve a "-1" scroll step (the map's tile size) for every view showing a world, now
+         * that the world has a map (I19c): the default view and the extra views showing it.
+         * @param world The world;
+         */
+        void TileMapRenderer :: ResolveScrollSteps( World& world )  {
+
+            if( !world.Map() )
+                return;
+
+            SunLight :: Base :: stSize2D  step = world.Map() -> DefaultScrollStep();
+
+            if( m_pDefaultView -> m_pWorld.get() == &world )
+                m_pDefaultView -> m_Camera.ResolveScrollStep( step );
+
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
+                if( pView -> m_pWorld.get() == &world )
+                    pView -> m_Camera.ResolveScrollStep( step );
+            }
+        }
+
+        /**
+         * @brief The view whose camera a world's view-relative colliders are tested with (I19c): the
+         * default view for the default world; for another, the first visible view showing it, by id;
+         * the default view when none does (a world no view shows has no camera of its own - a
+         * world-space sprite does not need one).
+         * @param world The world;
+         * @return The view;
+         */
+        View* TileMapRenderer :: ViewShowing( World& world )  {
+
+            if( &world != m_pDefaultWorld.get() )  {
+                for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
+                    if( pView -> m_bVisible && ( pView -> m_pWorld.get() == &world ) )
+                        return pView.get();
+                }
+            }
+
+            return m_pDefaultView.get();
+        }
+
+        /**
+         * @brief IView::SetWorld (I19c): show another world in a view made by CreateView. The camera
+         * stays; a "-1" scroll step is resolved for the world's map. The default view always shows the
+         * default world.
+         * @param view The view;
+         * @param pWorld The world;
+         * @return false for the default view, an empty, removed or foreign world;
+         */
+        bool TileMapRenderer :: SetViewWorld( View& view, const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld )  {
+
+            World  *pOwn = FindWorld( pWorld );
+
+            if( ( &view == m_pDefaultView.get() ) || ( pOwn == nullptr ) )
+                return false;
+
+            view.m_pWorld = OwningHandle( pOwn );
+
+            if( pOwn -> Map() )
+                view.m_Camera.ResolveScrollStep( pOwn -> Map() -> DefaultScrollStep() );
+
+            if( m_pActiveView == &view )
+                m_pActiveWorld = pOwn;
+
+            return true;
+        }
+
+        /**
+         * @brief A world's GetCollidingTiles (its ITileSource, I19c): this renderer's own, with the
+         * world active together with the view whose camera its view-relative colliders are drawn with
+         * (ViewShowing), both put back afterwards.
+         * @param world The world;
+         * @param rect The collider's rectangle;
+         * @param bWorldSpace Whether rect is already a map position;
+         * @param layer The tile layer;
+         * @param tiles Receives the tiles touched;
+         * @return Whether the layer could be tested;
+         */
+        bool TileMapRenderer :: CollidingTilesIn( World& world,
+                                                  const SunLight :: Base :: stRectangle& rect,
+                                                  bool bWorldSpace,
+                                                  const SunLight :: TileMap :: stLayer& layer,
+                                                  std :: vector<SunLight :: TileMap :: stTile>& tiles )  {
+
+            World  *pOriginalWorld = m_pActiveWorld;
+            View   *pPreviousView  = ActivateView( ViewShowing( world ) );
+
+            m_pActiveWorld = &world;
+
+            bool  bResult = GetCollidingTiles( rect, bWorldSpace, layer, tiles );
+
+            ActivateView( pPreviousView );
+            m_pActiveWorld = pOriginalWorld;
+
+            return bResult;
+        }
+
+        /**
+         * @brief Whether any world has something to draw - a map, or sprites (I19c): the frame draws
+         * the views only then, as it drew them only with a map or sprites before.
+         * @return true when some world has a map or a sprite;
+         */
+        bool TileMapRenderer :: AnyWorldHasContent( void ) const  {
+
+            if( m_pDefaultWorld -> Map() || !m_pDefaultWorld -> Sprites().Empty() )
+                return true;
+
+            for( const std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                if( pWorld -> Map() || !pWorld -> Sprites().Empty() )
+                    return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * @brief The frame step of every world no pass drew (I19c): its sprites advance once, drawing
+         * nothing - every live world updates, shown or not. The default world keeps its older rule (a
+         * sprite on a layer no view shows stands still), so it is not advanced here.
+         */
+        void TileMapRenderer :: AdvanceUndrawnWorlds( void )  {
+
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                if( m_DrawnWorlds.find( pWorld.get() ) == m_DrawnWorlds.end() )
+                    pWorld -> Sprites().AdvanceAll();
+            }
+        }
+
+        /**
+         * @brief The default world (I19c): the one the single-map calls act on and the default view
+         * shows.
+         * @return Its handle (never empty);
+         */
+        std :: shared_ptr<SunLight :: TileMap :: IWorld> TileMapRenderer :: GetDefaultWorld( void )  {
+
+            return m_pDefaultWorld;
+        }
+
+        /**
+         * @brief A new, empty world (I19c), kept by this renderer until RemoveWorld.
+         * @return Its handle;
+         */
+        std :: shared_ptr<SunLight :: TileMap :: IWorld> TileMapRenderer :: CreateWorld( void )  {
+
+            std :: shared_ptr<World>  pWorld = std :: make_shared<World>( this, m_nNextWorldId );
+
+            m_nNextWorldId++;
+            m_ExtraWorlds.push_back( pWorld );
+
+            return pWorld;
+        }
+
+        /**
+         * @brief Remove a world made by CreateWorld (I19c): every view showing it goes back to the
+         * default world, its sprites are detached and let go (DetachSprites), its map is freed, and it
+         * becomes inert (World::Detach) - a handle still held is safe.
+         * @param pWorld The world;
+         * @return false for the default world, an empty, removed or foreign one;
+         */
+        bool TileMapRenderer :: RemoveWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld )  {
+
+            World  *pOwn = FindWorld( pWorld );
+
+            if( ( pOwn == nullptr ) || ( pOwn == m_pDefaultWorld.get() ) )
+                return false;
+
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
+                if( pView -> m_pWorld.get() == pOwn )
+                    pView -> m_pWorld = m_pDefaultWorld;
+            }
+
+            if( m_pActiveWorld == pOwn )
+                m_pActiveWorld = m_pDefaultWorld.get();
+
+            // Kept alive across the erase: the detach and the map's release run on it.
+            std :: shared_ptr<World>  pRemoved = OwningHandle( pOwn );
+
+            m_ExtraWorlds.erase( std :: find( m_ExtraWorlds.begin(), m_ExtraWorlds.end(), pRemoved ) );
+            DetachSprites( *pRemoved, true );
+            pRemoved -> FreeMap();
+            pRemoved -> Detach();
+
+            return true;
+        }
+
+        /**
+         * @brief The number of worlds, the default one included (I19c).
+         * @return At least 1;
+         */
+        int TileMapRenderer :: GetWorldCount( void )  {
+
+            return ( int ) m_ExtraWorlds.size() + 1;
         }
 
         /**
@@ -2180,18 +2575,9 @@ namespace SunLight  {
                 ActiveCamera().Align( alignment, nMapWidth, nMapHeight, GetViewport().GetDimension2D(),
                                       GetViewport().GetZoomProperties().fZoomFactor );
 
-                /*
-                * Set scrolling properties.
-                */                /*
-                * Set scrolling properties.
-                */
-                SunLight :: Base :: stSize2D  defaultStep = Map() -> DefaultScrollStep();
-
-                // For every view: "-1" means the tile size of the map they now show.
-                m_pDefaultView -> m_Camera.ResolveScrollStep( defaultStep );
-
-                for( std :: shared_ptr<View>& pView : m_ExtraViews )
-                    pView -> m_Camera.ResolveScrollStep( defaultStep );
+                // Scrolling: for every view showing the default world (I19c), "-1" means the tile size
+                // of the map they now show.
+                ResolveScrollSteps( *m_pDefaultWorld );
 
                 return true;
             }
@@ -2345,7 +2731,7 @@ namespace SunLight  {
                 // Opened before the checks below, as it always was (see SpriteRegistry::OpenLayer).
                 Sprites().OpenLayer( nLayerId );
 
-                if( !Sprites().Contains( nLayerId, &sprite ) &&
+                if( !Sprites().Contains( nLayerId, &sprite ) && !InAnotherWorld( sprite ) &&
                     Collisions().AddCollider( nLayerId, &sprite.GetCollider() ) )  {
 
                     sprite.SetParent( this );
@@ -2462,6 +2848,13 @@ namespace SunLight  {
                 // with no map ever loaded (M2) must be released here too, or their per-layer
                 // lists leak and they stay registered across a restart.
                 UnloadSprites();
+
+                // I19c: every other world lets go of its sprites (detached: the game's) and of its map,
+                // whose textures must go while the window is open. The worlds stay, empty.
+                for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                    DetachSprites( *pWorld, false );
+                    pWorld -> FreeMap();
+                }
 
                 // Fonts go before the window closes: the engine's close handler
                 // would release them too, but that is its own state, not ours.

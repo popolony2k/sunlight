@@ -26,6 +26,7 @@
 #include "tilemap/iview.h"
 #include "base/primitives.h"
 #include "renderer/camera/camera.h"
+#include "renderer/world/world.h"
 
 
 namespace SunLight  {
@@ -74,6 +75,7 @@ namespace SunLight  {
             std :: set<int>                        m_MaskIds;
             float                                  m_fOpacity;            // I19a: 1 draws as always; below 1 through m_hTarget
             SunLight :: Base :: TextureHandle      m_hTarget;             // the view's own render target, frame-sized; nullptr until needed
+            std :: shared_ptr<World>               m_pWorld;              // I19c: the world it shows (never empty once the renderer set it)
 
             template<class Function>
             void Run( Function function );
@@ -111,6 +113,8 @@ namespace SunLight  {
             bool GetVisible( void ) override;
             void SetDrawOrder( int nOrder ) override;
             int GetDrawOrder( void ) override;
+            bool SetWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) override;
+            std :: shared_ptr<SunLight :: TileMap :: IWorld> GetWorld( void ) override;
             void SetOpacity( float fOpacity ) override;
             float GetOpacity( void ) override;
             void SetClearBackground( bool bClear ) override;

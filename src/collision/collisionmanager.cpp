@@ -70,10 +70,10 @@ namespace SunLight  {
 
         /**
          * Constructor. Initialize all class data.
-         * @param pParent Pointer to the TileMap that this collision
-         * manager is attached;
+         * @param pParent What the manager asks for layers and the tiles a collider touches (I19c:
+         * an ITileSource - the world the manager belongs to, or any ITileMap, which is one);
          */
-        CollisionManager :: CollisionManager( SunLight :: TileMap :: ITileMap* pParent )  {
+        CollisionManager :: CollisionManager( SunLight :: TileMap :: ITileSource* pParent )  {
 
             m_pParent = pParent;
 
@@ -381,7 +381,7 @@ namespace SunLight  {
                     std :: vector<SunLight :: TileMap :: stTile>  tiles;
 
                     // I7 of the master plan: every tile the collider touches, worked out by the map in map
-                    // space (ITileMap::GetCollidingTiles), each reported once and with its map-space
+                    // space (ITileSource::GetCollidingTiles), each reported once and with its map-space
                     // rectangle. It used to test only the tile under the collider's top-left corner, found
                     // through the viewport origin and the camera (see TileMapRenderer::GetCollidingTiles).
                     if( m_pParent -> GetLayer( pPair -> second, layer ) &&

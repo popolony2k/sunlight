@@ -67,6 +67,22 @@ namespace SunLight  {
         }
 
         /**
+         * @brief Whether a sprite is registered on any layer (I19c: a sprite belongs to one world at
+         * a time, and AddSprite asks every other world).
+         * @param pSprite The sprite;
+         * @return true when some layer holds it;
+         */
+        bool SpriteRegistry :: ContainsAnywhere( SunLight :: Sprite :: Sprite* pSprite ) const  {
+
+            for( const std :: pair<const int, SpriteList>& layer : m_Layers )  {
+                if( std :: find( layer.second.begin(), layer.second.end(), pSprite ) != layer.second.end() )
+                    return true;
+            }
+
+            return false;
+        }
+
+        /**
          * @brief Take a sprite off one layer. It stays parented (see MarkParented): a removed
          * sprite keeps the renderer as its parent until it is destroyed or re-parented.
          * @return false if it was not on that layer;
@@ -272,6 +288,23 @@ namespace SunLight  {
                 pSprite -> Advance();
 
             m_FramePending.clear();
+        }
+
+        /**
+         * @brief Advance every registered sprite once, drawing nothing (I19c of the master plan): the
+         * frame step of a world no view drew this frame - every live world updates, shown or not. A
+         * sprite on several layers advances once, as in a drawn frame (UpdateLayer).
+         */
+        void SpriteRegistry :: AdvanceAll( void )  {
+
+            std :: set<SunLight :: Sprite :: Sprite*>  advanced;
+
+            for( std :: pair<const int, SpriteList>& layer : m_Layers )  {
+                for( SunLight :: Sprite :: Sprite* pSprite : layer.second )  {
+                    if( advanced.insert( pSprite ).second )
+                        pSprite -> Advance();
+                }
+            }
         }
 
         /**

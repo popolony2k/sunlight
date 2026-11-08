@@ -25,6 +25,7 @@
 #include <vector>
 #include "sprite/sprite.h"
 #include "tilemap/iview.h"
+#include "tilemap/itilesource.h"
 #include "input/iinputhandler.h"
 #include "collision/icollisionmanager.h"
 
@@ -47,7 +48,7 @@ namespace SunLight  {
          * the one concrete class implementing ITileMap, now also
          * implements IDrawSurface directly.
          */
-        class ITileMap : public SunLight :: Canvas :: BaseCanvas  {
+        class ITileMap : public SunLight :: Canvas :: BaseCanvas, public SunLight :: TileMap :: ITileSource  {
 
             public:
 
@@ -177,6 +178,38 @@ namespace SunLight  {
             virtual int GetViewCount( void ) = 0;
 
             /**
+             * @brief The DEFAULT world (I19c of the master plan, see @see IWorld): the one this
+             * interface's single-map calls act on (LoadMap, AddSprite, GetTile, GetCollisionManager,
+             * ...) and the default view shows. Always exists, id 0, never removed.
+             */
+            virtual std :: shared_ptr<SunLight :: TileMap :: IWorld> GetDefaultWorld( void ) = 0;
+
+            /**
+             * @brief Create a new, empty world: no map, no sprites, no collision rules. Show it with
+             * IView::SetWorld on a view made by CreateView; fill it with IWorld::LoadMap and
+             * IWorld::AddSprite. The renderer keeps its own reference until @see RemoveWorld.
+             * @return The world (its id, always > 0, is IWorld::GetId);
+             */
+            virtual std :: shared_ptr<SunLight :: TileMap :: IWorld> CreateWorld( void ) = 0;
+
+            /**
+             * @brief Remove a world made by @see CreateWorld: its map is freed, its sprites are
+             * DETACHED (registrations and colliders go, the sprites are the game's: neither
+             * destroyed nor emptied, and no longer parented to the renderer), every view showing it
+             * goes back to the default world, and a handle still held becomes inert
+             * (IWorld::IsRemoved). The default world is never removed.
+             * @param pWorld The world;
+             * @return false for the default world, an empty or already removed one, or another
+             * renderer's;
+             */
+            virtual bool RemoveWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) = 0;
+
+            /**
+             * @brief The number of worlds, the default world included (so at least 1).
+             */
+            virtual int GetWorldCount( void ) = 0;
+
+            /**
              * @brief Reset zoom to it's default state.
              */
             virtual void ResetZoom( void ) = 0;
@@ -264,12 +297,9 @@ namespace SunLight  {
              */
             virtual bool SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
 
-            /**
-             * Get the layer parameters.
-             * @param nLayerId The layer id to get layer parameters;
-             * @param layer reference to layer parameters structure to get;
-             */
-            virtual bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) = 0;
+            // GetLayer( int, stLayer& ) is ITileSource's (I19c): a collision manager asks it. Brought
+            // into this scope, or the overloads below would hide it from a caller holding an ITileMap.
+            using SunLight :: TileMap :: ITileSource :: GetLayer;
 
             /**
              * Get the layer parameters.
@@ -293,24 +323,7 @@ namespace SunLight  {
                                   const SunLight :: TileMap :: stLayer& layer,
                                   SunLight :: TileMap :: stTile& tile ) = 0;
 
-            /**
-             * @brief The tiles of a tile layer that a collider touches (I7 of the master plan): every
-             * tile whose Tiled collision rectangle overlaps rect, in MAP space, each reported once with
-             * its dimension in map space (as GetTile gives it). Rectangles that only share an edge do
-             * not overlap, so a sprite resting flush against a wall does not touch it. Only rectangle
-             * collision shapes are tested.
-             * @param rect The collider's rectangle: a map position when bWorldSpace, otherwise relative
-             * to the view (a sprite's own position), which is turned into a map position with the camera
-             * the layer is drawn with;
-             * @param bWorldSpace Whether rect is already a map position;
-             * @param layer The tile layer;
-             * @param tiles Receives the tiles touched, in row then column order (emptied first);
-             * @return Whether the layer could be tested (a map is loaded and layer is a tile layer);
-             */
-            virtual bool GetCollidingTiles( const SunLight :: Base :: stRectangle& rect,
-                                            bool bWorldSpace,
-                                            const SunLight :: TileMap :: stLayer& layer,
-                                            std :: vector<SunLight :: TileMap :: stTile>& tiles ) = 0;
+            // GetCollidingTiles is ITileSource's (I19c): a collision manager asks it.
 
             /**
              * Get the tile matrix cell under a MAP position (map pixels - no camera, zoom or viewport
