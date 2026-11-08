@@ -105,6 +105,16 @@ namespace  {
         "<layer id=\"1\" name=\"ground\" width=\"2\" height=\"1\"><data encoding=\"csv\">1,1</data></layer>"
         "</map>";
 
+    // An isometric 2 x 2 map of 32 x 16 tiles with a "props" layer: one tile at row 0, column 0, whose
+    // tile has a 32 x 16 collision rectangle. Cell (0, 0) is drawn at x = (0 - 0 + 2 - 1) x 16 = 16, y = 0.
+    const char  *g_szMapIsoProps =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<map version=\"1.0\" orientation=\"isometric\" renderorder=\"right-down\" width=\"2\" height=\"2\" tilewidth=\"32\" tileheight=\"16\" nextlayerid=\"2\">"
+        "<tileset firstgid=\"1\" name=\"ip\" tilewidth=\"32\" tileheight=\"16\" tilecount=\"1\" columns=\"1\"><image source=\"ip.png\" width=\"32\" height=\"16\"/>"
+        "<tile id=\"0\"><objectgroup draworder=\"index\"><object id=\"1\" x=\"0\" y=\"0\" width=\"32\" height=\"16\"/></objectgroup></tile></tileset>"
+        "<layer id=\"1\" name=\"props\" width=\"2\" height=\"2\"><data encoding=\"csv\">1,0,0,0</data></layer>"
+        "</map>";
+
     // Mocks; a started renderer with map A in its default world (default view at 10, 10, 200 x 200).
     struct Scene  {
 
@@ -120,6 +130,7 @@ namespace  {
             fsFixture.fs.files["maps/iso.tmx"] = ToBytes( g_szMapIso );
             fsFixture.fs.files["maps/odd.tmx"] = ToBytes( g_szMapOdd );
             fsFixture.fs.files["maps/col.tmx"] = ToBytes( g_szMapStaggeredRow );
+            fsFixture.fs.files["maps/isoprops.tmx"] = ToBytes( g_szMapIsoProps );
 
             RendererConfig  config;
 
@@ -469,6 +480,33 @@ TEST_SUITE( "renderer/worldmaps" )  {
         CHECK( nY == -16 );
     }
 
+    // A world-space collider sprite of a given size, on layer 1, for the collision tests below.
+    struct ColliderRig  {
+        SunLight :: Canvas :: TextureCanvas  canvas;
+        SunLight :: Sprite :: Sprite         sprite;
+        Scene                               &m_Scene;
+
+        ColliderRig( Scene& scene, int nX, int nY, int nW, int nH ) : m_Scene( scene )  {
+            scene.engine().hLoadTextureResult = g_TexSprite;
+            scene.engine().nLoadTextureWidth  = nW;
+            scene.engine().nLoadTextureHeight = nH;
+
+            REQUIRE( canvas.Load( "s.png" ) == true );
+            canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { nW, nH } } );
+            sprite.AddTextureSequence( 0, &canvas, 0 );
+            sprite.SetActiveTextureSequence( 0 );
+            sprite.SetVisible( true );
+            sprite.SetWorldSpace( true );
+            sprite.GetDimension2D().pos.x = nX;
+            sprite.GetDimension2D().pos.y = nY;
+            REQUIRE( scene.pRenderer -> AddSprite( 1, sprite ) == true );
+        }
+
+        ~ColliderRig( void )  {
+            m_Scene.pRenderer -> RemoveSprite( 1, sprite );
+        }
+    };
+
     TEST_CASE( "Collisions in a world of several maps: the map under the collider, its own layer of that name, tiles in the world's pixels" )  {
 
         Scene         scene;
@@ -511,5 +549,62 @@ TEST_SUITE( "renderer/worldmaps" )  {
         CHECK( listener.tiles.empty() );
 
         scene.pRenderer -> RemoveSprite( 1, sprite );
+    }
+
+    TEST_CASE( "I19e: a collider straddling a map edge touches the tiles of EVERY map it overlaps, orthogonal and isometric, in the world's pixels" )  {
+
+        Scene         scene;
+        WorldHandle   pWorld = scene.Default();
+        TileListener  listener;
+
+        scene.AddMap( pWorld, "maps/c.tmx", g_TexC, 64, 0 );              // its prop: 64 .. 80 by 0 .. 16
+        scene.AddMap( pWorld, "maps/isoprops.tmx", g_TexIso, 80, 0 );     // its prop's tile: 96 .. 128 by 0 .. 16
+
+        // 76 .. 100 by 4 .. 12: over map C's prop AND the isometric map's.
+        ColliderRig  rig( scene, 76, 4, 24, 8 );
+
+        REQUIRE( scene.pRenderer -> GetCollisionManager().AddColliderToTileRule( 1, pWorld -> GetLayerId( "props" ) ) == true );
+        scene.pRenderer -> GetCollisionManager().AddCollisionListener( &listener );
+
+        scene.RunFrames( 1 );
+
+        REQUIRE( listener.tiles.size() == 2 );
+        CHECK( listener.tiles[0].dimension.pos.x == 64 );              // map C first (added first)...
+        CHECK( listener.tiles[0].dimension.pos.y == 0 );
+        CHECK( listener.tiles[1].dimension.pos.x == 96 );              // ...then the isometric map's, 80 + 16
+        CHECK( listener.tiles[1].dimension.pos.y == 0 );
+        CHECK( listener.tiles[1].dimension.size.nWidth == 32 );
+
+        // 66 .. 90: map C's tile only (the isometric one starts at 96), as a single map would report it.
+        listener.tiles.clear();
+        rig.sprite.GetDimension2D().pos.x = 66;
+        scene.RunFrames( 1 );
+        REQUIRE( listener.tiles.size() == 1 );
+        CHECK( listener.tiles[0].dimension.pos.x == 64 );
+    }
+
+    TEST_CASE( "I19e: a collider between the maps touches nothing; a map without the rule's layer is skipped" )  {
+
+        Scene         scene;
+        WorldHandle   pWorld = scene.Default();
+        TileListener  listener;
+
+        scene.AddMap( pWorld, "maps/c.tmx", g_TexC, 64, 0 );              // 64 .. 96 by 0 .. 32
+        scene.AddMap( pWorld, "maps/iso.tmx", g_TexIso, 64, 64 );        // no "props" layer at all
+
+        REQUIRE( scene.pRenderer -> GetCollisionManager().AddColliderToTileRule( 1, pWorld -> GetLayerId( "props" ) ) == true );
+        scene.pRenderer -> GetCollisionManager().AddCollisionListener( &listener );
+
+        // In no map's box: right of map A, below map C, above the isometric map.
+        ColliderRig  rig( scene, 70, 40, 8, 8 );
+
+        scene.RunFrames( 1 );
+        CHECK( listener.tiles.empty() );
+
+        // Across map A's edge into the isometric map (which has no "props"): map A's props has no shape there.
+        rig.sprite.GetDimension2D().pos.x = 60;
+        rig.sprite.GetDimension2D().pos.y = 60;
+        scene.RunFrames( 1 );
+        CHECK( listener.tiles.empty() );
     }
 }

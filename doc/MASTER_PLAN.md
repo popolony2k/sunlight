@@ -2240,7 +2240,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
 | I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
-| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a to I19d done) |
+| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a to I19e done) |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2938,7 +2938,7 @@ view shows it, and a second renderer is no way around it (one window per process
     detach, per-world collisions and listeners - DONE, see below (the planned "views show a world"
     and "several worlds" phases merged: a view can only be given a world a game can create);
   - **I19d** map offsets and several maps drawn per view, layers matched by name - DONE, see below;
-  - **I19e** collisions across map edges;
+  - **I19e** collisions across map edges - DONE, see below;
   - **I19f** `.world` loading.
 - **Scarab's side** (its C7, planned with sunlight): `world_load( path )` (a `.tmx` or a `.world`)
   returning a handle, `world_unload`, `view_set_world`, an optional world on the sprite and collision
@@ -3082,6 +3082,22 @@ will be in I19d) and an ACTIVE world pointer, as it has a default and an active 
   by side - shown on the right with key 1 (which now cycles B, the default world, the grid); IJKL walks
   its Sunny across the seams.
 - `doc/BREAKAGES.md` entry 70.
+
+**I19e: collisions across map edges (DONE).** In a world of several maps a tile rule tested only the
+map under the collider's top-left corner (I19d), so a sprite straddling a map edge missed the walls
+on the other side. `GetCollidingTiles` now visits EVERY map whose pixel box - padded by the scan's own
+one-tile margin, so a tile drawn taller than the grid and hanging out of its map counts - the collider
+overlaps, through that map's own layer of the rule's world layer id (a map without it is skipped), in
+that map's own pixels (`CollidingTilesInCurrentMap`, the scan split out), and reports the tiles in the
+world's pixels, map by map in the order they were added, then row and column. A world of one map takes
+the same path with no offset, unchanged.
+
+- **Tests** (`tests/test_worldmaps.cpp`, 2 more): a collider straddling map C and an isometric map touches
+  a tile in each, in the world's pixels and in map order, and inside map C alone just its tile; a
+  collider between the maps touches nothing, and a map without the rule's layer is skipped. With the
+  I19d scan the straddling test fails (1 tile, not 2).
+- No sample (owner's decision): nothing on screen changes; the collision demo goes into I19f's sample.
+- `doc/BREAKAGES.md` entry 71.
 - **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
   `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
   along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all

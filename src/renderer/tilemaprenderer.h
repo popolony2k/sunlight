@@ -204,6 +204,11 @@ namespace SunLight  {
                                    const SunLight :: TileMap :: stLayer& layer,
                                    std :: vector<SunLight :: TileMap :: stTile>& tiles );
             bool AnyWorldHasContent( void ) const;
+            void CollidingTilesInCurrentMap( tmx_layer* pLayer,
+                                             const SunLight :: Base :: stRectangle& mapRect,
+                                             float fOffsetX,
+                                             float fOffsetY,
+                                             std :: vector<SunLight :: TileMap :: stTile>& tiles );
             bool InAnotherWorld( SunLight :: Sprite :: Sprite& sprite );
             void AdvanceUndrawnWorlds( void );
 

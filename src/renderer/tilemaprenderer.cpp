@@ -2598,10 +2598,8 @@ namespace SunLight  {
          * Now the collider's rectangle is a map rectangle: a world-space one as given, a view-relative
          * one minus the camera the layer is drawn with (its parallax camera - what is seen is what
          * collides; a view-relative position p is drawn where map point p - camera is). Zoom never
-         * enters: positions and tiles are both in map pixels. Every cell the rectangle can reach is
-         * visited - the projection's own culling range, padded a tile around for a tile larger than the
-         * grid, or every cell on a grid of mixed tile sizes, as LayerRenderer draws them - and a tile is
-         * reported when one of its collision rectangles overlaps (RectanglesOverlap).
+         * enters: positions and tiles are both in map pixels. Each map the rectangle overlaps is then
+         * scanned (CollidingTilesInCurrentMap; I19e: every map of a world of several).
          * @param rect The collider's rectangle (see ITileMap::GetCollidingTiles);
          * @param bWorldSpace Whether rect is already a map position;
          * @param layer The tile layer;
@@ -2619,9 +2617,7 @@ namespace SunLight  {
                 return false;
 
             tmx_layer                       *pLayer  = layer.pLayer;
-            tmx_map                         *pTmxMap = Tmx();
             SunLight :: Base :: stRectangle  mapRect = rect;
-            Projection :: stTileRange        range;
 
             if( !bWorldSpace )  {
                 stVector  camera = GetEffectiveCameraForFactor( pLayer -> parallaxx, pLayer -> parallaxy );
@@ -2630,32 +2626,67 @@ namespace SunLight  {
                 mapRect.y -= camera.y;
             }
 
-            // I19d: in a world of several maps, the map under the collider's top-left corner (I19e will
-            // test every map it overlaps), its own layer of that name, in its own pixels; the tiles'
-            // rectangles go back to the world's pixels below.
-            World   &world        = *m_pActiveWorld;
-            size_t  nSavedMap     = world.CurrentMapIndex();
-            float   fOffsetX      = 0.0f;
-            float   fOffsetY      = 0.0f;
+            // I19e of the master plan: in a world of several maps, EVERY map the collider overlaps (its
+            // pixel box padded by the same margin the scan uses, so a tile drawn taller than the grid and
+            // hanging out of its map counts), each through its own layer of that world id, in its own
+            // pixels; the tiles come back in the world's pixels, map by map in the order they were added.
+            // It used to test only the map under the collider's top-left corner (I19d), so a sprite
+            // straddling a map edge missed the walls on the other side.
+            World  &world = *m_pActiveWorld;
 
-            if( world.MapCount() > 1 )  {
-                int  nIndex = world.MapIndexAt( mapRect.x, mapRect.y );
-
-                if( nIndex < 0 )
-                    return true;                    // between the maps: nothing to touch
-
-                pLayer = world.LayerInMap( ( size_t ) nIndex, world.WorldLayerIdOf( layer.pLayer ) );
-
-                if( !pLayer || ( pLayer -> type != L_LAYER ) )
-                    return true;                    // that map has no such tile layer
-
-                world.SetCurrentMap( ( size_t ) nIndex );
-                fOffsetX   = ( float ) world.PlacedMap( ( size_t ) nIndex ).nX;
-                fOffsetY   = ( float ) world.PlacedMap( ( size_t ) nIndex ).nY;
-                mapRect.x -= fOffsetX;
-                mapRect.y -= fOffsetY;
-                pTmxMap    = Tmx();
+            if( world.MapCount() <= 1 )  {
+                CollidingTilesInCurrentMap( pLayer, mapRect, 0.0f, 0.0f, tiles );
+                return true;
             }
+
+            size_t  nSavedMap  = world.CurrentMapIndex();
+            int     nWorldId   = world.WorldLayerIdOf( layer.pLayer );
+
+            for( size_t nIndex = 0; nIndex < world.MapCount(); nIndex++ )  {
+                const World :: stPlacedMap  &placed   = world.PlacedMap( nIndex );
+                tmx_layer                   *pMapLayer = world.LayerInMap( nIndex, nWorldId );
+                tmx_map                     *pTmx     = placed.pMap -> Tmx();
+                float                       fPadX    = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmx -> tile_width );
+                float                       fPadY    = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmx -> tile_height );
+                SunLight :: Base :: stRectangle  box { ( float ) placed.nX - fPadX, ( float ) placed.nY - fPadY,
+                                                       ( float ) placed.pMap -> PixelWidth() + ( 2 * fPadX ),
+                                                       ( float ) placed.pMap -> PixelHeight() + ( 2 * fPadY ) };
+
+                if( !pMapLayer || ( pMapLayer -> type != L_LAYER ) || !RectanglesOverlap( mapRect, box ) )
+                    continue;                       // no such tile layer in that map, or not touched
+
+                SunLight :: Base :: stRectangle  localRect { mapRect.x - placed.nX, mapRect.y - placed.nY,
+                                                             mapRect.width, mapRect.height };
+
+                world.SetCurrentMap( nIndex );
+                CollidingTilesInCurrentMap( pMapLayer, localRect, ( float ) placed.nX, ( float ) placed.nY, tiles );
+            }
+
+            world.SetCurrentMap( nSavedMap );
+
+            return true;
+        }
+
+        /**
+         * @brief The scan of GetCollidingTiles for the active world's current map (I19e of the master
+         * plan: once per map the collider overlaps): every cell the rectangle can reach - the
+         * projection's own culling range, padded a tile around for a tile larger than the grid, or every
+         * cell on a grid of mixed tile sizes, as LayerRenderer draws them - and each tile one of whose
+         * collision rectangles overlaps (RectanglesOverlap), its rectangle moved into the world's pixels.
+         * @param pLayer The tile layer, of the current map;
+         * @param mapRect The collider's rectangle, in the current map's pixels;
+         * @param fOffsetX The current map's offset in the world (0 with one map);
+         * @param fOffsetY Likewise, vertically;
+         * @param tiles Receives the tiles touched, appended in row then column order;
+         */
+        void TileMapRenderer :: CollidingTilesInCurrentMap( tmx_layer* pLayer,
+                                                            const SunLight :: Base :: stRectangle& mapRect,
+                                                            float fOffsetX,
+                                                            float fOffsetY,
+                                                            std :: vector<SunLight :: TileMap :: stTile>& tiles )  {
+
+            tmx_map                    *pTmxMap = Tmx();
+            Projection :: stTileRange  range;
 
             if( Map() -> IsUniformTileGrid() )  {
                 float  fPadX = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_width );
@@ -2694,10 +2725,6 @@ namespace SunLight  {
                     }
                 }
             }
-
-            world.SetCurrentMap( nSavedMap );
-
-            return true;
         }
 
         /**
