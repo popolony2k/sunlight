@@ -70,6 +70,10 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int )  { return nullptr; }
     bool RemoveView( int )  { return false; }
     bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> & )  { return false; }
+    std :: shared_ptr<SunLight :: TileMap :: IWorld> GetDefaultWorld( void )  { return nullptr; }
+    std :: shared_ptr<SunLight :: TileMap :: IWorld> CreateWorld( void )  { return nullptr; }
+    bool RemoveWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld> & )  { return false; }
+    int GetWorldCount( void )  { return 1; }
     int GetViewCount( void )  { return 1; }
 
     int  nResetZoomCalls      = 0;

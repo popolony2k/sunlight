@@ -27,24 +27,38 @@
 #include "collision/collisionmanager.h"
 #include "renderer/map/mapdata.h"
 #include "renderer/sprite/spriteregistry.h"
-#include "tilemap/itilemap.h"
+#include "tilemap/iworld.h"
+#include "tilemap/itilesource.h"
 
 
 namespace SunLight  {
     namespace Renderer  {
 
+        // The one forward declaration sunlight keeps here (doc/CODE_STYLE.md), as View's: a World
+        // points back at its renderer and the renderer holds its worlds, so tilemaprenderer.h
+        // includes this header and this one cannot include it back.
+        class TileMapRenderer;
+
         /**
-         * @brief A world (I19 of the master plan): what a game's things live in - its map, the
-         * sprites registered on its layers and the collision rules between them. A view shows a
-         * world; several worlds will be alive at once, and a Tiled .world file will be one world of
-         * several maps. Today (I19b) a renderer has exactly one, its DEFAULT world, which holds
-         * what the renderer itself used to hold (the map, its SpriteRegistry, its
-         * CollisionManager), so nothing about any game changes.
+         * @brief The concrete world (see @see SunLight::TileMap::IWorld, I19 of the master plan): a
+         * map, the sprites registered on its layers and the collision rules between them.
+         *
+         * Like View, a holder of state whose operations RE-USE the renderer's own: each one briefly
+         * makes this world the ACTIVE one (the renderer then reads this world's map, sprites and
+         * rules), runs the renderer's own method, and swaps back - so a world behaves exactly as the
+         * renderer's single-map API does, by construction. It is also its own collision manager's
+         * ITileSource, so that manager only ever reads this world's map; it outlives the manager,
+         * so that link cannot dangle.
          *
          * A world never owns a sprite (the game does, as SpriteRegistry says) and knows nothing about
-         * views, cameras or the screen: TileMapRenderer draws it and keeps the checks around it.
+         * views, cameras or the screen. Only TileMapRenderer creates worlds.
          */
-        class World  {
+        class World : public SunLight :: TileMap :: IWorld, public SunLight :: TileMap :: ITileSource  {
+
+            friend class TileMapRenderer;
+
+            TileMapRenderer                            *m_pRenderer;
+            int                                        m_nId;
 
             // Declared in this order so the map is destroyed FIRST, then the collision rules, then
             // the sprite lists - the order the renderer's own members used to be destroyed in.
@@ -52,19 +66,49 @@ namespace SunLight  {
             SunLight :: Collision :: CollisionManager  m_CollisionManager;
             std :: unique_ptr<MapData>                 m_pMap;
 
+            template<class Function>
+            void Run( Function function );
+
+            // Called by the renderer when this world is removed, and for every world when the
+            // renderer is destroyed: cut the link so a handle still held is inert, not dangling.
+            void Detach( void );
+
             public:
 
-            explicit World( SunLight :: TileMap :: ITileMap* pCollisionParent );
-            ~World( void );
+            World( TileMapRenderer* pRenderer, int nId );
+            virtual ~World( void );
             World( const World& ) = delete;
             World& operator=( const World& ) = delete;
 
+            // The renderer's own access (I19b).
             MapData* Map( void ) const;
             void SetMap( std :: unique_ptr<MapData> pMap );
-            bool UnloadMap( void );
-
+            bool FreeMap( void );
             SpriteRegistry& Sprites( void );
             SunLight :: Collision :: CollisionManager& Collisions( void );
+
+            // IWorld
+            int GetId( void ) override;
+            bool IsRemoved( void ) override;
+            bool LoadMap( const char* szTmxMapFile ) override;
+            bool UnloadMap( void ) override;
+            bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo ) override;
+            bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) override;
+            bool GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) override;
+            bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
+                          const SunLight :: TileMap :: stLayer& layer,
+                          SunLight :: TileMap :: stTile& tile ) override;
+            bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                      SunLight :: TileMap :: stMatrixPosition& pos ) override;
+            bool AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite ) override;
+            bool RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite ) override;
+            SunLight :: Collision :: ICollisionManager& GetCollisionManager( void ) override;
+
+            // ITileSource (GetLayer( int, stLayer& ) above serves both)
+            bool GetCollidingTiles( const SunLight :: Base :: stRectangle& rect,
+                                    bool bWorldSpace,
+                                    const SunLight :: TileMap :: stLayer& layer,
+                                    std :: vector<SunLight :: TileMap :: stTile>& tiles ) override;
         };
     }
 }

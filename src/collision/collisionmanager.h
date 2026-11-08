@@ -26,7 +26,7 @@
 #include <memory>
 #include "collision/icollisionmanager.h"
 #include "collision/colliderhandle.h"
-#include "tilemap/itilemap.h"
+#include "tilemap/itilesource.h"
 
 #define MAX_COLLIDER_LAYERS   255
 
@@ -53,7 +53,7 @@ namespace SunLight  {
             typedef std :: pair<ColliderList*, int> ColliderTileLayerPair;
             typedef std :: deque<std :: unique_ptr<ColliderTileLayerPair>> ColliderToTileLayerRuleList;
 
-            SunLight :: TileMap :: ITileMap   *m_pParent;
+            SunLight :: TileMap :: ITileSource  *m_pParent;
             ColliderLayerList                 m_ColliderLayerList;
             ColliderToColliderRuleList        m_ColliderToColliderRuleList;
             ColliderToTileLayerRuleList       m_ColliderToTileLayerRuleList;
@@ -72,7 +72,7 @@ namespace SunLight  {
 
             public:
 
-            CollisionManager( SunLight :: TileMap :: ITileMap  *pParent );
+            CollisionManager( SunLight :: TileMap :: ITileSource  *pParent );
             virtual ~CollisionManager( void );
 
             bool AddCollider( int nColliderLayerId,

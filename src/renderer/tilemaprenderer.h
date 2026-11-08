@@ -98,6 +98,9 @@ namespace SunLight  {
             // outside a pass. Shared, as world handles will be (I19d).
             std :: shared_ptr<World>                   m_pDefaultWorld;
             World                                      *m_pActiveWorld;
+            std :: vector<std :: shared_ptr<World>>    m_ExtraWorlds;       // CreateWorld's (I19c), in creation order
+            int                                        m_nNextWorldId;
+            std :: set<World*>                         m_DrawnWorlds;       // the worlds this frame's passes drew (I19c)
             TileMapListenerList                        m_TileMapListenerList;
             ShapeRenderer                              m_ShapeRenderer;          // draws every shape (S1a): shape objects and IShapeSurface
 
@@ -173,6 +176,27 @@ namespace SunLight  {
             std :: vector<View*>                       m_PassViews;
 
             friend class View;
+            friend class World;
+
+            // I19c of the master plan: worlds. ActivateWorld makes a world the active one (World's own
+            // operations); ActivateView makes the view's world active with the view.
+            World* ActivateWorld( World* pWorld );
+            World* FindWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) const;
+            std :: shared_ptr<World> OwningHandle( World* pWorld ) const;
+            bool LoadWorldMap( World& world, const char* szTmxMapFile );
+            bool UnloadWorldMap( World& world );
+            void DetachSprites( World& world, bool bReleaseParents );
+            void ResolveScrollSteps( World& world );
+            View* ViewShowing( World& world );
+            bool SetViewWorld( View& view, const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld );
+            bool CollidingTilesIn( World& world,
+                                   const SunLight :: Base :: stRectangle& rect,
+                                   bool bWorldSpace,
+                                   const SunLight :: TileMap :: stLayer& layer,
+                                   std :: vector<SunLight :: TileMap :: stTile>& tiles );
+            bool AnyWorldHasContent( void ) const;
+            bool InAnotherWorld( SunLight :: Sprite :: Sprite& sprite );
+            void AdvanceUndrawnWorlds( void );
 
             View* ActivateView( View* pView );
 
@@ -306,6 +330,12 @@ namespace SunLight  {
             bool RemoveView( int nViewId ) override;
             bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView>& pView ) override;
             int GetViewCount( void ) override;
+
+            // I19c of the master plan: worlds (see SunLight::TileMap::IWorld).
+            std :: shared_ptr<SunLight :: TileMap :: IWorld> GetDefaultWorld( void ) override;
+            std :: shared_ptr<SunLight :: TileMap :: IWorld> CreateWorld( void ) override;
+            bool RemoveWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) override;
+            int GetWorldCount( void ) override;
 
             // View port control
             void SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode );

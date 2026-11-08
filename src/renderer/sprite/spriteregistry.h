@@ -60,6 +60,7 @@ namespace SunLight  {
             void OpenLayer( int nLayerId );
             bool Add( int nLayerId, SunLight :: Sprite :: Sprite* pSprite );
             bool Contains( int nLayerId, SunLight :: Sprite :: Sprite* pSprite ) const;
+            bool ContainsAnywhere( SunLight :: Sprite :: Sprite* pSprite ) const;
             bool Remove( int nLayerId, SunLight :: Sprite :: Sprite* pSprite );
             bool Empty( void ) const;
             std :: vector<int> LayerIds( void ) const;
@@ -73,6 +74,7 @@ namespace SunLight  {
             void BeginFrame( void );
             void UpdateLayer( int nLayerId, bool bMultiView );
             void EndFrame( void );
+            void AdvanceAll( void );
 
             void UnloadAll( void );
         };

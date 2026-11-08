@@ -2240,7 +2240,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
 | I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
-| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a, I19b done) |
+| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a, I19b, I19c done) |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2934,11 +2934,12 @@ view shows it, and a second renderer is no way around it (one window per process
   - **I19a** per-view opacity (Scarab asked for it first: a cross-fade, a menu over a map) - DONE,
     see below;
   - **I19b** the world container: the default world, `LoadMap` unchanged - DONE, see below;
-  - **I19c** views show a world (`IView::SetWorld`);
-  - **I19d** several worlds (load, unload with detach, per-world listeners);
-  - **I19e** map offsets and several maps drawn per view, layers matched by name;
-  - **I19f** collisions across map edges;
-  - **I19g** `.world` loading.
+  - **I19c** several worlds, shown by views: world handles, `IView::SetWorld`, unloading with
+    detach, per-world collisions and listeners - DONE, see below (the planned "views show a world"
+    and "several worlds" phases merged: a view can only be given a world a game can create);
+  - **I19d** map offsets and several maps drawn per view, layers matched by name;
+  - **I19e** collisions across map edges;
+  - **I19f** `.world` loading.
 - **Scarab's side** (its C7, planned with sunlight): `world_load( path )` (a `.tmx` or a `.world`)
   returning a handle, `world_unload`, `view_set_world`, an optional world on the sprite and collision
   functions; `tilemap_load_map` and every existing call stay on the default world.
@@ -2995,6 +2996,47 @@ will be in I19d) and an ACTIVE world pointer, as it has a default and an active 
   `__WORLD_H__`, and building them hid one header behind the other (the samples, not the tests, caught it).
   Neither peer has a `World` class or that guard (read only).
 - No `doc/BREAKAGES.md` entry: nothing changes for Scarab or Caravellius.
+
+**I19c: several worlds, shown by views (DONE).**
+
+- **API.** `IWorld` (`src/tilemap/iworld.h`): `GetId`, `IsRemoved`, `LoadMap`, `UnloadMap`, `GetMapInfo`,
+  `GetLayer`, `GetTile`, `TileMapToTileMatrix`, `AddSprite`, `RemoveSprite`, `GetCollisionManager`.
+  `ITileMap` gains `GetDefaultWorld`, `CreateWorld`, `RemoveWorld`, `GetWorldCount`; `IView` gains
+  `SetWorld`/`GetWorld`. Handles are `std::shared_ptr` and inert, never dangling, once removed or once
+  the renderer is gone - as view handles.
+- **The default view always shows the default world** (owner's decision while building it): so the
+  ACTIVE world is always the active view's world, and the renderer's single-map calls and its camera
+  calls can never disagree. Another world on the whole screen is an extra view over it.
+- **How it works.** `World` implements `IWorld` the way `View` implements `IView`: each operation makes
+  the world active, runs the renderer's own method, and swaps back - one implementation of everything.
+  `ActivateView` activates the view's world with the view, so each pass draws its own view's world, and
+  a view's camera, scroll limits, `FitToMap` and layer names work on it.
+- **Every live world updates every frame.** Each world's collision rules are tested; a world no pass
+  drew advances its sprites once (`SpriteRegistry::AdvanceAll`). The default world keeps its older rule
+  (a sprite on a layer no view shows stands still).
+- **Collisions per world.** A new `ITileSource` (`GetLayer`, `GetCollidingTiles`) is what a
+  `CollisionManager` asks; each `World` is its own manager's source, so a tile rule added to one world's
+  manager never reads another world's map (found while building it: through the renderer it would have
+  read the active - default - world's). `ITileMap` derives from it, so a manager made over a renderer
+  or a test double still compiles; the peers never make one. A listener on a world's manager hears only
+  that world. A view-relative collider is tested with the camera of the first visible view showing its
+  world (the default view's when none does).
+- **Unloading.** `IWorld::UnloadMap` and `RemoveWorld` DETACH the world's sprites (registrations and
+  colliders go; `RemoveWorld` and the destructor also let go of them as children); the legacy
+  `UnloadMap` keeps `Sprite::Unload`. `RemoveWorld` sends the views showing the world back to the
+  default world. A sprite belongs to one world at a time: `AddSprite` refuses one another world holds.
+- **Kept as it was:** a scroll step already resolved stays across `SetWorld`, as across `LoadMap` (only
+  a -1 is resolved); `IWorld::LoadMap` moves no camera.
+- **Tests:** `tests/test_worlds.cpp` (12): handles, inert after removal and after the renderer; another
+  renderer's world refused; a world answering for its own map while the renderer's calls stay on the
+  default one; `SetWorld` refused for the default view; each pass drawing its view's world (16 px tiles
+  of map A, 32 px of map B); camera, `FitToMap`, scroll step and layer names on the view's world; one
+  world per sprite; an unshown world's sprites advancing; `UnloadMap` and `RemoveWorld` detaching;
+  per-world tile rules and listeners. `tests/test_world.cpp` follows the renamed `World::FreeMap`.
+- **Sample:** `samples/worlds` - the cloud map (default world) on the left, the isometric map (world B)
+  on the right, a Sunny in each; key 1 switches the right view's world, 2 cross-fades the left half
+  to world B, 3 removes and recreates world B; the keys listed on screen.
+- `doc/BREAKAGES.md` entry 69.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

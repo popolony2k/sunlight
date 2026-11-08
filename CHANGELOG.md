@@ -63,6 +63,11 @@ Each item is described in full in the plan; what each change means for code buil
 
 ### Added
 
+- Several worlds at once: `ITileMap::CreateWorld`/`RemoveWorld`/`GetDefaultWorld`/`GetWorldCount`, the
+  `IWorld` handle (its own map, sprites and collision rules) and `IView::SetWorld`/`GetWorld` - split
+  screens on different maps, a world map beside the local one, a cross-fade between two worlds. The
+  default view always shows the default world, which the single-map API acts on. `ITileSource`, what a
+  `CollisionManager` asks for layers and tiles (`ITileMap` is one). Sample `samples/worlds`.
 - View opacity: `IView::SetOpacity`/`GetOpacity` (0..1, 1 by default). Below 1 a view is drawn into a
   render target of its own and its finished image is laid over what is under it at that opacity - a
   cross-fade between two views, a menu over a map. At 0 nothing shows and its sprites keep animating.

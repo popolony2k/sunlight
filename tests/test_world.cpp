@@ -57,18 +57,18 @@ TEST_SUITE( "renderer/world" )  {
 
     TEST_CASE( "A new world is empty: no map, no sprites; unloading its map says there was none" )  {
 
-        World  world( nullptr );
+        World  world( nullptr, 0 );
 
         CHECK( world.Map() == nullptr );
         CHECK( world.Sprites().Empty() == true );
-        CHECK( world.UnloadMap() == false );
+        CHECK( world.FreeMap() == false );
     }
 
-    TEST_CASE( "A world holds the map it is given, frees it once on UnloadMap, and leaves its sprites and colliders as they are" )  {
+    TEST_CASE( "A world holds the map it is given, frees it once on FreeMap, and leaves its sprites and colliders as they are" )  {
 
         MemoryFileSystemFixture  fsFixture;
         MockEngineFixture        engineFixture;
-        World                    world( nullptr );
+        World                    world( nullptr, 0 );
         SunLight :: Sprite :: Sprite  sprite;
 
         fsFixture.fs.files["maps/level.tmx"] = ToBytes( g_szMap );
@@ -89,10 +89,10 @@ TEST_SUITE( "renderer/world" )  {
 
         int  nUnloadsBefore = engineFixture.engine.nUnloadTextureCalls;
 
-        CHECK( world.UnloadMap() == true );
+        CHECK( world.FreeMap() == true );
         CHECK( world.Map() == nullptr );
         CHECK( engineFixture.engine.nUnloadTextureCalls == nUnloadsBefore + 1 );   // the tileset image, once
-        CHECK( world.UnloadMap() == false );
+        CHECK( world.FreeMap() == false );
 
         // The sprites and colliders are the renderer's to deal with (UnloadMap there): untouched here.
         CHECK( world.Sprites().Contains( 1, &sprite ) == true );
@@ -104,7 +104,7 @@ TEST_SUITE( "renderer/world" )  {
 
         MemoryFileSystemFixture  fsFixture;
         MockEngineFixture        engineFixture;
-        World                    world( nullptr );
+        World                    world( nullptr, 0 );
 
         fsFixture.fs.files["maps/level.tmx"] = ToBytes( g_szMap );
         world.SetMap( MapData :: Load( "maps/level.tmx" ) );

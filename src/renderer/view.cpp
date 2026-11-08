@@ -316,6 +316,26 @@ namespace SunLight  {
         }
 
         /**
+         * @brief I19c of the master plan: show another world (TileMapRenderer::SetViewWorld, which
+         * refuses it for the default view, an empty, removed or foreign world).
+         * @param pWorld The world;
+         * @return false when refused, or once the view is removed;
+         */
+        bool View :: SetWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld )  {
+
+            return m_pRenderer ? m_pRenderer -> SetViewWorld( *this, pWorld ) : false;
+        }
+
+        /**
+         * @brief The world the view shows - the last one, once the view is removed.
+         * @return The world;
+         */
+        std :: shared_ptr<SunLight :: TileMap :: IWorld> View :: GetWorld( void )  {
+
+            return m_pWorld;
+        }
+
+        /**
          * @brief I19a of the master plan: the view's opacity, which the renderer's frame reads (see
          * TileMapRenderer::BeginViewTarget). Only stored here - the view's own data, so a removed
          * view keeps it too.
@@ -397,15 +417,16 @@ namespace SunLight  {
         }
 
         /**
-         * @brief Same, by name: the name is looked up in the loaded map (the renderer's GetLayer)
+         * @brief Same, by name: the name is looked up in the map of the world the view shows (I19c)
          * and its id masked.
          * @param szLayerName The layer's name;
          * @param bShow true shows it;
-         * @return false (nothing changed) with no name, no renderer, no map or no such layer;
+         * @return false (nothing changed) with no name, no renderer, no map in the view's world or no such layer;
          */
         bool View :: ShowLayer( const char* szLayerName, bool bShow )  {
 
-            tmx_layer  *pLayer = ( szLayerName && m_pRenderer && m_pRenderer -> Tmx() ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
+            MapData    *pMap   = ( m_pRenderer && m_pWorld ) ? m_pWorld -> Map() : nullptr;
+            tmx_layer  *pLayer = ( szLayerName && pMap ) ? pMap -> FindLayer( szLayerName ) : nullptr;
 
             if( !pLayer )
                 return false;
@@ -455,11 +476,11 @@ namespace SunLight  {
          * division (viewport x steps-per-unit / map size) rather than in
          * floating point, so a view that is exactly half/quarter/... of the
          * map fits at exactly that zoom instead of one step short.
-         * @return false (nothing changed) with no map loaded or once detached;
+         * @return false (nothing changed) with no map in the view's world (I19c), or once detached;
          */
         bool View :: FitToMap( void )  {
 
-            tmx_map  *pMap = ( m_pRenderer ? m_pRenderer -> Tmx() : nullptr );
+            tmx_map  *pMap = ( m_pRenderer && m_pWorld && m_pWorld -> Map() ) ? m_pWorld -> Map() -> Tmx() : nullptr;
 
             if( !pMap )
                 return false;
