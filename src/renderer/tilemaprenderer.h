@@ -42,6 +42,7 @@
 #include "renderer/map/mapdata.h"
 #include "renderer/map/layerrenderer.h"
 #include "renderer/sprite/spriteregistry.h"
+#include "renderer/world/world.h"
 #include "renderer/camera/camera.h"
 #include "renderer/projection/imapprojection.h"
 #include "input/iinputhandler.h"
@@ -86,13 +87,18 @@ namespace SunLight  {
             // (AddGamePad, SetUserKeyEventHandler, ...) delegate to this directly.
             std :: unique_ptr<SunLight :: Input :: IControllerManager>  m_pControllerManager;
 
-            // The sprites registered per layer (AddSprite), every sprite this renderer is the PARENT of
-            // (set by AddSprite, kept by RemoveSprite as it always was: the ones whose parent pointer
-            // would dangle if this renderer went away, and that tell it when they are destroyed -
-            // ChildRemoved), and the once-per-frame sprite update across the view passes (S1d).
-            SpriteRegistry                             m_Sprites;
+            // The worlds (I19 of the master plan). The DEFAULT world holds what the renderer itself
+            // used to: the loaded map (MapData), the sprites registered per layer (AddSprite) - and
+            // every sprite this renderer is the PARENT of (set by AddSprite, kept by RemoveSprite: the
+            // ones whose parent pointer would dangle if this renderer went away, and that tell it when
+            // they are destroyed - ChildRemoved) - and the collision rules. LoadMap, AddSprite,
+            // GetCollisionManager and the rest of the single-map API act on it. The ACTIVE world is the
+            // one the code below draws and updates (Map, Sprites, Collisions): the default one,
+            // always, until views can show another (I19c) - as the active view is the default view
+            // outside a pass. Shared, as world handles will be (I19d).
+            std :: shared_ptr<World>                   m_pDefaultWorld;
+            World                                      *m_pActiveWorld;
             TileMapListenerList                        m_TileMapListenerList;
-            SunLight :: Collision :: CollisionManager  m_CollisionManager;
             ShapeRenderer                              m_ShapeRenderer;          // draws every shape (S1a): shape objects and IShapeSurface
 
             // The CURRENT layer's own effective camera (L1 of the master plan: per-layer
@@ -126,10 +132,6 @@ namespace SunLight  {
             std :: string                              m_strTitle;
             float                                      m_fScreenFadeAlpha;
 
-            // The loaded map and everything that belongs to it (S1c1: MapData - the libtmx map, its
-            // Resource Manager, projection, pixel size and tile animation state); null when no map is
-            // loaded. Replacing it with a newly loaded MapData frees the old map exactly once.
-            std :: unique_ptr<MapData>                 m_pMap;
             bool                                       m_bClearBackground;
             bool                                       m_bIsStarted;
             bool                                       m_bExitRequested;
@@ -173,6 +175,11 @@ namespace SunLight  {
             friend class View;
 
             View* ActivateView( View* pView );
+
+            // The active world's map (nullptr when none is loaded), sprites and collision rules (I19b).
+            MapData* Map( void ) const;
+            SpriteRegistry& Sprites( void );
+            SunLight :: Collision :: CollisionManager& Collisions( void );
             Camera& ActiveCamera( void ) const;      // the active view's camera (S1e)
 
             // The loaded map (S1c1): its libtmx map (null when none is loaded), its size in map pixels

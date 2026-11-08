@@ -124,6 +124,9 @@ Each item is described in full in the plan; what each change means for code buil
 
 ### Changed
 
+- Internal (I19b of the master plan, no change in behaviour): the renderer's map, sprites and
+  collision rules live in a `World`, the renderer's default world - the first step towards several
+  maps at once.
 - Shapes are drawn by the backend inside an engine clip (the software clip is gone), so their
   pixels differ slightly from the old per-pixel routines. A polyline's width now scales with
   the zoom (2 pixels at zoom 2).
