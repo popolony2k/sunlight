@@ -67,6 +67,7 @@ Each item is described in full in the plan; what each change means for code buil
   `GetMapOffset`, `GetBounds`, `GetLayerId`, and picking/`GetTile` by map. Any orientation, mixed,
   negative offsets; layers matched by name and drawn layer by layer across the maps, so a sprite crosses
   a map edge; the camera's limits cover every map.
+- Tile collisions across map edges: in a world of several maps a collider tests every map it overlaps.
 - Several worlds at once: `ITileMap::CreateWorld`/`RemoveWorld`/`GetDefaultWorld`/`GetWorldCount`, the
   `IWorld` handle (its own map, sprites and collision rules) and `IView::SetWorld`/`GetWorld` - split
   screens on different maps, a world map beside the local one, a cross-fade between two worlds. The
