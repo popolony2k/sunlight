@@ -194,8 +194,18 @@ namespace SunLight  {
          */
         void Camera :: MoveDown( void )  {
 
-            if( m_Position.y < __CAMERA_ORIGIN )
-                m_Position.y = std :: min( m_Position.y + m_nScrollStepHeight, __CAMERA_ORIGIN );
+            MoveDown( __CAMERA_ORIGIN );
+        }
+
+        /**
+         * Move the camera down to a near limit other than the origin (I19d of the master plan): a
+         * world whose maps start above y = 0 stops where its top edge is (camera = -top).
+         * @param fNearLimit The camera value at the world's top edge;
+         */
+        void Camera :: MoveDown( float fNearLimit )  {
+
+            if( m_Position.y < fNearLimit )
+                m_Position.y = std :: min( m_Position.y + m_nScrollStepHeight, fNearLimit );
         }
 
         /**
@@ -219,8 +229,18 @@ namespace SunLight  {
          */
         void Camera :: MoveRight( void )  {
 
-            if( m_Position.x < __CAMERA_ORIGIN )
-                m_Position.x = std :: min( m_Position.x + m_nScrollStepWidth, __CAMERA_ORIGIN );
+            MoveRight( __CAMERA_ORIGIN );
+        }
+
+        /**
+         * Move the camera right to a near limit other than the origin (I19d): a world whose maps
+         * start left of x = 0 stops where its left edge is (camera = -left).
+         * @param fNearLimit The camera value at the world's left edge;
+         */
+        void Camera :: MoveRight( float fNearLimit )  {
+
+            if( m_Position.x < fNearLimit )
+                m_Position.x = std :: min( m_Position.x + m_nScrollStepWidth, fNearLimit );
         }
 
         /**

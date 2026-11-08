@@ -2240,7 +2240,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
 | I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
-| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a, I19b, I19c done) |
+| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a to I19d done) |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2937,7 +2937,7 @@ view shows it, and a second renderer is no way around it (one window per process
   - **I19c** several worlds, shown by views: world handles, `IView::SetWorld`, unloading with
     detach, per-world collisions and listeners - DONE, see below (the planned "views show a world"
     and "several worlds" phases merged: a view can only be given a world a game can create);
-  - **I19d** map offsets and several maps drawn per view, layers matched by name;
+  - **I19d** map offsets and several maps drawn per view, layers matched by name - DONE, see below;
   - **I19e** collisions across map edges;
   - **I19f** `.world` loading.
 - **Scarab's side** (its C7, planned with sunlight): `world_load( path )` (a `.tmx` or a `.world`)
@@ -3037,6 +3037,55 @@ will be in I19d) and an ACTIVE world pointer, as it has a default and an active 
   on the right, a Sunny in each; key 1 switches the right view's world, 2 cross-fades the left half
   to world B, 3 removes and recreates world B; the keys listed on screen.
 - `doc/BREAKAGES.md` entry 69.
+
+**I19d: several maps in one world, at offsets (DONE).**
+
+- **API** (`IWorld`): `AddMap( path, x, y )` -> the map's id (never reused), `RemoveMap`, `GetMapCount`,
+  `GetMapOffset`, `GetBounds`, `GetLayerId( name )`, `TileMapToTileMatrix( coord, mapId, pos )` and
+  `GetTile( mapId, pos, layerId, tile )`. `LoadMap` makes the world its one map at (0, 0), as before.
+- **Every orientation, mixed, and negative offsets** (owner's decisions, after checking Tiled: a `.world`
+  stores pixel rectangles; Tiled's world code has no orientation check, and its editor sizes a map by
+  its renderer's `mapBoundingRect` - read in Tiled's renderers: a box from (0, 0) whose size equals
+  sunlight's `MapPixelSize` for orthogonal, isometric (the diamond's box), staggered and hexagonal
+  maps). A map's offset is its pixel box's top-left. The one exception: a staggered or hexagonal map
+  exactly one column (or row) wide, which Tiled boxes from its first shifted line - both draw its cells
+  at the same place, but sunlight's box keeps the empty strip (pinned by a test, on axis y: see the
+  finding below). Isometric maps side
+  by side leave empty triangles, as in Tiled. (The body of Tiled's generic `MapRenderer::mapBoundingRect`
+  was not read: that it is the full map's box is inferred from how the editor uses it.)
+- **Layers by name.** `World` keeps a table: one world layer id per name - the first map's ids kept, a
+  name first seen in a later map numbered above the highest - and per map the translation between its
+  ids and the world's; the table stays while the world has maps. A layer is matched to the first
+  layer of that name in each map.
+- **Drawing** (`DrawWorldMaps`, only with several maps): the world's layers in table order, each drawn
+  from every map that has it as a top-level layer - that map made the world's current one and its
+  offset added to the layer's camera (`m_MapDrawOffset`; a map point p is drawn at (p + offset +
+  camera) x zoom + viewport origin, so culling, parallax and objects follow unchanged) - then the
+  sprites of that layer and of the layers nested under it, once. View masks and sprite layers key on
+  world ids.
+- **Picking** (`World::PickCell`): each map, in the order added, takes the point less its offset through
+  its own hit-test (I17) - an isometric map's empty corner falls through to the next map.
+- **Camera:** scroll limits, `ResetCamera` and `FitToMap` use the box every map fits in
+  (`World::Bounds`), which may start at a negative position (`Camera::MoveDown/MoveRight` take that near
+  limit). One map at (0, 0) gives exactly the old values.
+- **Collisions** (until I19e): the map under the collider's top-left, its own layer of that world id, the
+  tiles' rectangles in the world's pixels.
+- **Guard:** the single-map `GetTile` refuses a layer of another of the world's maps (it would read past
+  that map's cells with this map's size).
+- **Tests:** `tests/test_worldmaps.cpp` (9): ids and offsets; a one-row staggered map (cells where
+  Tiled draws them, its box from the origin); the layer table (shared and new names, stable
+  after removing the first map); bounds with negative offsets and Tiled's whole-pixel box for odd tiles;
+  picking across maps and through an isometric corner; `GetTile` by map; drawing order across maps with a
+  sprite once between "props" and "roof", and a mask by name; camera limits, `ResetCamera` and `FitToMap`
+  from the bounds; a tile rule by world id hitting a later map's own layer.
+- **Sample:** `samples/worlds` gained a grid world - the cloud map three times and the isometric map, side
+  by side - shown on the right with key 1 (which now cycles B, the default world, the grid); IJKL walks
+  its Sunny across the seams.
+- `doc/BREAKAGES.md` entry 70.
+- **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
+  `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
+  along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all
+  axis Y, and the axis-X projection tests build their maps in code, so nothing caught it.
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

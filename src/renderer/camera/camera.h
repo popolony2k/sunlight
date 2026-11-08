@@ -58,8 +58,10 @@ namespace SunLight  {
 
             void MoveUp( int nViewportHeight, float fZoom, int nMapHeight );
             void MoveDown( void );
+            void MoveDown( float fNearLimit );
             void MoveLeft( int nViewportWidth, float fZoom, int nMapWidth );
             void MoveRight( void );
+            void MoveRight( float fNearLimit );
 
             void Align( int nAlignment, uint16_t nMapWidth, uint16_t nMapHeight,
                         const SunLight :: Base :: stDimension2D& viewport, float fZoomFactor );

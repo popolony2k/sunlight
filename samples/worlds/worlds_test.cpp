@@ -29,10 +29,14 @@
  *   - an OVERLAY over the left half shows world B too, at opacity 0: key 2 cross-fades the left half
  *     from one world to the other (IView::SetOpacity, I19a).
  *
+ *   - a GRID world (I19d): four maps placed side by side with IWorld::AddMap - the cloud map three
+ *     times and the isometric map in the fourth corner (orientations mix) - drawn layer by layer
+ *     across the maps, so its Sunny walks over the seams.
+ *
  * Each Sunny is a world-space sprite of its own world: WASD walks the cloud one, the arrows the
- * isometric one; neither ever appears in the other world. Key 1 makes the right view show the default
- * world or world B (IView::SetWorld); key 3 removes world B (RemoveWorld: its views go back to the
- * default world, its Sunny is detached) and creates it again.
+ * isometric one, IJKL the grid one; none ever appears in another world. Key 1 makes the right view
+ * show world B, the default world or the grid world (IView::SetWorld); key 3 removes world B
+ * (RemoveWorld: its views go back to the default world, its Sunny is detached) and creates it again.
  *
  * Like the other samples it takes its own directory as argv[1] and reads its resources relative to it:
  *
@@ -80,6 +84,8 @@
 #define __HUD_TEXT_SIZE             64
 #define __HUD_CHANNEL               255     // the labels: opaque white
 #define __NO_FRAME                  -2      // Once: no press seen yet
+#define __CLOUD_MAP_SIZE            640     // test.tmx: 20 x 20 tiles of 32 px - the grid world's cell
+#define __GRID_SUNNY_START          ( __CLOUD_MAP_SIZE - __SUNNY_SIZE )   // where the four maps meet
 
 namespace  {
 
@@ -135,6 +141,7 @@ namespace  {
         SunLight :: Renderer :: TileMapRenderer  &m_Renderer;
         ViewHandle                               m_pRight;
         ViewHandle                               m_pOverlay;
+        WorldHandle                              m_pGrid;            // to name the world the right view shows
         float                                    m_fFadeTarget = __OPACITY_HIDDEN;
         long                                     m_nFrame      = 0;
 
@@ -159,7 +166,8 @@ namespace  {
                 "KEYS",
                 "WASD    walk cloud Sunny",
                 "Arrows  walk iso Sunny",
-                "1  right view: world A/B",
+                "IJKL    walk grid Sunny",
+                "1  right view: B/A/grid",
                 "2  cross-fade left A/B",
                 "3  remove / recreate B",
             };
@@ -170,8 +178,11 @@ namespace  {
                 Line( nLine, s_Keys[nLine] );
 
             // A blank line, then the state: how many worlds, which one the right view shows, the fade.
-            snprintf( szText, sizeof( szText ), "worlds %d   right: world %d", m_Renderer.GetWorldCount(),
-                      m_pRight -> GetWorld() -> GetId() );
+            WorldHandle  pShown = m_pRight -> GetWorld();
+            const char   *szShown = ( pShown == m_Renderer.GetDefaultWorld() ) ? "cloud" :
+                                    ( pShown == m_pGrid ) ? "grid" : "B";
+
+            snprintf( szText, sizeof( szText ), "worlds %d   right: %s", m_Renderer.GetWorldCount(), szShown );
             Line( nKeys + 1, szText );
             snprintf( szText, sizeof( szText ), "left fade to B  %.2f", m_pOverlay -> GetOpacity() );
             Line( nKeys + 2, szText );
@@ -214,9 +225,10 @@ int main( int argc, char** argv )  {
 
     renderer.GetDefaultView().FitToMap();
 
-    Sunny  cloudSunny, isoSunny;
+    Sunny  cloudSunny, isoSunny, gridSunny;
 
-    if( !cloudSunny.Load( __CLOUD_SUNNY_START, __CLOUD_SUNNY_START ) || !isoSunny.Load( __ISO_SUNNY_START_X, __ISO_SUNNY_START_Y ) )  {
+    if( !cloudSunny.Load( __CLOUD_SUNNY_START, __CLOUD_SUNNY_START ) || !isoSunny.Load( __ISO_SUNNY_START_X, __ISO_SUNNY_START_Y ) ||
+        !gridSunny.Load( __GRID_SUNNY_START, __GRID_SUNNY_START ) )  {
         fprintf( stderr, "Cannot load the sprite [%s]\n", __SUNNY_SPRITE );
         return EXIT_FAILURE;
     }
@@ -256,6 +268,22 @@ int main( int argc, char** argv )  {
     if( !createWorldB() )
         return EXIT_FAILURE;
 
+    // The grid world (I19d): four maps side by side in one world - the cloud map three times, the
+    // isometric map in the bottom-right corner. Its layers are matched by name across the maps, so its
+    // Sunny, on the cloud map's last layer, is drawn over every map it walks onto.
+    WorldHandle  pGrid = renderer.CreateWorld();
+
+    frame.m_pGrid = pGrid;
+
+    if( ( pGrid -> AddMap( __CLOUD_MAP, 0, 0 ) < 0 ) ||
+        ( pGrid -> AddMap( __CLOUD_MAP, __CLOUD_MAP_SIZE, 0 ) < 0 ) ||
+        ( pGrid -> AddMap( __CLOUD_MAP, 0, __CLOUD_MAP_SIZE ) < 0 ) ||
+        ( pGrid -> AddMap( __ISO_MAP, __CLOUD_MAP_SIZE, __CLOUD_MAP_SIZE ) < 0 ) ||
+        !pGrid -> AddSprite( __CLOUD_SUNNY_LAYER_ID, gridSunny.sprite ) )  {
+        fprintf( stderr, "Cannot build the grid world\n" );
+        return EXIT_FAILURE;
+    }
+
     typedef SunLight :: Input :: ControllerType  Controller;
 
     auto  bind = [&renderer]( SunLight :: Input :: KeyboardKey key, std :: function<void( void )> action )  {
@@ -284,12 +312,23 @@ int main( int argc, char** argv )  {
     bind( SunLight :: Input :: KEY_DOWN,  [&]() { isoSunny.Move( 0,  __SUNNY_STEP ); } );
     bind( SunLight :: Input :: KEY_LEFT,  [&]() { isoSunny.Move( -__SUNNY_STEP, 0 ); } );
     bind( SunLight :: Input :: KEY_RIGHT, [&]() { isoSunny.Move(  __SUNNY_STEP, 0 ); } );
+    bind( SunLight :: Input :: KEY_I,     [&]() { gridSunny.Move( 0, -__SUNNY_STEP ); } );
+    bind( SunLight :: Input :: KEY_K,     [&]() { gridSunny.Move( 0,  __SUNNY_STEP ); } );
+    bind( SunLight :: Input :: KEY_J,     [&]() { gridSunny.Move( -__SUNNY_STEP, 0 ); } );
+    bind( SunLight :: Input :: KEY_L,     [&]() { gridSunny.Move(  __SUNNY_STEP, 0 ); } );
 
-    // 1: the right view shows the default world or world B (only an extra view can switch worlds).
+    // 1: the right view shows world B, then the default world, then the grid world (only an extra view
+    // can switch worlds; a removed world B is skipped).
     bind( SunLight :: Input :: KEY_ONE,   Once( [&]() {
-        bool  bShowsB = ( frame.m_pRight -> GetWorld() == pWorldB ) && !pWorldB -> IsRemoved();
+        WorldHandle  pShown = frame.m_pRight -> GetWorld();
+        WorldHandle  pNext  = renderer.GetDefaultWorld();
 
-        frame.m_pRight -> SetWorld( bShowsB ? renderer.GetDefaultWorld() : pWorldB );
+        if( pShown == renderer.GetDefaultWorld() )
+            pNext = pGrid;
+        else if( ( pShown == pGrid ) && !pWorldB -> IsRemoved() )
+            pNext = pWorldB;
+
+        frame.m_pRight -> SetWorld( pNext );
         frame.m_pRight -> FitToMap();
     } ) );
 
