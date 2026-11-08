@@ -122,6 +122,12 @@ namespace SunLight  {
             // and the active view's own camera at any other time.
             int                                        m_nLayerDrawDepth = 0;
 
+            // I19d of the master plan: while a world of several maps is drawn, the offset of the map
+            // being drawn (added to each layer's camera) and whether DrawAllLayers leaves the sprites
+            // to the pass (DrawWorldMaps draws them once, after a layer of every map).
+            stVector                                   m_MapDrawOffset { 0.0f, 0.0f };
+            bool                                       m_bDeferSprites = false;
+
             // I8 of the master plan: the opacity and tint the layer being drawn inherits from its
             // enclosing groups (DrawAllLayers), passed to the drawing classes through the DrawContext.
             // 1 and white outside any group, and again once the map is drawn.
@@ -184,6 +190,9 @@ namespace SunLight  {
             World* FindWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) const;
             std :: shared_ptr<World> OwningHandle( World* pWorld ) const;
             bool LoadWorldMap( World& world, const char* szTmxMapFile );
+            int AddWorldMap( World& world, const char* szTmxMapFile, int nX, int nY );
+            bool WorldTile( World& world, size_t nMapIndex, const SunLight :: TileMap :: stMatrixPosition& pos,
+                            int nLayerId, SunLight :: TileMap :: stTile& tile );
             bool UnloadWorldMap( World& world );
             void DetachSprites( World& world, bool bReleaseParents );
             void ResolveScrollSteps( World& world );
@@ -237,7 +246,9 @@ namespace SunLight  {
                                   std :: vector<double*>& ppRows );
             void ReleaseRegisteredFonts( void );
             void DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX = 1.0, double fParentParallaxY = 1.0,
-                                float fParentOpacity = 1.0f, SunLight :: Base :: stColor parentTint = WHITE_COLOR );
+                                float fParentOpacity = 1.0f, SunLight :: Base :: stColor parentTint = WHITE_COLOR,
+                                bool bSiblings = true );
+            void DrawWorldMaps( void );
             void RenderMap( void );
 
             // L1 of the master plan: the effective camera for a layer whose own accumulated

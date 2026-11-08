@@ -162,7 +162,9 @@ namespace SunLight  {
          */
         tmx_layer* TileMapRenderer :: GetLayer( int nLayerId )  {
 
-            return Map() ? Map() -> FindLayer( nLayerId ) : nullptr;
+            // I19d: a WORLD layer id, found in the first of the active world's maps that has it (with
+            // one map, simply that map's layer of that id).
+            return m_pActiveWorld -> FindLayer( nLayerId );
         }
 
         /**
@@ -172,7 +174,7 @@ namespace SunLight  {
          */
         tmx_layer* TileMapRenderer :: GetLayer( const char* szLayerName )  {
 
-            return Map() ? Map() -> FindLayer( szLayerName ) : nullptr;
+            return m_pActiveWorld -> FindLayer( szLayerName );     // I19d: the first map that has it
         }
 
         /**
@@ -372,9 +374,11 @@ namespace SunLight  {
          * applied on top of each layer's own); 1 outside any group;
          * @param parentTint Their tints, multiplied channel by channel (SunLight::Base::MultiplyTint); opaque
          * white outside any group;
+         * @param bSiblings Whether the layers after pLayer in its list are drawn too (I19d: false draws
+         * pLayer alone - a world of several maps draws one layer of each map at a time);
          */
         void TileMapRenderer :: DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX, double fParentParallaxY,
-                                               float fParentOpacity, SunLight :: Base :: stColor parentTint )  {
+                                               float fParentOpacity, SunLight :: Base :: stColor parentTint, bool bSiblings )  {
 
             m_nLayerDrawDepth++;            // I16: CurrentDrawContext uses the layer's camera from here on
 
@@ -388,7 +392,10 @@ namespace SunLight  {
                  * view of the pass being drawn (RenderMap makes it so); an
                  * unmasked view shows every layer.
                  */
-                if( pLayer -> visible && m_pActiveView -> IsLayerShown( ( int ) pLayer -> id ) )  {
+                // I19d: masks and sprites key on the WORLD layer id (the map's own, with one map).
+                int  nWorldLayerId = m_pActiveWorld -> WorldLayerIdOf( m_pActiveWorld -> CurrentMapIndex(), ( int ) pLayer -> id );
+
+                if( pLayer -> visible && m_pActiveView -> IsLayerShown( nWorldLayerId ) )  {
 
                     // L1 of the master plan: this layer's own effective camera, set once here
                     // regardless of layer type - LayerRenderer/ObjectRenderer (through the DrawContext) and the
@@ -399,7 +406,12 @@ namespace SunLight  {
                     double  fEffectiveParallaxX = pLayer -> parallaxx * fParentParallaxX;
                     double  fEffectiveParallaxY = pLayer -> parallaxy * fParentParallaxY;
 
-                    m_EffectiveLayerCameraPos = GetEffectiveCameraForFactor( fEffectiveParallaxX, fEffectiveParallaxY );
+                    m_EffectiveLayerCameraPos    = GetEffectiveCameraForFactor( fEffectiveParallaxX, fEffectiveParallaxY );
+
+                    // I19d: a map placed at an offset draws as if the camera were moved by it - a map
+                    // position p is drawn at (p + offset + camera) x zoom + viewport.pos. 0 with one map.
+                    m_EffectiveLayerCameraPos.x += m_MapDrawOffset.x;
+                    m_EffectiveLayerCameraPos.y += m_MapDrawOffset.y;
 
                     // I8: what this layer's groups pass down (the drawing classes multiply in its own).
                     m_fGroupOpacity = fParentOpacity;
@@ -458,8 +470,14 @@ namespace SunLight  {
                      * `visible="0"` now means exactly what it says, hiding
                      * that layer's sprites along with it's tiles/objects.
                      */
-                    HandleSpriteUpdate( pLayer -> id );
+                    // I19d: in a world of several maps the pass draws the sprites itself, once, after
+                    // this layer of every map (DrawWorldMaps).
+                    if( !m_bDeferSprites )
+                        HandleSpriteUpdate( nWorldLayerId );
                 }
+
+                if( !bSiblings )
+                    break;
 
                 pLayer = pLayer -> next;
             }
@@ -470,6 +488,49 @@ namespace SunLight  {
             m_GroupTint     = parentTint;
 
             m_nLayerDrawDepth--;            // I16: back to the active view's own camera once the whole map is drawn
+        }
+
+        /**
+         * @brief Draw a world of several maps (I19d of the master plan): its layers in the world's
+         * order (World::Layers - one per name), each drawn from every map that has it as a top-level
+         * layer, that map made the world's current one and its offset added to the camera
+         * (m_MapDrawOffset); then the sprites of that layer and of the layers nested under it, ONCE,
+         * so a sprite crosses a map edge on the same layer. A sprite's layer must be visible, and shown
+         * by the view, in the first map that has it. The first map is current again afterwards.
+         */
+        void TileMapRenderer :: DrawWorldMaps( void )  {
+
+            World  &world = *m_pActiveWorld;
+
+            for( const World :: stWorldLayer& entry : world.Layers() )  {
+                for( size_t nIndex = 0; nIndex < world.MapCount(); nIndex++ )  {
+                    const World :: stPlacedMap  &placed = world.PlacedMap( nIndex );
+                    tmx_layer                   *pLayer = world.LayerInMap( nIndex, entry.nId );
+
+                    if( !pLayer || ( placed.topLevel.find( ( int ) pLayer -> id ) == placed.topLevel.end() ) )
+                        continue;
+
+                    world.SetCurrentMap( nIndex );
+                    m_MapDrawOffset = stVector { ( float ) placed.nX, ( float ) placed.nY };
+                    m_bDeferSprites = true;
+                    DrawAllLayers( pLayer, 1.0, 1.0, 1.0f, WHITE_COLOR, false );
+                }
+
+                world.SetCurrentMap( 0 );
+                m_MapDrawOffset = stVector { 0.0f, 0.0f };
+                m_bDeferSprites = false;
+
+                if( entry.nTopId != entry.nId )
+                    continue;                       // drawn with its top-level layer, below
+
+                for( const World :: stWorldLayer& nested : world.Layers() )  {
+                    tmx_layer  *pFirst = ( nested.nTopId == entry.nId ) ? world.FindLayer( nested.nId ) : nullptr;
+
+                    if( pFirst && pFirst -> visible && m_pActiveView -> IsLayerShown( nested.nId ) &&
+                        m_pActiveView -> IsLayerShown( entry.nId ) )
+                        HandleSpriteUpdate( nested.nId );
+                }
+            }
         }
 
         /**
@@ -582,7 +643,11 @@ namespace SunLight  {
         void TileMapRenderer :: DrawPassContent( void )  {
 
             if( Tmx() )  {
-                DrawAllLayers( Tmx() -> ly_head );
+                if( m_pActiveWorld -> MapCount() > 1 )
+                    DrawWorldMaps();
+                else
+                    DrawAllLayers( Tmx() -> ly_head );
+
                 return;
             }
 
@@ -1606,6 +1671,71 @@ namespace SunLight  {
         }
 
         /**
+         * @brief IWorld::AddMap (I19d): load a map and place it in a world at an offset. No camera
+         * moves; the "-1" scroll steps of the views showing the world are resolved for its first map.
+         * @param world The world;
+         * @param szTmxMapFile The map, a FileSystem path;
+         * @param nX Its left edge, in the world's pixels;
+         * @param nY Its top edge;
+         * @return Its id in the world; -1 when not started or the map cannot be loaded;
+         */
+        int TileMapRenderer :: AddWorldMap( World& world, const char* szTmxMapFile, int nX, int nY )  {
+
+            if( !m_bIsStarted )
+                return -1;
+
+            std :: unique_ptr<MapData>  pNewMap = MapData :: Load( szTmxMapFile );
+
+            if( !pNewMap )
+                return -1;
+
+            int  nMapId = world.AddMapData( std :: move( pNewMap ), nX, nY );
+
+            ResolveScrollSteps( world );
+
+            return nMapId;
+        }
+
+        /**
+         * @brief IWorld::GetTile with a map id (I19d): this renderer's own GetTile on that map (made the
+         * world's current one, the world active), its layer of that world id, and the rectangle moved by
+         * the map's offset into the world's pixels.
+         * @param world The world;
+         * @param nMapIndex The map's index in the world;
+         * @param pos The cell;
+         * @param nLayerId The world layer id;
+         * @param tile Receives the tile;
+         * @return false with no such layer in that map, or no tile there;
+         */
+        bool TileMapRenderer :: WorldTile( World& world, size_t nMapIndex, const SunLight :: TileMap :: stMatrixPosition& pos,
+                                           int nLayerId, SunLight :: TileMap :: stTile& tile )  {
+
+            SunLight :: TileMap :: stLayer  layer {};
+
+            layer.pLayer = world.LayerInMap( nMapIndex, nLayerId );
+
+            if( !layer.pLayer )
+                return false;
+
+            World   *pPreviousWorld = ActivateWorld( &world );
+            size_t  nSavedMap       = world.CurrentMapIndex();
+
+            world.SetCurrentMap( nMapIndex );
+
+            bool  bResult = GetTile( pos, layer, tile );
+
+            world.SetCurrentMap( nSavedMap );
+            ActivateWorld( pPreviousWorld );
+
+            if( bResult )  {
+                tile.dimension.pos.x += world.PlacedMap( nMapIndex ).nX;
+                tile.dimension.pos.y += world.PlacedMap( nMapIndex ).nY;
+            }
+
+            return bResult;
+        }
+
+        /**
          * @brief IWorld::UnloadMap (I19c): free a world's map and DETACH its sprites - their
          * registrations and colliders go, the sprites are neither destroyed nor emptied and stay
          * parented, as after RemoveSprite. (The older UnloadMap also unloads the default world's
@@ -1965,7 +2095,13 @@ namespace SunLight  {
          */
         void TileMapRenderer :: ResetCamera( void )  {
 
+            // I19d: the world's top-left - the origin, unless a map sits at a negative offset.
+            SunLight :: Base :: stDimension2D  bounds = m_pActiveWorld -> Bounds();
+
             ActiveCamera().Reset();
+
+            if( ( bounds.pos.x != 0 ) || ( bounds.pos.y != 0 ) )
+                ActiveCamera().SetPosition( bounds.pos.x, bounds.pos.y );
         }
 
         /**
@@ -1980,7 +2116,9 @@ namespace SunLight  {
 
             SunLight :: Base :: Viewport  &vp = GetViewport();
 
-            ActiveCamera().MoveUp( vp.GetDimension2D().size.nHeight, vp.GetZoomProperties().fZoomFactor, MapPixelHeight() );
+            SunLight :: Base :: stDimension2D  bounds = m_pActiveWorld -> Bounds();     // I19d: every map of the world
+
+            ActiveCamera().MoveUp( vp.GetDimension2D().size.nHeight, vp.GetZoomProperties().fZoomFactor, bounds.pos.y + bounds.size.nHeight );
         }
 
         /**
@@ -1989,7 +2127,8 @@ namespace SunLight  {
          */
         void TileMapRenderer :: MoveCameraDown( void )  {
 
-            ActiveCamera().MoveDown();
+            // I19d: the world's top edge, which a map at a negative offset moves above 0.
+            ActiveCamera().MoveDown( ( float ) -m_pActiveWorld -> Bounds().pos.y );
         }
 
         /**
@@ -2004,7 +2143,9 @@ namespace SunLight  {
 
             SunLight :: Base :: Viewport  &vp = GetViewport();
 
-            ActiveCamera().MoveLeft( vp.GetDimension2D().size.nWidth, vp.GetZoomProperties().fZoomFactor, MapPixelWidth() );
+            SunLight :: Base :: stDimension2D  bounds = m_pActiveWorld -> Bounds();     // I19d: every map of the world
+
+            ActiveCamera().MoveLeft( vp.GetDimension2D().size.nWidth, vp.GetZoomProperties().fZoomFactor, bounds.pos.x + bounds.size.nWidth );
         }
 
         /**
@@ -2013,7 +2154,7 @@ namespace SunLight  {
          */
         void TileMapRenderer :: MoveCameraRight( void )  {
 
-            ActiveCamera().MoveRight();
+            ActiveCamera().MoveRight( ( float ) -m_pActiveWorld -> Bounds().pos.x );     // I19d: the world's left edge
         }
 
         /**
@@ -2417,7 +2558,15 @@ namespace SunLight  {
 
             // The gid and tile (S1c1: MapData::TileAt, which also refuses a position off the map - A6 - and
             // a gid past libtmx's tiles[] table). With no map there is no tile: it used to dereference null.
-            if( !Map() || !Map() -> TileAt( pos, layer.pLayer, tile ) )
+            if( !Map() || ( layer.pLayer == nullptr ) )
+                return false;
+
+            // I19d: a layer of another of the world's maps would be read with this map's size and tile
+            // table - past the end of its cells when that map is smaller.
+            if( ( m_pActiveWorld -> MapCount() > 1 ) && ( Map() -> FindLayer( ( int ) layer.pLayer -> id ) != layer.pLayer ) )
+                return false;
+
+            if( !Map() -> TileAt( pos, layer.pLayer, tile ) )
                 return false;
 
             tile.dimension = TileMapRect( pos, layer.pLayer, tile.pTile );
@@ -2481,6 +2630,33 @@ namespace SunLight  {
                 mapRect.y -= camera.y;
             }
 
+            // I19d: in a world of several maps, the map under the collider's top-left corner (I19e will
+            // test every map it overlaps), its own layer of that name, in its own pixels; the tiles'
+            // rectangles go back to the world's pixels below.
+            World   &world        = *m_pActiveWorld;
+            size_t  nSavedMap     = world.CurrentMapIndex();
+            float   fOffsetX      = 0.0f;
+            float   fOffsetY      = 0.0f;
+
+            if( world.MapCount() > 1 )  {
+                int  nIndex = world.MapIndexAt( mapRect.x, mapRect.y );
+
+                if( nIndex < 0 )
+                    return true;                    // between the maps: nothing to touch
+
+                pLayer = world.LayerInMap( ( size_t ) nIndex, world.WorldLayerIdOf( layer.pLayer ) );
+
+                if( !pLayer || ( pLayer -> type != L_LAYER ) )
+                    return true;                    // that map has no such tile layer
+
+                world.SetCurrentMap( ( size_t ) nIndex );
+                fOffsetX   = ( float ) world.PlacedMap( ( size_t ) nIndex ).nX;
+                fOffsetY   = ( float ) world.PlacedMap( ( size_t ) nIndex ).nY;
+                mapRect.x -= fOffsetX;
+                mapRect.y -= fOffsetY;
+                pTmxMap    = Tmx();
+            }
+
             if( Map() -> IsUniformTileGrid() )  {
                 float  fPadX = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_width );
                 float  fPadY = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_height );
@@ -2510,12 +2686,16 @@ namespace SunLight  {
                                                                  ( float ) pShape -> height };
 
                         if( ( pShape -> obj_type == OT_SQUARE ) && RectanglesOverlap( mapRect, shape ) )  {
+                            tile.dimension.pos.x += ( int ) fOffsetX;     // I19d: in the world's pixels
+                            tile.dimension.pos.y += ( int ) fOffsetY;
                             tiles.push_back( tile );
                             break;
                         }
                     }
                 }
             }
+
+            world.SetCurrentMap( nSavedMap );
 
             return true;
         }
@@ -2534,18 +2714,12 @@ namespace SunLight  {
         bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                                      SunLight :: TileMap :: stMatrixPosition& pos )  {
 
-            if( Map() )  {
-                if( Map() -> MapProjection().MapToTileMatrix( coord, Tmx(), MapPixelWidth(), MapPixelHeight(), pos ) )  {
+            // I19d: World::PickCell - each map of the world, less its offset, through its own
+            // projection's hit-test, and inside its grid (A6: GetTile indexes gids[] with these). With
+            // one map at (0, 0), exactly that map's MapToTileMatrix, as before.
+            int  nMapId = -1;
 
-                    // Both edges: GetTile indexes gids[] with these, and a
-                    // row/column past the far edge would read past the array (A6).
-                    return ( ( pos.nTileCol >= 0 ) && ( pos.nTileRow >= 0 ) &&
-                             ( pos.nTileCol < ( int ) Tmx() -> width ) &&
-                             ( pos.nTileRow < ( int ) Tmx() -> height ) );
-                }
-            }
-
-            return false;
+            return m_pActiveWorld -> PickCell( coord, nMapId, pos );
         }
 
         /**
@@ -2652,7 +2826,7 @@ namespace SunLight  {
             if( !Map() )
                 return false;
 
-            tmx_layer                      *pLayer = Map() -> FindLayer( nLayerId );
+            tmx_layer                      *pLayer = m_pActiveWorld -> LayerInMap( m_pActiveWorld -> CurrentMapIndex(), nLayerId );
             SunLight :: TileMap :: stTile   tile;
 
             if( ( pLayer == nullptr ) || ( pLayer -> type != L_LAYER ) || !Map() -> TileAt( pos, pLayer, tile ) )

@@ -425,13 +425,13 @@ namespace SunLight  {
          */
         bool View :: ShowLayer( const char* szLayerName, bool bShow )  {
 
-            MapData    *pMap   = ( m_pRenderer && m_pWorld ) ? m_pWorld -> Map() : nullptr;
-            tmx_layer  *pLayer = ( szLayerName && pMap ) ? pMap -> FindLayer( szLayerName ) : nullptr;
+            // I19d: the WORLD layer id of that name (the map's own, with one map).
+            int  nLayerId = ( m_pRenderer && m_pWorld && szLayerName ) ? m_pWorld -> GetLayerId( szLayerName ) : -1;
 
-            if( !pLayer )
+            if( nLayerId < 0 )
                 return false;
 
-            ShowLayer( ( int ) pLayer -> id, bShow );
+            ShowLayer( nLayerId, bShow );
 
             return true;
         }
@@ -485,9 +485,14 @@ namespace SunLight  {
             if( !pMap )
                 return false;
 
-            const long  nStepsPerUnit = ( long ) ( 1.0f / SunLight :: Base :: ZOOM_STEP );
-            long        nMapW         = ( long ) pMap -> width  * ( long ) pMap -> tile_width;
-            long        nMapH         = ( long ) pMap -> height * ( long ) pMap -> tile_height;
+            // One map: its grid's size, as always. Several (I19d): the box every map of the world fits in.
+            SunLight :: Base :: stDimension2D  bounds        = m_pWorld -> Bounds();
+            bool                               bSeveral      = ( m_pWorld -> MapCount() > 1 );
+            const long                         nStepsPerUnit = ( long ) ( 1.0f / SunLight :: Base :: ZOOM_STEP );
+            long                               nMapW         = bSeveral ? ( long ) bounds.size.nWidth :
+                                                                          ( long ) pMap -> width  * ( long ) pMap -> tile_width;
+            long                               nMapH         = bSeveral ? ( long ) bounds.size.nHeight :
+                                                                          ( long ) pMap -> height * ( long ) pMap -> tile_height;
 
             if( ( nMapW <= 0 ) || ( nMapH <= 0 ) )
                 return false;

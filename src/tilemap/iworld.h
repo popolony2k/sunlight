@@ -23,6 +23,7 @@
 
 #include "sprite/sprite.h"
 #include "collision/icollisionmanager.h"
+#include "base/primitives.h"
 #include "tilemap/tilemapdefs.h"
 
 
@@ -72,8 +73,8 @@ namespace SunLight  {
             virtual bool IsRemoved( void ) = 0;
 
             /**
-             * @brief Load a map into this world, replacing the one it had (only once the new one
-             * loaded; a failed load leaves the old one). Its sprites stay registered, as they do
+             * @brief Load a map into this world as its ONLY map, at (0, 0), replacing every map it had
+             * (only once the new one loaded; a failed load leaves them; several maps: @see AddMap). Its sprites stay registered, as they do
              * across ITileMap::LoadMap. No camera moves: the views showing the world keep theirs
              * (IView::FitToMap or SetCameraPosition place them); a scroll step of -1 (the map's
              * tile size) is resolved for every view that shows it.
@@ -93,21 +94,25 @@ namespace SunLight  {
             virtual bool UnloadMap( void ) = 0;
 
             /**
-             * @brief The world's map information, as ITileMap::GetMapInfo.
+             * @brief The world's map information, as ITileMap::GetMapInfo - its first map's, when it
+             * has several (I19d).
              * @return false with no map loaded, or once removed;
              */
             virtual bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo ) = 0;
 
             /**
-             * @brief A layer of the world's map by id or name, as ITileMap::GetLayer.
+             * @brief A layer of the world's map by id or name, as ITileMap::GetLayer. With several maps
+             * (I19d) the id is a WORLD layer id (@see GetLayerId), and the layer is the first map's that
+             * has it.
              * @return false with no such layer, no map, or once removed;
              */
             virtual bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) = 0;
             virtual bool GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
-             * @brief A tile of the world's map, as ITileMap::GetTile: its rectangle in the world's
-             * map pixels.
+             * @brief A tile of the world's map, as ITileMap::GetTile: its rectangle in that map's
+             * pixels. With several maps (I19d) it reads the first map; the GetTile taking a map id reads
+             * any, in the world's pixels.
              * @return false with no tile there, no map, or once removed;
              */
             virtual bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
@@ -115,12 +120,95 @@ namespace SunLight  {
                                   SunLight :: TileMap :: stTile& tile ) = 0;
 
             /**
-             * @brief The cell of the world's map under a position in its map pixels, as
-             * ITileMap::TileMapToTileMatrix.
+             * @brief The cell under a position in the world's pixels, as ITileMap::TileMapToTileMatrix;
+             * with several maps (I19d), in whichever map has a cell there - the overload with a map id
+             * says which.
              * @return false off the map's cells, with no map, or once removed;
              */
             virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                               SunLight :: TileMap :: stMatrixPosition& pos ) = 0;
+
+            /**
+             * @brief Add a map to this world at an offset (I19d of the master plan): its top-left - the
+             * top-left of its pixel box, whatever its orientation, as Tiled's .world places a map - at
+             * (nX, nY) in the world's pixels; negative offsets are fine. Every orientation, mixed or
+             * not. The world's maps draw layer by layer, matched by NAME: each name has one world
+             * layer id (@see GetLayerId) - the first map's ids are kept, a name first seen in a later
+             * map gets an id above the highest so far, and ids never change while the world has maps.
+             * A sprite on a layer is drawn after that layer of every map, so it crosses a map edge
+             * cleanly. A world with no map yet takes it as its first. No camera moves.
+             * @param szTmxMapFile The map, a FileSystem path;
+             * @param nX Its left edge, in the world's pixels;
+             * @param nY Its top edge;
+             * @return The map's id in this world (never reused); -1 when not started, the map cannot
+             * be loaded, or once removed;
+             */
+            virtual int AddMap( const char* szTmxMapFile, int nX, int nY ) = 0;
+
+            /**
+             * @brief Take one map out of the world (I19d), freeing it. The world's layer ids stay as
+             * they were while it has maps; its sprites stay registered.
+             * @param nMapId The id AddMap gave it (or the one LoadMap's map got: @see GetMapOffset);
+             * @return false when there is no such map, or once removed;
+             */
+            virtual bool RemoveMap( int nMapId ) = 0;
+
+            /**
+             * @brief The number of maps in the world (I19d): 0 or 1 unless AddMap placed more.
+             */
+            virtual int GetMapCount( void ) = 0;
+
+            /**
+             * @brief A map's offset in the world (I19d).
+             * @param nMapId The map's id;
+             * @param nX Receives its left edge, in the world's pixels;
+             * @param nY Receives its top edge;
+             * @return false when there is no such map, or once removed;
+             */
+            virtual bool GetMapOffset( int nMapId, int& nX, int& nY ) = 0;
+
+            /**
+             * @brief The rectangle every map of the world fits in (I19d), in the world's pixels: what
+             * a view's scroll limits, FitToMap and ResetCamera use. It may start at a negative position.
+             * @param bounds Receives it;
+             * @return false with no map, or once removed;
+             */
+            virtual bool GetBounds( SunLight :: Base :: stDimension2D& bounds ) = 0;
+
+            /**
+             * @brief The world layer id of a layer name (I19d): the id sprites, collision rules and
+             * view masks use for that layer across every map of the world.
+             * @param szLayerName The name;
+             * @return The id; -1 with no layer of that name, or once removed;
+             */
+            virtual int GetLayerId( const char* szLayerName ) = 0;
+
+            /**
+             * @brief The map and cell under a position in the world's pixels (I19d): every map whose
+             * pixel box holds it is tried, in the order they were added, with its own projection's
+             * hit-test - so an isometric map's empty corners fall through to a neighbour.
+             * @param coord The position, in the world's pixels;
+             * @param nMapId Receives the map's id;
+             * @param pos Receives the cell;
+             * @return false when no map has a cell there, or once removed;
+             */
+            virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                              int& nMapId,
+                                              SunLight :: TileMap :: stMatrixPosition& pos ) = 0;
+
+            /**
+             * @brief A tile of one of the world's maps (I19d), its rectangle in the WORLD's pixels (its
+             * map rectangle moved by the map's offset).
+             * @param nMapId The map's id;
+             * @param pos The cell;
+             * @param nLayerId The world layer id (@see GetLayerId);
+             * @param tile Receives the tile;
+             * @return false with no such map or layer in it, no tile there, or once removed;
+             */
+            virtual bool GetTile( int nMapId,
+                                  const SunLight :: TileMap :: stMatrixPosition& pos,
+                                  int nLayerId,
+                                  SunLight :: TileMap :: stTile& tile ) = 0;
 
             /**
              * @brief Register a sprite on a layer of this world, as ITileMap::AddSprite: drawn by
