@@ -2241,7 +2241,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
 | I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | DONE |
-| I20 | Tiled's `staggeraxis="x"` maps load: a workaround in sunlight's map loader, and the fix asked of libtmx upstream (found building I19d) | TODO |
+| I20 | Tiled's `staggeraxis="x"` maps load: a workaround in sunlight's map loader, and the fix asked of libtmx upstream (found building I19d) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -3132,13 +3132,29 @@ mentions worlds), so sunlight reads the `.world` file itself.
   key 1 now also cycles to it, IJKL walks the Sunny of the world the right view shows.
 - `doc/BREAKAGES.md` entry 72.
 
-**I20: Tiled's `staggeraxis="x"` (TODO, before the Scarab handoff - owner's order).** libtmx's
+**I20: Tiled's `staggeraxis="x"` (DONE, before the Scarab handoff - owner's order).** libtmx's
 `parse_stagger_axis` (`tmx_utils.c`) accepts `"y"` or `"columns"`, but Tiled writes `"x"` (its TMX
 reference: "determines which axis ("x" or "y") is staggered"; `staggerAxisToString` in Tiled's
 `map.cpp`), so every X-staggered map saved by Tiled fails to load. No libtmx release has a fix (upstream
 `master` and `tmx_1.10.1` have the same code). Plan (owner's choice, option 3): a workaround in sunlight's
 map loader now, and the fix asked upstream - issue filed with the owner's permission,
 https://github.com/baylej/tmx/issues/90; once libtmx fixes it, drop the workaround or pin that release.
+
+- **The workaround** (`src/renderer/map/tmxworkarounds.h/.cpp`, `TmxWorkarounds::FixStaggerAxis`):
+  `MapData::Load` reads a map's bytes itself (through the FileSystem) before libtmx parses them, so it
+  rewrites the value there - `"x"` becomes `"columns"`, libtmx's word for the same axis. Only the root
+  `<map ...>` start tag is looked at, its attributes walked one by one with quoted values skipped
+  whole (a `>` or the attribute's name inside another value, or a `staggeraxis` in a property further
+  down, is never touched); single or double quotes and spaces around `=` are fine. A map libtmx reads
+  already (`"y"`, `"columns"`, no attribute) passes through unchanged. Once libtmx reads `"x"` the
+  rewrite still gives a value it accepts, so nothing breaks before it is removed.
+- **Tests** (`tests/test_tmxworkarounds.cpp`, 3): the rewrite (quotes, spaces, a `>` inside an earlier
+  value), what it leaves alone (`"y"`, `"columns"`, no attribute, a property, the name inside a value,
+  a `<mapping>` element, not XML), and a staggered and a hexagonal map written as Tiled writes them
+  loading through `MapData::Load` with axis X and a cell placed as axis X places it. Without the call in
+  `MapData::Load` the load test fails with libtmx's own "unsupported 'staggeraxis' 'x'".
+- No sample (owner's call): the tests load Tiled-style maps through the real parser.
+- `doc/BREAKAGES.md` entry 73.
 - **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
   `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
   along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all

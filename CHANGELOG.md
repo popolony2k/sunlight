@@ -177,6 +177,9 @@ Each item is described in full in the plan; what each change means for code buil
   letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
   bitmap (`.fnt`) font is unchanged.
 - An animated tile whose frames are all 0 ms shows its first frame; it showed its last.
+- A staggered or hexagonal map saved by Tiled with stagger axis X did not load (libtmx reads
+  `staggeraxis="columns"`, Tiled writes `"x"`): the value is rewritten before libtmx parses the map,
+  until libtmx is fixed (https://github.com/baylej/tmx/issues/90).
 - `TileMapToTileMatrix` on an isometric, staggered or hexagonal map picked a neighbour of the cell
   under the point (in the isometric sample, none of the 48 cells picked itself at its own centre). It
   is now a true diamond or hexagon hit-test, and returns false for a point in the map's rectangle
