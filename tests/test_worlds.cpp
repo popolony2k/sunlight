@@ -275,6 +275,7 @@ TEST_SUITE( "renderer/worlds" )  {
         ViewHandle   pView = scene.pRenderer -> CreateView( g_SideRect );
 
         CHECK( scene.pRenderer -> GetDefaultView().SetWorld( pB ) == false );
+        CHECK( scene.pRenderer -> GetDefaultView().SetWorld( scene.pRenderer -> GetDefaultWorld() ) == true );   // I21: changes nothing, a yes
         CHECK( scene.pRenderer -> GetDefaultView().GetWorld() == scene.pRenderer -> GetDefaultWorld() );
 
         CHECK( pView -> GetWorld() == scene.pRenderer -> GetDefaultWorld() );

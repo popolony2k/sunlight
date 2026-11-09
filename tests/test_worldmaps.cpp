@@ -440,6 +440,68 @@ TEST_SUITE( "renderer/worldmaps" )  {
         scene.pRenderer -> RemoveSprite( 2, sprite );
     }
 
+    TEST_CASE( "I21: SetLayer on a world of several maps changes that layer in EVERY map that has it - by id, by name, through IWorld or the renderer" )  {
+
+        Scene        scene;
+        WorldHandle  pWorld = scene.Default();
+        WorldHandle  pOther = scene.pRenderer -> CreateWorld();
+
+        scene.AddMap( pWorld, "maps/c.tmx", g_TexC, 64, 0 );            // its "props" is ITS layer 1
+        scene.AddMap( pOther, "maps/a.tmx", g_TexA, 0, 0 );
+        scene.AddMap( pOther, "maps/c.tmx", g_TexC, 64, 0 );
+
+        const SunLight :: Base :: stColor  red { 255, 0, 0, 255 };
+
+        // Through the world handle, by name: the props tile of map A (10, 10) and of map C (74, 10) both red.
+        SunLight :: TileMap :: stLayer  layer {};
+
+        REQUIRE( pWorld -> GetLayer( "props", layer ) == true );
+        layer.tint = red;
+        REQUIRE( pWorld -> SetLayer( "props", layer ) == true );
+        CHECK( std :: string( layer.pLayer -> name ) == "props" );
+
+        scene.RunFrames( 1 );
+
+        int  nRed = 0, nGround = 0;
+
+        for( const Event& evt : scene.engine().events )  {
+            if( evt.kind != Event :: TILE )
+                continue;
+
+            bool  bProp = ( ( evt.handle == g_TexA ) && ( evt.x == 10 ) && ( evt.y == 10 ) && ( evt.color.nGreen == 0 ) ) ||
+                          ( ( evt.handle == g_TexC ) && ( evt.x == 74 ) && ( evt.y == 10 ) );
+
+            if( bProp && ( evt.color.nRed == 255 ) && ( evt.color.nGreen == 0 ) )
+                nRed++;
+            else if( ( evt.handle == g_TexA ) && ( evt.color.nGreen == 255 ) )
+                nGround++;
+        }
+
+        CHECK( nRed == 2 );                                               // one prop per map
+        CHECK( nGround == 16 );                                           // the ground keeps its colour
+
+        // Through the renderer's own SetLayer (the default world), by id: hidden in both maps.
+        REQUIRE( scene.pRenderer -> GetLayer( 2, layer ) == true );
+        layer.bVisible = false;
+        REQUIRE( scene.pRenderer -> SetLayer( 2, layer ) == true );
+        scene.RunFrames( 1 );
+        CHECK( scene.Draws( g_TexA ).size() == 16 );                      // the ground only
+        CHECK( scene.Draws( g_TexC ).size() == 1 );                       // map C's roof only
+
+        // A created world, by world id: its "roof" (id 3) exists only in its second map.
+        REQUIRE( pOther -> GetLayer( 3, layer ) == true );
+        layer.bVisible = false;
+        CHECK( pOther -> SetLayer( pOther -> GetLayerId( "roof" ), layer ) == true );
+        REQUIRE( pOther -> GetLayer( "roof", layer ) == true );
+        CHECK( layer.bVisible == false );
+
+        // Nothing there: refused.
+        CHECK( pWorld -> SetLayer( "nowhere", layer ) == false );
+        CHECK( pWorld -> SetLayer( 99, layer ) == false );
+        REQUIRE( scene.pRenderer -> RemoveWorld( pOther ) == true );
+        CHECK( pOther -> SetLayer( "roof", layer ) == false );
+    }
+
     TEST_CASE( "The camera's limits come from every map: ResetCamera at the world's top-left, scrolling stops at its edges" )  {
 
         Scene        scene;

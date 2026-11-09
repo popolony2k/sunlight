@@ -536,6 +536,37 @@ namespace SunLight  {
         }
 
         /**
+         * @brief The renderer's own SetLayer by id, with this world active (I21 of the master plan:
+         * TileMapRenderer::SetWorldLayer - the layer of that world id in every map that has it).
+         * @param nLayerId The world layer id;
+         * @param layer The values to set;
+         * @return false with no such layer, no map, or once removed;
+         */
+        bool World :: SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer )  {
+
+            bool  bResult = false;
+
+            Run( [this, nLayerId, &layer, &bResult]() { bResult = m_pRenderer -> SetLayer( nLayerId, layer ); } );
+
+            return bResult;
+        }
+
+        /**
+         * @brief The renderer's own SetLayer by name, with this world active (I21).
+         * @param szLayerName The layer's name;
+         * @param layer The values to set;
+         * @return false with no such layer, no map, or once removed;
+         */
+        bool World :: SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer )  {
+
+            bool  bResult = false;
+
+            Run( [this, szLayerName, &layer, &bResult]() { bResult = m_pRenderer -> SetLayer( szLayerName, layer ); } );
+
+            return bResult;
+        }
+
+        /**
          * @brief The renderer's own GetTile, with this world active.
          * @param pos The cell;
          * @param layer The tile layer;
@@ -653,7 +684,18 @@ namespace SunLight  {
          */
         int World :: GetLayerId( const char* szLayerName )  {
 
-            if( !m_pRenderer || !szLayerName )
+            return m_pRenderer ? FindLayerId( szLayerName ) : -1;
+        }
+
+        /**
+         * @brief The world layer id of a name: the first entry of the layer table with it, whatever
+         * the world's state (the renderer's own SetLayer by name uses it).
+         * @param szLayerName The name;
+         * @return The id; -1 with no such name or no name;
+         */
+        int World :: FindLayerId( const char* szLayerName ) const  {
+
+            if( !szLayerName )
                 return -1;
 
             for( const stWorldLayer& entry : m_Layers )  {

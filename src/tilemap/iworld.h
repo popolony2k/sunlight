@@ -110,6 +110,25 @@ namespace SunLight  {
             virtual bool GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
+             * @brief Change a layer of the world, as ITileMap::SetLayer (I21 of the master plan): its
+             * visibility, opacity, offset, parallax and tint. With several maps the id is a WORLD layer
+             * id (@see GetLayerId) and the change goes to that layer in EVERY map that has it - layers
+             * are matched by name, so one layer looks the same on both sides of a map edge.
+             * @param nLayerId The (world) layer id;
+             * @param layer The values to set; its pLayer receives the first map's layer;
+             * @return false with no such layer, no map, or once removed;
+             */
+            virtual bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) = 0;
+
+            /**
+             * @brief Same, by name.
+             * @param szLayerName The layer's name;
+             * @param layer The values to set;
+             * @return false with no such layer, no map, or once removed;
+             */
+            virtual bool SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
+
+            /**
              * @brief A tile of the world's map, as ITileMap::GetTile: its rectangle in that map's
              * pixels. With several maps (I19d) it reads the first map; the GetTile taking a map id reads
              * any, in the world's pixels.

@@ -192,6 +192,7 @@ namespace SunLight  {
             bool LoadWorldMap( World& world, const char* szTmxMapFile );
             int AddWorldMap( World& world, const char* szTmxMapFile, int nX, int nY );
             bool LoadWorldFile( World& world, const char* szWorldFile );
+            bool SetWorldLayer( World& world, int nWorldLayerId, SunLight :: TileMap :: stLayer& layer );
             bool WorldTile( World& world, size_t nMapIndex, const SunLight :: TileMap :: stMatrixPosition& pos,
                             int nLayerId, SunLight :: TileMap :: stTile& tile );
             bool UnloadWorldMap( World& world );

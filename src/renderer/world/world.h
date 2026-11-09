@@ -103,6 +103,7 @@ namespace SunLight  {
 
             void AddLayers( stPlacedMap& placed, tmx_layer* pLayer, int nTopWorldId, bool bFirstMap );
             int IndexOfMap( int nMapId ) const;
+            int FindLayerId( const char* szLayerName ) const;
 
             template<class Function>
             void Run( Function function );
@@ -150,6 +151,8 @@ namespace SunLight  {
             bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo ) override;
             bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) override;
             bool GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) override;
+            bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) override;
+            bool SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) override;
             bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
                           const SunLight :: TileMap :: stLayer& layer,
                           SunLight :: TileMap :: stTile& tile ) override;
