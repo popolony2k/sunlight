@@ -2240,7 +2240,8 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
 | I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
-| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | IN PROGRESS (I19a to I19e done) |
+| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | DONE |
+| I20 | Tiled's `staggeraxis="x"` maps load: a workaround in sunlight's map loader, and the fix asked of libtmx upstream (found building I19d) | TODO |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -2881,7 +2882,7 @@ scroll limit is 314.
   code, all five fail.
 - `doc/BREAKAGES.md` entry 67.
 
-**I19: worlds - several maps at once (IN PROGRESS).** Scarab's C7, designed with its session and agreed
+**I19: worlds - several maps at once (DONE).** Scarab's C7, designed with its session and agreed
 by both owners. Games want different maps on screen at the same time: split-screen with players on
 different maps, a world map beside the local one, a picture-in-picture dungeon, a menu over a map, a
 cross-fade between two maps. Today a renderer holds one map (`m_pMap`), `LoadMap` replaces it, every
@@ -2939,7 +2940,7 @@ view shows it, and a second renderer is no way around it (one window per process
     and "several worlds" phases merged: a view can only be given a world a game can create);
   - **I19d** map offsets and several maps drawn per view, layers matched by name - DONE, see below;
   - **I19e** collisions across map edges - DONE, see below;
-  - **I19f** `.world` loading.
+  - **I19f** `.world` loading - DONE, see below.
 - **Scarab's side** (its C7, planned with sunlight): `world_load( path )` (a `.tmx` or a `.world`)
   returning a handle, `world_unload`, `view_set_world`, an optional world on the sprite and collision
   functions; `tilemap_load_map` and every existing call stay on the default world.
@@ -3098,6 +3099,46 @@ the same path with no offset, unchanged.
   I19d scan the straddling test fails (1 tile, not 2).
 - No sample (owner's decision): nothing on screen changes; the collision demo goes into I19f's sample.
 - `doc/BREAKAGES.md` entry 71.
+
+**I19f: Tiled `.world` files (DONE).** libtmx reads only `.tmx` maps (its loaders - `tmx_load`,
+`tmx_load_buffer`, `tmx_load_fd`, `tmx_load_callback` - parse one XML map; nothing in it reads JSON or
+mentions worlds), so sunlight reads the `.world` file itself.
+
+- **`WorldFile`** (`src/renderer/world/worldfile.h/.cpp`): reads the file through the FileSystem and
+  returns its maps - each `fileName` resolved against the `.world` file's folder (`FilePath::JoinPath`,
+  so a path scheme carries over) with its `x`, `y`. Only that: no map is loaded, no renderer touched,
+  so it is tested alone. Tiled's own JSON: an object with a `maps` array, string `fileName`, integer
+  `x`/`y`; `width`/`height` are not read (sunlight sizes a map itself, as Tiled's editor does);
+  `onlyShowAdjacentMaps` is not read (every map is loaded). A non-empty `patterns` array is refused:
+  placing maps by a regular expression over the folder needs a directory listing `IFileSystem` does
+  not offer (owner's choice: the maps list only; patterns would be an item of their own).
+- **`IWorld::LoadWorld( path )`** (`TileMapRenderer::LoadWorldFile`): all or nothing - every map is
+  loaded first, and only when all loaded are the world's maps replaced, in the file's order (the first
+  map's layer ids are the world's); on any failure the reason goes to standard error and the world
+  keeps what it had. Sprites stay registered; no camera moves.
+- **nlohmann/json**, declared exactly as Scarab declares it (`FetchContent` name `nlohmann_json`, the
+  `master` tag, target `nlohmann_json`) so Scarab's build keeps one copy, linked PRIVATE: only
+  `worldfile.cpp` includes it. `target_link_libraries( sunlight ... )` moved to the keyword form for
+  that (CMake refuses mixing the forms; PUBLIC is what the plain form meant for a shared library).
+  The fetch is a full clone of the repository (344 MB) - as Scarab's.
+- **Tests** (`tests/test_worldfile.cpp`, 4): the reader (paths against the file's folder, a scheme
+  carried over, an empty `patterns` list fine; unreadable, not JSON, not an object, no `maps`, a bad
+  entry and `patterns` refused, saying why); `LoadWorld` (the file's maps at their offsets replacing
+  the old ones, refused before `Start()`), all or nothing (a missing map frees the one already loaded
+  and leaves the world as it was; a removed world refused).
+- **Sample:** `samples/worlds` gained a demo world from `resources/iso/demo.world` - the isometric map
+  twice, the second continuing the first one map further along its column axis (offset 256, 128) - whose
+  Sunny has a tile rule on "obstacles" (both maps, I19e) and a count of the obstacle tiles it touches;
+  key 1 now also cycles to it, IJKL walks the Sunny of the world the right view shows.
+- `doc/BREAKAGES.md` entry 72.
+
+**I20: Tiled's `staggeraxis="x"` (TODO, before the Scarab handoff - owner's order).** libtmx's
+`parse_stagger_axis` (`tmx_utils.c`) accepts `"y"` or `"columns"`, but Tiled writes `"x"` (its TMX
+reference: "determines which axis ("x" or "y") is staggered"; `staggerAxisToString` in Tiled's
+`map.cpp`), so every X-staggered map saved by Tiled fails to load. No libtmx release has a fix (upstream
+`master` and `tmx_1.10.1` have the same code). Plan (owner's choice, option 3): a workaround in sunlight's
+map loader now, and the fix asked upstream - issue filed with the owner's permission,
+https://github.com/baylej/tmx/issues/90; once libtmx fixes it, drop the workaround or pin that release.
 - **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
   `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
   along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all

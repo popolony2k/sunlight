@@ -31,11 +31,16 @@
  *
  *   - a GRID world (I19d): four maps placed side by side with IWorld::AddMap - the cloud map three
  *     times and the isometric map in the fourth corner (orientations mix) - drawn layer by layer
- *     across the maps, so its Sunny walks over the seams.
+ *     across the maps, so its Sunny walks over the seams;
+ *   - a DEMO world loaded from a Tiled .world file (I19f, IWorld::LoadWorld): the isometric map twice,
+ *     the second continuing the first one map further along its column axis. Its Sunny has a tile
+ *     collision rule on the "obstacles" layer of both maps (I19e), and the key list counts the
+ *     obstacle tiles it touches.
  *
  * Each Sunny is a world-space sprite of its own world: WASD walks the cloud one, the arrows the
- * isometric one, IJKL the grid one; none ever appears in another world. Key 1 makes the right view
- * show world B, the default world or the grid world (IView::SetWorld); key 3 removes world B
+ * isometric one, IJKL the one of the world the right view shows (grid or demo); none ever appears in
+ * another world. Key 1 makes the right view show world B, the default world, the grid world or the
+ * demo world (IView::SetWorld); key 3 removes world B
  * (RemoveWorld: its views go back to the default world, its Sunny is detached) and creates it again.
  *
  * Like the other samples it takes its own directory as argv[1] and reads its resources relative to it:
@@ -46,6 +51,7 @@
 #include "renderer/tilemaprenderer.h"
 #include "sprite/sprite.h"
 #include "canvas/texturecanvas.h"
+#include "collision/icollisionlistener.h"
 #include <algorithm>
 #include <filesystem>
 #include <functional>
@@ -84,8 +90,13 @@
 #define __HUD_TEXT_SIZE             64
 #define __HUD_CHANNEL               255     // the labels: opaque white
 #define __NO_FRAME                  -2      // Once: no press seen yet
+#define __OVERLAY_BACKGROUND        SunLight :: Base :: stColor { 20, 20, 50, 255 }   // opaque: a full fade shows world B alone
 #define __CLOUD_MAP_SIZE            640     // test.tmx: 20 x 20 tiles of 32 px - the grid world's cell
 #define __GRID_SUNNY_START          ( __CLOUD_MAP_SIZE - __SUNNY_SIZE )   // where the four maps meet
+#define __DEMO_WORLD                "resources/iso/demo.world"
+#define __ISO_OBSTACLES_LAYER_NAME  "obstacles"     // isometric.tmx's collision tiles
+#define __DEMO_SUNNY_START_X        240             // the first map, near the seam with the second
+#define __DEMO_SUNNY_START_Y        96
 
 namespace  {
 
@@ -142,6 +153,8 @@ namespace  {
         ViewHandle                               m_pRight;
         ViewHandle                               m_pOverlay;
         WorldHandle                              m_pGrid;            // to name the world the right view shows
+        WorldHandle                              m_pDemo;
+        int                                      m_nTilesTouched = 0;   // the demo Sunny's, last frame (Obstacles)
         float                                    m_fFadeTarget = __OPACITY_HIDDEN;
         long                                     m_nFrame      = 0;
 
@@ -166,8 +179,8 @@ namespace  {
                 "KEYS",
                 "WASD    walk cloud Sunny",
                 "Arrows  walk iso Sunny",
-                "IJKL    walk grid Sunny",
-                "1  right view: B/A/grid",
+                "IJKL    walk right Sunny",
+                "1  right: B/A/grid/demo",
                 "2  cross-fade left A/B",
                 "3  remove / recreate B",
             };
@@ -180,17 +193,39 @@ namespace  {
             // A blank line, then the state: how many worlds, which one the right view shows, the fade.
             WorldHandle  pShown = m_pRight -> GetWorld();
             const char   *szShown = ( pShown == m_Renderer.GetDefaultWorld() ) ? "cloud" :
-                                    ( pShown == m_pGrid ) ? "grid" : "B";
+                                    ( pShown == m_pGrid ) ? "grid" : ( pShown == m_pDemo ) ? "demo" : "B";
 
             snprintf( szText, sizeof( szText ), "worlds %d   right: %s", m_Renderer.GetWorldCount(), szShown );
             Line( nKeys + 1, szText );
-            snprintf( szText, sizeof( szText ), "left fade to B  %.2f", m_pOverlay -> GetOpacity() );
+            // While world B is removed the overlay shows the default world - the left half's own map -
+            // so fading it changes nothing to see; say so.
+            snprintf( szText, sizeof( szText ), "left fade to B  %.2f%s", m_pOverlay -> GetOpacity(),
+                      ( m_pOverlay -> GetWorld() == m_Renderer.GetDefaultWorld() ) ? "  (B removed)" : "" );
             Line( nKeys + 2, szText );
+            snprintf( szText, sizeof( szText ), "demo Sunny on %d obstacles", m_nTilesTouched );
+            Line( nKeys + 3, szText );
+            m_nTilesTouched = 0;          // the collisions of the next frame count again (they run after OnUpdate)
 
             m_nFrame++;
         }
 
         void OnStop( void )  override  {
+        }
+    };
+
+    // The demo world's collisions: every obstacle tile its Sunny touches, counted for the key list.
+    struct Obstacles : public SunLight :: Collision :: ICollisionListener  {
+
+        Frame  &m_Frame;
+
+        explicit Obstacles( Frame& frame ) : m_Frame( frame )  {
+        }
+
+        void OnCollision( SunLight :: Collision :: Collider*, SunLight :: Collision :: Collider* )  override  {
+        }
+
+        void OnCollision( SunLight :: Collision :: Collider*, SunLight :: TileMap :: stTile* )  override  {
+            m_Frame.m_nTilesTouched++;
         }
     };
 }
@@ -225,10 +260,10 @@ int main( int argc, char** argv )  {
 
     renderer.GetDefaultView().FitToMap();
 
-    Sunny  cloudSunny, isoSunny, gridSunny;
+    Sunny  cloudSunny, isoSunny, gridSunny, demoSunny;
 
     if( !cloudSunny.Load( __CLOUD_SUNNY_START, __CLOUD_SUNNY_START ) || !isoSunny.Load( __ISO_SUNNY_START_X, __ISO_SUNNY_START_Y ) ||
-        !gridSunny.Load( __GRID_SUNNY_START, __GRID_SUNNY_START ) )  {
+        !gridSunny.Load( __GRID_SUNNY_START, __GRID_SUNNY_START ) || !demoSunny.Load( __DEMO_SUNNY_START_X, __DEMO_SUNNY_START_Y ) )  {
         fprintf( stderr, "Cannot load the sprite [%s]\n", __SUNNY_SPRITE );
         return EXIT_FAILURE;
     }
@@ -244,6 +279,10 @@ int main( int argc, char** argv )  {
     frame.m_pRight   = renderer.CreateView( Rect( __RIGHT_X, __HALF_Y, __RIGHT_W, __RIGHT_H ) );
     frame.m_pOverlay = renderer.CreateView( Rect( __LEFT_X, __HALF_Y, __LEFT_W, __HALF_H ) );
     frame.m_pOverlay -> SetOpacity( __OPACITY_HIDDEN );
+
+    // Opaque: the isometric map declares no background colour, so the overlay's clear would be
+    // transparent and the left half's own map would show around world B's diamond at a full fade.
+    frame.m_pOverlay -> SetBackgroundColor( __OVERLAY_BACKGROUND );
     renderer.AddTileMapListener( &frame );
 
     // World B: a world of its own - its map, its Sunny - shown by the right view and the overlay.
@@ -284,6 +323,21 @@ int main( int argc, char** argv )  {
         return EXIT_FAILURE;
     }
 
+    // The demo world (I19f): a Tiled .world file - its maps, relative to it, at its offsets. Its Sunny
+    // collides with the obstacle tiles of whichever map it is over (I19e), counted by Obstacles.
+    WorldHandle  pDemo = renderer.CreateWorld();
+    Obstacles    obstacles( frame );
+
+    frame.m_pDemo = pDemo;
+
+    if( !pDemo -> LoadWorld( __DEMO_WORLD ) || !pDemo -> AddSprite( __ISO_SUNNY_LAYER_ID, demoSunny.sprite ) ||
+        !pDemo -> GetCollisionManager().AddColliderToTileRule( __ISO_SUNNY_LAYER_ID, pDemo -> GetLayerId( __ISO_OBSTACLES_LAYER_NAME ) ) )  {
+        fprintf( stderr, "Cannot build the demo world from [%s]\n", __DEMO_WORLD );
+        return EXIT_FAILURE;
+    }
+
+    pDemo -> GetCollisionManager().AddCollisionListener( &obstacles );
+
     typedef SunLight :: Input :: ControllerType  Controller;
 
     auto  bind = [&renderer]( SunLight :: Input :: KeyboardKey key, std :: function<void( void )> action )  {
@@ -312,20 +366,25 @@ int main( int argc, char** argv )  {
     bind( SunLight :: Input :: KEY_DOWN,  [&]() { isoSunny.Move( 0,  __SUNNY_STEP ); } );
     bind( SunLight :: Input :: KEY_LEFT,  [&]() { isoSunny.Move( -__SUNNY_STEP, 0 ); } );
     bind( SunLight :: Input :: KEY_RIGHT, [&]() { isoSunny.Move(  __SUNNY_STEP, 0 ); } );
-    bind( SunLight :: Input :: KEY_I,     [&]() { gridSunny.Move( 0, -__SUNNY_STEP ); } );
-    bind( SunLight :: Input :: KEY_K,     [&]() { gridSunny.Move( 0,  __SUNNY_STEP ); } );
-    bind( SunLight :: Input :: KEY_J,     [&]() { gridSunny.Move( -__SUNNY_STEP, 0 ); } );
-    bind( SunLight :: Input :: KEY_L,     [&]() { gridSunny.Move(  __SUNNY_STEP, 0 ); } );
+    // IJKL: the Sunny of the world the right view shows - the grid's or the demo's.
+    auto  rightSunny = [&]() -> Sunny&  { return ( frame.m_pRight -> GetWorld() == pDemo ) ? demoSunny : gridSunny; };
 
-    // 1: the right view shows world B, then the default world, then the grid world (only an extra view
-    // can switch worlds; a removed world B is skipped).
+    bind( SunLight :: Input :: KEY_I,     [&]() { rightSunny().Move( 0, -__SUNNY_STEP ); } );
+    bind( SunLight :: Input :: KEY_K,     [&]() { rightSunny().Move( 0,  __SUNNY_STEP ); } );
+    bind( SunLight :: Input :: KEY_J,     [&]() { rightSunny().Move( -__SUNNY_STEP, 0 ); } );
+    bind( SunLight :: Input :: KEY_L,     [&]() { rightSunny().Move(  __SUNNY_STEP, 0 ); } );
+
+    // 1: the right view shows world B, then the default world, the grid world, the demo world (only an
+    // extra view can switch worlds; a removed world B is skipped).
     bind( SunLight :: Input :: KEY_ONE,   Once( [&]() {
         WorldHandle  pShown = frame.m_pRight -> GetWorld();
         WorldHandle  pNext  = renderer.GetDefaultWorld();
 
         if( pShown == renderer.GetDefaultWorld() )
             pNext = pGrid;
-        else if( ( pShown == pGrid ) && !pWorldB -> IsRemoved() )
+        else if( pShown == pGrid )
+            pNext = pDemo;
+        else if( ( pShown == pDemo ) && !pWorldB -> IsRemoved() )
             pNext = pWorldB;
 
         frame.m_pRight -> SetWorld( pNext );

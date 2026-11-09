@@ -156,6 +156,7 @@ namespace SunLight  {
             bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                       SunLight :: TileMap :: stMatrixPosition& pos ) override;
             int AddMap( const char* szTmxMapFile, int nX, int nY ) override;
+            bool LoadWorld( const char* szWorldFile ) override;
             bool RemoveMap( int nMapId ) override;
             int GetMapCount( void ) override;
             bool GetMapOffset( int nMapId, int& nX, int& nY ) override;
