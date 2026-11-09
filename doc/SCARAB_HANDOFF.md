@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `df589ce581a393c65edabd8e38995a53fd2f30aa` | `IWorld::SetLayer` (by id and name; every map of a world that has the layer), and `IView::SetWorld( default world )` on the default view answers true (I21, asked for by Scarab after its C7) | 74 |
 | `d9c71d26232fd7a88132fab1cf4100d97e1b4512` | Worlds, Scarab's C7 (I19a-f): view opacity; several worlds shown by views (`CreateWorld`, `IView::SetWorld`, per-world collisions, detach on unload); several maps per world at offsets, layers by name; collisions across map edges; Tiled `.world` files. Tiled's `staggeraxis="x"` maps load (I20). One pin for the whole plan (owner's decision) | 68 to 73 |
 | `44f64a1648fa55fabc9708e6736d4368ee2bf844` | Tile picking on isometric, staggered and hexagonal maps picks the cell under the point, false outside every cell; **Breaking:** the far-edge map alignments put the camera where scrolling stops, at any zoom (I17 and I18, found by Scarab) | 66, 67 |
 | `ad84cca1320fb0464cb13e44c4e0710d27ca3731` | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera, map or no map (I16, found by Scarab) | 65 |
