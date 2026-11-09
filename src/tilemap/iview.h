@@ -187,8 +187,10 @@ namespace SunLight  {
              * SetCameraPosition place it), and a scroll step of -1 is resolved for the new map.
              * When the world is removed (ITileMap::RemoveWorld) the view goes back to the default world.
              * @param pWorld A world of this view's renderer, not removed;
-             * @return false (nothing changed) for the default view, an empty or removed world,
-             * another renderer's world, or a removed view;
+             * @return false (nothing changed) for an empty or removed world, another renderer's
+             * world, a removed view, or the default view given any world but the default one - true
+             * for the default view given the default world, which changes nothing (I21: so every
+             * view's world can be set in one loop);
              */
             virtual bool SetWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) = 0;
 

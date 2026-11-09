@@ -2242,6 +2242,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
 | I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | DONE |
 | I20 | Tiled's `staggeraxis="x"` maps load: a workaround in sunlight's map loader, and the fix asked of libtmx upstream (found building I19d) | DONE |
+| I21 | `IWorld::SetLayer` (every map of a world), and `SetWorld( default world )` on the default view answers yes (asked for by Scarab after its C7) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -3155,6 +3156,25 @@ https://github.com/baylej/tmx/issues/90; once libtmx fixes it, drop the workarou
   `MapData::Load` the load test fails with libtmx's own "unsupported 'staggeraxis' 'x'".
 - No sample (owner's call): the tests load Tiled-style maps through the real parser.
 - `doc/BREAKAGES.md` entry 73.
+
+**I21: `IWorld::SetLayer`, and the default view's `SetWorld` (DONE).** Two gaps Scarab found exposing C7
+to Lua (scarab-7d), accepted by the owner.
+
+- **`IWorld::SetLayer( id | name, layer )`**, the counterpart of `IWorld::GetLayer`: a game could read a
+  layer of any world but change one (visibility, opacity, offset, parallax, tint) only in the default
+  world. With several maps the change goes to that world layer id in EVERY map that has it
+  (`TileMapRenderer::SetWorldLayer`, `CopyLayerToTmx` each), since the maps draw their layers matched by
+  name; `layer.pLayer` ends on the first map's, the layer `GetLayer` reads. The renderer's own `SetLayer`
+  (the default world) goes through the same path, so the two never disagree; one map behaves exactly
+  as before. By name, the world layer id of that name (`World::FindLayerId`).
+- **`IView::SetWorld( default world )` on the default view** answers true (nothing changes), so a game
+  can set every view's world in one loop; any other world on the default view stays refused.
+- **Tests:** `tests/test_worldmaps.cpp` - a tint by name through the world handle reaches the props tile
+  of both maps and not the ground; a hide by id through the renderer hides both; a created world's
+  layer that only its second map has; unknown and removed refused. With only the first map changed
+  (the old behaviour) the test fails (1 red prop, not 2). `tests/test_worlds.cpp` - the default view's
+  `SetWorld( default world )` is true.
+- `doc/BREAKAGES.md` entry 74.
 - **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
   `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
   along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all

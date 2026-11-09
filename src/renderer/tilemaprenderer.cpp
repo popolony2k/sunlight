@@ -1875,13 +1875,19 @@ namespace SunLight  {
          * default world.
          * @param view The view;
          * @param pWorld The world;
-         * @return false for the default view, an empty, removed or foreign world;
+         * @return false for an empty, removed or foreign world, or the default view given any world but
+         * the default one (true for that one: nothing changes);
          */
         bool TileMapRenderer :: SetViewWorld( View& view, const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld )  {
 
             World  *pOwn = FindWorld( pWorld );
 
-            if( ( &view == m_pDefaultView.get() ) || ( pOwn == nullptr ) )
+            // The default view always shows the default world: asked for it, nothing changes and that
+            // is a yes (I21 - a game may set every view's world in one loop); any other world, a no.
+            if( &view == m_pDefaultView.get() )
+                return ( pOwn == m_pDefaultWorld.get() );
+
+            if( pOwn == nullptr )
                 return false;
 
             view.m_pWorld = OwningHandle( pOwn );
@@ -2457,37 +2463,62 @@ namespace SunLight  {
         }
 
         /**
-         * Set layer parameters.
+         * Set layer parameters - of the active world's layer of that (world) layer id, in every map
+         * that has it (I21, SetWorldLayer); with one map, that map's layer.
          * @param nLayerId The layer id to set layer parameters;
          * @param layer reference to layer parameters structure to set;
+         * @return false when no map has that layer;
          */
         bool TileMapRenderer :: SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer* pTmxLayer = GetLayer( nLayerId );
-
-            if( pTmxLayer )  {
-                CopyLayerToTmx( pTmxLayer, layer );
-                return true;
-            }
-
-            return false;
+            return SetWorldLayer( *m_pActiveWorld, nLayerId, layer );     // I21: every map of the world
         }
 
         /**
-         * Set layer parameters.
+         * Set layer parameters, by name: the world layer id of that name (World::FindLayerId), then as
+         * by id (I21).
          * @param szLayerName The layer name to set layer parameters;
          * @param layer reference to layer parameters structure to set;
+         * @return false when no map has a layer of that name;
          */
         bool TileMapRenderer :: SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer* pTmxLayer = GetLayer( szLayerName );
+            return SetWorldLayer( *m_pActiveWorld, m_pActiveWorld -> FindLayerId( szLayerName ), layer );   // I21
+        }
 
-            if( pTmxLayer )  {
+        /**
+         * @brief SetLayer for a world (I21 of the master plan): the values go to the layer of that world
+         * layer id in EVERY map that has it (CopyLayerToTmx each), since a world's maps draw their layers
+         * matched by name - one layer must look the same on both sides of a map edge. With one map, that
+         * map's layer of that id, exactly as SetLayer always did. layer.pLayer ends on the first map's
+         * layer, the one GetLayer reads.
+         * @param world The world;
+         * @param nWorldLayerId The world layer id (-1 matches nothing);
+         * @param layer The values to set;
+         * @return false when no map of the world has that layer;
+         */
+        bool TileMapRenderer :: SetWorldLayer( World& world, int nWorldLayerId, SunLight :: TileMap :: stLayer& layer )  {
+
+            tmx_layer  *pFirst = nullptr;
+
+            for( size_t nIndex = 0; nIndex < world.MapCount(); nIndex++ )  {
+                tmx_layer  *pTmxLayer = world.LayerInMap( nIndex, nWorldLayerId );
+
+                if( !pTmxLayer )
+                    continue;
+
                 CopyLayerToTmx( pTmxLayer, layer );
-                return true;
+
+                if( !pFirst )
+                    pFirst = pTmxLayer;
             }
 
-            return false;
+            if( !pFirst )
+                return false;
+
+            layer.pLayer = pFirst;
+
+            return true;
         }
 
         /**
