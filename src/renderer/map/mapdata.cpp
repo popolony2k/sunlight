@@ -21,6 +21,7 @@
 #include "renderer/map/mapdata.h"
 #include "renderer/map/externalresources.h"
 #include "renderer/map/maporientation.h"
+#include "renderer/map/tmxworkarounds.h"
 #include "renderer/projection/orthogonalprojection.h"
 #include "renderer/projection/isometricprojection.h"
 #include "renderer/projection/staggeredprojection.h"
@@ -161,6 +162,9 @@ namespace SunLight  {
                 fprintf( stderr, "Cannot load map: [%s] could not be read\n", szTmxMapFile );
                 return nullptr;
             }
+
+            // I20 of the master plan: Tiled's staggeraxis="x", which libtmx refuses, in its words.
+            TmxWorkarounds :: FixStaggerAxis( data );
 
             // libtmx loads every image a map names through these process-wide hooks.
             tmx_img_load_func = TextureLoaderCallback;
