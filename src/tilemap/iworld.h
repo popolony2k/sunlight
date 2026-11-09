@@ -146,6 +146,20 @@ namespace SunLight  {
             virtual int AddMap( const char* szTmxMapFile, int nX, int nY ) = 0;
 
             /**
+             * @brief Load a Tiled .world file into this world (I19f of the master plan): the world
+             * becomes exactly the maps the file lists, each at its "x"/"y" (as @see AddMap places
+             * them), replacing every map it had - ALL or nothing: every map is loaded first, and on
+             * any failure (the file unreadable or not Tiled's JSON, a map missing or broken) the world
+             * keeps the maps it had. Map paths are relative to the .world file's folder and read
+             * through the FileSystem (a path scheme carries over). Only the "maps" list is read: a
+             * file placing maps by "patterns" is refused. Its sprites stay registered; no camera moves.
+             * @param szWorldFile The .world file, a FileSystem path;
+             * @return false when not started, on any failure above (with the reason on standard
+             * error), or once removed;
+             */
+            virtual bool LoadWorld( const char* szWorldFile ) = 0;
+
+            /**
              * @brief Take one map out of the world (I19d), freeing it. The world's layer ids stay as
              * they were while it has maps; its sprites stay registered.
              * @param nMapId The id AddMap gave it (or the one LoadMap's map got: @see GetMapOffset);

@@ -191,6 +191,7 @@ namespace SunLight  {
             std :: shared_ptr<World> OwningHandle( World* pWorld ) const;
             bool LoadWorldMap( World& world, const char* szTmxMapFile );
             int AddWorldMap( World& world, const char* szTmxMapFile, int nX, int nY );
+            bool LoadWorldFile( World& world, const char* szWorldFile );
             bool WorldTile( World& world, size_t nMapIndex, const SunLight :: TileMap :: stMatrixPosition& pos,
                             int nLayerId, SunLight :: TileMap :: stTile& tile );
             bool UnloadWorldMap( World& world );

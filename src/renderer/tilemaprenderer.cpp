@@ -19,6 +19,7 @@
  */
 
 #include "renderer/tilemaprenderer.h"
+#include "renderer/world/worldfile.h"
 #include "engines/enginefactory.h"
 #include "window/windowfactory.h"
 #include "backends/null/nullbackend.h"
@@ -1694,6 +1695,53 @@ namespace SunLight  {
             ResolveScrollSteps( world );
 
             return nMapId;
+        }
+
+        /**
+         * @brief IWorld::LoadWorld (I19f of the master plan): read a Tiled .world file (WorldFile) and
+         * make the world exactly its maps, at their offsets - all or nothing: every map is loaded
+         * first (MapData::Load), and only when all loaded are the world's maps replaced (FreeMap, then
+         * AddMapData in the file's order, so the first one's layer ids are the world's). On any failure
+         * the reason goes to standard error and the world keeps what it had. Its sprites stay
+         * registered; no camera moves; the views' "-1" scroll steps are resolved for its first map.
+         * @param world The world;
+         * @param szWorldFile The .world file, a FileSystem path;
+         * @return false when not started, the file cannot be read or used, or a map cannot be loaded;
+         */
+        bool TileMapRenderer :: LoadWorldFile( World& world, const char* szWorldFile )  {
+
+            if( !m_bIsStarted || !szWorldFile )
+                return false;
+
+            std :: vector<stWorldFileMap>  entries;
+            std :: string                  strError;
+
+            if( !WorldFile :: Read( szWorldFile, entries, strError ) )  {
+                fprintf( stderr, "Cannot load world: [%s] %s\n", szWorldFile, strError.c_str() );
+                return false;
+            }
+
+            std :: vector<std :: unique_ptr<MapData>>  maps;
+
+            for( const stWorldFileMap& entry : entries )  {
+                std :: unique_ptr<MapData>  pMap = MapData :: Load( entry.strPath.c_str() );
+
+                if( !pMap )  {
+                    fprintf( stderr, "Cannot load world: [%s] its map [%s] could not be loaded\n", szWorldFile, entry.strPath.c_str() );
+                    return false;           // the maps loaded so far are freed here; the world is untouched
+                }
+
+                maps.push_back( std :: move( pMap ) );
+            }
+
+            world.FreeMap();
+
+            for( size_t nIndex = 0; nIndex < maps.size(); nIndex++ )
+                world.AddMapData( std :: move( maps[nIndex] ), entries[nIndex].nX, entries[nIndex].nY );
+
+            ResolveScrollSteps( world );
+
+            return true;
         }
 
         /**

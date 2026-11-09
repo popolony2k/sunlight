@@ -582,6 +582,17 @@ namespace SunLight  {
         }
 
         /**
+         * @brief Load a Tiled .world file into the world, all or nothing
+         * (TileMapRenderer::LoadWorldFile).
+         * @param szWorldFile The .world file, a FileSystem path;
+         * @return false when not started, on any failure, or once removed;
+         */
+        bool World :: LoadWorld( const char* szWorldFile )  {
+
+            return m_pRenderer ? m_pRenderer -> LoadWorldFile( *this, szWorldFile ) : false;
+        }
+
+        /**
          * @brief Free one of the world's maps (RemoveMapData; its sprites stay registered).
          * @param nMapId The map's id;
          * @return false with no such map, or once removed;

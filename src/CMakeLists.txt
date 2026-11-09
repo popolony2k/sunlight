@@ -72,6 +72,19 @@ FetchContent_Declare(tmx
 FetchContent_MakeAvailable(tmx)
 
 ####################################################################
+# nlohmann/json (I19f of the master plan: Tiled .world files are JSON,
+# which libtmx does not read). Declared EXACTLY as Scarab declares it -
+# same FetchContent name and tag, same target - so in Scarab's build,
+# where both projects declare it, FetchContent's first declaration wins
+# and there is one copy. Header-only, linked PRIVATE below: only
+# worldfile.cpp includes it, never a public header.
+####################################################################
+FetchContent_Declare(nlohmann_json
+                     GIT_REPOSITORY https://github.com/nlohmann/json.git
+                     GIT_TAG master)
+FetchContent_MakeAvailable(nlohmann_json)
+
+####################################################################
 # RayLib
 ####################################################################
 
@@ -250,7 +263,10 @@ find_package(ZLIB REQUIRED)
 include(FindLibXml2)
 find_package(LibXml2 REQUIRED)
 
-target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS} PhysFS::PhysFS-static SDL2::SDL2-static)
+# Keyword form (CMake refuses to mix it with the plain form on one target): PUBLIC is what the plain
+# form meant for these, a shared library's link interface; nlohmann_json is PRIVATE (see above).
+target_link_libraries(sunlight PUBLIC ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS} PhysFS::PhysFS-static SDL2::SDL2-static
+                               PRIVATE nlohmann_json)
 
 # Installation
 
