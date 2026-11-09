@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `d9c71d26232fd7a88132fab1cf4100d97e1b4512` | Worlds, Scarab's C7 (I19a-f): view opacity; several worlds shown by views (`CreateWorld`, `IView::SetWorld`, per-world collisions, detach on unload); several maps per world at offsets, layers by name; collisions across map edges; Tiled `.world` files. Tiled's `staggeraxis="x"` maps load (I20). One pin for the whole plan (owner's decision) | 68 to 73 |
 | `44f64a1648fa55fabc9708e6736d4368ee2bf844` | Tile picking on isometric, staggered and hexagonal maps picks the cell under the point, false outside every cell; **Breaking:** the far-edge map alignments put the camera where scrolling stops, at any zoom (I17 and I18, found by Scarab) | 66, 67 |
 | `ad84cca1320fb0464cb13e44c4e0710d27ca3731` | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera, map or no map (I16, found by Scarab) | 65 |
 | `51a3bbb6ea205d7a26e3db1bd66bbd61984dcfbe` | Sprites with equal z-orders draw in the order they were added on every frame, whatever z-orders changed before (I15, found by Scarab) | 64 |
