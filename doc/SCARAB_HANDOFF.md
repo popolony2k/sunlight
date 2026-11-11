@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `b5a6ca121634b43151b6100506e41d2eb1545145` | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount`; `SetWriteDirectory` no longer loses or removes a game's mount of the same folder (I22, asked for by Scarab for its C8 sandbox) | 75 |
 | `df589ce581a393c65edabd8e38995a53fd2f30aa` | `IWorld::SetLayer` (by id and name; every map of a world that has the layer), and `IView::SetWorld( default world )` on the default view answers true (I21, asked for by Scarab after its C7) | 74 |
 | `d9c71d26232fd7a88132fab1cf4100d97e1b4512` | Worlds, Scarab's C7 (I19a-f): view opacity; several worlds shown by views (`CreateWorld`, `IView::SetWorld`, per-world collisions, detach on unload); several maps per world at offsets, layers by name; collisions across map edges; Tiled `.world` files. Tiled's `staggeraxis="x"` maps load (I20). One pin for the whole plan (owner's decision) | 68 to 73 |
 | `44f64a1648fa55fabc9708e6736d4368ee2bf844` | Tile picking on isometric, staggered and hexagonal maps picks the cell under the point, false outside every cell; **Breaking:** the far-edge map alignments put the camera where scrolling stops, at any zoom (I17 and I18, found by Scarab) | 66, 67 |
