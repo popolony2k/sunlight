@@ -69,6 +69,8 @@ Each item is described in full in the plan; what each change means for code buil
   a map edge; the camera's limits cover every map.
 - Tile collisions across map edges: in a world of several maps a collider tests every map it overlaps.
 - `IWorld::SetLayer` (by id and name): change a layer of any world, in every map that has it.
+- Screen-space image layers: an image layer with the custom property `screen_space` = true is drawn at
+  its offset in window pixels, its own size, not moved by the camera or zoom (as before parallax).
 - `IFileSystem::Unmount( realPath, mountPoint )`, and the same folder or archive mountable at several
   mount points (each mount in its own place in the search order).
 - Tiled `.world` files: `IWorld::LoadWorld( path )` loads a world's maps at their offsets, all or

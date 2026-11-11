@@ -17,6 +17,7 @@
 * [Changelog](https://github.com/popolony2k/sunlight/blob/main/CHANGELOG.md) :scroll:
 * [License](https://github.com/popolony2k/sunlight/blob/main/LICENSE) (zlib) :page_facing_up:
 * [Features](#features-sparkles)
+* [Tiled custom properties](#tiled-custom-properties-label)
 * [Requirements](#requirements-memo)
     - [CMake 3.24](#cmake-324)
     - [vcpkg](#vcpkg-windows-only)
@@ -43,6 +44,17 @@
 * **Sound and scripting:** a sound manager, and a script processor for timed sequences such as cutscenes.
 * **Resources:** a virtual filesystem over loose folders or archives (PhysFS), with optional read and write filters (e.g. decryption and encryption), a write directory for saves, and path schemes (`vpath://`, the default, and `hpath://` for an OS path).
 * **Headless runs:** a null backend that needs no display, with virtual time, for tests and automation.
+
+## Tiled custom properties :label:
+
+sunlight reads a few **custom properties** that a map author adds in Tiled: select the object or layer, open the *Properties* panel, choose *Add Property*, and give it exactly the name and type below. Tiled saves them in the map but gives them no meaning of its own; only sunlight uses them.
+
+| Property | Type | Set on | What sunlight does with it |
+| --- | --- | --- | --- |
+| `line_width` | int or float | a rectangle, ellipse, polyline or polygon object | Draws its outline this many map pixels wide (1 when absent), scaled with the zoom. |
+| `point_size` | int or float | a point object | Draws the point this size (1 when absent). |
+| `opacity` | int or float, 0 to 1 | any object | The object's own opacity, instead of its layer's (Tiled has no per-object opacity). A value of another type or outside 0 to 1 is ignored, with a warning, and the layer's opacity is used. |
+| `screen_space` | bool | an image layer | When true, the layer is drawn in **screen space**: at its offset in window pixels, at its own size, not moved by the camera, the zoom or the layer's parallax, and not cut to the viewport - for a full-screen picture such as a title or cover screen. It keeps its place in the layer order (sprites on and above it draw over it), its opacity and its tint. Like every image layer, it is drawn in the default view only. Without it, an image layer is drawn in map space, like the rest of the map. |
 
 ## Requirements :memo:
 

@@ -436,8 +436,22 @@ namespace SunLight  {
                             // L1 of the master plan: now camera/parallax/zoom/viewport-aware
                             // (see LayerRenderer::DrawImageLayer's own comment) - still default-view-only,
                             // a separate, pre-existing restriction this item does not lift.
-                            if( m_pActiveView == m_pDefaultView.get() )
-                                m_LayerRenderer.DrawImageLayer( CurrentDrawContext(), pLayer );
+                            if( m_pActiveView == m_pDefaultView.get() )  {
+                                if( LayerRenderer :: IsScreenSpaceImageLayer( pLayer ) )  {
+                                    // I23: drawn in window pixels and NOT cut to the viewport, as before L1 -
+                                    // so the pass's own clip (the active view's rectangle, the only clip
+                                    // open while a layer is drawn) ends around it and begins again after.
+                                    SunLight :: Engines :: IEngine          &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+                                    const SunLight :: Base :: stDimension2D  &vp     = GetViewport().GetDimension2D();
+
+                                    engine.EndClip();
+                                    m_LayerRenderer.DrawScreenSpaceImageLayer( CurrentDrawContext(), pLayer );
+                                    engine.BeginClip( SunLight :: Base :: stRectangle { ( float ) vp.pos.x, ( float ) vp.pos.y,
+                                                                                        ( float ) vp.size.nWidth, ( float ) vp.size.nHeight } );
+                                }
+                                else
+                                    m_LayerRenderer.DrawImageLayer( CurrentDrawContext(), pLayer );
+                            }
                             break;
                         case L_LAYER :
                             m_LayerRenderer.DrawTileLayer( CurrentDrawContext(), *Map(), pLayer );
