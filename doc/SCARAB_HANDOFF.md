@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `fa7575a0db7127230946bd44199de1d38a1172f1` | Opt-in screen-space image layers (Tiled custom property `screen_space`, bool) for Caravellius' cover screen; BREAKAGES 34 corrected; README lists the Tiled custom properties sunlight reads (I23, found by Caravellius through Scarab) | 34 (corrected), 76 |
 | `b5a6ca121634b43151b6100506e41d2eb1545145` | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount`; `SetWriteDirectory` no longer loses or removes a game's mount of the same folder (I22, asked for by Scarab for its C8 sandbox) | 75 |
 | `df589ce581a393c65edabd8e38995a53fd2f30aa` | `IWorld::SetLayer` (by id and name; every map of a world that has the layer), and `IView::SetWorld( default world )` on the default view answers true (I21, asked for by Scarab after its C7) | 74 |
 | `d9c71d26232fd7a88132fab1cf4100d97e1b4512` | Worlds, Scarab's C7 (I19a-f): view opacity; several worlds shown by views (`CreateWorld`, `IView::SetWorld`, per-world collisions, detach on unload); several maps per world at offsets, layers by name; collisions across map edges; Tiled `.world` files. Tiled's `staggeraxis="x"` maps load (I20). One pin for the whole plan (owner's decision) | 68 to 73 |
