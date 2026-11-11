@@ -45,6 +45,7 @@ class MemoryFileSystem : public SunLight :: FileSystem :: BaseFileSystem  {
     bool Init( const char * ) override { return true; }
     void Shutdown( void ) override {}
     bool Mount( const std :: string &, const std :: string &, bool ) override { return true; }
+    bool Unmount( const std :: string &, const std :: string & ) override { return false; }
 
     bool SetWriteDirectory( const std :: string& strRealPath ) override  {
         strWriteDirectory = strRealPath;

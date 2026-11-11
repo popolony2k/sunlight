@@ -23,6 +23,7 @@
 
 #include "filesystem/basefilesystem.h"
 #include <string>
+#include <vector>
 
 
 namespace SunLight  {
@@ -43,6 +44,23 @@ namespace SunLight  {
                 bool                m_bDefaultMountEnsured = false;
                 std :: string       m_strWriteDir;  // the write directory, also mounted at the front (empty: none)
 
+                // I22 of the master plan: every mount made, so the same real path can be mounted at
+                // several mount points (PhysFS keeps one mount per path STRING: a repeat gets an
+                // equivalent spelling of its own, strPhysName) and one of them removed (Unmount).
+                // bWriteDir marks the write directory's own mount, which Mount/Unmount never match.
+                struct stMount  {
+                    std :: string  strRealPath;
+                    std :: string  strMountPoint;      // without leading or trailing '/' ("/" is "")
+                    std :: string  strPhysName;        // the name PhysFS knows it by
+                    bool           bWriteDir;
+                };
+
+                std :: vector<stMount>  m_Mounts;
+
+                bool MountEntry( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath, bool bWriteDir );
+                bool UnmountEntry( const std :: string& strRealPath, const std :: string& strMountPoint, bool bWriteDir );
+                std :: string UniquePhysName( const std :: string& strRealPath ) const;
+
                 /**
                  * @brief Runs at most once, lazily, from @see VirtualExists / @see
                  * VirtualReadFile - see those methods' own doc comments and this
@@ -59,6 +77,7 @@ namespace SunLight  {
                 void Shutdown( void ) override;
 
                 bool Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath ) override;
+                bool Unmount( const std :: string& strRealPath, const std :: string& strMountPoint ) override;
                 bool SetWriteDirectory( const std :: string& strRealPath ) override;
 
                 protected:

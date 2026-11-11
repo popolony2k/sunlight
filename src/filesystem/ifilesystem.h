@@ -143,7 +143,10 @@ namespace SunLight  {
              * concrete backend auto-detects which - so it's contents
              * become readable through this interface's own virtual path
              * space. Multiple mounts can coexist, stacked in mount order
-             * (see appendToPath).
+             * (see appendToPath) - the same location included, at several
+             * mount points (I22 of the master plan), each mount in its own
+             * place in that order; mounting the same location at the same
+             * mount point again changes nothing and succeeds.
              * @param strRealPath Real, OS-native path to the directory or
              * archive to mount;
              * @param strMountPoint Where in the virtual path space this
@@ -157,6 +160,17 @@ namespace SunLight  {
              * recognizes);
              */
             virtual bool Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath ) = 0;
+
+            /**
+             * @brief Must be implemented to remove ONE mount made by @see Mount (I22 of the master
+             * plan): the one of that real path at that mount point - the same folder or archive may
+             * be mounted at several mount points, each in its own place in the search order, and the
+             * others stay. The write directory's own mount (@see SetWriteDirectory) is not removed by it.
+             * @param strRealPath The real path given to Mount;
+             * @param strMountPoint The mount point given to Mount ("/" and "" are the same);
+             * @return false when no such mount exists;
+             */
+            virtual bool Unmount( const std :: string& strRealPath, const std :: string& strMountPoint ) = 0;
 
             /**
              * @brief Must be implemented to set the real folder a virtual

@@ -508,4 +508,145 @@ TEST_SUITE( "backends/physfs/PhysFsFileSystem" )  {
         std :: filesystem :: remove( zipPath );
         std :: filesystem :: remove_all( fixture.root.parent_path() / "sunlight_physfs_user" );
     }
+    // I22 of the master plan: the same folder or archive at several mount points, and Unmount.
+
+    namespace  {
+
+        // Two real folders, each with a file "f" whose contents name its folder.
+        struct TwoFolders  {
+
+            std :: filesystem :: path  one, two;
+
+            TwoFolders( void )  {
+                one = std :: filesystem :: temp_directory_path() / "sunlight_physfs_one";
+                two = std :: filesystem :: temp_directory_path() / "sunlight_physfs_two";
+
+                for( const std :: filesystem :: path& dir : { one, two } )  {
+                    std :: filesystem :: remove_all( dir );
+                    std :: filesystem :: create_directories( dir );
+
+                    std :: ofstream  file( dir / "f", std :: ios :: binary );
+
+                    file << dir.filename().string();
+                }
+            }
+
+            ~TwoFolders( void )  {
+                std :: filesystem :: remove_all( one );
+                std :: filesystem :: remove_all( two );
+            }
+        };
+
+        std :: string Read( PhysFsFileSystem& fs, const char* szPath )  {
+            std :: vector<unsigned char>  data;
+
+            return fs.ReadFile( szPath, data ) ? std :: string( data.begin(), data.end() ) : std :: string( "<none>" );
+        }
+    }
+
+    TEST_CASE( "I22: one folder mounted at two mount points is read at both" )  {
+
+        ScratchDirFixture  fixture;
+        PhysFsFileSystem   fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( fixture.root.string(), "/a", true ) );
+        REQUIRE( fs.Mount( fixture.root.string(), "/b", true ) );        // PhysFS alone ignored this one
+
+        CHECK( Read( fs, "/a/subdir/greeting.txt" ) == "hello from physfs" );
+        CHECK( Read( fs, "/b/subdir/greeting.txt" ) == "hello from physfs" );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "I22: one .zip mounted at two mount points is read at both" )  {
+
+        ScratchDirFixture           fixture;
+        std :: filesystem :: path  zipPath = fixture.root.parent_path() / "sunlight_physfs_twice.zip";
+        std :: string              strZipCmd = "cmake -E chdir \"" + fixture.root.string() +
+                                               "\" cmake -E tar cf \"" + zipPath.string() + "\" --format=zip .";
+
+        std :: filesystem :: remove( zipPath );
+        REQUIRE( std :: system( strZipCmd.c_str() ) == 0 );
+
+        PhysFsFileSystem  fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( zipPath.string(), "/app", true ) );
+        REQUIRE( fs.Mount( zipPath.string(), "/", true ) );
+
+        CHECK( Read( fs, "/app/subdir/greeting.txt" ) == "hello from physfs" );
+        CHECK( Read( fs, "/subdir/greeting.txt" ) == "hello from physfs" );
+
+        fs.Shutdown();
+        std :: filesystem :: remove( zipPath );
+    }
+
+    TEST_CASE( "I22: each mount keeps its own place in the search order" )  {
+
+        TwoFolders        folders;
+        PhysFsFileSystem  fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( folders.one.string(), "/", true ) );          // root: one, then two
+        REQUIRE( fs.Mount( folders.two.string(), "/", true ) );
+        REQUIRE( fs.Mount( folders.one.string(), "/m", true ) );         // "/m": two (in front), then one
+        REQUIRE( fs.Mount( folders.two.string(), "/m", false ) );
+
+        CHECK( Read( fs, "/f" ) == "sunlight_physfs_one" );
+        CHECK( Read( fs, "/m/f" ) == "sunlight_physfs_two" );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "I22: Unmount removes that one mount; the same pair mounted twice is one mount" )  {
+
+        TwoFolders        folders;
+        PhysFsFileSystem  fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( folders.one.string(), "/a", true ) );
+        REQUIRE( fs.Mount( folders.one.string(), "/b", true ) );
+        REQUIRE( fs.Mount( folders.one.string(), "/b/", true ) );        // the same pair: nothing new
+
+        CHECK( fs.Unmount( folders.one.string(), "/a" ) == true );
+        CHECK( Read( fs, "/a/f" ) == "<none>" );
+        CHECK( Read( fs, "/b/f" ) == "sunlight_physfs_one" );           // the other mount stays
+
+        CHECK( fs.Unmount( folders.one.string(), "b" ) == true );        // "/b", "/b/" and "b" are one mount point
+        CHECK( fs.Unmount( folders.one.string(), "/b" ) == false );       // gone: there was one mount, not two
+        CHECK( fs.Unmount( folders.two.string(), "/a" ) == false );       // never mounted
+        CHECK( Read( fs, "/b/f" ) == "<none>" );
+
+        // Mounted again after being removed: back.
+        REQUIRE( fs.Mount( folders.one.string(), "/a", true ) );
+        CHECK( Read( fs, "/a/f" ) == "sunlight_physfs_one" );
+
+        fs.Shutdown();
+    }
+
+    TEST_CASE( "I22: a folder mounted by the game and then made the write directory keeps both mounts, whatever the write directory becomes" )  {
+
+        TwoFolders        folders;
+        PhysFsFileSystem  fs;
+
+        REQUIRE( fs.Init( "sunlight_tests" ) );
+        REQUIRE( fs.Mount( folders.one.string(), "/saves", true ) );
+        REQUIRE( fs.SetWriteDirectory( folders.one.string() ) );
+
+        CHECK( Read( fs, "/f" ) == "sunlight_physfs_one" );             // the write directory, at the root
+        CHECK( Read( fs, "/saves/f" ) == "sunlight_physfs_one" );
+
+        // Another write directory: the old one leaves the root, the game's own mount stays.
+        REQUIRE( fs.SetWriteDirectory( folders.two.string() ) );
+        CHECK( Read( fs, "/f" ) == "sunlight_physfs_two" );
+        CHECK( Read( fs, "/saves/f" ) == "sunlight_physfs_one" );
+
+        // And Unmount never touches the write directory's mount.
+        CHECK( fs.Unmount( folders.two.string(), "/" ) == false );
+        CHECK( Read( fs, "/f" ) == "sunlight_physfs_two" );
+
+        fs.Shutdown();
+    }
+
 }
