@@ -2243,6 +2243,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | DONE |
 | I20 | Tiled's `staggeraxis="x"` maps load: a workaround in sunlight's map loader, and the fix asked of libtmx upstream (found building I19d) | DONE |
 | I21 | `IWorld::SetLayer` (every map of a world), and `SetWorld( default world )` on the default view answers yes (asked for by Scarab after its C7) | DONE |
+| I22 | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount` (asked for by Scarab, for its C8 sandbox) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -3175,6 +3176,36 @@ to Lua (scarab-7d), accepted by the owner.
   (the old behaviour) the test fails (1 red prop, not 2). `tests/test_worlds.cpp` - the default view's
   `SetWorld( default world )` is true.
 - `doc/BREAKAGES.md` entry 74.
+
+**I22: several mounts of one location, and `Unmount` (DONE).** Scarab's C8 (a sandbox for game
+scripts: read the save directory first, then the game's files; write to the save directory) needs the
+game's `.zip` at its own mount point and at `/`, and the save folder at `/`, at the game's mount point
+and at a private one - and a way to remove the extra mounts when the save folder changes.
+
+- **Cause** (`physfs.c`): `doMount` returns success WITHOUT mounting when the same path string is
+  already in the search path, at any mount point; `PHYSFS_unmount` removes by that string only.
+- **Fix** (`PhysFsFileSystem`): a mount table records every mount (real path, mount point - without
+  leading or trailing `/` - and the name given to PhysFS). A repeat of a path at another mount point
+  gets an equivalent spelling of its own (`UniquePhysName`: `./` in front of the last component, once
+  per mount already using a spelling, with PhysFS's own separator). PhysFS stores and opens the name as
+  given (`createDirHandle`, `openDirectory` - no normalisation), so it mounts the same folder or archive
+  again, in its own place in the search order; the extension that picks the archive reader is kept.
+  The same (path, mount point) again changes nothing and succeeds, as before.
+- **`IFileSystem::Unmount( realPath, mountPoint )`** (new pure virtual): removes that one mount by its
+  PhysFS name; false when there is none. The in-memory test FileSystem has it too.
+- **A bug fixed on the way:** `SetWriteDirectory` mounted the folder with `PHYSFS_mount` directly, so a
+  save folder the game had mounted first was silently NOT mounted at `/`, and changing the write
+  directory later unmounted the game's own mount instead. The write directory's mount is now its own
+  entry in the table, which `Mount`/`Unmount` never match.
+- **Not done:** an alias between virtual prefixes (Scarab's alternative) - it cannot give a private mount
+  point that sees only the save folder.
+- **Tests** (`tests/test_physfsfilesystem.cpp`, 5, on real folders and a real `.zip`): one folder and one
+  archive read at two mount points; each mount in its own place in the search order (append and
+  prepend); `Unmount` of one mount only, the same pair being one mount, mount points with and without
+  slashes; a folder mounted by the game then made the write directory, then replaced. With the plain
+  path as the PhysFS name (the old behaviour) all five fail. On Windows the `.\` spelling relies on the
+  Win32 path rules; the tests run on CI's windows-latest.
+- `doc/BREAKAGES.md` entry 75.
 - **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
   `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
   along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all
