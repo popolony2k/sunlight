@@ -56,6 +56,8 @@ namespace SunLight  {
 
             void DrawTileLayer( const DrawContext& context, MapData& map, tmx_layer* pLayer ) const;
             void DrawImageLayer( const DrawContext& context, tmx_layer* pLayer ) const;
+            void DrawScreenSpaceImageLayer( const DrawContext& context, tmx_layer* pLayer ) const;
+            static bool IsScreenSpaceImageLayer( tmx_layer* pLayer );
             void DrawTileObject( const DrawContext& context, MapData& map, tmx_object* pObject, tmx_layer* pLayer, float fOpacity ) const;
         };
     }

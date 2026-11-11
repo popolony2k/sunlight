@@ -1386,7 +1386,8 @@ Implementation notes:
 
 Test items, in `tests/test_parallax.cpp` (7 new cases):
 - A factor of 1 is byte-identical to today, regardless of the map's own parallax
-  origin.
+  origin. (Correction, I23: true for tile and object layers only - image layers moved from
+  window pixels into map space at L1 at any factor; see I23.)
 - A factor of 0.5 moves the layer half as far as the camera, against the factor-1
   reference - asserted both as a ratio and as an absolute value; the absolute check
   alone catches an implementation that silently drops the origin term while still
@@ -2244,6 +2245,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I20 | Tiled's `staggeraxis="x"` maps load: a workaround in sunlight's map loader, and the fix asked of libtmx upstream (found building I19d) | DONE |
 | I21 | `IWorld::SetLayer` (every map of a world), and `SetWorld( default world )` on the default view answers yes (asked for by Scarab after its C7) | DONE |
 | I22 | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount` (asked for by Scarab, for its C8 sandbox) | DONE |
+| I23 | An opt-in screen-space image layer (`screen_space` custom property), as image layers drew before L1; BREAKAGES 34 corrected (found by Caravellius, through Scarab) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -3206,6 +3208,31 @@ and at a private one - and a way to remove the extra mounts when the save folder
   path as the PhysFS name (the old behaviour) all five fail. On Windows the `.\` spelling relies on the
   Win32 path rules; the tests run on CI's windows-latest.
 - `doc/BREAKAGES.md` entry 75.
+
+**I23: screen-space image layers (DONE).** Caravellius, integrating on Scarab's pin `b5a6ca1`, found its
+cover screen broken by eye: `cover.tmx`'s window-sized image layer (1260 x 920) showed only its top-left
+part at zoom 3.8125. Since L1, `LayerRenderer::DrawImageLayer` draws an image layer in map space (moved
+by the camera, scaled by the zoom, offset by the viewport); before, it drew at its offset in raw window
+pixels - its own comment says so. L1's BREAKAGES 34 claimed a factor-1 layer was "bit-identical to
+before", true for tile and object layers only; no headless test could see it (the null backend draws
+nothing). Lua drawing is no substitute: it comes after the map and sprites, over the player's ship.
+
+- **Opt-in, decided with the owner:** an image layer with the Tiled custom property `screen_space` (bool)
+  = true (`LayerRenderer::IsScreenSpaceImageLayer`, through libtmx's `tmx_get_property`) is drawn as
+  before L1 (`DrawScreenSpaceImageLayer`): at its offset in window pixels, at its own size, with no
+  camera, parallax, zoom or viewport origin. Not cut to the viewport - Caravellius' image is window-
+  sized while its viewport is 1240 x 900 at (10, 10) - so `DrawAllLayers` ends the pass's clip (the only
+  clip open while a layer is drawn: every other clip in the renderer begins and ends inside one call)
+  around it and begins it again after. It keeps its place in the layer order and its opacity and tint
+  (times its groups'); image layers still draw in the default view only. Without the property, or with
+  it false, L1's drawing.
+- BREAKAGES 34 and the L1 test item above corrected.
+- **Tests** (`tests/test_screenspaceimagelayer.cpp`, 3): drawn at its offset, own size, scale 1, tint and
+  opacity, the clip ended and begun again around it, whatever the camera and zoom; without the property
+  and with it false, L1's drawing; a sprite on its layer drawn after it. Drawn the L1 way the first one
+  fails (at -18, -5, scaled 1.125).
+- No sample (owner's call): Scarab and Caravellius check it by eye on the real cover screen.
+- `doc/BREAKAGES.md` entry 76.
 - **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
   `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
   along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all

@@ -28,6 +28,8 @@
 
 
 #define __OPAQUE_CHANNEL                0xFF    // a colour channel at full strength
+#define __SCREEN_SPACE_PROPERTY        "screen_space"   // I23: the Tiled custom property (bool) of a screen-space image layer
+#define __SCREEN_SPACE_SCALE           1.0f    // a screen-space image layer is drawn at its own size
 #define __CULL_PADDING_TILES           1       // extra tiles either side of the visible range, for the near-edge zero-size-but-still-drawn case
 
 
@@ -237,7 +239,8 @@ namespace SunLight  {
          * this function's job, same as DrawTile. Still only drawn for the default view (see
          * DrawAllLayers's own call site) - a separate, pre-existing restriction this item does
          * not lift. Its opacity applies (I8 of the master plan; it was always drawn opaque), times
-         * its groups', and so does its tint, times its groups'.
+         * its groups', and so does its tint, times its groups'. An image layer that asks for the old,
+         * screen-space drawing (I23: "screen_space") is drawn by DrawScreenSpaceImageLayer instead.
          * @param context The view and layer to draw for;
          * @param pLayer The image layer to draw;
          */
@@ -275,6 +278,52 @@ namespace SunLight  {
                                                       SunLight :: Base :: stColor  { tintColor.nRed, tintColor.nGreen, tintColor.nBlue,
                                                                                      ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) } );
             }
+        }
+
+        /**
+         * @brief Whether an image layer is drawn in SCREEN space (I23 of the master plan): its Tiled
+         * custom property "screen_space" is a bool set to true. Any other layer, or the property missing,
+         * of another type or false, keeps L1's map-space drawing (DrawImageLayer).
+         * @param pLayer The layer;
+         * @return true for a screen-space image layer;
+         */
+        bool LayerRenderer :: IsScreenSpaceImageLayer( tmx_layer* pLayer )  {
+
+            if( !pLayer || ( pLayer -> type != L_IMAGE ) || !pLayer -> properties )
+                return false;
+
+            tmx_property  *pProperty = ::tmx_get_property( pLayer -> properties, __SCREEN_SPACE_PROPERTY );
+
+            return pProperty && ( pProperty -> type == PT_BOOL ) && ( pProperty -> value.boolean != 0 );
+        }
+
+        /**
+         * @brief Draw an image layer in SCREEN space (I23 of the master plan), as every image layer was
+         * drawn before L1: at its offset in window pixels, at its own size - no camera, parallax, zoom or
+         * viewport origin. For a full-screen picture (Caravellius' cover) that stays put while sprites
+         * on and above its layer draw over it. Its opacity and tint apply, times its groups', as for any
+         * layer. Not cut to the viewport: the caller ends the view's clip around it (DrawAllLayers).
+         * @param context The view and layer to draw for (its group opacity and tint);
+         * @param pLayer The image layer to draw;
+         */
+        void LayerRenderer :: DrawScreenSpaceImageLayer( const DrawContext& context, tmx_layer* pLayer ) const  {
+
+            tmx_image                    *pTmxImage = pLayer -> content.image;
+            SunLight :: Base :: stColor  tintColor = SunLight :: Base :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
+            float                        fOpacity  = ( float ) pLayer -> opacity * context.fGroupOpacity;
+
+            if( !pTmxImage || !pTmxImage -> resource_image )
+                return;
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pTmxImage -> resource_image,
+                                                  SunLight :: Base :: stRectangle { 0.0f, 0.0f, ( float ) pTmxImage -> width, ( float ) pTmxImage -> height },
+                                                  SunLight :: Base :: stRectangle { ( float ) pLayer -> offsetx, ( float ) pLayer -> offsety,
+                                                                                    ( float ) pTmxImage -> width, ( float ) pTmxImage -> height },
+                                                  SunLight :: Base :: stVector2D { 0, 0 },
+                                                  0.0f,
+                                                  __SCREEN_SPACE_SCALE,
+                                                  SunLight :: Base :: stColor { tintColor.nRed, tintColor.nGreen, tintColor.nBlue,
+                                                                                ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) } );
         }
 
         /**
