@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `3a2f1c55ad1cde8915464668a1794b9a80461229` | Image layers drawn at their picture's real size, not the size the map declares; `IEngine::GetTextureSize` (I24, found by Caravellius through Scarab) | 77 |
 | `fa7575a0db7127230946bd44199de1d38a1172f1` | Opt-in screen-space image layers (Tiled custom property `screen_space`, bool) for Caravellius' cover screen; BREAKAGES 34 corrected; README lists the Tiled custom properties sunlight reads (I23, found by Caravellius through Scarab) | 34 (corrected), 76 |
 | `b5a6ca121634b43151b6100506e41d2eb1545145` | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount`; `SetWriteDirectory` no longer loses or removes a game's mount of the same folder (I22, asked for by Scarab for its C8 sandbox) | 75 |
 | `df589ce581a393c65edabd8e38995a53fd2f30aa` | `IWorld::SetLayer` (by id and name; every map of a world that has the layer), and `IView::SetWorld( default world )` on the default view answers true (I21, asked for by Scarab after its C7) | 74 |
