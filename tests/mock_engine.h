@@ -25,6 +25,7 @@
 #include "engines/enginefactory.h"
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -120,7 +121,7 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         std :: string                text;    // TEXT only: the string drawn
         const void                  *font = nullptr;     // TEXT only: the MockFont drawn with (nullptr = active font)
         int                          nFontSize = 0;      // TEXT only
-        float                        srcY = 0.0f, srcW = 0.0f, srcH = 0.0f;   // SCALED only: the source rectangle (srcX is its x)
+        float                        srcY = 0.0f, srcW = 0.0f, srcH = 0.0f;   // SCALED and TILE: the source rectangle (srcX is its x)
         SunLight :: Base :: BlendMode  blendMode = SunLight :: Base :: BLEND_MODE_NORMAL;   // BLEND only
     };
     std :: vector<Event>                events;
@@ -181,6 +182,21 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return hLoadTextureResult;
     }
 
+    // I24: the real size of a texture handle, as a test sets it; a handle not in it is "unknown"
+    // (GetTextureSize false), so drawing falls back to the size the map declares.
+    std :: map<SunLight :: Base :: TextureHandle, std :: pair<int, int>>  textureSizes;
+
+    bool GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight )  {
+        std :: map<SunLight :: Base :: TextureHandle, std :: pair<int, int>> :: const_iterator  itSize = textureSizes.find( hTexture );
+
+        if( itSize == textureSizes.end() )
+            return false;
+
+        nWidth  = itSize -> second.first;
+        nHeight = itSize -> second.second;
+        return true;
+    }
+
     void UnloadTexture( SunLight :: Base :: TextureHandle hTexture )  {
         nUnloadTextureCalls++;
         hLastUnloadedTexture = hTexture;
@@ -199,7 +215,12 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
                             float scale,
                             SunLight :: Base :: stColor tint )  {
         nDrawTextureTiledCalls++;
-        events.push_back( Event { Event :: TILE, dest.x, dest.y, dest.width, dest.height, scale, source.x, hTexture, tint } );
+        Event  event { Event :: TILE, dest.x, dest.y, dest.width, dest.height, scale, source.x, hTexture, tint };
+
+        event.srcY = source.y;          // I24: the whole source rectangle, for a tiled draw too
+        event.srcW = source.width;
+        event.srcH = source.height;
+        events.push_back( event );
         hLastDrawnTexture = hTexture;
         lastDrawTextureTiledSource = source;
         lastDrawTextureTiledDest   = dest;

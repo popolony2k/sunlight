@@ -685,6 +685,29 @@ namespace SunLight  {
             }
 
             /**
+             * @brief A texture's real size (I24 of the master plan): raylib's Texture2D carries it
+             * (width, height - what ::LoadTexture read from the file, or a render target's). Every
+             * handle this engine gives out for a texture is a Texture2D* (LoadTexture, and
+             * GetRenderTargetTexture's &RenderTexture2D::texture).
+             * @param hTexture The texture;
+             * @param nWidth Receives its width;
+             * @param nHeight Receives its height;
+             * @return false for an empty handle;
+             */
+            bool RaylibEngine :: GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight )  {
+
+                if( !hTexture )
+                    return false;
+
+                const Texture2D  *pTexture = reinterpret_cast<const Texture2D*>( hTexture );
+
+                nWidth  = pTexture -> width;
+                nHeight = pTexture -> height;
+
+                return true;
+            }
+
+            /**
              * @brief Load a texture from disk.
              * @param szFileName Texture file name to load;
              * @param nWidth Output parameter receiving the loaded texture width;

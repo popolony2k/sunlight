@@ -29,6 +29,7 @@
 #include <string>
 #include <vector>
 #include "renderer/tilemaprenderer.h"
+#include "general/helper.h"
 #include "sprite/sprite.h"
 #include "canvas/texturecanvas.h"
 #include "mock_engine.h"
@@ -216,4 +217,85 @@ TEST_SUITE( "renderer/screenspaceimagelayer" )  {
 
         scene.pRenderer -> RemoveSprite( 2, sprite );
     }
+    // I24 of the master plan: an image layer is drawn at its picture's REAL size, not the one the map
+    // declares. Every texture of this scene shares one handle (MockEngine), so the real size set here is
+    // every image's: 150 x 90, which matches none of the declared sizes (200 x 120, 64 x 64, 48 x 48).
+    const float  __REAL_W = 150.0f;
+    const float  __REAL_H = 90.0f;
+
+    TEST_CASE( "I24: a screen_space image layer is drawn at its picture's real size, never past the texture" )  {
+
+        Scene  scene;
+
+        scene.engine().textureSizes[scene.engine().hLoadTextureResult] = { ( int ) __REAL_W, ( int ) __REAL_H };
+        scene.RunFrames( 1 );
+
+        int  nFound = 0;
+
+        for( const Event& evt : scene.engine().events )  {
+            if( ( evt.kind != Event :: TILE ) || ( evt.scale != 1.0f ) || ( evt.srcW != __REAL_W ) || ( evt.x != 5.0f ) )
+                continue;
+
+            nFound++;
+            CHECK( evt.y == 7.0f );
+            CHECK( evt.srcX == 0.0f );                                     // the whole picture...
+            CHECK( evt.srcY == 0.0f );
+            CHECK( evt.srcH == __REAL_H );                                 // ...and no more: never past the texture
+            CHECK( evt.w == __REAL_W );                                    // drawn at that size, unscaled
+            CHECK( evt.h == __REAL_H );
+        }
+
+        CHECK( nFound == 1 );                                              // the cover (declared 200 x 120)
+    }
+
+    TEST_CASE( "I24: a map-space image layer is drawn at its picture's real size, scaled by the zoom" )  {
+
+        Scene  scene;
+
+        scene.pRenderer -> ZoomIn();
+
+        float  fZoom = scene.pRenderer -> GetViewport().GetZoomProperties().fZoomFactor;
+
+        scene.engine().textureSizes[scene.engine().hLoadTextureResult] = { ( int ) __REAL_W, ( int ) __REAL_H };
+        scene.RunFrames( 1 );
+
+        int  nFound = 0;
+
+        for( const Event& evt : scene.engine().events )  {
+            if( ( evt.kind != Event :: TILE ) || ( evt.scale != fZoom ) || ( evt.srcW != __REAL_W ) )
+                continue;
+
+            nFound++;
+            CHECK( evt.srcH == __REAL_H );                                 // the real picture, not the declared 64 or 48
+            CHECK( evt.w == SunLight :: General :: Helper :: RoundHalfUp( __REAL_W * fZoom ) );
+            CHECK( evt.h == SunLight :: General :: Helper :: RoundHalfUp( __REAL_H * fZoom ) );
+        }
+
+        CHECK( nFound == 2 );                                              // "plain" and "off"
+    }
+
+    TEST_CASE( "I24: a picture whose real size is the declared one, or an engine that cannot tell, draws as before" )  {
+
+        Scene  scene;
+
+        // Unknown to the engine (no size set): the declared size, as before I24.
+        scene.RunFrames( 1 );
+
+        int  nCover = scene.IndexOfWidth( __COVER_W );
+
+        REQUIRE( nCover > 0 );
+        CHECK( scene.engine().events[nCover].srcW == __COVER_W );
+        CHECK( scene.engine().events[nCover].srcH == __COVER_H );
+
+        // Known and equal to the declared size: the same draw.
+        scene.engine().textureSizes[scene.engine().hLoadTextureResult] = { ( int ) __COVER_W, ( int ) __COVER_H };
+        scene.RunFrames( 1 );
+
+        nCover = scene.IndexOfWidth( __COVER_W );
+        REQUIRE( nCover > 0 );
+        CHECK( scene.engine().events[nCover].x == 5.0f );
+        CHECK( scene.engine().events[nCover].w == __COVER_W );
+        CHECK( scene.engine().events[nCover].h == __COVER_H );
+    }
+
 }

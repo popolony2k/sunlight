@@ -66,6 +66,19 @@ namespace SunLight  {
             virtual void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) = 0;
 
             /**
+             * @brief Must be implemented to tell a loaded texture's REAL size in pixels (I24 of the
+             * master plan) - what @see LoadTexture reported for it, or a render target's own size. A
+             * map's image layer is drawn at this size: the size a .tmx declares for an image only
+             * records it when the map was saved and goes stale when the picture changes.
+             * @param hTexture A texture from LoadTexture or GetRenderTargetTexture;
+             * @param nWidth Receives its width;
+             * @param nHeight Receives its height;
+             * @return false (nothing written) when the engine cannot tell - an empty handle, or a
+             * backend that keeps no size; the caller then falls back to what it knew;
+             */
+            virtual bool GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight ) = 0;
+
+            /**
              * @brief Must be implemented to draw a texture at the specified position
              * on chosen target engine;
              *

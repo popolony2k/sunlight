@@ -66,6 +66,27 @@ namespace SunLight  {
             };
 
             /**
+             * @brief A texture's real size (I24 of the master plan): the NullSurface LoadTexture made
+             * holds the size it read from the image's own header (or a render target's size).
+             * @param hTexture The texture;
+             * @param nWidth Receives its width;
+             * @param nHeight Receives its height;
+             * @return false for an empty handle;
+             */
+            bool NullEngine :: GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight )  {
+
+                if( !hTexture )
+                    return false;
+
+                const NullSurface  *pSurface = reinterpret_cast<const NullSurface*>( hTexture );
+
+                nWidth  = pSurface -> nWidth;
+                nHeight = pSurface -> nHeight;
+
+                return true;
+            }
+
+            /**
              * @brief "Load" a texture: read the file through
              * SunLight::FileSystem (same virtual-path routing the real
              * backend's loader hook applies), and take its size from the
