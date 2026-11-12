@@ -195,6 +195,8 @@ Each item is described in full in the plan; what each change means for code buil
 - Sprites with equal z-orders kept the order of the last z-order change instead of the order they
   were added in (a sprite raised and put back stayed moved among its equals): each layer was sorted in
   place and the next frame sorted that order. A copy is sorted now, from the added order every time.
+- An image layer whose picture differs in size from what the map declares was drawn at the declared
+  size, reading past the texture and repeating it; it is drawn at the picture's real size.
 - `SetWriteDirectory` on a folder the game had already mounted did not mount it at `/`, and a later
   change of write directory removed the game's own mount.
 - `IFileSystem::WriteFile` truncated the target before writing, so a crash, a power loss or a full

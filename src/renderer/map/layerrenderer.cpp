@@ -246,14 +246,19 @@ namespace SunLight  {
          */
         void LayerRenderer :: DrawImageLayer( const DrawContext& context, tmx_layer* pLayer ) const  {
 
-            tmx_image                             *pTmxImage = pLayer -> content.image;
-            void                                   *pImage    = pTmxImage -> resource_image;
-            SunLight :: Base :: stColor         tintColor  = SunLight :: Base :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
-            float                               fOpacity   = ( float ) pLayer -> opacity * context.fGroupOpacity;
+            tmx_image                          *pTmxImage = pLayer -> content.image;
+            void                               *pImage    = pTmxImage -> resource_image;
+            SunLight :: Base :: stColor        tintColor  = SunLight :: Base :: MultiplyTint( Shape :: ColorOf( pLayer -> tintcolor ), context.groupTint );
+            float                              fOpacity   = ( float ) pLayer -> opacity * context.fGroupOpacity;
             SunLight :: Base :: stDimension2D  clip;
+            int                                nWidth     = 0;
+            int                                nHeight    = 0;
+
+            ImageSizeOf( pTmxImage, nWidth, nHeight );      // I24: the picture's real size, not the declared one
+
             SunLight :: Base :: stDimension2D  dm         = { { ( int ) ( pLayer -> offsetx + context.camera.x ),
-                                                                 ( int ) ( pLayer -> offsety + context.camera.y ) },
-                                                                 { ( int ) pTmxImage -> width, ( int ) pTmxImage -> height } };
+                                                                ( int ) ( pLayer -> offsety + context.camera.y ) },
+                                                              { nWidth, nHeight } };
 
             if( SunLight :: Base :: Viewport :: ClipRect( context.viewport, context.fZoom, dm, clip ) )  {
 
@@ -266,18 +271,46 @@ namespace SunLight  {
                 // and std::round's away-from-zero ties can open a real gap of their own).
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
                                                       SunLight :: Base :: stRectangle  { 0.0f, 0.0f,
-                                                                   ( float ) pTmxImage -> width,
-                                                                   ( float ) pTmxImage -> height },
+                                                                   ( float ) nWidth,
+                                                                   ( float ) nHeight },
                                                       SunLight :: Base :: stRectangle  { SunLight :: General :: Helper :: RoundHalfUp( dm.pos.x * fZoomFactor + vpDm.pos.x ),
                                                                    SunLight :: General :: Helper :: RoundHalfUp( dm.pos.y * fZoomFactor + vpDm.pos.y ),
-                                                                   SunLight :: General :: Helper :: RoundHalfUp( pTmxImage -> width * fZoomFactor ),
-                                                                   SunLight :: General :: Helper :: RoundHalfUp( pTmxImage -> height * fZoomFactor ) },
+                                                                   SunLight :: General :: Helper :: RoundHalfUp( nWidth * fZoomFactor ),
+                                                                   SunLight :: General :: Helper :: RoundHalfUp( nHeight * fZoomFactor ) },
                                                       SunLight :: Base :: stVector2D  { 0, 0 },
                                                       0.0f,
                                                       fZoomFactor,
                                                       SunLight :: Base :: stColor  { tintColor.nRed, tintColor.nGreen, tintColor.nBlue,
                                                                                      ( uint8_t ) ( __OPAQUE_CHANNEL * fOpacity ) } );
             }
+        }
+
+        /**
+         * @brief The size an image layer's picture is drawn at (I24 of the master plan): the loaded
+         * texture's REAL size (IEngine::GetTextureSize), as Tiled draws it and as sunlight drew it before
+         * L1. The width and height the map's image element declares only record the picture's size when the
+         * map was saved and go stale when the picture changes: drawn at a declared size larger than the
+         * texture, the draw read past it and repeated it (Caravellius' cover, 1206 x 880 declared as
+         * 1260 x 920). The declared size is used only when the engine cannot tell.
+         * @param pTmxImage The layer's image;
+         * @param nWidth Receives the width to draw;
+         * @param nHeight Receives the height;
+         */
+        void LayerRenderer :: ImageSizeOf( tmx_image* pTmxImage, int& nWidth, int& nHeight )  {
+
+            int  nRealWidth  = 0;
+            int  nRealHeight = 0;
+
+            if( pTmxImage -> resource_image &&
+                SunLight :: Engines :: EngineFactory :: GetEngine().GetTextureSize( pTmxImage -> resource_image, nRealWidth, nRealHeight ) &&
+                ( nRealWidth > 0 ) && ( nRealHeight > 0 ) )  {
+                nWidth  = nRealWidth;
+                nHeight = nRealHeight;
+                return;
+            }
+
+            nWidth  = ( int ) pTmxImage -> width;
+            nHeight = ( int ) pTmxImage -> height;
         }
 
         /**
@@ -315,10 +348,15 @@ namespace SunLight  {
             if( !pTmxImage || !pTmxImage -> resource_image )
                 return;
 
+            int  nWidth  = 0;
+            int  nHeight = 0;
+
+            ImageSizeOf( pTmxImage, nWidth, nHeight );      // I24: the picture's real size
+
             SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pTmxImage -> resource_image,
-                                                  SunLight :: Base :: stRectangle { 0.0f, 0.0f, ( float ) pTmxImage -> width, ( float ) pTmxImage -> height },
+                                                  SunLight :: Base :: stRectangle { 0.0f, 0.0f, ( float ) nWidth, ( float ) nHeight },
                                                   SunLight :: Base :: stRectangle { ( float ) pLayer -> offsetx, ( float ) pLayer -> offsety,
-                                                                                    ( float ) pTmxImage -> width, ( float ) pTmxImage -> height },
+                                                                                    ( float ) nWidth, ( float ) nHeight },
                                                   SunLight :: Base :: stVector2D { 0, 0 },
                                                   0.0f,
                                                   __SCREEN_SPACE_SCALE,

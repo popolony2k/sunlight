@@ -47,6 +47,7 @@ namespace SunLight  {
                                                                 int& nWidth,
                                                                 int& nHeight ) override;
                 void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) override;
+                bool GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight ) override;
 
                 void DrawTexture( SunLight :: Base :: TextureHandle hTexture,
                                    int nPosX,

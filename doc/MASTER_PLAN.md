@@ -2246,6 +2246,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I21 | `IWorld::SetLayer` (every map of a world), and `SetWorld( default world )` on the default view answers yes (asked for by Scarab after its C7) | DONE |
 | I22 | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount` (asked for by Scarab, for its C8 sandbox) | DONE |
 | I23 | An opt-in screen-space image layer (`screen_space` custom property), as image layers drew before L1; BREAKAGES 34 corrected (found by Caravellius, through Scarab) | DONE |
+| I24 | Image layers drawn at their picture's real size, not the size the map declares (found by Caravellius, through Scarab) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -3233,6 +3234,30 @@ nothing). Lua drawing is no substitute: it comes after the map and sprites, over
   fails (at -18, -5, scaled 1.125).
 - No sample (owner's call): Scarab and Caravellius check it by eye on the real cover screen.
 - `doc/BREAKAGES.md` entry 76.
+
+**I24: image layers at their picture's real size (DONE).** Found by Caravellius by eye once its cover
+used `screen_space`: the picture is 1206 x 880 but `cover.tmx`'s `<image>` declares 1260 x 920, and both
+image-layer paths (`DrawScreenSpaceImageLayer`, `DrawImageLayer`) took the source and destination from
+the declared `pTmxImage->width/height` - `DrawTextureTiled` then read 54 x 40 pixels past the texture
+and repeated it along the right and bottom edges.
+
+- **Decided with the owner:** draw at the picture's REAL size in both paths - as sunlight did before L1
+  (`DrawTexture( image, 0, 0 )`, the texture at its own size - read in the code before `a7e73c1`); Scarab
+  reports Tiled does the same, the `<image>` width/height only recording the size at save time (not
+  verified in Tiled's source). Stretching to the declared size would distort a picture whose numbers are
+  stale.
+- **`IEngine::GetTextureSize( texture, width, height )`** (new pure virtual): raylib's `Texture2D` carries
+  it (a render target's texture is one too); the null backend's `NullSurface` keeps the size read from the
+  image's header; `MockEngine` answers the sizes a test sets. `LayerRenderer::ImageSizeOf` uses it, and
+  falls back to the declared size only when the engine cannot tell. A picture whose real size matches
+  the declared one draws exactly as before.
+- **Not in scope (noted):** a tileset whose declared image size is stale - tiles are cut by tile
+  coordinates, a different case nobody has reported.
+- **Tests** (`tests/test_screenspaceimagelayer.cpp`, 3 more; `MockEngine` now records a tiled draw's whole
+  source rectangle): a screen-space layer drawn at the real size, source and destination, never past the
+  texture; map-space layers at the real size scaled by the zoom; an unknown size or a matching one draws
+  as before. With the declared size (the old behaviour) the first two fail.
+- `doc/BREAKAGES.md` entry 77.
 - **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
   `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
   along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all
