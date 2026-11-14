@@ -45,7 +45,7 @@ Connect a gamepad that can vibrate (gamepad 0) to feel the rumble. Without one, 
 
 - `World::LoadSprites()` ([world.cpp](/samples/isometric_haptics/world.cpp)) creates the haptics with `GamepadHapticsFactory::CreateGamepadHaptics(GetInputHandler())`. `World::Run()` registers gamepad 0 with `AddGamePad`, and gamepad handlers next to the keyboard ones.
 - `World::TriggerWallBump()` checks `IGamepadHaptics::IsSupported` and calls `SetVibration` with the strength for the run-up.
-- `World::OnUpdate()` calls `IGamepadHaptics::Update()` once per frame. That call stops a timed vibration when its time is up. SDL2 can also stop one by itself, but only while the pads are read through SDL (the default since I25), which updates SDL every frame. With the raylib/GLFW gamepad backend, `Update()` is the only thing that stops it.
+- `World::OnUpdate()` calls `IGamepadHaptics::Update()` once per frame. That call stops a timed vibration when its time is up. SDL2 can also stop one by itself, but only while the pads are read through SDL (the default since I25), whose own thread keeps SDL updated. With the raylib/GLFW gamepad backend, `Update()` is the only thing that stops it.
 
 ## Assets
 

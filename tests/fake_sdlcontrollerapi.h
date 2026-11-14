@@ -24,6 +24,7 @@
 #include <doctest/doctest.h>
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -82,6 +83,8 @@ namespace FakeSDL  {
         bool                       bOpenFails = false;
         bool                       bReady     = true;
         int                        nUpdates   = 0;
+        std :: function<void( void )>  onOpen;          // optional: runs inside each Open (eg. blocks, as a slow pad's set-up does)
+        std :: function<void( void )>  onRumble;        // optional: runs inside each Rumble
 
         explicit FakeControllerApi( FakeLog& log ) : m_Log( log )  {}
 
@@ -100,6 +103,9 @@ namespace FakeSDL  {
         int32_t InstanceIdForIndex( int nIndex ) override      { return devices[ nIndex ].nInstanceId; }
 
         ControllerHandle Open( int nIndex ) override  {
+            if( onOpen )
+                onOpen();
+
             if( bOpenFails )
                 return nullptr;
 
@@ -136,6 +142,9 @@ namespace FakeSDL  {
 
         void Rumble( ControllerHandle hController, uint16_t nLow, uint16_t nHigh, uint32_t nDurationMs ) override  {
             m_Log.rumbles.push_back( FakeLog :: RumbleCall { m_Open.at( hController ), nLow, nHigh, nDurationMs } );
+
+            if( onRumble )
+                onRumble();
         }
 
         bool GetButton( ControllerHandle hController, Button button ) override  {

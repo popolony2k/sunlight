@@ -30,6 +30,7 @@
 #define __TRIGGER_REST                 -1.0f
 #define __AXIS_MIN_VALUE               -1.0f
 #define __AXIS_MAX_VALUE               1.0f
+#define __EMPTY_NAME                   ""
 
 namespace  {
 
@@ -131,35 +132,46 @@ namespace SunLight  {
         namespace SDL  {
 
             /**
-             * @brief Holds the shared device set and updates it once (see the header).
+             * @brief Holds the devices and the fallback, and takes the first snapshot.
              * @param pDevices The device set to read the pads from;
+             * @param pFallback The backend to use when SDL could not start, or nullptr;
              */
-            SDLGamepadInput :: SDLGamepadInput( std :: shared_ptr<SDLGamepadDevices> pDevices )
+            SDLGamepadInput :: SDLGamepadInput( std :: shared_ptr<SDLGamepadDevices> pDevices, std :: unique_ptr<SunLight :: Input :: IGamepadInput> pFallback )
                 : m_pDevices( std :: move( pDevices ) ),
+                  m_pFallback( std :: move( pFallback ) ),
+                  m_Frame(),
+                  m_bUseFallback( false ),
                   m_nLastButtonPressed( SunLight :: Input :: GAMEPAD_BUTTON_UNKNOWN )  {
 
                 Update();
             }
 
             /**
-             * @brief Lets go of the device set: the last holder closes its controllers.
+             * @brief Lets go of the device set: the last holder stops its thread.
              */
             SDLGamepadInput :: ~SDLGamepadInput( void )  {
 
             }
 
             /**
-             * @brief Updates the devices, then finds the last button held, as raylib's
-             * PollInputEvents does: reset, then each pad in id order and each button in GLFW's
-             * order, the last one down kept.
+             * @brief Takes the devices' latest snapshot (or, once SDL failed, updates the
+             * fallback), then finds the last button held, as raylib's PollInputEvents does: reset,
+             * then each pad in id order and each button in GLFW's order, the last one down kept.
              */
             void SDLGamepadInput :: Update( void )  {
 
-                m_pDevices -> Update();
+                m_bUseFallback = ( m_pFallback != nullptr ) && ( m_pDevices -> GetState() == SDLGamepadDevices :: STATE_FAILED );
+
+                if( m_bUseFallback )  {
+                    m_pFallback -> Update();
+                    return;
+                }
+
+                m_pDevices -> Read( m_Frame );
                 m_nLastButtonPressed = SunLight :: Input :: GAMEPAD_BUTTON_UNKNOWN;
 
                 for( int nGamePadId = 0; nGamePadId < MAX_GAMEPAD_COUNT; nGamePadId++ )  {
-                    if( !m_pDevices -> IsAvailable( nGamePadId ) )
+                    if( !m_Frame[ nGamePadId ].bAvailable )
                         continue;
 
                     for( SunLight :: Input :: GamepadButton button : kPressedOrder )  {
@@ -170,21 +182,28 @@ namespace SunLight  {
             }
 
             /**
-             * @brief The pad's name from SDL's controller database, "" for no pad.
+             * @brief The pad's name from SDL's controller database, "" for no pad - valid until
+             * the next Update.
              * @param nGamePadId The game pad id to check;
              */
             const char* SDLGamepadInput :: GetGamepadName( int nGamePadId )  {
 
-                return m_pDevices -> Name( nGamePadId );
+                if( m_bUseFallback )
+                    return m_pFallback -> GetGamepadName( nGamePadId );
+
+                return IsGamepadAvailable( nGamePadId ) ? m_Frame[ nGamePadId ].strName.c_str() : __EMPTY_NAME;
             }
 
             /**
-             * @brief Whether the pad has an open SDL controller.
+             * @brief Whether the pad was there at the last Update.
              * @param nGamePadId The game pad id to check;
              */
             bool SDLGamepadInput :: IsGamepadAvailable( int nGamePadId )  {
 
-                return m_pDevices -> IsAvailable( nGamePadId );
+                if( m_bUseFallback )
+                    return m_pFallback -> IsGamepadAvailable( nGamePadId );
+
+                return ( nGamePadId >= 0 ) && ( nGamePadId < MAX_GAMEPAD_COUNT ) && m_Frame[ nGamePadId ].bAvailable;
             }
 
             /**
@@ -195,16 +214,20 @@ namespace SunLight  {
              */
             bool SDLGamepadInput :: IsGamepadButtonDown( int nGamePadId, SunLight :: Input :: GamepadButton button )  {
 
-                ISDLControllerApi :: ControllerHandle  hController = m_pDevices -> Controller( nGamePadId );
-                const stButtonSource                   *pSource    = SourceOf( button );
+                if( m_bUseFallback )
+                    return m_pFallback -> IsGamepadButtonDown( nGamePadId, button );
 
-                if( ( hController == nullptr ) || ( pSource == nullptr ) )
+                const stButtonSource  *pSource = SourceOf( button );
+
+                if( !IsGamepadAvailable( nGamePadId ) || ( pSource == nullptr ) )
                     return false;
 
-                if( pSource -> bTriggerAxis )
-                    return TriggerValue( m_pDevices -> Api().GetAxis( hController, ( ISDLControllerApi :: Axis ) pSource -> nCode ) ) > __TRIGGER_THRESHOLD;
+                const SDLGamepadDevices :: stPadState  &pad = m_Frame[ nGamePadId ];
 
-                return m_pDevices -> Api().GetButton( hController, ( ISDLControllerApi :: Button ) pSource -> nCode );
+                if( pSource -> bTriggerAxis )
+                    return TriggerValue( pad.axes[ pSource -> nCode ] ) > __TRIGGER_THRESHOLD;
+
+                return pad.buttons[ pSource -> nCode ];
             }
 
             /**
@@ -215,7 +238,10 @@ namespace SunLight  {
              */
             bool SDLGamepadInput :: IsGamepadButtonUp( int nGamePadId, SunLight :: Input :: GamepadButton button )  {
 
-                return m_pDevices -> IsAvailable( nGamePadId ) && !IsGamepadButtonDown( nGamePadId, button );
+                if( m_bUseFallback )
+                    return m_pFallback -> IsGamepadButtonUp( nGamePadId, button );
+
+                return IsGamepadAvailable( nGamePadId ) && !IsGamepadButtonDown( nGamePadId, button );
             }
 
             /**
@@ -223,6 +249,9 @@ namespace SunLight  {
              * GAMEPAD_BUTTON_UNKNOWN.
              */
             int SDLGamepadInput :: GetGamepadButtonPressed( void )  {
+
+                if( m_bUseFallback )
+                    return m_pFallback -> GetGamepadButtonPressed();
 
                 return m_nLastButtonPressed;
             }
@@ -233,7 +262,10 @@ namespace SunLight  {
              */
             int SDLGamepadInput :: GetGamepadAxisCount( int nGamePadId )  {
 
-                return m_pDevices -> IsAvailable( nGamePadId ) ? __AXIS_COUNT : 0;
+                if( m_bUseFallback )
+                    return m_pFallback -> GetGamepadAxisCount( nGamePadId );
+
+                return IsGamepadAvailable( nGamePadId ) ? __AXIS_COUNT : 0;
             }
 
             /**
@@ -244,16 +276,18 @@ namespace SunLight  {
              */
             float SDLGamepadInput :: GetGamepadAxisMovement( int nGamePadId, SunLight :: Input :: GamepadAxis axis )  {
 
-                ISDLControllerApi :: ControllerHandle  hController = m_pDevices -> Controller( nGamePadId );
-                bool                                   bTrigger    = IsTriggerAxis( axis );
+                if( m_bUseFallback )
+                    return m_pFallback -> GetGamepadAxisMovement( nGamePadId, axis );
 
-                if( ( hController == nullptr ) || ( axis < SunLight :: Input :: GAMEPAD_AXIS_LEFT_X ) ||
+                bool  bTrigger = IsTriggerAxis( axis );
+
+                if( !IsGamepadAvailable( nGamePadId ) || ( axis < SunLight :: Input :: GAMEPAD_AXIS_LEFT_X ) ||
                     ( axis > SunLight :: Input :: GAMEPAD_AXIS_RIGHT_TRIGGER ) )
                     return bTrigger ? __TRIGGER_REST : __STICK_REST;
 
                 // sunlight's axes are SDL's, in the same order (LEFT_X .. RIGHT_TRIGGER = LEFTX ..
                 // TRIGGERRIGHT), as raylib's are GLFW's.
-                int16_t  nValue = m_pDevices -> Api().GetAxis( hController, ( ISDLControllerApi :: Axis ) axis );
+                int16_t  nValue = m_Frame[ nGamePadId ].axes[ ( size_t ) axis ];
 
                 return bTrigger ? TriggerValue( nValue ) : StickValue( nValue );
             }

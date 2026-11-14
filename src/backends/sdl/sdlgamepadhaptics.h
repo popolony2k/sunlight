@@ -41,7 +41,9 @@ namespace SunLight  {
              * Two ways to find a pad's SDL controller:
              * - When the pads themselves are read through SDL (I25: SDLGamepadInput, the default),
              *   the controller is the one SDLGamepadDevices opened for that pad id - the same device
-             *   by construction, opened when it was plugged in, not on the first rumble.
+             *   by construction, opened by their thread when it was plugged in, not on the first
+             *   rumble. A rumble is queued for that thread, and IsSupported reads its latest
+             *   snapshot, so the game's thread never waits on SDL (I25b).
              * - Otherwise (DEFAULT_GAMEPAD_ENGINE 2, or SDL's pads could not start), nGamePadId is
              *   raylib/GLFW's own device index, correlated with SDL's own, separately-enumerated
              *   device list on every call via MatchGamepadsByName - exactly one gamepad on each side
@@ -63,7 +65,7 @@ namespace SunLight  {
              * it is open.
              *
              * SDL2's own rumble expiration only runs inside SDL_JoystickUpdate(), which only
-             * SDLGamepadDevices calls (once per frame, through the input handler's Update) - so on
+             * SDLGamepadDevices' thread calls - so on
              * the name-matching path nothing would ever stop a rumble. m_VibrationDeadlines tracks
              * each vibrating pad's own stop time (SunLight::General::Clock, not SDL's own clock)
              * on both paths, and Update() (the owner's own per-frame tick) calls the real Stop()
@@ -87,7 +89,7 @@ namespace SunLight  {
                 // the pad has no matching SDL device or it cannot be opened.
                 ISDLControllerApi :: ControllerHandle ControllerFor( int nGamePadId ) const;
                 void CloseController( int nGamePadId ) const;
-                ISDLControllerApi& Api( void ) const;
+                bool SendRumble( int nGamePadId, uint16_t nLowFrequency, uint16_t nHighFrequency, uint32_t nDurationMs );
 
                 // The SDL device index matching nGamePadId's raylib/GLFW identity, or -1 if
                 // nGamePadId is unavailable or no SDL device matched it.

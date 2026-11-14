@@ -42,17 +42,30 @@ namespace SunLight  {
              * no difference in kind: buttons by position on an Xbox-style layout, sticks in -1..1,
              * triggers in -1..1 resting at -1, the second triggers pressed past __TRIGGER_THRESHOLD,
              * and GetGamepadButtonPressed the last button held at the last Update.
+             *
+             * It never calls SDL (I25b): Update copies the devices' latest snapshot, which every
+             * query of that frame then reads, so a pad being set up on the gamepad thread costs the
+             * game nothing and appears when it is ready. Starting SDL runs its HIDAPI drivers' set-up
+             * too (HIDAPI_JoystickInit), so whether SDL started is only known later, on the thread:
+             * once the devices report STATE_FAILED, every query goes to the fallback (raylib/GLFW's
+             * pads, from GamepadInputFactory) instead.
              */
             class SDLGamepadInput : public SunLight :: Input :: IGamepadInput  {
 
-                std :: shared_ptr<SDLGamepadDevices>  m_pDevices;
-                int                                   m_nLastButtonPressed;
+                std :: shared_ptr<SDLGamepadDevices>                   m_pDevices;
+                std :: unique_ptr<SunLight :: Input :: IGamepadInput>  m_pFallback;
+                SDLGamepadDevices :: Snapshot                          m_Frame;
+                bool                                                   m_bUseFallback;
+                int                                                    m_nLastButtonPressed;
 
                 public:
 
-                // Updates once, so the pads already plugged in are there from the first frame, as
-                // raylib's are once its window is open.
-                explicit SDLGamepadInput( std :: shared_ptr<SDLGamepadDevices> pDevices );
+                /**
+                 * @brief Reads pDevices' pads; pFallback (may be nullptr) answers once SDL failed.
+                 * @param pDevices The device set to read the pads from;
+                 * @param pFallback The backend to use when SDL could not start, or nullptr;
+                 */
+                SDLGamepadInput( std :: shared_ptr<SDLGamepadDevices> pDevices, std :: unique_ptr<SunLight :: Input :: IGamepadInput> pFallback );
                 ~SDLGamepadInput( void ) override;
 
                 void Update( void ) override;

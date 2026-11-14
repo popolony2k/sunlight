@@ -2248,6 +2248,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I23 | An opt-in screen-space image layer (`screen_space` custom property), as image layers drew before L1; BREAKAGES 34 corrected (found by Caravellius, through Scarab) | DONE |
 | I24 | Image layers drawn at their picture's real size, not the size the map declares (found by Caravellius, through Scarab) | DONE |
 | I25 | Gamepads read through SDL2, rumble on the same SDL devices, with a raylib/GLFW fallback (Caravellius' five macOS gamepad findings) | DONE |
+| I25b | Every SDL gamepad call on a thread of its own, so a pad's set-up (2 to 4 s on Bluetooth, measured by Caravellius) never freezes the game | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -3309,6 +3310,44 @@ differently; (5) SDL's device list was never refreshed - nothing called `SDL_Joy
 - **To check on real pads:** the owner (`samples/gamepad`, `samples/isometric_haptics`) and Caravellius
   (its three pads: Switch over USB and Bluetooth, rumble with two pads, the connect frame's cost).
 - `doc/BREAKAGES.md` entry 78.
+
+**I25b: SDL gamepads on a thread of their own (DONE).** Caravellius measured I25 on its three pads
+(macOS 14): checks 1 to 4 passed (a Switch-mode pad over USB reports at 60/s, over Bluetooth at ~47/s,
+two pads each rumble on their own, hot-plug works), but the frame a Bluetooth pad connected took 2.3 to
+3.9 s (0.3 s over USB, 58 ms for an Xbox One S) - worse than before I25 (0.95 s, once, on the first
+rumble). Read in SDL's source: its HIDAPI drivers set a pad up by writing commands and waiting for the
+replies on the calling thread (`SDL_hidapi_switch.c`: up to 100 ms per reply, retried writes, 250 ms more
+on open), and they do it while SDL starts (`HIDAPI_JoystickInit` -> `HIDAPI_UpdateDevices`), while it
+finds a new device (inside `SDL_JoystickUpdate`) and while it opens one - with SDL's joystick lock held.
+
+- **Decided with the owner:** every SDL call on one thread of its own (`SDLGamepadDevices`,
+  `RUN_MODE_THREAD`), from starting SDL to stopping it; the game's thread never calls SDL. No wait at
+  start-up (a pad already on appears when its set-up is done), and stopping waits for SDL's current call
+  (a quit during a pad's set-up can take a few seconds) - the owner's two choices.
+- **One thread suits SDL's macOS drivers:** the IOKit driver schedules its devices on the run loop of
+  the thread that started it and runs that loop itself (`SDL_iokitjoystick.c`), HIDAPI pumps its manager
+  on the calling thread and reads each device on a thread of its own (`hidapi/mac/hid.c`).
+- **MFi off** (`SDL_JOYSTICK_MFI=0`): Apple's GameController driver registers its connect/disconnect
+  blocks with `queue:nil` (they run on the posting thread) and they take SDL's joystick lock
+  (`SDL_mfijoystick.m`), which the gamepad thread holds for seconds during a set-up. With it off the IOKit
+  driver takes the HID pads it would have handed over (`IOS_SupportedHIDDevice`); Xbox, PlayStation and
+  Switch pads stay on HIDAPI.
+- **The thread's pass** (`Step`): updates SDL, closes and opens pads, carries out the queued rumble
+  requests, and publishes a snapshot of every pad (available, name, 15 buttons, 6 axes, rumble); about
+  1 ms between passes. `SDLGamepadInput::Update` copies the snapshot, `SDLGamepadHaptics` queues rumbles
+  and reads `IsSupported` from it.
+- **The fallback** can no longer be chosen when the input is made (starting SDL itself runs the set-up):
+  `SDLGamepadInput` holds raylib/GLFW's pads and switches to them once the thread reports
+  `STATE_FAILED`.
+- **SDL's per-thread data** (its error buffer) is freed with `SDL_TLSCleanup` when the thread ends: SDL
+  does that by itself only for threads it created (`SDL_RunThread`); `leaks` found one per thread.
+- **Tests** (`tests/test_sdlgamepadinput.cpp`, 4 more; the fake gained `onOpen`/`onRumble` hooks): the
+  existing ones driven by hand (`RUN_MODE_MANUAL`), and on a real thread: `Update` returns within 100 ms
+  while the fake's open is blocked and the pad appears once it finishes, stopping during a blocked open
+  joins cleanly, a rumble asked on the game's thread is sent on the gamepad thread, and the fallback.
+  Eleven mutations each fail a test (among them the lock held during the open, rumbles never taken, the
+  thread never shutting SDL down, the fallback never used).
+- **To check on real pads:** Caravellius re-measures with the same probe (check 5 especially).
 
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists

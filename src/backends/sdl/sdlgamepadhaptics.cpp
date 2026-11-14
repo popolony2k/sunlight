@@ -80,12 +80,36 @@ namespace SunLight  {
             }
 
             /**
-             * @brief The API the controllers are open on: the devices' own, or the name-matching
-             * path's.
+             * @brief Sends one rumble to nGamePadId: on the pads' own devices, queued for their
+             * thread (I25b: the game's thread never calls SDL there); on the name-matching path,
+             * straight to its controller. False when the pad has no controller to send it to.
+             * @param nGamePadId The gamepad id;
+             * @param nLowFrequency The low-frequency motor, 0..65535;
+             * @param nHighFrequency The high-frequency motor, 0..65535;
+             * @param nDurationMs How long, in milliseconds (0: no end);
              */
-            ISDLControllerApi& SDLGamepadHaptics :: Api( void ) const  {
+            bool SDLGamepadHaptics :: SendRumble( int nGamePadId, uint16_t nLowFrequency, uint16_t nHighFrequency, uint32_t nDurationMs )  {
 
-                return m_pDevices ? m_pDevices -> Api() : *m_pApi;
+                if( m_pDevices )  {
+                    bool  bAvailable = false;
+                    bool  bHasRumble = false;
+
+                    m_pDevices -> PadInfo( nGamePadId, bAvailable, bHasRumble );
+
+                    if( !bAvailable )
+                        return false;
+
+                    m_pDevices -> Rumble( nGamePadId, nLowFrequency, nHighFrequency, nDurationMs );
+                    return true;
+                }
+
+                ISDLControllerApi :: ControllerHandle  hController = ControllerFor( nGamePadId );
+
+                if( hController == nullptr )
+                    return false;
+
+                m_pApi -> Rumble( hController, nLowFrequency, nHighFrequency, nDurationMs );
+                return true;
             }
 
             /**
@@ -150,16 +174,12 @@ namespace SunLight  {
             }
 
             /**
-             * @brief nGamePadId's open controller: on the pads' own devices, the one they opened
-             * for it. On the name-matching path (see this class's doc comment for why it stays
-             * open), the one already open is reused while it is still attached and is still the
+             * @brief nGamePadId's open controller on the name-matching path (see this class's doc
+             * comment for why it stays open): the one already open is reused while it is still attached and is still the
              * device that matches the pad (same SDL instance id at the matched index); otherwise it
              * is closed and the matching device opened. A pad with no matching device has none.
              */
             ISDLControllerApi :: ControllerHandle SDLGamepadHaptics :: ControllerFor( int nGamePadId ) const  {
-
-                if( m_pDevices )
-                    return m_pDevices -> Controller( nGamePadId );
 
                 int  nSdlIndex = FindMatchingSDLIndex( nGamePadId );
 
@@ -194,9 +214,18 @@ namespace SunLight  {
              */
             bool SDLGamepadHaptics :: IsSupported( int nGamePadId ) const  {
 
+                if( m_pDevices )  {
+                    bool  bAvailable = false;
+                    bool  bHasRumble = false;
+
+                    m_pDevices -> PadInfo( nGamePadId, bAvailable, bHasRumble );
+
+                    return bAvailable && bHasRumble;
+                }
+
                 ISDLControllerApi :: ControllerHandle  hController = ControllerFor( nGamePadId );
 
-                return ( hController != nullptr ) && Api().HasRumble( hController );
+                return ( hController != nullptr ) && m_pApi -> HasRumble( hController );
             }
 
             /**
@@ -208,19 +237,15 @@ namespace SunLight  {
              */
             void SDLGamepadHaptics :: SetVibration( int nGamePadId, float fLeftMotor, float fRightMotor, float fDuration )  {
 
-                ISDLControllerApi :: ControllerHandle  hController = ControllerFor( nGamePadId );
-
-                if( hController == nullptr )
-                    return;
-
                 float  fClampedLeft     = std :: clamp( fLeftMotor, 0.0f, 1.0f );
                 float  fClampedRight    = std :: clamp( fRightMotor, 0.0f, 1.0f );
                 float  fClampedDuration = std :: max( fDuration, 0.0f );
 
-                Api().Rumble( hController,
-                              ( uint16_t ) ( fClampedLeft * __MAX_MOTOR_LEVEL ),
-                              ( uint16_t ) ( fClampedRight * __MAX_MOTOR_LEVEL ),
-                              ( uint32_t ) ( fClampedDuration * __MILLISECONDS_PER_SECOND ) );
+                if( !SendRumble( nGamePadId,
+                                 ( uint16_t ) ( fClampedLeft * __MAX_MOTOR_LEVEL ),
+                                 ( uint16_t ) ( fClampedRight * __MAX_MOTOR_LEVEL ),
+                                 ( uint32_t ) ( fClampedDuration * __MILLISECONDS_PER_SECOND ) ) )
+                    return;
 
                 // SDL's own duration-based auto-stop needs SDL_JoystickUpdate(), which nothing
                 // calls on the name-matching path (see this class's own doc comment) - track the
@@ -240,15 +265,10 @@ namespace SunLight  {
 
                 m_VibrationDeadlines.erase( nGamePadId );
 
-                ISDLControllerApi :: ControllerHandle  hController = ControllerFor( nGamePadId );
-
-                if( hController == nullptr )
-                    return;
-
                 // Zero strengths stop an in-progress rumble immediately - verified against
                 // SDL's own source (SDL_joystick.c calls exactly this, with these exact
                 // arguments, to silence a controller's motors on close).
-                Api().Rumble( hController, 0, 0, 0 );
+                SendRumble( nGamePadId, 0, 0, 0 );
             }
 
             /**

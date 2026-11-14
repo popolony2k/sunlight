@@ -63,20 +63,38 @@ namespace SunLight  {
              * no diamond layout, such as the NES and N64 ones, always use labels: AlwaysUsesLabels).
              * The hint is process-wide, and the Switch driver follows a later change too (it
              * registers a hint callback), so it is set before any controller is opened.
+             *
+             * SDL_JOYSTICK_MFI (Apple's GameController framework driver, macOS) is turned off too
+             * (I25b): that driver's connect and disconnect blocks are registered with queue:nil, so
+             * they run on whichever thread posts the notification, and they take SDL's joystick
+             * lock (SDL_mfijoystick.m) - which the gamepad thread holds for seconds while a pad is
+             * set up (SDLGamepadDevices). Nothing is lost: with it off, the IOKit driver takes the
+             * HID pads it would have handed to it (SDL_iokitjoystick.c, IOS_SupportedHIDDevice), and
+             * Xbox, PlayStation and Switch pads stay on HIDAPI.
+             *
+             * Constructed on the gamepad thread, which then makes every other call on it.
              */
             SDLControllerApi :: SDLControllerApi( void )  {
 
+                ::SDL_SetHint( SDL_HINT_JOYSTICK_MFI, __SDL_HINT_OFF );
                 ::SDL_SetHint( SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, __SDL_HINT_OFF );
                 m_bReady = ( ::SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER ) == __SDL_INIT_SUCCESS );
             }
 
             /**
-             * @brief Releases this instance's reference on the subsystem, if it got one.
+             * @brief Releases this instance's reference on the subsystem, if it got one, then frees
+             * SDL's data for the calling thread (SDL_TLSCleanup: its error buffer, made by the first
+             * SDL call on a thread). SDL frees it by itself only for threads it created
+             * (SDL_RunThread ends with SDL_TLSCleanup, SDL_thread.c), and the gamepad thread is a
+             * std::thread (SDLGamepadDevices) - `leaks` found one buffer per thread without it. A
+             * later SDL call on the same thread just makes a new one (SDL_TLSSet).
              */
             SDLControllerApi :: ~SDLControllerApi( void )  {
 
                 if( m_bReady )
                     ::SDL_QuitSubSystem( SDL_INIT_GAMECONTROLLER );
+
+                ::SDL_TLSCleanup();
             }
 
             /**
