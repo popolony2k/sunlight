@@ -212,8 +212,10 @@ Each item is described in full in the plan; what each change means for code buil
   connected, rumble could pick the wrong one (pads were matched across two libraries by name); SDL's
   device list was never refreshed, so a pad plugged in later could not rumble; and the first rumble
   opened the controller then, stalling that frame. Pads are now read through SDL, which does the
-  handshake and the full report mode, rumble uses the same device, SDL is updated every frame, and a
-  pad is opened on the frame it is plugged in.
+  handshake and the full report mode, rumble uses the same device, and SDL is updated all the time.
+- Plugging in a gamepad froze the game for up to 4 s (a Bluetooth pad's set-up inside SDL, found by
+  Caravellius measuring I25): every SDL gamepad call now runs on a thread of its own, and the pad
+  appears once it is ready.
 - `SetWriteDirectory` on a folder the game had already mounted did not mount it at `/`, and a later
   change of write directory removed the game's own mount.
 - `IFileSystem::WriteFile` truncated the target before writing, so a crash, a power loss or a full

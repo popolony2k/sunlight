@@ -48,13 +48,14 @@ namespace SunLight  {
                 return s_pCreator();
 
 #if DEFAULT_GAMEPAD_ENGINE == 1
-            std :: shared_ptr<SunLight :: Input :: SDL :: SDLGamepadDevices>  pDevices = SunLight :: Input :: SDL :: SDLGamepadDevices :: Acquire();
-
-            if( pDevices -> IsReady() )
-                return std :: make_unique<SunLight :: Input :: SDL :: SDLGamepadInput>( pDevices );
-#endif
-
+            // Whether SDL starts is known only later, on its own thread (starting it runs its
+            // drivers' pad set-up, see SDLGamepadDevices): the SDL input gets raylib/GLFW's pads as
+            // its fallback and switches to them if SDL fails.
+            return std :: make_unique<SunLight :: Input :: SDL :: SDLGamepadInput>( SunLight :: Input :: SDL :: SDLGamepadDevices :: Acquire(),
+                                                                                  std :: make_unique<SunLight :: Input :: RayLib :: RayLibGamepadInput>() );
+#else
             return std :: make_unique<SunLight :: Input :: RayLib :: RayLibGamepadInput>();
+#endif
         }
 
         /**

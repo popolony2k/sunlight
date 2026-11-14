@@ -20,10 +20,12 @@
 
 #include "backends/sdl/sdlgamepaddevices.h"
 #include "backends/sdl/sdlcontrollerapi.h"
+#include <chrono>
 
 
 #define __NO_FREE_PAD                  -1
 #define __EMPTY_NAME                   ""
+#define __POLL_INTERVAL_MS             1          // the gamepad thread's pause between passes
 
 namespace SunLight  {
     namespace Input  {
@@ -31,39 +33,93 @@ namespace SunLight  {
 
             static std :: weak_ptr<SDLGamepadDevices>                s_pCurrent;
             static SDLGamepadDevices :: ApiCreatorFunction           s_pApiCreator = nullptr;
+            static SDLGamepadDevices :: RunMode                      s_ApiCreatorMode = SDLGamepadDevices :: RUN_MODE_MANUAL;
 
             /**
-             * @brief Takes pApi, or the real SDL API when it is nullptr. Opens nothing: the first
-             * Update() does.
-             * @param pApi The API to use (the tests' fake), or nullptr;
+             * @brief Keeps the creator and starts: the thread (which makes the API there), or, by
+             * hand, the API right here.
+             * @param creator Makes the API, or nullptr for the real one;
+             * @param mode Who makes the SDL calls;
              */
-            SDLGamepadDevices :: SDLGamepadDevices( std :: unique_ptr<ISDLControllerApi> pApi )
-                : m_pApi( pApi ? std :: move( pApi ) : std :: make_unique<SDLControllerApi>() )  {
+            SDLGamepadDevices :: SDLGamepadDevices( ApiCreatorFunction creator, RunMode mode )
+                : m_ApiCreator( creator ? creator : []( void ) -> std :: unique_ptr<ISDLControllerApi>  { return std :: make_unique<SDLControllerApi>(); } ),
+                  m_nState( STATE_STARTING ),
+                  m_bStop( false )  {
+
+                if( mode == RUN_MODE_THREAD )
+                    m_Thread = std :: thread( &SDLGamepadDevices :: Run, this );
+                else
+                    Start();
             }
 
             /**
-             * @brief Closes every controller still open, before m_pApi goes (the real one releases
-             * SDL's subsystem then).
+             * @brief Stops and joins the thread, which shuts SDL down on itself; by hand, shuts it
+             * down here.
              */
             SDLGamepadDevices :: ~SDLGamepadDevices( void )  {
+
+                m_bStop = true;
+
+                if( m_Thread.joinable() )
+                    m_Thread.join();
+                else
+                    Shutdown();
+            }
+
+            /**
+             * @brief Makes the API - the real one starts SDL, on the stepping thread - and records
+             * whether SDL started.
+             */
+            void SDLGamepadDevices :: Start( void )  {
+
+                m_pApi    = m_ApiCreator();
+                m_nState  = m_pApi -> IsReady() ? STATE_READY : STATE_FAILED;
+            }
+
+            /**
+             * @brief Closes every controller still open, then lets the API go (the real one stops
+             * SDL's subsystem) - on the stepping thread, which started them.
+             */
+            void SDLGamepadDevices :: Shutdown( void )  {
+
+                if( !m_pApi )
+                    return;
 
                 for( stPad& pad : m_Pads )  {
                     if( pad.hController != nullptr )  {
                         m_pApi -> Close( pad.hController );
-                        pad.hController = nullptr;
+                        pad = stPad();
                     }
                 }
+
+                m_pApi.reset();
             }
 
             /**
-             * @brief The live process-wide set on the real SDL API, or a new one.
+             * @brief The gamepad thread: starts SDL, steps until stopped (or until SDL failed), and
+             * shuts SDL down - every SDL call on this one thread.
+             */
+            void SDLGamepadDevices :: Run( void )  {
+
+                Start();
+
+                while( !m_bStop && Step() )
+                    std :: this_thread :: sleep_for( std :: chrono :: milliseconds( __POLL_INTERVAL_MS ) );
+
+                Shutdown();
+            }
+
+            /**
+             * @brief The live process-wide set, or a new one on its own thread (on a fake, stepped
+             * by hand, while a test's SetApiCreator is in force).
              */
             std :: shared_ptr<SDLGamepadDevices> SDLGamepadDevices :: Acquire( void )  {
 
                 std :: shared_ptr<SDLGamepadDevices>  pDevices = s_pCurrent.lock();
 
                 if( !pDevices )  {
-                    pDevices   = std :: make_shared<SDLGamepadDevices>( s_pApiCreator ? s_pApiCreator() : nullptr );
+                    pDevices   = s_pApiCreator ? std :: make_shared<SDLGamepadDevices>( s_pApiCreator, s_ApiCreatorMode )
+                                               : std :: make_shared<SDLGamepadDevices>( nullptr, RUN_MODE_THREAD );
                     s_pCurrent = pDevices;
                 }
 
@@ -71,30 +127,24 @@ namespace SunLight  {
             }
 
             /**
-             * @brief The live process-wide set if SDL started for it, nullptr otherwise.
+             * @brief The live process-wide set unless SDL failed to start for it, nullptr otherwise.
              */
             std :: shared_ptr<SDLGamepadDevices> SDLGamepadDevices :: Current( void )  {
 
                 std :: shared_ptr<SDLGamepadDevices>  pDevices = s_pCurrent.lock();
 
-                return ( pDevices && pDevices -> IsReady() ) ? pDevices : nullptr;
+                return ( pDevices && ( pDevices -> GetState() != STATE_FAILED ) ) ? pDevices : nullptr;
             }
 
             /**
-             * @brief Sets the API Acquire() makes a new set on (tests only).
-             * @param creator The replacement creator function, or an empty std::function;
+             * @brief Sets the API, and the run mode, Acquire() makes a new set with (tests only).
+             * @param creator The replacement API creator, or an empty std::function;
+             * @param mode The run mode for the sets Acquire() makes with it;
              */
-            void SDLGamepadDevices :: SetApiCreator( ApiCreatorFunction creator )  {
+            void SDLGamepadDevices :: SetApiCreator( ApiCreatorFunction creator, RunMode mode )  {
 
-                s_pApiCreator = creator;
-            }
-
-            /**
-             * @brief Whether SDL's game-controller subsystem started.
-             */
-            bool SDLGamepadDevices :: IsReady( void ) const  {
-
-                return m_pApi -> IsReady();
+                s_pApiCreator    = creator;
+                s_ApiCreatorMode = mode;
             }
 
             /**
@@ -125,15 +175,16 @@ namespace SunLight  {
             }
 
             /**
-             * @brief The per-frame step (see the class's doc comment). Closing comes before
-             * opening, so a pad unplugged and plugged back in within one frame gets its id back
-             * when it is the lowest free one. A device SDL lists but cannot open is remembered
-             * until it leaves the list, so a failing open is not paid again every frame.
+             * @brief One pass (see the class's doc comment). Closing comes before opening, so a pad
+             * unplugged and plugged back in within one pass gets its id back when it is the lowest
+             * free one. The rumble requests are taken under the lock but carried out without it,
+             * and so is every other SDL call: the lock is held only to swap the requests out and to
+             * publish the snapshot, so the game's side never waits on SDL.
              */
-            void SDLGamepadDevices :: Update( void )  {
+            bool SDLGamepadDevices :: Step( void )  {
 
-                if( !m_pApi -> IsReady() )
-                    return;
+                if( m_nState != STATE_READY )
+                    return false;
 
                 m_pApi -> Update();
 
@@ -183,48 +234,107 @@ namespace SunLight  {
                     else
                         ++itItem;
                 }
+
+                std :: deque<stRumbleRequest>  requests;
+
+                {
+                    std :: lock_guard<std :: mutex>  lock( m_Mutex );
+
+                    requests.swap( m_Requests );
+                }
+
+                for( const stRumbleRequest& request : requests )  {
+                    ISDLControllerApi :: ControllerHandle  hController = m_Pads[ request.nGamePadId ].hController;
+
+                    if( hController != nullptr )
+                        m_pApi -> Rumble( hController, request.nLowFrequency, request.nHighFrequency, request.nDurationMs );
+                }
+
+                Snapshot  snapshot;
+
+                for( int nGamePadId = 0; nGamePadId < MAX_GAMEPAD_COUNT; nGamePadId++ )  {
+                    const stPad  &pad   = m_Pads[ nGamePadId ];
+                    stPadState   &state = snapshot[ nGamePadId ];
+
+                    if( pad.hController == nullptr )
+                        continue;
+
+                    state.bAvailable = true;
+                    state.bHasRumble = m_pApi -> HasRumble( pad.hController );
+                    state.strName    = pad.strName;
+
+                    for( int nButton = 0; nButton < SDL_GAMEPAD_BUTTON_COUNT; nButton++ )
+                        state.buttons[ nButton ] = m_pApi -> GetButton( pad.hController, ( ISDLControllerApi :: Button ) nButton );
+
+                    for( int nAxis = 0; nAxis < SDL_GAMEPAD_AXIS_COUNT; nAxis++ )
+                        state.axes[ nAxis ] = m_pApi -> GetAxis( pad.hController, ( ISDLControllerApi :: Axis ) nAxis );
+                }
+
+                {
+                    std :: lock_guard<std :: mutex>  lock( m_Mutex );
+
+                    m_Published.swap( snapshot );
+                }
+
+                return true;
             }
 
             /**
-             * @brief Whether nGamePadId has an open controller.
-             * @param nGamePadId The gamepad id;
+             * @brief Whether SDL is starting, started, or failed to start.
              */
-            bool SDLGamepadDevices :: IsAvailable( int nGamePadId ) const  {
+            SDLGamepadDevices :: State SDLGamepadDevices :: GetState( void ) const  {
 
-                return Controller( nGamePadId ) != nullptr;
+                return ( State ) m_nState.load();
             }
 
             /**
-             * @brief nGamePadId's open controller, nullptr if it has none or is out of range.
-             * @param nGamePadId The gamepad id;
+             * @brief Copies the latest snapshot.
+             * @param snapshot Receives every pad's state;
              */
-            ISDLControllerApi :: ControllerHandle SDLGamepadDevices :: Controller( int nGamePadId ) const  {
+            void SDLGamepadDevices :: Read( Snapshot& snapshot ) const  {
+
+                std :: lock_guard<std :: mutex>  lock( m_Mutex );
+
+                snapshot = m_Published;
+            }
+
+            /**
+             * @brief Whether a pad is there and can rumble, from the latest snapshot - false for an
+             * id out of range.
+             * @param nGamePadId The gamepad id;
+             * @param bAvailable Receives whether it is there;
+             * @param bHasRumble Receives whether it can rumble;
+             */
+            void SDLGamepadDevices :: PadInfo( int nGamePadId, bool& bAvailable, bool& bHasRumble ) const  {
+
+                bAvailable = false;
+                bHasRumble = false;
 
                 if( ( nGamePadId < 0 ) || ( nGamePadId >= MAX_GAMEPAD_COUNT ) )
-                    return nullptr;
+                    return;
 
-                return m_Pads[ nGamePadId ].hController;
+                std :: lock_guard<std :: mutex>  lock( m_Mutex );
+
+                bAvailable = m_Published[ nGamePadId ].bAvailable;
+                bHasRumble = m_Published[ nGamePadId ].bHasRumble;
             }
 
             /**
-             * @brief nGamePadId's name as SDL gave it when it was opened, "" if it has none - never
-             * nullptr, as raylib's own name array never is.
+             * @brief Queues a rumble for the next pass (SDL_GameControllerRumble's arguments). An id
+             * out of range is ignored; a pad gone by then is skipped.
              * @param nGamePadId The gamepad id;
+             * @param nLowFrequency The low-frequency motor, 0..65535;
+             * @param nHighFrequency The high-frequency motor, 0..65535;
+             * @param nDurationMs How long, in milliseconds (0: no end);
              */
-            const char* SDLGamepadDevices :: Name( int nGamePadId ) const  {
+            void SDLGamepadDevices :: Rumble( int nGamePadId, uint16_t nLowFrequency, uint16_t nHighFrequency, uint32_t nDurationMs )  {
 
-                if( !IsAvailable( nGamePadId ) )
-                    return __EMPTY_NAME;
+                if( ( nGamePadId < 0 ) || ( nGamePadId >= MAX_GAMEPAD_COUNT ) )
+                    return;
 
-                return m_Pads[ nGamePadId ].strName.c_str();
-            }
+                std :: lock_guard<std :: mutex>  lock( m_Mutex );
 
-            /**
-             * @brief The SDL API the controllers are open on, for the calls made on them.
-             */
-            ISDLControllerApi& SDLGamepadDevices :: Api( void ) const  {
-
-                return *m_pApi;
+                m_Requests.push_back( stRumbleRequest { nGamePadId, nLowFrequency, nHighFrequency, nDurationMs } );
             }
         }
     }

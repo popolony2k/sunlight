@@ -34,7 +34,8 @@ namespace SunLight  {
          * build time by DEFAULT_GAMEPAD_ENGINE, independent of DEFAULT_ENGINE like the haptics
          * switch: 1 = SDL2 (SDLGamepadInput, the default), 2 = raylib/GLFW (RayLibGamepadInput).
          * With 1, a process whose SDL game-controller subsystem fails to start gets raylib/GLFW's
-         * pads instead, so a game still has gamepads. Each call returns a new instance; the SDL
+         * pads instead (SDLGamepadInput switches to them once SDL's thread reports the failure), so
+         * a game still has gamepads. Each call returns a new instance; the SDL
          * ones share one device list (SDLGamepadDevices).
          */
         class GamepadInputFactory  {
