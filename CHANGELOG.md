@@ -11,9 +11,12 @@ their GitHub release notes. History before 0.1.0 (the 2021-2023 prototype) is in
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-14
+
 The master plan ([`doc/MASTER_PLAN.md`](doc/MASTER_PLAN.md)), developed on `feat/master_plan`.
-Each item is described in full in the plan; what each change means for code built on sunlight
-(Scarab, Caravellius) is listed in [`doc/BREAKAGES.md`](doc/BREAKAGES.md).
+Each item is described in full in the plan. What each change meant for code built on sunlight
+(Scarab, Caravellius) was tracked in `doc/BREAKAGES.md` while the plan was developed; that file is
+removed at this release (it is in the git history), and the Breaking section below summarises it.
 
 ### Breaking
 
@@ -531,7 +534,8 @@ Described in their [GitHub release notes](https://github.com/popolony2k/sunlight
   `GOTO_LABEL_CMD`/`END_LOOP_CMD` (now reported through `OnError()`).
 - The `KeyboardKey` name clash in `TileMapRenderer::SetExitKey`.
 
-[Unreleased]: https://github.com/popolony2k/sunlight/compare/v0.38.0...HEAD
+[Unreleased]: https://github.com/popolony2k/sunlight/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/popolony2k/sunlight/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/popolony2k/sunlight/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/popolony2k/sunlight/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/popolony2k/sunlight/compare/v0.35.0...v0.36.0
