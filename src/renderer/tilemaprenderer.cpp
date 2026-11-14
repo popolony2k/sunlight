@@ -3296,6 +3296,11 @@ namespace SunLight  {
                                           SunLight :: Engines :: EngineFactory :: GetEngine().GetRenderTargetTexture( m_pRenderTexture ),
                                           source, dest, WHITE_COLOR );
                     window.EndFrame();
+
+                    // The input devices are read for the next frame here, where raylib reads the
+                    // keyboard and mouse (EndDrawing, inside EndFrame) - so gamepads read through
+                    // SDL2 change state at the same moment (I25, see IInputHandler::Update).
+                    m_pControllerManager -> GetInputHandler().Update();
                     m_nFramesRun++;
                 }
 

@@ -36,10 +36,15 @@ namespace SunLight  {
              */
             class SDLControllerApi : public ISDLControllerApi  {
 
+                bool  m_bReady;
+
                 public:
 
                 SDLControllerApi( void );
                 ~SDLControllerApi( void ) override;
+
+                bool IsReady( void ) override;
+                void Update( void ) override;
 
                 int NumJoysticks( void ) override;
                 bool IsGameController( int nIndex ) override;
@@ -52,6 +57,8 @@ namespace SunLight  {
                 int32_t InstanceId( ControllerHandle hController ) override;
                 bool HasRumble( ControllerHandle hController ) override;
                 void Rumble( ControllerHandle hController, uint16_t nLowFrequency, uint16_t nHighFrequency, uint32_t nDurationMs ) override;
+                bool GetButton( ControllerHandle hController, Button button ) override;
+                int16_t GetAxis( ControllerHandle hController, Axis axis ) override;
             };
         }
     }

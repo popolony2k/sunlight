@@ -226,6 +226,16 @@ namespace SunLight  {
 
             virtual ~IInputHandler( void )  {}
 
+            /**
+             * @brief Reads the input devices' state for the coming frame (I25 of the master plan).
+             * TileMapRenderer::Run calls it once per frame, right after the window's EndFrame -
+             * where raylib reads the keyboard and mouse itself - so every device's state changes
+             * at the same moment. Code that drives an input handler without TileMapRenderer::Run
+             * calls it once per frame itself; until then, gamepads read through SDL2 keep the
+             * state of the last call (and pads plugged in since then are not found).
+             */
+            virtual void Update( void ) = 0;
+
             // Keyboard handling
 
             /**

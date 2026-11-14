@@ -31,6 +31,7 @@
 #include <string>
 #include <vector>
 #include "backends/sdl/sdlgamepadhaptics.h"
+#include "fake_sdlcontrollerapi.h"
 #include "mock_input.h"
 #include "mock_clock.h"
 
@@ -41,99 +42,9 @@ namespace  {
 
     const int  PAD = 0;
 
-    // What the fake saw. It outlives the haptics object, so the destructor's closes can be checked.
-    struct FakeLog  {
-        struct RumbleCall  {
-            int32_t   nInstanceId;
-            uint16_t  nLow;
-            uint16_t  nHigh;
-            uint32_t  nDurationMs;
-        };
-
-        int                          nOpens  = 0;
-        int                          nCloses = 0;
-        std :: vector<RumbleCall>    rumbles;
-    };
-
-    // One SDL-side device, at its index in FakeControllerApi::devices.
-    struct FakeDevice  {
-        std :: string  strName;
-        int32_t        nInstanceId;
-        bool           bAttached;
-        bool           bHasRumble;
-    };
-
-    class FakeControllerApi : public ISDLControllerApi  {
-
-        FakeLog                             &m_Log;
-        std :: map<void*, int32_t>          m_Open;          // each open handle and its device's instance id
-
-        const FakeDevice* Find( int32_t nInstanceId ) const  {
-            for( const FakeDevice& device : devices )
-                if( device.nInstanceId == nInstanceId )
-                    return &device;
-
-            return nullptr;
-        }
-
-        public:
-
-        std :: vector<FakeDevice>  devices;
-        bool                       bOpenFails = false;
-
-        explicit FakeControllerApi( FakeLog& log ) : m_Log( log )  {}
-
-        ~FakeControllerApi( void ) override  {
-            CHECK( m_Open.empty() );                     // every controller closed before the API goes
-
-            for( std :: pair<void* const, int32_t>& entry : m_Open )
-                delete static_cast<int*>( entry.first );
-        }
-
-        int NumJoysticks( void ) override                      { return ( int ) devices.size(); }
-        bool IsGameController( int nIndex ) override           { return true; }
-        const char* NameForIndex( int nIndex ) override        { return devices[ nIndex ].strName.c_str(); }
-        int32_t InstanceIdForIndex( int nIndex ) override      { return devices[ nIndex ].nInstanceId; }
-
-        ControllerHandle Open( int nIndex ) override  {
-            if( bOpenFails )
-                return nullptr;
-
-            void  *hController = new int( 0 );        // a distinct handle per open
-
-            m_Open[ hController ] = devices[ nIndex ].nInstanceId;
-            m_Log.nOpens++;
-
-            return hController;
-        }
-
-        void Close( ControllerHandle hController ) override  {
-            REQUIRE( m_Open.count( hController ) == 1 );
-            m_Open.erase( hController );
-            delete static_cast<int*>( hController );
-            m_Log.nCloses++;
-        }
-
-        bool IsAttached( ControllerHandle hController ) override  {
-            const FakeDevice  *pDevice = Find( m_Open.at( hController ) );
-
-            return ( pDevice != nullptr ) && pDevice -> bAttached;
-        }
-
-        int32_t InstanceId( ControllerHandle hController ) override  {
-            return m_Open.at( hController );
-        }
-
-        bool HasRumble( ControllerHandle hController ) override  {
-            const FakeDevice  *pDevice = Find( m_Open.at( hController ) );
-
-            return ( pDevice != nullptr ) && pDevice -> bHasRumble;
-        }
-
-        void Rumble( ControllerHandle hController, uint16_t nLow, uint16_t nHigh, uint32_t nDurationMs ) override  {
-            m_Log.rumbles.push_back( FakeLog :: RumbleCall { m_Open.at( hController ), nLow, nHigh, nDurationMs } );
-        }
-    };
+    using FakeSDL :: FakeLog;
+    using FakeSDL :: FakeDevice;
+    using FakeSDL :: FakeControllerApi;
 
     // One raylib-side pad (PAD, the mock's own name) and one SDL device: exactly one on each side,
     // so they are the same device (gamepadidentitymatcher.h's single-candidate rule).

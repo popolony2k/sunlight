@@ -40,6 +40,8 @@ namespace SunLight  {
 
                 public:
 
+                void Update( void ) override;
+
                 SunLight :: Input :: KeyboardKey GetKeyPressed( void ) override;
                 bool IsKeyDown( SunLight :: Input :: KeyboardKey key ) override;
                 bool IsKeyUp( SunLight :: Input :: KeyboardKey key ) override;

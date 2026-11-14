@@ -21,8 +21,10 @@
 #ifndef __RAYLIBINPUTHANDLER_H__
 #define __RAYLIBINPUTHANDLER_H__
 
-#include "iinputhandler.h"
+#include "input/iinputhandler.h"
+#include "input/igamepadinput.h"
 #include "base/object.h"
+#include <memory>
 
 namespace SunLight  {
     namespace Input  {
@@ -30,30 +32,38 @@ namespace SunLight  {
             /**
              * @brief Keyboard input handler implementation based on 
              * RayLib library.
+             *
+             * The gamepads come from an IGamepadInput that GamepadInputFactory picks (I25 of the
+             * master plan): SDL2 by default, raylib/GLFW as the build option or when SDL cannot
+             * start. Every gamepad method forwards to it.
              */
             class RayLibInputHandler : public SunLight :: Base :: Object, public IInputHandler  {
+
+                std :: unique_ptr<SunLight :: Input :: IGamepadInput>  m_pGamepads;
 
                 public:
 
                 RayLibInputHandler( void );
-                virtual ~RayLibInputHandler( void );
+                ~RayLibInputHandler( void ) override;
 
                 // Keyboard handling
 
-                SunLight :: Input :: KeyboardKey GetKeyPressed( void );
-                bool IsKeyDown( SunLight :: Input :: KeyboardKey key );
-                bool IsKeyUp( SunLight :: Input :: KeyboardKey key );
-                bool IsKeyReleased( SunLight :: Input :: KeyboardKey key );
+                SunLight :: Input :: KeyboardKey GetKeyPressed( void ) override;
+                bool IsKeyDown( SunLight :: Input :: KeyboardKey key ) override;
+                bool IsKeyUp( SunLight :: Input :: KeyboardKey key ) override;
+                bool IsKeyReleased( SunLight :: Input :: KeyboardKey key ) override;
+
+                void Update( void ) override;
 
                 // Gamepad handling
 
-                const char* GetGamepadName( int nGamePadId );
-                bool IsGamepadAvailable( int nGamePadId );
-                bool IsGamepadButtonDown( int nGamePadId, SunLight :: Input :: GamepadButton button );
-                bool IsGamepadButtonUp( int nGamePadId, SunLight :: Input :: GamepadButton button );
-                int GetGamepadButtonPressed( void );
-                int GetGamepadAxisCount( int nGamePadId );
-                float GetGamepadAxisMovement( int nGamePadId, SunLight :: Input :: GamepadAxis axis );
+                const char* GetGamepadName( int nGamePadId ) override;
+                bool IsGamepadAvailable( int nGamePadId ) override;
+                bool IsGamepadButtonDown( int nGamePadId, SunLight :: Input :: GamepadButton button ) override;
+                bool IsGamepadButtonUp( int nGamePadId, SunLight :: Input :: GamepadButton button ) override;
+                int GetGamepadButtonPressed( void ) override;
+                int GetGamepadAxisCount( int nGamePadId ) override;
+                float GetGamepadAxisMovement( int nGamePadId, SunLight :: Input :: GamepadAxis axis ) override;
             };
         }
     }

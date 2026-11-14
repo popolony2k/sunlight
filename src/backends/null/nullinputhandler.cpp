@@ -29,6 +29,13 @@ namespace SunLight  {
         namespace Null  {
 
             /**
+             * @brief Nothing to read: no device is ever connected.
+             */
+            void NullInputHandler :: Update( void )  {
+
+            }
+
+            /**
              * @brief Nothing is ever pressed.
              */
             SunLight :: Input :: KeyboardKey NullInputHandler :: GetKeyPressed( void )  {

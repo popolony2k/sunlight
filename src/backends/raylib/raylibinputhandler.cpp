@@ -19,67 +19,19 @@
  */
 
 #include "backends/raylib/raylibinputhandler.h"
+#include "backends/raylib/raylibcodemap.h"
+#include "input/gamepadinputfactory.h"
 #include <raylib.h>
 #include <array>
 
 
+#define __KEY_CODE_COUNT               349        // one past the highest key code (KEY_KB_MENU)
+
+
 namespace  {
 
-    // One translation: our code and raylib's code for the same key, button or axis.
-    struct CodePair  {
-        int nOurs;
-        int nRaylib;
-    };
-
-    // Both directions of one translation table: toRaylib is indexed by our code, fromRaylib
-    // by raylib's code. A code that is not mapped is 0.
-    template<std :: size_t N>
-    struct CodeMap  {
-        std :: array<int, N>  toRaylib;
-        std :: array<int, N>  fromRaylib;
-    };
-
-    // Builds both directions from one list of pairs, at compile time. A code out of range, or a
-    // code used by two pairs, throws, which makes a constexpr table a compile error.
-    template<std :: size_t N, std :: size_t M>
-    constexpr CodeMap<N> BuildCodeMap( const CodePair ( &pairs )[M] )  {
-
-        CodeMap<N>            map {};
-        std :: array<bool, N> seenOurs {};
-        std :: array<bool, N> seenRaylib {};
-
-        for( const CodePair& p : pairs )  {
-            if( ( p.nOurs < 0 ) || ( p.nOurs >= ( int ) N ) || ( p.nRaylib < 0 ) || ( p.nRaylib >= ( int ) N ) )
-                throw "a code is out of the table's range";
-
-            if( seenOurs[p.nOurs] || seenRaylib[p.nRaylib] )
-                throw "a code appears in two pairs";
-
-            seenOurs[p.nOurs]         = true;
-            seenRaylib[p.nRaylib]     = true;
-            map.toRaylib[p.nOurs]     = p.nRaylib;
-            map.fromRaylib[p.nRaylib] = p.nOurs;
-        }
-
-        return map;
-    }
-
-    // Our code -> raylib's code. A code outside the table gives 0.
-    template<std :: size_t N>
-    constexpr int ToRaylib( const CodeMap<N>& map, int nCode )  {
-
-        return ( ( nCode >= 0 ) && ( nCode < ( int ) N ) ) ? map.toRaylib[nCode] : 0;
-    }
-
-    // raylib's code -> ours. A raylib code outside the table gives 0.
-    template<std :: size_t N>
-    constexpr int FromRaylib( const CodeMap<N>& map, int nRaylibCode )  {
-
-        return ( ( nRaylibCode >= 0 ) && ( nRaylibCode < ( int ) N ) ) ? map.fromRaylib[nRaylibCode] : 0;
-    }
-
-    // The pairs: one line per key, button and axis. Both directions are generated from these.
-    constexpr CodePair kKeyPairs[] = {
+    // The pairs: one line per key. Both directions are generated from these.
+    constexpr SunLight :: Input :: RayLib :: CodePair kKeyPairs[] = {
         { SunLight :: Input :: KEY_NULL, ::KEY_NULL },
         { SunLight :: Input :: KEY_APOSTROPHE, ::KEY_APOSTROPHE },
         { SunLight :: Input :: KEY_COMMA, ::KEY_COMMA },
@@ -192,39 +144,7 @@ namespace  {
         { SunLight :: Input :: KEY_VOLUME_DOWN, ::KEY_VOLUME_DOWN },
     };
 
-    constexpr CodePair kPadButtonPairs[] = {
-        { SunLight :: Input :: GAMEPAD_BUTTON_UNKNOWN, ::GAMEPAD_BUTTON_UNKNOWN },
-        { SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_UP, ::GAMEPAD_BUTTON_LEFT_FACE_UP },
-        { SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT, ::GAMEPAD_BUTTON_LEFT_FACE_RIGHT },
-        { SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_DOWN, ::GAMEPAD_BUTTON_LEFT_FACE_DOWN },
-        { SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_LEFT, ::GAMEPAD_BUTTON_LEFT_FACE_LEFT },
-        { SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_UP, ::GAMEPAD_BUTTON_RIGHT_FACE_UP },
-        { SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT, ::GAMEPAD_BUTTON_RIGHT_FACE_RIGHT },
-        { SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN, ::GAMEPAD_BUTTON_RIGHT_FACE_DOWN },
-        { SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT, ::GAMEPAD_BUTTON_RIGHT_FACE_LEFT },
-        { SunLight :: Input :: GAMEPAD_BUTTON_LEFT_TRIGGER_1, ::GAMEPAD_BUTTON_LEFT_TRIGGER_1 },
-        { SunLight :: Input :: GAMEPAD_BUTTON_LEFT_TRIGGER_2, ::GAMEPAD_BUTTON_LEFT_TRIGGER_2 },
-        { SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_TRIGGER_1, ::GAMEPAD_BUTTON_RIGHT_TRIGGER_1 },
-        { SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_TRIGGER_2, ::GAMEPAD_BUTTON_RIGHT_TRIGGER_2 },
-        { SunLight :: Input :: GAMEPAD_BUTTON_MIDDLE_LEFT, ::GAMEPAD_BUTTON_MIDDLE_LEFT },
-        { SunLight :: Input :: GAMEPAD_BUTTON_MIDDLE, ::GAMEPAD_BUTTON_MIDDLE },
-        { SunLight :: Input :: GAMEPAD_BUTTON_MIDDLE_RIGHT, ::GAMEPAD_BUTTON_MIDDLE_RIGHT },
-        { SunLight :: Input :: GAMEPAD_BUTTON_LEFT_THUMB, ::GAMEPAD_BUTTON_LEFT_THUMB },
-        { SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_THUMB, ::GAMEPAD_BUTTON_RIGHT_THUMB },
-    };
-
-    constexpr CodePair kPadAxisPairs[] = {
-        { SunLight :: Input :: GAMEPAD_AXIS_LEFT_X, ::GAMEPAD_AXIS_LEFT_X },
-        { SunLight :: Input :: GAMEPAD_AXIS_LEFT_Y, ::GAMEPAD_AXIS_LEFT_Y },
-        { SunLight :: Input :: GAMEPAD_AXIS_RIGHT_X, ::GAMEPAD_AXIS_RIGHT_X },
-        { SunLight :: Input :: GAMEPAD_AXIS_RIGHT_Y, ::GAMEPAD_AXIS_RIGHT_Y },
-        { SunLight :: Input :: GAMEPAD_AXIS_LEFT_TRIGGER, ::GAMEPAD_AXIS_LEFT_TRIGGER },
-        { SunLight :: Input :: GAMEPAD_AXIS_RIGHT_TRIGGER, ::GAMEPAD_AXIS_RIGHT_TRIGGER },
-    };
-
-    constexpr CodeMap<349> kKeys       = BuildCodeMap<349>( kKeyPairs );
-    constexpr CodeMap<18>  kPadButtons = BuildCodeMap<18>( kPadButtonPairs );
-    constexpr CodeMap<6>   kPadAxes    = BuildCodeMap<6>( kPadAxisPairs );
+    constexpr SunLight :: Input :: RayLib :: CodeMap<__KEY_CODE_COUNT>  kKeys = SunLight :: Input :: RayLib :: BuildCodeMap<__KEY_CODE_COUNT>( kKeyPairs );
 }
 
 
@@ -234,7 +154,8 @@ namespace SunLight  {
             /**
              * @brief Constructor. Initialize all class data. 
              */
-            RayLibInputHandler :: RayLibInputHandler( void )  {
+            RayLibInputHandler :: RayLibInputHandler( void )
+                : m_pGamepads( SunLight :: Input :: GamepadInputFactory :: CreateGamepadInput() )  {
 
             }
 
@@ -291,86 +212,77 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Get the Gamepad Name for requested Game Pad Id;
-             * 
-             * @param nGamePadId The game pad id to check; 
-             * @return const char* 
+             * @brief Reads the gamepads for the coming frame (see IInputHandler::Update). The
+             * keyboard and mouse need nothing: raylib reads them itself, in EndDrawing.
+             */
+            void RayLibInputHandler :: Update( void )  {
+
+                m_pGamepads -> Update();
+            }
+
+            /**
+             * @brief The pad's name, from the gamepad backend (see the class's doc comment).
+             * @param nGamePadId The game pad id to check;
              */
             const char* RayLibInputHandler :: GetGamepadName( int nGamePadId )  {
 
-                return ::GetGamepadName( nGamePadId );
+                return m_pGamepads -> GetGamepadName( nGamePadId );
             }
 
             /**
-             * @brief Check if the requested gamepad is available;
-             * 
-             * @param nGamePadId The game pad id to check; 
-             * @return true 
-             * @return false 
+             * @brief Whether the pad is connected, from the gamepad backend.
+             * @param nGamePadId The game pad id to check;
              */
             bool RayLibInputHandler :: IsGamepadAvailable( int nGamePadId )  {
 
-                return ::IsGamepadAvailable( nGamePadId );
+                return m_pGamepads -> IsGamepadAvailable( nGamePadId );
             }
-          
+
             /**
-             * @brief Check if the specified button is in down state;
-             * 
-             * @param nGamePadId The game pad id to check; 
+             * @brief Whether the button is down, from the gamepad backend.
+             * @param nGamePadId The game pad id to check;
              * @param button Button code to check;
-             * @return true If is pressed state;
-             * @return false If is not in pressed state;
              */
             bool RayLibInputHandler :: IsGamepadButtonDown( int nGamePadId, SunLight :: Input :: GamepadButton button )  {
 
-                return ::IsGamepadButtonDown( nGamePadId, ( ::GamepadButton ) ToRaylib( kPadButtons, button ) );
+                return m_pGamepads -> IsGamepadButtonDown( nGamePadId, button );
             }
 
             /**
-             * @brief Check if the specified button is in up state;
-             * 
-             * @param nGamePadId The game pad id to check; 
+             * @brief Whether the button is up, from the gamepad backend.
+             * @param nGamePadId The game pad id to check;
              * @param button Button code to check;
-             * @return true If is pressed state;
-             * @return false If is not in pressed state;
              */
             bool RayLibInputHandler :: IsGamepadButtonUp( int nGamePadId, SunLight :: Input :: GamepadButton button )  {
 
-                return ::IsGamepadButtonUp( nGamePadId, ( ::GamepadButton ) ToRaylib( kPadButtons, button ) );
+                return m_pGamepads -> IsGamepadButtonUp( nGamePadId, button );
             }
 
             /**
-             * @brief Get the Gamepad index when the related GamePad Mid Button
-             * is pressed; 
-             * 
-             * @return int The Gamepad axis index which was pressed;
+             * @brief The last button held, from the gamepad backend.
              */
             int RayLibInputHandler :: GetGamepadButtonPressed( void )  {
 
-                return FromRaylib( kPadButtons, ::GetGamepadButtonPressed() );
+                return m_pGamepads -> GetGamepadButtonPressed();
             }
 
             /**
-             * @brief Get the Gamepad Axis count;
-             * 
-             * @param nGamePadId The game pad id to check; 
-             * @return int 
+             * @brief The pad's axis count, from the gamepad backend.
+             * @param nGamePadId The game pad id to check;
              */
             int RayLibInputHandler :: GetGamepadAxisCount( int nGamePadId )  {
 
-                return ::GetGamepadAxisCount( nGamePadId );
+                return m_pGamepads -> GetGamepadAxisCount( nGamePadId );
             }
 
             /**
-             * @brief Get the Gamepad Axis Movement position
-             * 
-             * @param nGamePadId The game pd id to check;
+             * @brief The axis position, from the gamepad backend.
+             * @param nGamePadId The game pad id to check;
              * @param axis The axis to check;
-             * @return float The returned position for requested gamepad and axis; 
              */
             float RayLibInputHandler :: GetGamepadAxisMovement( int nGamePadId, SunLight :: Input :: GamepadAxis axis )  {
 
-                return ::GetGamepadAxisMovement( nGamePadId, ( ::GamepadAxis ) ToRaylib( kPadAxes, axis ) );
+                return m_pGamepads -> GetGamepadAxisMovement( nGamePadId, axis );
             }
         }
     }
