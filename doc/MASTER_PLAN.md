@@ -2247,6 +2247,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I22 | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount` (asked for by Scarab, for its C8 sandbox) | DONE |
 | I23 | An opt-in screen-space image layer (`screen_space` custom property), as image layers drew before L1; BREAKAGES 34 corrected (found by Caravellius, through Scarab) | DONE |
 | I24 | Image layers drawn at their picture's real size, not the size the map declares (found by Caravellius, through Scarab) | DONE |
+| I25 | Gamepads read through SDL2, rumble on the same SDL devices, with a raylib/GLFW fallback (Caravellius' five macOS gamepad findings) | DONE |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
@@ -3263,9 +3264,56 @@ and repeated it along the right and bottom edges.
   along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all
   axis Y, and the axis-X projection tests build their maps in code, so nothing caught it.
 
+**I25: gamepads through SDL2 (DONE).** Caravellius reported five gamepad findings on macOS, each
+checked in sunlight's code and in GLFW's and SDL's sources: (1) a Switch-mode pad over USB reports
+nothing - it needs a handshake written to it, which SDL's Switch driver sends (`SDL_hidapi_switch.c`,
+`BTrySetupUSB`) and GLFW's macOS joystick code never can (`cocoa_joystick.m` never writes to a device);
+(2) the first rumble stalled the game - the SDL controller was opened then, on the main thread;
+(3) a Switch pad over Bluetooth updates about 30 times a second - GLFW leaves it in its basic report
+mode, SDL moves it to the full one; (4) with two pads, rumble could pick the wrong one - raylib/GLFW's
+and SDL's lists were paired by name (`MatchGamepadsByName`), and the two libraries name the same pad
+differently; (5) SDL's device list was never refreshed - nothing called `SDL_JoystickUpdate`.
+
+- **Decided with the owner:** read the pads through SDL2 (already linked, with its joystick and HIDAPI
+  drivers built), keyboard and mouse staying on raylib, with raylib/GLFW as a fallback.
+- **`IGamepadInput`** (`input/igamepadinput.h`): the gamepad half of `IInputHandler` plus `Update()`.
+  `RayLibInputHandler` keeps the keyboard and mouse and forwards its pad calls to one from
+  **`GamepadInputFactory`**, switched by `DEFAULT_GAMEPAD_ENGINE` (1 = SDL2, the default; 2 =
+  raylib/GLFW, today's code moved to `RayLibGamepadInput`); with 1, a process whose SDL game-controller
+  subsystem fails to start gets raylib/GLFW's pads.
+- **`IInputHandler::Update()`** (new pure virtual): `TileMapRenderer::Run` calls it once per frame right
+  after the window's `EndFrame`, where raylib reads the keyboard and mouse (`EndDrawing` ->
+  `PollInputEvents`), so every device changes state at the same moment.
+- **`SDLGamepadDevices`**: the open SDL controllers by pad id, shared by the input and the rumble.
+  `Update()` calls `SDL_GameControllerUpdate`, which is `SDL_JoystickUpdate`: every driver's `Detect()`
+  runs there, so hot-plug works with no video subsystem (finding 5). A pad is opened on the frame it
+  appears (finding 2, moved off the first rumble; opening off the main thread is not in I25 - SDL2's
+  threading rules for it were not verified), at the lowest free id up to `MAX_GAMEPAD_COUNT` (10, raylib
+  allowed 4), kept until unplugged; a device that fails to open is not retried while it stays listed.
+- **`SDLGamepadInput`**: answers as raylib does (`rcore.c`, `rcore_desktop_glfw.c`): buttons on the Xbox
+  layout by position - `SDL_GAMECONTROLLER_USE_BUTTON_LABELS` is turned off before SDL starts, as SDL2
+  reports a Nintendo pad by label by default (`RemapButton`; pads with no diamond layout always use
+  labels, `AlwaysUsesLabels`); sticks in -1..1; triggers -1 (released) .. 1; the second-trigger buttons
+  pressed past 0.1 on that scale; `GetGamepadButtonPressed` the last button held, in GLFW's order, reset
+  each update; six axes. Findings 1 and 3 come from SDL's drivers.
+- **`SDLGamepadHaptics`**: on the pads' own devices when they come from SDL (`SDLGamepadDevices ::
+  Current()`), a direct lookup by id (finding 4); the name matching stays only for the raylib/GLFW path.
+- On macOS both libraries open a pad in shared mode (`kIOHIDOptionsTypeNone`: GLFW's `IOHIDManagerOpen`,
+  SDL's `hidapi/mac/hid.c`), so GLFW still enumerating the pads does not block SDL.
+- **Tests** (`tests/test_sdlgamepadinput.cpp`, 17; the fake SDL API moved to
+  `tests/fake_sdlcontrollerapi.h`): ids, hot-plug, failed opens, the cap, every button, the axes'
+  end values exactly, the trigger threshold, the last button pressed, rumble on two same-named pads,
+  the factory's choice and fallback, and `Run` updating the input once per frame after `EndFrame`. Each
+  of eight mutations (no update call, haptics by name, a swapped button, the threshold, the trigger
+  scale, no fallback, retrying failed opens, no reset of the last button) fails a test.
+- **To check on real pads:** the owner (`samples/gamepad`, `samples/isometric_haptics`) and Caravellius
+  (its three pads: Switch over USB and Bluetooth, rumble with two pads, the connect frame's cost).
+- `doc/BREAKAGES.md` entry 78.
+
 
 - **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
-  today. The SDL backend is a large change of its own, and will be handled in a separate
+  today as an engine and window backend (SDL2 reads the gamepads and drives the rumble, F7b and
+  I25). A full SDL backend is a large change of its own, and will be handled in a separate
   plan, not in this one.
 
 ## Design decisions

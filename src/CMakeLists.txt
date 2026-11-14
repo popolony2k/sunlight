@@ -45,6 +45,14 @@ set(SUNLIGHT_DEFAULT_BACKEND_FILESYSTEM 1)
 #
 set(SUNLIGHT_DEFAULT_BACKEND_HAPTICS 1)
 
+#
+# Setup default gamepad input backend (DEFAULT_GAMEPAD_ENGINE preprocessor) -
+# I25 of the master plan
+# 1 - SDL2, with raylib/GLFW as the fallback when SDL cannot start
+# 2 - raylib/GLFW
+#
+set(SUNLIGHT_DEFAULT_BACKEND_GAMEPAD 1)
+
 if(NOT USE_LOCAL_LIBXML2)
     ####################################################################
     # LibXml2 (TMX dependency)
@@ -246,6 +254,7 @@ endif()
 add_definitions(-DDEFAULT_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_ENGINE})
 add_definitions(-DDEFAULT_FILESYSTEM=${SUNLIGHT_DEFAULT_BACKEND_FILESYSTEM})
 add_definitions(-DDEFAULT_HAPTICS_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_HAPTICS})
+add_definitions(-DDEFAULT_GAMEPAD_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_GAMEPAD})
 
 add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 

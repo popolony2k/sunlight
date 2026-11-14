@@ -29,10 +29,12 @@ namespace SunLight  {
         namespace SDL  {
 
             /**
-             * @brief The SDL2 GameController calls SDLGamepadHaptics makes, behind an interface of
-             * its own so its logic (which controller it opens, when it reuses or reopens one) can
-             * be tested with a fake and no real device (SDLControllerApi is the real one). Internal
-             * to the SDL backend: no SDL type crosses it, a controller is an opaque handle.
+             * @brief The SDL2 GameController calls the SDL backend makes (SDLGamepadDevices,
+             * SDLGamepadInput, SDLGamepadHaptics), behind an interface of its own so their logic
+             * (which controller is opened, when it is reused or reopened, how its buttons and axes
+             * are read) can be tested with a fake and no real device (SDLControllerApi is the real
+             * one). Internal to the SDL backend: no SDL type crosses it, a controller is an opaque
+             * handle, and a button or an axis is one of the enums below.
              */
             class ISDLControllerApi  {
 
@@ -40,7 +42,49 @@ namespace SunLight  {
 
                 typedef void*  ControllerHandle;    // an SDL_GameController*, opaque outside the real API
 
+                /**
+                 * @brief SDL's SDL_GameControllerButton, value for value (the real API checks each
+                 * one with a static_assert): SDL's own layout, an Xbox-style pad.
+                 */
+                enum Button  {
+                    BUTTON_A = 0,
+                    BUTTON_B,
+                    BUTTON_X,
+                    BUTTON_Y,
+                    BUTTON_BACK,
+                    BUTTON_GUIDE,
+                    BUTTON_START,
+                    BUTTON_LEFTSTICK,
+                    BUTTON_RIGHTSTICK,
+                    BUTTON_LEFTSHOULDER,
+                    BUTTON_RIGHTSHOULDER,
+                    BUTTON_DPAD_UP,
+                    BUTTON_DPAD_DOWN,
+                    BUTTON_DPAD_LEFT,
+                    BUTTON_DPAD_RIGHT
+                };
+
+                /**
+                 * @brief SDL's SDL_GameControllerAxis, value for value (checked as Button is). A
+                 * stick reads -32768..32767, a trigger 0..32767 (SDL_GameControllerGetAxis).
+                 */
+                enum Axis  {
+                    AXIS_LEFTX = 0,
+                    AXIS_LEFTY,
+                    AXIS_RIGHTX,
+                    AXIS_RIGHTY,
+                    AXIS_TRIGGERLEFT,
+                    AXIS_TRIGGERRIGHT
+                };
+
                 virtual ~ISDLControllerApi( void )  {}
+
+                // Whether SDL's game-controller subsystem started (SDL_InitSubSystem's result).
+                virtual bool IsReady( void ) = 0;
+
+                // SDL_GameControllerUpdate: reads every open controller's state and finds the pads
+                // that were plugged in or removed since the last call.
+                virtual void Update( void ) = 0;
 
                 // The device list (SDL_NumJoysticks, SDL_IsGameController, SDL_GameControllerNameForIndex,
                 // SDL_JoystickGetDeviceInstanceID).
@@ -57,6 +101,11 @@ namespace SunLight  {
                 virtual int32_t InstanceId( ControllerHandle hController ) = 0;
                 virtual bool HasRumble( ControllerHandle hController ) = 0;
                 virtual void Rumble( ControllerHandle hController, uint16_t nLowFrequency, uint16_t nHighFrequency, uint32_t nDurationMs ) = 0;
+
+                // An open controller's state as of the last Update (SDL_GameControllerGetButton,
+                // SDL_GameControllerGetAxis).
+                virtual bool GetButton( ControllerHandle hController, Button button ) = 0;
+                virtual int16_t GetAxis( ControllerHandle hController, Axis axis ) = 0;
             };
         }
     }

@@ -24,6 +24,7 @@
 #include "input/igamepadhaptics.h"
 #include "input/iinputhandler.h"
 #include "backends/sdl/isdlcontrollerapi.h"
+#include "backends/sdl/sdlgamepaddevices.h"
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -34,37 +35,39 @@ namespace SunLight  {
         namespace SDL  {
 
             /**
-             * @brief Real gamepad rumble via SDL2's GameController API (F7b of the master
-             * plan) - raylib/GLFW, which every other gamepad query in this project goes
-             * through, has no vibration support at all. Every nGamePadId here is still the
-             * same id IInputHandler uses (raylib/GLFW's own device index), re-correlated to
-             * SDL's own, separately-enumerated device list on every call via
-             * MatchGamepadsByName - exactly one gamepad on each side is always the same
-             * device; with more than one on either side it falls back to a best-effort name
-             * match, not a guaranteed-unique device identity (see gamepadidentitymatcher.h for
-             * why - confirmed live that even a single, correctly-detected real controller can
-             * have disagreeing names between the two libraries). Initializes/releases SDL's
-             * joystick+game-controller subsystem by reference count (through SDLControllerApi:
-             * SDL_InitSubSystem/SDL_QuitSubSystem, not SDL_Init/SDL_Quit), so more than one
-             * instance can coexist safely.
+             * @brief Real gamepad rumble via SDL2's GameController API (F7b of the master plan) -
+             * raylib/GLFW has no vibration support at all.
              *
-             * Each pad's controller is opened once and kept open (m_Controllers): reused while it
-             * stays attached and is still the device that matches the pad, reopened otherwise,
-             * closed by the destructor. Measured live (an Xbox One S Controller on macOS, SDL's
-             * HIDAPI driver): opening one and sending a rumble each take well under 0.1 ms, but
+             * Two ways to find a pad's SDL controller:
+             * - When the pads themselves are read through SDL (I25: SDLGamepadInput, the default),
+             *   the controller is the one SDLGamepadDevices opened for that pad id - the same device
+             *   by construction, opened when it was plugged in, not on the first rumble.
+             * - Otherwise (DEFAULT_GAMEPAD_ENGINE 2, or SDL's pads could not start), nGamePadId is
+             *   raylib/GLFW's own device index, correlated with SDL's own, separately-enumerated
+             *   device list on every call via MatchGamepadsByName - exactly one gamepad on each side
+             *   is always the same device; with more than one on either side it falls back to a
+             *   best-effort name match, not a guaranteed-unique device identity (see
+             *   gamepadidentitymatcher.h for why - confirmed live that even a single,
+             *   correctly-detected real controller can have disagreeing names between the two
+             *   libraries). Each pad's controller is then opened once and kept open
+             *   (m_Controllers): reused while it stays attached and is still the device that
+             *   matches the pad, reopened otherwise, closed by the destructor.
+             *
+             * Why controllers stay open: measured live (an Xbox One S Controller on macOS, SDL's
+             * HIDAPI driver), opening one and sending a rumble each take well under 0.1 ms, but
              * closing one right after a rumble took about 11 ms on the calling thread - SDL's close
              * sends "motors off" (SDL_JoystickClose) and the HIDAPI close then waits, in 10 ms
              * SDL_Delay steps (up to 30 ms), for that pending rumble to go out
-             * (HIDAPI_JoystickClose) - and it cut every rumble short. Opening and closing around
-             * each call, as this class first did, cost a game's frame about 11 ms when a rumble
-             * started and again when it stopped. SDL's macOS HID open is not exclusive
-             * (kIOHIDOptionsTypeNone), so raylib/GLFW keeps reading the same pad while it is open.
+             * (HIDAPI_JoystickClose) - and it cut every rumble short. SDL's macOS HID open is not
+             * exclusive (kIOHIDOptionsTypeNone), so raylib/GLFW keeps reading the same pad while
+             * it is open.
              *
-             * SetVibration's own duration does not auto-stop by itself - confirmed live: SDL2's
-             * internal rumble expiration only runs inside SDL_JoystickUpdate(), which nothing
-             * else in this engine ever calls. m_VibrationDeadlines tracks each vibrating pad's
-             * own stop time (SunLight::General::Clock, not SDL's own clock), and Update() (the
-             * owner's own per-frame tick) calls the real Stop() once it passes.
+             * SDL2's own rumble expiration only runs inside SDL_JoystickUpdate(), which only
+             * SDLGamepadDevices calls (once per frame, through the input handler's Update) - so on
+             * the name-matching path nothing would ever stop a rumble. m_VibrationDeadlines tracks
+             * each vibrating pad's own stop time (SunLight::General::Clock, not SDL's own clock)
+             * on both paths, and Update() (the owner's own per-frame tick) calls the real Stop()
+             * once it passes.
              */
             class SDLGamepadHaptics : public SunLight :: Input :: IGamepadHaptics  {
 
@@ -75,7 +78,8 @@ namespace SunLight  {
                 };
 
                 SunLight :: Input :: IInputHandler&           m_InputHandler;
-                std :: unique_ptr<ISDLControllerApi>          m_pApi;
+                std :: shared_ptr<SDLGamepadDevices>          m_pDevices;       // the pads' own devices (I25), or nullptr
+                std :: unique_ptr<ISDLControllerApi>          m_pApi;           // the name-matching path's API, when m_pDevices is nullptr
                 std :: map<int, int64_t>                      m_VibrationDeadlines;
                 mutable std :: map<int, OpenController>       m_Controllers;    // by nGamePadId; IsSupported fills it too
 
@@ -83,6 +87,7 @@ namespace SunLight  {
                 // the pad has no matching SDL device or it cannot be opened.
                 ISDLControllerApi :: ControllerHandle ControllerFor( int nGamePadId ) const;
                 void CloseController( int nGamePadId ) const;
+                ISDLControllerApi& Api( void ) const;
 
                 // The SDL device index matching nGamePadId's raylib/GLFW identity, or -1 if
                 // nGamePadId is unavailable or no SDL device matched it.
@@ -90,10 +95,16 @@ namespace SunLight  {
 
                 public:
 
+                // The pads' own SDL devices when they are read through SDL (SDLGamepadDevices ::
+                // Current), the name-matching path on the real SDL API otherwise.
                 explicit SDLGamepadHaptics( SunLight :: Input :: IInputHandler& inputHandler );
 
-                // With another ISDLControllerApi (the tests' fake); nullptr means the real one.
+                // The name-matching path on another ISDLControllerApi (the tests' fake); nullptr
+                // means the real one.
                 SDLGamepadHaptics( SunLight :: Input :: IInputHandler& inputHandler, std :: unique_ptr<ISDLControllerApi> pApi );
+
+                // On these devices (the tests' own, on a fake API).
+                SDLGamepadHaptics( SunLight :: Input :: IInputHandler& inputHandler, std :: shared_ptr<SDLGamepadDevices> pDevices );
                 ~SDLGamepadHaptics( void ) override;
 
                 bool IsSupported( int nGamePadId ) const override;

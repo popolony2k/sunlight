@@ -60,9 +60,19 @@ Each item is described in full in the plan; what each change means for code buil
   far-edge coordinate, so the view started past the map or short of its edge (and `BOTTOM_LEFT` and
   `BOTTOM_RIGHT` disagreed). A game that starts at a bottom or right alignment starts at a different
   camera position.
+- `IInputHandler` gains a pure virtual `Update()`, which reads the input devices for the coming frame;
+  `TileMapRenderer::Run` calls it once per frame, right after the window's `EndFrame`. A class
+  implementing `IInputHandler` must add it, and code driving an input handler without `Run` calls it
+  once per frame. Gamepads are read through SDL2 by default (see Added), so pad names and ids come
+  from SDL.
 
 ### Added
 
+- Gamepads are read through SDL2 (`SDLGamepadInput`), while the keyboard and mouse stay on raylib, and
+  the rumble uses the very same SDL devices. Up to `MAX_GAMEPAD_COUNT` (10) pads, each at the lowest
+  free id until it is unplugged; face buttons by position, axes and triggers on raylib's scale. A new
+  build switch, `DEFAULT_GAMEPAD_ENGINE` (1 = SDL2, the default, falling back to raylib/GLFW when SDL
+  cannot start; 2 = raylib/GLFW).
 - Several maps in one world, at offsets: `IWorld::AddMap( path, x, y )`, `RemoveMap`, `GetMapCount`,
   `GetMapOffset`, `GetBounds`, `GetLayerId`, and picking/`GetTile` by map. Any orientation, mixed,
   negative offsets; layers matched by name and drawn layer by layer across the maps, so a sprite crosses
@@ -197,6 +207,13 @@ Each item is described in full in the plan; what each change means for code buil
   place and the next frame sorted that order. A copy is sorted now, from the added order every time.
 - An image layer whose picture differs in size from what the map declares was drawn at the declared
   size, reading past the texture and repeating it; it is drawn at the picture's real size.
+- Gamepads (found by Caravellius on macOS): a Switch-mode pad over USB reported nothing (it needs a
+  handshake GLFW never sends) and over Bluetooth updated only about 30 times a second; with two pads
+  connected, rumble could pick the wrong one (pads were matched across two libraries by name); SDL's
+  device list was never refreshed, so a pad plugged in later could not rumble; and the first rumble
+  opened the controller then, stalling that frame. Pads are now read through SDL, which does the
+  handshake and the full report mode, rumble uses the same device, SDL is updated every frame, and a
+  pad is opened on the frame it is plugged in.
 - `SetWriteDirectory` on a folder the game had already mounted did not mount it at `/`, and a later
   change of write directory removed the game's own mount.
 - `IFileSystem::WriteFile` truncated the target before writing, so a crash, a power loss or a full

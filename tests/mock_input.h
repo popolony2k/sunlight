@@ -24,6 +24,7 @@
 #include "input/iinputhandler.h"
 #include "input/inputhandlerfactory.h"
 #include <array>
+#include <functional>
 #include <memory>
 #include <set>
 
@@ -47,6 +48,17 @@ class MockInputHandler : public SunLight :: Input :: IInputHandler  {
     // inserting an id and a disconnect by erasing it, between Update() calls. No existing test
     // read the old default (confirmed before removing it).
     std :: set<int>                    availableGamepads;
+
+    // How many times Update() was called (I25: TileMapRenderer::Run calls it once per frame).
+    int                                nUpdateCalls = 0;
+    std :: function<void( void )>      onUpdate;           // optional: called by each Update()
+
+    void Update( void ) override  {
+        nUpdateCalls++;
+
+        if( onUpdate )
+            onUpdate();
+    }
 
     SunLight :: Input :: KeyboardKey GetKeyPressed( void ) override  {
         return keyPressedResult;
