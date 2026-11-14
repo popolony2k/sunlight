@@ -437,7 +437,7 @@ TEST_SUITE( "backends/sdl/SDLGamepadHaptics on the pads' devices" )  {
         {
             std :: shared_ptr<SDLGamepadDevices>  pDevices = SDLGamepadDevices :: Acquire();
 
-            REQUIRE( SDLGamepadDevices :: Current() == pDevices );
+            REQUIRE( SDLGamepadDevices :: Current().get() == pDevices.get() );
             pDevices -> Update();
 
             SDLGamepadHaptics  haptics( input );
@@ -448,7 +448,7 @@ TEST_SUITE( "backends/sdl/SDLGamepadHaptics on the pads' devices" )  {
         }
 
         SDLGamepadDevices :: SetApiCreator( nullptr );
-        CHECK( SDLGamepadDevices :: Current() == nullptr );
+        CHECK( SDLGamepadDevices :: Current().get() == nullptr );
         CHECK( log.nCloses == 1 );
     }
 }
@@ -480,7 +480,7 @@ TEST_SUITE( "input/GamepadInputFactory" )  {
             std :: unique_ptr<SI :: IGamepadInput>  pInput = SI :: GamepadInputFactory :: CreateGamepadInput();
 
             CHECK( dynamic_cast<SunLight :: Input :: RayLib :: RayLibGamepadInput*>( pInput.get() ) != nullptr );
-            CHECK( SDLGamepadDevices :: Current() == nullptr );
+            CHECK( SDLGamepadDevices :: Current().get() == nullptr );
         }
 
         SDLGamepadDevices :: SetApiCreator( nullptr );
