@@ -155,6 +155,7 @@ the one before it; `doc/BREAKAGES.md` says what each change affects.
 
 | Commit | What it adds | BREAKAGES |
 |---|---|---|
+| `62985ef5ebe1262c07e7477df950bceeec8baa05` | Gamepads read through SDL2 (keyboard and mouse stay on raylib), rumble on the same SDL devices, every SDL call on a thread of its own so a pad's set-up never freezes the game; `IInputHandler::Update()`; build switch `DEFAULT_GAMEPAD_ENGINE` with a raylib/GLFW fallback (I25 and I25b, Caravellius' five macOS gamepad findings, measured by Caravellius on three pads) | 78 |
 | `3a2f1c55ad1cde8915464668a1794b9a80461229` | Image layers drawn at their picture's real size, not the size the map declares; `IEngine::GetTextureSize` (I24, found by Caravellius through Scarab) | 77 |
 | `fa7575a0db7127230946bd44199de1d38a1172f1` | Opt-in screen-space image layers (Tiled custom property `screen_space`, bool) for Caravellius' cover screen; BREAKAGES 34 corrected; README lists the Tiled custom properties sunlight reads (I23, found by Caravellius through Scarab) | 34 (corrected), 76 |
 | `b5a6ca121634b43151b6100506e41d2eb1545145` | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount`; `SetWriteDirectory` no longer loses or removes a game's mount of the same folder (I22, asked for by Scarab for its C8 sandbox) | 75 |
