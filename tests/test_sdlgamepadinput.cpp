@@ -737,7 +737,10 @@ TEST_SUITE( "backends/sdl/SDLGamepadDevices on its own thread (I25b)" )  {
             std :: unique_lock<std :: mutex>  lock( mutex );
 
             REQUIRE( cv.wait_for( lock, THREAD_TIMEOUT, [&]( void )  { return bRumbled; } ) );
-            CHECK( rumbleThread != std :: this_thread :: get_id() );
+            // Compared into a bool: GCC 15's doctest cannot print a std::thread::id.
+            bool  bOnAnotherThread = ( rumbleThread != std :: this_thread :: get_id() );
+
+            CHECK( bOnAnotherThread );
         }
 
         pDevices.reset();
