@@ -28,7 +28,7 @@
 #include "tilemap/tilemapdefs.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         /**
@@ -73,7 +73,7 @@ namespace SunLight {
          * value - replaces having to pass a growing list of constructor
          * arguments and then call a handful of setters before Start().
          * Defaults match what the classic
-         * TileMapRenderer( width, height, title, targetFps, useDefaultKeyHandler )
+         * TileMapRenderer( width, height, title, targetFps )
          * constructor produced, so a config only names what it changes.
          *
          * Only state that must be fixed before the window is created (or
@@ -106,9 +106,6 @@ namespace SunLight {
             // budget for any backend.
             unsigned                                  nMaxFrames            = 0;
 
-            // Register the renderer's built-in camera/zoom key handlers.
-            bool                                      bUseDefaultKeyHandler = true;
-
             // Key that makes the window ask to close; KEY_NULL disables it.
             // Applied at every Start(), so it sticks across restarts.
             SunLight :: Input :: KeyboardKey          exitKey               = SunLight :: Input :: KEY_ESCAPE;
@@ -126,7 +123,7 @@ namespace SunLight {
             // Viewport rectangle (screen-space clip/scroll window) and zoom
             // position. Left unset, the viewport covers the whole render
             // area and the zoom keeps the renderer's own default.
-            std :: optional<SunLight :: TileMap :: stDimension2D>  viewport;
+            std :: optional<SunLight :: Base :: stDimension2D>  viewport;
             std :: optional<unsigned>                              nZoomPos;
 
             /**
@@ -148,9 +145,9 @@ namespace SunLight {
              * problem found, if any (may be null);
              * @return true if valid, false otherwise;
              */
-            bool Validate( std :: string *pError = nullptr ) const;
+            bool Validate( std :: string* pError = nullptr ) const;
         };
     }
 }
 
-#endif  /* __RENDERERCONFIG_H__ */
+#endif /* __RENDERERCONFIG_H__ */

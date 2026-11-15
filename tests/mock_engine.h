@@ -23,6 +23,10 @@
 
 #include "engines/iengine.h"
 #include "engines/enginefactory.h"
+#include <cstdint>
+#include <cstring>
+#include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,6 +36,44 @@
  * arguments and returns per-instance, configurable results, with no real
  * window/render context involved.
  */
+class MockEngine;
+
+/**
+ * @brief The font LoadFont returns. It draws and measures through its owning
+ * MockEngine, so the engine's event log and counters see font calls the same way
+ * they see its own, and destroying it is counted (nFontsDestroyed).
+ */
+class MockFont : public SunLight :: Font :: IFont  {
+
+    public:
+
+    MockEngine  *pOwner;
+    bool        bValid = true;      // false plays a font whose window has closed
+
+    explicit MockFont( MockEngine* pEngine ) : pOwner( pEngine )  {}
+
+    ~MockFont( void ) override;
+
+    bool IsValid( void ) const override  {
+        return bValid;
+    }
+
+    int MeasureText( const char* szText, int nFontSize ) override;
+
+    void DrawText( const char* szText,
+                   int nPosX,
+                   int nPosY,
+                   int nFontSize,
+                   SunLight :: Base :: stColor color ) override;
+
+    void DrawTextRotated( const char* szText,
+                          int nPosX,
+                          int nPosY,
+                          int nFontSize,
+                          float rotation,
+                          SunLight :: Base :: stColor color ) override;
+};
+
 class MockEngine : public SunLight :: Engines :: IEngine  {
 
     public:
@@ -43,11 +85,11 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
 
     int                                 nLoadTextureCalls          = 0;
     int                                 nUnloadTextureCalls        = 0;
-    int                                 nSetPixelCalls             = 0;
-    std :: vector<std :: pair<int, int>>  setPixelPositions;          // every SetPixel( x, y ), in order
     int                                 nDrawTextureCalls          = 0;
     int                                 nDrawTextureTiledCalls     = 0;
     int                                 nDrawFilledRectangleCalls  = 0;
+    int                                 nDrawLineCalls            = 0;
+    int                                 nDrawEllipseOutlineCalls  = 0;
     int                                 nGetApplicationDirectoryCalls = 0;
     int                                 nClearBackgroundCalls      = 0;
     int                                 nDrawFPSCalls              = 0;
@@ -60,18 +102,27 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nBeginRenderTargetCalls    = 0;
     int                                 nEndRenderTargetCalls      = 0;
     int                                 nDrawTextureScaledCalls    = 0;
+    int                                 nDrawTextureRotatedCalls   = 0;
+    int                                 nDrawTextRotatedCalls      = 0;
+    int                                 nSetBlendModeCalls         = 0;
+    SunLight :: Base :: BlendMode       currentBlendMode           = SunLight :: Base :: BLEND_MODE_NORMAL;
 
     // Every draw-ish call in order, for tests that care about WHICH pass drew what and in what order
     // (the multi-view frame): kind + the rectangle it was given (x, y, w, h; zeros where it has none).
     struct Event  {
-        enum Kind  { CLEAR, FILL, TILE, FPS };
+        enum Kind  { CLEAR, FILL, TILE, FPS, TEXT, CLIP_BEGIN, CLIP_END, SCALED, LINE, ELLIPSE, TILE_ROTATED, TEXT_ROTATED, BLEND, COMPOSITE };   // COMPOSITE: x, y, w, h = dest, scale = opacity, handle = the target   // BLEND: blendMode = the mode set   // TILE_ROTATED: x, y = anchor, w, h = dest size, scale = rotation, srcX, srcY = origin. TEXT_ROTATED: x, y = top-left corner, scale = rotation, nFontSize, text   // LINE: x, y = first end, w, h = second end, scale = thickness. ELLIPSE: x, y = centre, w, h = radii   // CLIP_BEGIN: x, y, w, h = the rectangle
 
         Kind   kind;
         float  x, y, w, h;
         float  scale;
         float  srcX;                 // TILE only: the source rectangle's x
         void   *handle;              // TILE only: the texture drawn
-        SunLight :: Base :: stColor  color;   // CLEAR and FILL only
+        SunLight :: Base :: stColor  color;   // CLEAR, FILL, TEXT and TILE (the tint DrawTextureTiled was given)
+        std :: string                text;    // TEXT only: the string drawn
+        const void                  *font = nullptr;     // TEXT only: the MockFont drawn with (nullptr = active font)
+        int                          nFontSize = 0;      // TEXT only
+        float                        srcY = 0.0f, srcW = 0.0f, srcH = 0.0f;   // SCALED and TILE: the source rectangle (srcX is its x)
+        SunLight :: Base :: BlendMode  blendMode = SunLight :: Base :: BLEND_MODE_NORMAL;   // BLEND only
     };
     std :: vector<Event>                events;
 
@@ -87,16 +138,43 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     int                                 nLastFilledRectangleHeight = 0;
     SunLight :: Base :: stColor         lastFilledRectangleColor   { 0, 0, 0, 0 };
     bool                                bSetFontResult             = true;
-    std :: string                       strLastSetFontPath;
+
+    int                                 nBeginClipCalls            = 0;
+    int                                 nEndClipCalls              = 0;
+    int                                 nLoadFontCalls             = 0;
+    int                                 nFontsDestroyed            = 0;   // MockFont objects destroyed
+    bool                                bLoadFontResult            = true;
+    std :: string                       strLastLoadFontPath;
+    const void                          *hLastLoadedFont           = nullptr;   // the font LoadFont last returned
+    const void                          *hLastMeasuredFont         = nullptr;   // the font MeasureText/IFont last measured with
+    // Declared after nFontsDestroyed, so a MockFont these keep alive is destroyed before the counter it bumps.
+    std :: shared_ptr<SunLight :: Font :: IFont>  pLastSetFont;     // the font SetFont was last given
+    std :: shared_ptr<SunLight :: Font :: IFont>  pActiveFont;      // the font SetFont selected (GetFont)
+    bool                                bMeasureByLength           = false;
     std :: string                       strLastDrawnText;
     SunLight :: Base :: stColor         lastClearBackgroundColor   { 0, 0, 0, 0 };
     SunLight :: Base :: TextureHandle   hLoadRenderTargetResult    = ( SunLight :: Base :: TextureHandle )  0x2;
     SunLight :: Base :: TextureHandle   hLastUnloadedRenderTarget  = nullptr;
     SunLight :: Base :: TextureHandle   hLastBegunRenderTarget     = nullptr;
+    // I19a: when set, every LoadRenderTarget returns a handle of its own (0x100, 0x101, ...) instead
+    // of hLoadRenderTargetResult, and records the size it was asked for.
+    bool                                bDistinctRenderTargets     = false;
+    std :: vector<std :: pair<int, int>>  renderTargetSizes;
+    // Begin/End/Composite of render targets in order (I19a: nesting), apart from `events` so the
+    // tests that read `events` from the first draw stay as they are. kind: 'B', 'E' or 'C'.
+    // nEventIndex: events.size() at the call, so a test can tell which `events` were drawn into which target.
+    struct RenderTargetEvent  {
+        char                               kind;
+        SunLight :: Base :: TextureHandle  handle;
+        float                              fOpacity;
+        size_t                             nEventIndex;
+    };
+    std :: vector<RenderTargetEvent>    renderTargetEvents;
+    std :: vector<SunLight :: Base :: TextureHandle>  unloadedRenderTargets;
     SunLight :: Base :: stRectangle     lastDrawTextureScaledSource { 0, 0, 0, 0 };
     SunLight :: Base :: stRectangle     lastDrawTextureScaledDest   { 0, 0, 0, 0 };
 
-    SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName, int& nWidth, int& nHeight )  {
+    SunLight :: Base :: TextureHandle LoadTexture( const char* szFileName, int& nWidth, int& nHeight )  {
         nLoadTextureCalls++;
         strLastLoadTextureFileName = szFileName;
         nWidth  = nLoadTextureWidth;
@@ -104,14 +182,24 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return hLoadTextureResult;
     }
 
+    // I24: the real size of a texture handle, as a test sets it; a handle not in it is "unknown"
+    // (GetTextureSize false), so drawing falls back to the size the map declares.
+    std :: map<SunLight :: Base :: TextureHandle, std :: pair<int, int>>  textureSizes;
+
+    bool GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight )  {
+        std :: map<SunLight :: Base :: TextureHandle, std :: pair<int, int>> :: const_iterator  itSize = textureSizes.find( hTexture );
+
+        if( itSize == textureSizes.end() )
+            return false;
+
+        nWidth  = itSize -> second.first;
+        nHeight = itSize -> second.second;
+        return true;
+    }
+
     void UnloadTexture( SunLight :: Base :: TextureHandle hTexture )  {
         nUnloadTextureCalls++;
         hLastUnloadedTexture = hTexture;
-    }
-
-    void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color )  {
-        nSetPixelCalls++;
-        setPixelPositions.push_back( std :: make_pair( nPosX, nPosY ) );
     }
 
     void DrawTexture( SunLight :: Base :: TextureHandle hTexture, int nPosX, int nPosY, SunLight :: Base :: stColor tint )  {
@@ -127,11 +215,26 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
                             float scale,
                             SunLight :: Base :: stColor tint )  {
         nDrawTextureTiledCalls++;
-        events.push_back( Event { Event :: TILE, dest.x, dest.y, dest.width, dest.height, scale, source.x, hTexture, SunLight :: Base :: stColor { 0, 0, 0, 0 } } );
+        Event  event { Event :: TILE, dest.x, dest.y, dest.width, dest.height, scale, source.x, hTexture, tint };
+
+        event.srcY = source.y;          // I24: the whole source rectangle, for a tiled draw too
+        event.srcW = source.width;
+        event.srcH = source.height;
+        events.push_back( event );
         hLastDrawnTexture = hTexture;
         lastDrawTextureTiledSource = source;
         lastDrawTextureTiledDest   = dest;
         fLastDrawTextureTiledScale = scale;
+    }
+
+    void DrawEllipseOutline( float fCenterX, float fCenterY, float fRadiusX, float fRadiusY, SunLight :: Base :: stColor color )  {
+        nDrawEllipseOutlineCalls++;
+        events.push_back( Event { Event :: ELLIPSE, fCenterX, fCenterY, fRadiusX, fRadiusY, 0.0f, 0.0f, nullptr, color } );
+    }
+
+    void DrawLine( float fX0, float fY0, float fX1, float fY1, float fThickness, SunLight :: Base :: stColor color )  {
+        nDrawLineCalls++;
+        events.push_back( Event { Event :: LINE, fX0, fY0, fX1, fY1, fThickness, 0.0f, nullptr, color } );
     }
 
     void DrawFilledRectangle( int nPosX, int nPosY, int nWidth, int nHeight, SunLight :: Base :: stColor color )  {
@@ -149,20 +252,64 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         return strApplicationDirectoryResult;
     }
 
-    bool SetFont( const char *szFilePath )  {
+    // SetFont records the font it was given, and selects it unless bSetFontResult is false
+    // (then the active font is kept, as IEngine says). The text calls still record a nullptr
+    // font: "drawn by the engine with its active font", whichever that is.
+    bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont )  {
         nSetFontCalls++;
-        strLastSetFontPath = szFilePath;
+        pLastSetFont = pFont;
+
+        if( bSetFontResult )
+            pActiveFont = std :: move( pFont );
+
         return bSetFontResult;
     }
 
-    void DrawText( const char *szText, int, int, int, SunLight :: Base :: stColor )  {
-        nDrawTextCalls++;
-        strLastDrawnText = szText;
+    std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void )  {
+        return pActiveFont;
     }
 
-    int MeasureText( const char*, int )  {
+    std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath );   // defined after MockFont
+
+    void BeginClip( SunLight :: Base :: stRectangle rect )  {
+        nBeginClipCalls++;
+        events.push_back( Event { Event :: CLIP_BEGIN, rect.x, rect.y, rect.width, rect.height, 0.0f, 0.0f, nullptr,
+                                  SunLight :: Base :: stColor { 0, 0, 0, 0 } } );
+    }
+
+    void EndClip( void )  {
+        nEndClipCalls++;
+        events.push_back( Event { Event :: CLIP_END, 0, 0, 0, 0, 0.0f, 0.0f, nullptr,
+                                  SunLight :: Base :: stColor { 0, 0, 0, 0 } } );
+    }
+
+    // Records a TEXT event. font is the MockFont drawing it, or nullptr for the active font.
+    void RecordText( const void* font, const char* szText, int nPosX, int nPosY, int nFontSize,
+                     SunLight :: Base :: stColor color )  {
+        nDrawTextCalls++;
+        strLastDrawnText = szText;
+        events.push_back( Event { Event :: TEXT, ( float ) nPosX, ( float ) nPosY, 0, 0, 0.0f, 0.0f, nullptr, color,
+                                  szText, font, nFontSize } );
+    }
+
+    // By default the width is nMeasureTextResult. With bMeasureByLength set, it is
+    // the string's length x size / 2, so a test can make wrapping depend on the text.
+    int RecordMeasure( const void* font, const char* szText, int nFontSize )  {
         nMeasureTextCalls++;
+        hLastMeasuredFont = font;
+
+        if( bMeasureByLength )
+            return ( int ) ( strlen( szText ) * ( size_t ) nFontSize / 2 );
+
         return nMeasureTextResult;
+    }
+
+    void DrawText( const char* szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
+        RecordText( nullptr, szText, nPosX, nPosY, nFontSize, color );
+    }
+
+    int MeasureText( const char* szText, int nFontSize )  {
+        return RecordMeasure( nullptr, szText, nFontSize );
     }
 
     void ClearBackground( SunLight :: Base :: stColor color )  {
@@ -177,26 +324,62 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
     }
 
     SunLight :: Base :: TextureHandle LoadRenderTarget( int nWidth, int nHeight )  {
+        const uintptr_t  nFirstDistinct = 0x100;
+
+        renderTargetSizes.push_back( { nWidth, nHeight } );
+
+        SunLight :: Base :: TextureHandle  hResult = bDistinctRenderTargets ?
+                                             ( SunLight :: Base :: TextureHandle ) ( nFirstDistinct + nLoadRenderTargetCalls ) :
+                                             hLoadRenderTargetResult;
+
         nLoadRenderTargetCalls++;
-        return hLoadRenderTargetResult;
+        return hResult;
     }
 
     void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
         nUnloadRenderTargetCalls++;
         hLastUnloadedRenderTarget = hRenderTarget;
+        unloadedRenderTargets.push_back( hRenderTarget );
     }
 
     void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
         nBeginRenderTargetCalls++;
         hLastBegunRenderTarget = hRenderTarget;
+        currentBlendMode       = SunLight :: Base :: BLEND_MODE_NORMAL;     // as IEngine says; not a SetBlendMode call
+        renderTargetEvents.push_back( RenderTargetEvent { 'B', hRenderTarget, 0.0f, events.size() } );
     }
 
     void EndRenderTarget( void )  {
         nEndRenderTargetCalls++;
+        currentBlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;           // the target drawn into next starts so
+        renderTargetEvents.push_back( RenderTargetEvent { 'E', nullptr, 0.0f, events.size() } );
+    }
+
+    void CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                const SunLight :: Base :: stRectangle& dest,
+                                float fOpacity )  {
+        Event  event { Event :: COMPOSITE, dest.x, dest.y, dest.width, dest.height, fOpacity, 0.0f, hRenderTarget,
+                       SunLight :: Base :: stColor { 0, 0, 0, 0 } };
+
+        renderTargetEvents.push_back( RenderTargetEvent { 'C', hRenderTarget, fOpacity, events.size() } );
+        events.push_back( event );
     }
 
     SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget )  {
         return hRenderTarget;
+    }
+
+    void SetBlendMode( SunLight :: Base :: BlendMode mode )  {
+        Event  event { Event :: BLEND, 0, 0, 0, 0, 0.0f, 0.0f, nullptr, SunLight :: Base :: stColor { 0, 0, 0, 0 } };
+
+        event.blendMode = mode;
+        nSetBlendModeCalls++;
+        currentBlendMode = mode;
+        events.push_back( event );
+    }
+
+    SunLight :: Base :: BlendMode GetBlendMode( void )  {
+        return currentBlendMode;
     }
 
     void DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,
@@ -207,6 +390,33 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
         hLastDrawnTexture           = hTexture;
         lastDrawTextureScaledSource = source;
         lastDrawTextureScaledDest   = dest;
+        events.push_back( Event { Event :: SCALED, dest.x, dest.y, dest.width, dest.height, 0.0f, source.x, hTexture,
+                                  tint, std :: string(), nullptr, 0, source.y, source.width, source.height } );
+    }
+
+    void DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                             SunLight :: Base :: stRectangle source,
+                             SunLight :: Base :: stRectangle dest,
+                             SunLight :: Base :: stVector2D origin,
+                             float rotation,
+                             SunLight :: Base :: stColor tint )  {
+        nDrawTextureRotatedCalls++;
+        hLastDrawnTexture = hTexture;
+        events.push_back( Event { Event :: TILE_ROTATED, dest.x, dest.y, dest.width, dest.height, rotation, origin.x, hTexture,
+                                  tint, std :: string(), nullptr, 0, origin.y, source.width, source.height } );
+    }
+
+    // Records a TEXT_ROTATED event. font is the MockFont drawing it, or nullptr for the active font.
+    void RecordTextRotated( const void* font, const char* szText, int nPosX, int nPosY, int nFontSize, float rotation,
+                            SunLight :: Base :: stColor color )  {
+        nDrawTextRotatedCalls++;
+        strLastDrawnText = szText;
+        events.push_back( Event { Event :: TEXT_ROTATED, ( float ) nPosX, ( float ) nPosY, 0, 0, rotation, 0.0f, nullptr, color,
+                                  szText, font, nFontSize } );
+    }
+
+    void DrawTextRotated( const char* szText, int nPosX, int nPosY, int nFontSize, float rotation, SunLight :: Base :: stColor color )  {
+        RecordTextRotated( nullptr, szText, nPosX, nPosY, nFontSize, rotation, color );
     }
 };
 
@@ -215,6 +425,38 @@ class MockEngine : public SunLight :: Engines :: IEngine  {
  * MockEngine instance for the fixture's lifetime, restoring the default
  * (real) backend on destruction.
  */
+inline std :: shared_ptr<SunLight :: Font :: IFont> MockEngine :: LoadFont( const char* szFilePath )  {
+
+    nLoadFontCalls++;
+    strLastLoadFontPath = szFilePath;
+
+    if( !bLoadFontResult )
+        return nullptr;
+
+    std :: shared_ptr<MockFont>  pFont = std :: make_shared<MockFont>( this );
+
+    hLastLoadedFont = pFont.get();
+
+    return pFont;
+}
+
+inline MockFont :: ~MockFont( void )  {
+    if( pOwner )
+        pOwner -> nFontsDestroyed++;
+}
+
+inline int MockFont :: MeasureText( const char* szText, int nFontSize )  {
+    return pOwner -> RecordMeasure( this, szText, nFontSize );
+}
+
+inline void MockFont :: DrawText( const char* szText, int nPosX, int nPosY, int nFontSize, SunLight :: Base :: stColor color )  {
+    pOwner -> RecordText( this, szText, nPosX, nPosY, nFontSize, color );
+}
+
+inline void MockFont :: DrawTextRotated( const char* szText, int nPosX, int nPosY, int nFontSize, float rotation, SunLight :: Base :: stColor color )  {
+    pOwner -> RecordTextRotated( this, szText, nPosX, nPosY, nFontSize, rotation, color );
+}
+
 class MockEngineFixture  {
 
     public:

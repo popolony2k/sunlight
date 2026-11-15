@@ -18,9 +18,11 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "physfsfilesystem.h"
+#include "backends/physfs/physfsfilesystem.h"
 
 #include <physfs.h>
+#include <filesystem>
+#include <system_error>
 
 
 namespace SunLight  {
@@ -33,7 +35,7 @@ namespace SunLight  {
              * idempotent-on-repeat convention (eg. TileMapRenderer's own
              * one-shot setup steps).
              */
-            bool PhysFsFileSystem :: Init( const char *szArgv0 )  {
+            bool PhysFsFileSystem :: Init( const char* szArgv0 )  {
 
                 if( m_bInitialized )
                     return true;
@@ -59,21 +61,171 @@ namespace SunLight  {
                     ::PHYSFS_deinit();
 
                 m_bInitialized = false;
+                m_strWriteDir.clear();      // PHYSFS_deinit forgets the write directory and every mount
+                m_Mounts.clear();
             }
 
             /**
              * @brief PHYSFS_mount() itself already auto-detects whether
              * strRealPath is a loose directory or a real archive file -
-             * nothing here needs to branch on that.
+             * nothing here needs to branch on that. Through the mount table
+             * (MountEntry, I22 of the master plan), so the same location can
+             * be mounted at several mount points.
+             * @param strRealPath The real path of the folder or archive;
+             * @param strMountPoint Where its contents appear ("/": the root);
+             * @param bAppendToPath true to search it after every other mount, false before;
+             * @return false when PhysFS cannot mount it;
              */
-            bool PhysFsFileSystem :: Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath )  {
+            bool PhysFsFileSystem :: Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath )  {
 
-                bool  bMounted = ::PHYSFS_mount( strRealPath.c_str(), strMountPoint.c_str(), bAppendToPath ? 1 : 0 ) != 0;
+                // A mount can be the first call a consumer makes, before any read, so PhysFS is
+                // set up here too. Init does nothing when it is already set up (Scarab calls it first).
+                if( !m_bInitialized )
+                    Init( nullptr );
+
+                bool  bMounted = MountEntry( strRealPath, strMountPoint, bAppendToPath, false );
 
                 if( bMounted )
                     m_bAnyMounted = true;
 
                 return bMounted;
+            }
+
+            /**
+             * @brief Remove one mount made by Mount (I22 of the master plan): the table finds the name
+             * PhysFS knows that (real path, mount point) by, and PHYSFS_unmount removes it alone - the
+             * other mounts of the same path, and the write directory's, stay.
+             * @param strRealPath The real path given to Mount;
+             * @param strMountPoint The mount point given to Mount;
+             * @return false when there is no such mount;
+             */
+            bool PhysFsFileSystem :: Unmount( const std :: string& strRealPath, const std :: string& strMountPoint )  {
+
+                return m_bInitialized ? UnmountEntry( strRealPath, strMountPoint, false ) : false;
+            }
+
+            /**
+             * @brief A mount point as PhysFS compares them: without leading or trailing '/' ("/" and ""
+             * are both the root).
+             * @param strMountPoint The mount point;
+             * @return It, trimmed;
+             */
+            static std :: string NormalizedMountPoint( const std :: string& strMountPoint )  {
+
+                size_t  nStart = strMountPoint.find_first_not_of( '/' );
+
+                if( nStart == std :: string :: npos )
+                    return std :: string();
+
+                size_t  nEnd = strMountPoint.find_last_not_of( '/' );
+
+                return strMountPoint.substr( nStart, nEnd - nStart + 1 );
+            }
+
+            /**
+             * @brief The name to give PhysFS for one more mount of a real path (I22 of the master plan).
+             * PhysFS keeps one mount per path STRING: doMount (physfs.c) returns success without mounting
+             * when the same string is already in the search path, at any mount point. It stores and opens
+             * the string as given (createDirHandle, openDirectory: no normalisation), so an equivalent
+             * spelling of the same folder or archive - "./" put in front of its last component, once per
+             * mount already using a spelling - mounts it again, in its own place in the search order. The
+             * extension, which picks the archive reader, is untouched. The plain path is used when free.
+             * @param strRealPath The real path;
+             * @return A name no mount uses yet;
+             */
+            std :: string PhysFsFileSystem :: UniquePhysName( const std :: string& strRealPath ) const  {
+
+                const std :: string  strSeparator = ::PHYSFS_getDirSeparator();
+                const std :: string  strDot       = "." + strSeparator;
+
+                // The path without trailing separators, split before its last component.
+                std :: string  strPath = strRealPath;
+
+                while( ( strPath.size() > 1 ) && ( ( strPath.back() == '/' ) || ( strPath.back() == strSeparator[0] ) ) )
+                    strPath.pop_back();
+
+                size_t  nLast = strPath.find_last_of( "/" + strSeparator );
+                std :: string  strHead = ( nLast == std :: string :: npos ) ? std :: string() : strPath.substr( 0, nLast + 1 );
+                std :: string  strTail = ( nLast == std :: string :: npos ) ? strPath : strPath.substr( nLast + 1 );
+                std :: string  strCandidate = strRealPath;
+
+                for( size_t nDots = 1; ; nDots++ )  {
+                    bool  bUsed = false;
+
+                    for( const stMount& mount : m_Mounts )  {
+                        if( mount.strPhysName == strCandidate )  {
+                            bUsed = true;
+                            break;
+                        }
+                    }
+
+                    if( !bUsed )
+                        return strCandidate;
+
+                    strCandidate = strHead;
+
+                    for( size_t nDot = 0; nDot < nDots; nDot++ )
+                        strCandidate += strDot;
+
+                    strCandidate += strTail;
+                }
+            }
+
+            /**
+             * @brief Mount a real path at a mount point and record it (I22 of the master plan). The same
+             * pair of the same kind already mounted changes nothing and succeeds (as PhysFS did); a new
+             * pair gets a name of its own (UniquePhysName), so the same folder or archive can be mounted
+             * at several mount points.
+             * @param strRealPath The real path;
+             * @param strMountPoint The mount point;
+             * @param bAppendToPath true to search it after every other mount, false before;
+             * @param bWriteDir Whether this is the write directory's own mount;
+             * @return false when PhysFS cannot mount it;
+             */
+            bool PhysFsFileSystem :: MountEntry( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath, bool bWriteDir )  {
+
+                std :: string  strNormalized = NormalizedMountPoint( strMountPoint );
+
+                for( const stMount& mount : m_Mounts )  {
+                    if( ( mount.bWriteDir == bWriteDir ) && ( mount.strRealPath == strRealPath ) && ( mount.strMountPoint == strNormalized ) )
+                        return true;
+                }
+
+                std :: string  strPhysName = UniquePhysName( strRealPath );
+
+                if( ::PHYSFS_mount( strPhysName.c_str(), strMountPoint.c_str(), bAppendToPath ? 1 : 0 ) == 0 )
+                    return false;
+
+                m_Mounts.push_back( stMount { strRealPath, strNormalized, strPhysName, bWriteDir } );
+
+                return true;
+            }
+
+            /**
+             * @brief Remove one recorded mount (I22 of the master plan): PHYSFS_unmount by the name
+             * PhysFS knows it by, then out of the table.
+             * @param strRealPath The real path;
+             * @param strMountPoint The mount point;
+             * @param bWriteDir Whether it is the write directory's own mount;
+             * @return false when there is no such mount;
+             */
+            bool PhysFsFileSystem :: UnmountEntry( const std :: string& strRealPath, const std :: string& strMountPoint, bool bWriteDir )  {
+
+                std :: string  strNormalized = NormalizedMountPoint( strMountPoint );
+
+                for( std :: vector<stMount> :: iterator itMount = m_Mounts.begin(); itMount != m_Mounts.end(); itMount++ )  {
+                    if( ( itMount -> bWriteDir == bWriteDir ) && ( itMount -> strRealPath == strRealPath ) &&
+                        ( itMount -> strMountPoint == strNormalized ) )  {
+                        if( ::PHYSFS_unmount( itMount -> strPhysName.c_str() ) == 0 )
+                            return false;
+
+                        m_Mounts.erase( itMount );
+
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
             /**
@@ -129,7 +281,52 @@ namespace SunLight  {
                     Mount( ".", "/", true );
             }
 
-            bool PhysFsFileSystem :: Exists( const std :: string &strVirtualPath )  {
+            /**
+             * @brief PHYSFS_setWriteDir, then the same folder mounted at the virtual root ahead of
+             * every other mount (PHYSFS_mount with append 0), so what is written reads back by the
+             * same virtual path and wins over a shipped file of the same name. It does not set
+             * m_bAnyMounted: a consumer that never mounts still gets the working directory mounted
+             * on the first read (EnsureReady), behind this folder. A previous write directory's
+             * mount is removed first. Both through the mount table (I22), as the write directory's own
+             * entry: a game's mount of the same folder elsewhere is a mount of its own, untouched.
+             */
+            bool PhysFsFileSystem :: SetWriteDirectory( const std :: string& strRealPath )  {
+
+                if( !m_bInitialized )
+                    Init( nullptr );
+
+                std :: error_code  errorCode;
+
+                std :: filesystem :: create_directories( strRealPath, errorCode );
+
+                if( ::PHYSFS_setWriteDir( strRealPath.c_str() ) == 0 )
+                    return false;
+
+                // I22: through the mount table, as the write directory's own entry - so a game's own
+                // mount of the same folder neither hides this one (PhysFS ignored a second mount of the
+                // same path) nor is removed in its place when the write directory changes.
+                if( !m_strWriteDir.empty() )
+                    UnmountEntry( m_strWriteDir, "/", true );
+
+                m_strWriteDir.clear();
+
+                if( !MountEntry( strRealPath, "/", false, true ) )
+                    return false;
+
+                m_strWriteDir = strRealPath;
+
+                return true;
+            }
+
+            /**
+             * @brief Whether anything is at a virtual path in any mount - the write directory first,
+             * when one is set - with the working directory mounted first if nothing was (EnsureReady).
+             * PHYSFS_exists answers for any entry it finds (getRealDirHandle in physfs.c), so a folder
+             * counts as well as a file.
+             * @param strVirtualPath The virtual path, without its scheme;
+             * @return true if PhysFS finds a file or a folder there;
+             */
+            bool PhysFsFileSystem :: VirtualExists( const std :: string& strVirtualPath )  {
 
                 EnsureReady();
 
@@ -143,7 +340,7 @@ namespace SunLight  {
              * same "load it all up front" assumption raylib's own
              * LoadFileData() already makes.
              */
-            bool PhysFsFileSystem :: ReadFile( const std :: string &strVirtualPath, std :: vector<unsigned char> &outData )  {
+            bool PhysFsFileSystem :: VirtualReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData )  {
 
                 EnsureReady();
 
@@ -169,30 +366,45 @@ namespace SunLight  {
                 if( nRead != nSize )
                     return false;
 
-                // Apply the optional post-read filter, if one is
-                // registered - see IFileSystem::SetReadFilter's own doc
-                // comment. Only reached after a fully successful raw
-                // read; a missing/unreadable file already returned false
-                // above, so the filter never sees that case.
-                if( m_ReadFilter )  {
-                    std :: vector<unsigned char>  filtered;
-
-                    if( m_ReadFilter( data, filtered ) )
-                        data = std :: move( filtered );
-                }
-
+                // The read filter is BaseFileSystem::ReadFile's, applied after this returns.
                 outData = std :: move( data );
 
                 return true;
             }
 
             /**
-             * @brief See @see IFileSystem::SetReadFilter's own doc
-             * comment for the full rationale.
+             * @brief Writes the whole file into the write directory (SetWriteDirectory), creating the
+             * folders on the way; false with no write directory set. Atomic (I14 of the master plan):
+             * PHYSFS_openWrite truncates the target before the first byte (physfs.h) and PhysFS has no
+             * rename, so the write goes to the write directory's real folder through
+             * BaseFileSystem::WriteRealFile - a temporary file beside the target, flushed, then renamed
+             * over it. The virtual path is mapped inside that folder with PhysFS's own rules
+             * (RealWritePath), so it can never leave it. PhysFS reads the folder as it is on the disk
+             * (a mounted native directory), so the new file reads back at once.
              */
-            void PhysFsFileSystem :: SetReadFilter( ReadFilterCallback callback )  {
+            bool PhysFsFileSystem :: VirtualWriteFile( const std :: string& strVirtualPath, const std :: vector<unsigned char>& data )  {
 
-                m_ReadFilter = std :: move( callback );
+                std :: string  strRealPath;
+
+                if( !RealWritePath( m_strWriteDir, strVirtualPath, strRealPath ) )
+                    return false;
+
+                return WriteRealFile( strRealPath, data );
+            }
+
+            /**
+             * @brief Removes a file of the write directory only (I14 of the master plan): the mounts
+             * are read-only, so a shipped file of the same name stays, and reads again once the saved
+             * one, which shadowed it, is gone. False with no write directory set.
+             */
+            bool PhysFsFileSystem :: VirtualRemoveFile( const std :: string& strVirtualPath )  {
+
+                std :: string  strRealPath;
+
+                if( !RealWritePath( m_strWriteDir, strVirtualPath, strRealPath ) )
+                    return false;
+
+                return RemoveRealFile( strRealPath );
             }
         }
     }

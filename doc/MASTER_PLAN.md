@@ -14,16 +14,19 @@ changes).
 
 | # | Item | Status |
 |---|------|--------|
-| A1 | AddressSanitizer job in CI | TODO |
-| A2 | Reject non-orthogonal maps with a clear error | TODO |
-| A3 | Compile-time check for the key mapping | TODO |
-| A4 | Document `Concurrent::Timer` hazards in its header | TODO |
-| A5 | Correct `doc/TODO.txt` against the code | TODO |
-| A6 | Reproduce the scroll-past-boundary FIXME, then close or fix it | TODO |
+| A1 | AddressSanitizer job in CI | DONE |
+| A2 | Reject non-orthogonal maps with a clear error | DONE |
+| A3 | Key codes match raylib by name, with compile-time tables | DONE |
+| A4 | Document `Concurrent::Timer` hazards in its header | DONE |
+| A5 | Consolidate planning docs into this file (remove TODO, FIXME, MISSING_FEATURES) | DONE |
+| A6 | Reproduce the scroll-past-boundary FIXME, then close or fix it | DONE |
+| A7 | Fix `ScriptProcessor` deleting derived commands through `BaseCommand*` (found by ASan in A1) | DONE |
 
-**A1: AddressSanitizer in CI.** Add one Linux job (Clang, `-fsanitize=address`) running
-the full test suite. Linux is chosen because it is the cheapest runner and catches the
-same memory errors.
+**A1: AddressSanitizer in CI.** Add one Linux job, using the default GCC with
+`-fsanitize=address`, that builds and runs the full test suite with leak detection. It is
+Linux-only to keep build time down; Linux is the fastest runner and catches the same
+memory errors. AddressSanitizer also exists in MSVC (`/fsanitize=address`), so a Windows
+job can be added later if the Linux job finds problems that are worth checking there too.
 - Test items: the job runs the whole suite and fails on any ASan report; a deliberate
   use-after-free in a throwaway test fails the job.
 
@@ -46,27 +49,47 @@ state except through the mutex. Keep the class: it is useful for independent tim
 tasks.
 - Test items: documentation only; the header is reviewed against the code.
 
-**A5: correct `doc/TODO.txt`.** Remove or correct items that are implemented (per-object
-visibility and position, layer visibility, opacity and offset) and mark what is still
-open (per-object opacity, sprite draw order within a layer, parallax and per-layer
-camera, isometric and hexagonal maps).
-- Test items: each line is checked against the code.
+**A5: consolidate planning docs.** This file is the only plan. Remove `doc/TODO.txt`,
+`doc/FIXME.txt` and `doc/MISSING_FEATURES.md`, moving any open item into this file first
+(their content is already here: the FIXME is A6, the TODO items are in C, D, E and L,
+and the open gaps are in "Docs, samples and tests"). Update the "Known issues" section
+of `CLAUDE.md` to point here. The CHANGELOG keeps its historical mention of
+`MISSING_FEATURES.md`, which is history rather than a live reference.
+- Test items: none of the three files exists; `CLAUDE.md` points to this file; every open
+  item from the three files appears here with a status.
 
-**A6: scroll-past-boundary FIXME.** `SetCameraPosition` deliberately does not clamp.
-Reproduce the reported access violation with a test that moves the camera outside the
-map. Then either fix it (clamp, or guard the draw path) or document that callers must
-keep the camera in bounds. Caravellius is not affected, because the game clamps the
-camera itself.
-- Test items: a failing reproduction test exists before the fix; after the fix it
-  passes; if documented instead, a test pins the documented behaviour.
+**A6: scroll-past-boundary FIXME.** `SetCameraPosition` deliberately does not clamp, but
+the camera was not the cause. The collision lookup (`TileMapToTileMatrix`, then `GetTile`)
+checked row and column only against zero, so a sprite near the far edge produced a row or
+column at the map's size and `GetTile` read `gids[]` past its end. ASan reports this as a
+heap-buffer-overflow at `GetTile`, with the camera at its default position: the viewport
+origin alone pushes a sprite in the last strip of the map past the edge. A camera offset
+widens that strip. Fixed: the lookup refuses positions off the map, `GetTile` returns an
+empty tile for them without reading, and the tile-animation path and gid table have the
+same bound checks. Tests: `tests/test_tilelookup_bounds.cpp` (the lookup and `GetTile` cases)
+and `tests/test_tilelookup_tilesets.cpp` (a gid past the tileset, and an animation frame past
+it, drawn through the renderer). Each fails on the old code and passes on the fix.
+- Peer impact: the earlier note that Caravellius is unaffected because the game clamps the
+  camera was wrong - the bad read does not depend on the camera. Any game whose sprites
+  reach the last strip of the map can hit it, and the fix changes that collision result
+  from a wrong tile to no tile. Caravellius has not hit it so far (the maintainer's
+  observation, not a test). A stronger check against Caravellius is planned at the end of
+  the master plan, with its session.
+
+**A7: ScriptProcessor command deletion.** Commands are queued as `BaseCommand*` but are
+larger derived structs, and `BaseCommand` had no virtual destructor. Deleting through the
+base pointer is undefined behaviour; the ASan job reports it as `new-delete-type-mismatch`
+in `ScriptProcessor::Clear()`. The fix is a virtual destructor on `BaseCommand`.
+- Test items: the ASan job passes on the fixed code and failed on the old code; the
+  scripting tests pass unchanged.
 
 ## Phase B: tile, text and remaining objects
 
 | # | Item | Status |
 |---|------|--------|
-| B1 | Draw Tiled text objects (`OT_TEXT`) | TODO |
-| B2 | Draw Tiled tile objects (`OT_TILE`) | TODO |
-| B3 | Warn on unknown object and layer types | TODO |
+| B1 | Draw Tiled text objects (`OT_TEXT`) | DONE |
+| B2 | Draw Tiled tile objects (`OT_TILE`) | DONE |
+| B3 | Warn on unknown object and layer types | DONE |
 
 **B1: text objects.** Use the existing `IEngine::DrawText` and font loading. Respect the
 object's font size, colour and position.
@@ -82,15 +105,44 @@ tile's image at the object's position.
 a warning once. Point objects are handled in Phase C5, not here.
 - Test items: an unknown type logs once; known types log nothing.
 
+**B3: unknown types, closed with nothing to warn about.** libtmx gives every layer and object kind the renderer can receive: its layer kinds are the tile layer, object group, image layer and group, and it skips any other element while parsing. Its object kinds cover all seven Tiled shapes, and it turns an object with no shape into a point. So the `L_NONE` and `OT_NONE` cases cannot occur; they remain only so the switch covers every enumerator. Unknown element names are dropped by libtmx before the renderer sees them, so there is nothing for a warning in the renderer to catch.
+
+## Prerequisites
+
+Done before Phase C, because the thick primitives work on these shapes and on the engine's clip. These are API
+changes, so they are not part of Phase A. Their peer impact is recorded in [doc/BREAKAGES.md](BREAKAGES.md).
+
+| # | Item | Status |
+|---|------|--------|
+| R1 | The engine clip is the only clip mode: `SUNLIGHT_SOFTWARE_CLIP`, the software cut and the per-pixel primitives are removed; `IEngine` gains `DrawLine` and `DrawEllipseOutline`, and loses `SetPixel` | DONE |
+| G1 | Move `stCoordinate2D`, `stSize2D` and `stDimension2D` from `SunLight::TileMap` to `SunLight::Base` (`base/primitives.h`), so sprites and canvases use them too | DONE |
+
+**R1: engine clip only.** Committed as `55ba435` on `refactor/engine-clip-only`, with the shapes benchmark mode and `samples/shapes/resources/map/stress.tmx`. Shapes are drawn by the backend, and tiles, text and shapes are cut by the engine's clip. Stress map on matched Release builds: about 1.39 ms per frame, against 2.26 ms with the software method.
+- Test items, all met:
+  - The full suite passes: 356 test cases (`tests/test_shape_engine_calls.cpp` adds five: the four edges of a rectangle at thickness 1, one ellipse outline with its centre and radii, a polyline with no closing edge, a polygon with its closing edge, and a two-point polygon with none).
+  - Three deliberate faults each fail the test written for them: the edge inset (`1` to `0`), the edge thickness (`1` to `2`), and the polygon closing rule (`> 2` to `> 1`). The renderer file was restored byte-for-byte after each.
+  - The full suite passes under AddressSanitizer, with no reports.
+  - Every sample builds.
+  - The clip's edge rule is checked by the clip test in `tests/test_viewport_semantics.cpp`.
+- Verified by eye, not by test: the nested clip stack in `RaylibEngine` (it needs a real window), and the samples' output (text, shapes, multiview).
+- Not repeatable: the pixel comparison of the shapes sample against the software method. It was done before the flag was removed, so the owner should take it as confirmed.
+- `doc/BREAKAGES.md` item 15 is written.
+
+**G1: shared geometry.** The three integer structs are plain geometry, not tile-map data, and sprites and
+canvases already use them. Moved to `SunLight::Base` with no aliases kept, so Scarab's references are
+renamed when integration starts. `stRectangle` (floating-point) is not merged with them yet.
+- Test items: the full suite passes; the text, objects and tilemap samples build; Scarab's 12 references
+  are listed in `doc/BREAKAGES.md` item 14.
+
 ## Phase C: thick primitives
 
 | # | Item | Status |
 |---|------|--------|
-| C1 | Thick lines, with square caps | TODO |
-| C2 | Thick polylines and polygons | TODO |
-| C3 | Thick rectangles | TODO |
-| C4 | Thick ellipses | TODO |
-| C5 | Points as squares | TODO |
+| C1 | Thick lines, with square caps | DONE |
+| C2 | Thick polylines and polygons | DONE |
+| C3 | Thick rectangles | DONE |
+| C4 | Thick ellipses | DONE |
+| C5 | Points as squares | DONE |
 
 **Decisions already taken:**
 - Stroke width scales with zoom: screen width is `thickness × zoomFactor`, rounded
@@ -102,41 +154,106 @@ a warning once. Point objects are handled in Phase C5, not here.
   nothing and output stays unchanged.
 - The viewport boundary rule is unchanged: a pixel is drawn only if it is strictly
   inside the viewport, so the top and left edge are excluded, as they are today.
-- The engine never clips. The renderer clips each span before calling
-  `IEngine::DrawFilledRectangle`, so no new engine method is needed. A native primitive
+- The engine clips. The renderer draws each span with `IEngine::DrawFilledRectangle` inside
+  the viewport's engine clip (`BeginClip`/`EndClip`), so no new engine method is needed. A native primitive
   is only considered later, if the measured span count is too high.
 
 **Implementation approach.** Each stroke is drawn as one filled span per scanline,
-clipped to the viewport before the engine is called. A per-pixel `SetPixel` loop is not
-used, because it costs one engine call per pixel, and a single engine call would bypass
-the viewport boundary.
+inside the viewport's engine clip. A per-pixel draw loop is not used, because it costs one
+engine call per pixel.
 
-**C1: thick lines.** Perpendicular span code and the square cap rule.
-- Test items: width 1 is byte-identical to today's `LineBresenham`, including lines on
-  the top and left viewport edges; widths 2 to 5 at several angles match a brute-force
-  reference rasterizer; a line crossing each viewport edge and a corner is cut at the
-  reference's pixels; caps extend by the stated amount and nothing at width 1; at zoom 2 a
-  width-3 line is 6 pixels wide, with the rounding checked at a fractional zoom; the number
-  of `DrawFilledRectangle` calls equals the number of spans and is far below the pixel
-  count.
+**C1: thick lines.** Spans through the engine clip, as decided. Width 1 stays on `IEngine::DrawLine`, so it
+is the engine's line, not `LineBresenham` (removed in R1).
+- Decided while building it:
+  - A stroke's width comes from the object's `line_width` property, as an int or a float. The group's property is not
+    read: libtmx 1.10 does not keep an object group's properties, so the group fallback in the plan cannot be built.
+  - Only polylines take the width in C1. Rectangles and polygons stay one pixel until C2 and C3.
+  - A pixel is in a stroke when its centre is inside the rectangle around the axis, half-open on every side. The axis
+    runs through the centres of the end pixels. A boundary tolerance of 1e-9 decides centres on an edge in exact arithmetic.
+  - Screen width is the map width times the zoom, rounded half-up, at least 1 (`Shape::ScreenLineWidth`, in `src/renderer/shape/shapeprimitives.h`). The thick-line span code lives there too.
+- Test items, in `tests/test_thick_lines.cpp` (9 cases):
+  - Width 2, width 3 with its one-pixel caps, and zoom 2 with width 3 (six rows): hand-derived spans.
+  - Zoom 1.5 with width 3: 4.5 rounds up to 5 rows.
+  - Width 1 and no property: the engine's line, no spans.
+  - A diagonal line: one span per row, each row once, far fewer spans than pixels.
+  - Widths 2 to 5 at four angles: the spans cover exactly the pixels a separate reference (computed from the raw
+    endpoints) accepts.
+  - A line left of the viewport still produces spans past its edge: the engine's clip does the cutting.
+- Mutation checks (each fails its test): cap length `(w - 1) / 2` to `w / 2`; the edge rule excludes `+h` inclusively;
+  the zoom rounding drops the half-up.
+- Full suite under AddressSanitizer: 365 test cases pass with no reports.
+- Not yet covered: the spans are not compared with the reference for a line crossing a viewport edge or corner. The
+  engine's clip is what cuts them there, and the clip itself is tested by the viewport tests.
+- Not yet measured: the cost of a long thick line that runs far off the viewport (its rows are computed in full).
+- `doc/BREAKAGES.md` item 16 is written: polylines at a zoom other than 1 are wider than before.
 
 **C2: thick polylines and polygons.** Joins have no gaps.
-- Test items: a sharp corner has no gap, checked against the reference; a polygon's
-  closing segment is drawn only with more than two points, as today; width 1 output is
-  byte-identical.
+- Decided while building it:
+  - The join is a round join: a disc of half the width at each vertex that has two segments. A closed polygon joins
+    every vertex, including the one where the closing edge meets the first point. An open polyline joins only its
+    interior vertices.
+  - A polygon takes the same `line_width` property as a polyline (from its object). Width 1 stays the hairline path, so
+    its output does not change.
+  - One path renderer draws both (`Shape::DrawStrokedPath`). A single segment gives the same output as C1.
+  - Square caps are only at the two ends of an open path. At a join the round join is the corner: a cap there would
+    cut a flat step into its arc.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick joins" suite, 3 cases):
+  - A sharp corner, where the second segment doubles back over the first: the spans equal the reference of the two
+    strokes plus the join.
+  - A closed triangle: the spans equal the reference with a join at all three corners.
+  - A two-point polygon: one stroke, with no closing edge and no join.
+- Mutation checks: removing the joins fails the sharp-corner and triangle cases; closing a two-point polygon fails the
+  two-point case.
+- Full suite under AddressSanitizer: 370 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-3 polygon and a width-4 sharp corner.
+- Not decided: whether the owner wants miter joins instead of round joins. Miter joins would need a limit for very sharp
+  corners.
+- `doc/BREAKAGES.md` item 16 covers polygons too.
 
 **C3: thick rectangles.** Four thick edges.
-- Test items: matches the reference, including shared corners; width 1 output is
-  byte-identical.
+- Decided while building it: a rectangle is a closed path of its four corners, drawn by the same path renderer as C2.
+  Each corner is a round join, and no edge has an open end. A rectangle takes the object's `line_width` property.
+  Width 1 stays the four hairline edges, so its output does not change.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick rectangles" suite, 2 cases):
+  - A thick rectangle matches the reference: four closed edges with a round join at each shared corner.
+  - A thick rectangle has no open ends: no engine line is drawn, and the spans match the closed reference.
+- Mutation check: removing the joins fails the rectangle cases, as well as the C2 corner and triangle cases.
+- Full suite under AddressSanitizer: 372 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-5 rectangle, bottom right.
 
 **C4: thick ellipses.** A ring between an outer and an inner radius.
-- Test items: matches a reference ring; width 1 output is byte-identical to the midpoint
-  output; an ellipse crossing the boundary is clipped at the reference's pixels.
+- Decided while building it: width 1 stays the engine's ellipse outline (`IEngine::DrawEllipseOutline`), as in C1, since
+  `MidPointEllipse` is gone. A wider outline is a ring: a pixel is in it when it is strictly inside the outer ellipse
+  (radius plus half the width) and not strictly inside the inner one (radius minus half the width). When the inner
+  radius is not positive, the ring is a filled ellipse. The ellipse takes the object's `line_width` property.
+- Test items, in `tests/test_thick_lines.cpp` (the "Thick ellipses" suite, 2 cases):
+  - A thick ellipse is the ring between its outer and inner radius: the spans equal the reference ring, and no engine
+    ellipse is drawn.
+  - A width that reaches the centre gives a filled ellipse, matching the reference.
+- Mutation check: ignoring the inner ellipse fails the ring case.
+- Full suite under AddressSanitizer: 374 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has a width-4 ellipse at the bottom.
+- Not covered by a test: an ellipse crossing the viewport edge is cut by the engine's clip; the test only compares the
+  pixels inside the view's own rectangle, not the cut itself.
 
-**C5: points.** A point of size `s` at zoom `z` is a filled square of side
-`round(s × z)`, minimum 1. This also closes the point-object gap from B.
-- Test items: the side length follows the rule; a point on the viewport edge follows the
-  strict rule; a Tiled point object draws as a point.
+**C5: points.** A point of size `s` at zoom `z` is a filled square of side `round(s × z)`, minimum 1. This also
+closes the point-object gap from B.
+- Decided while building it:
+  - The size comes from the object's `point_size` property (int or float), default one map unit, read the same way as
+    `line_width`.
+  - The square is drawn with `IEngine::DrawFilledRectangle` inside the shape's clip, not with `SetPixel` (removed in R1).
+    Its top-left corner is at the point's position.
+  - The side uses the same rule as a line's width (`Shape::ScreenLineWidth`).
+- Test items, in `tests/test_thick_lines.cpp` (the "Points" suite, 4 cases):
+  - A point is a filled square of side `round(size × zoom)`, with its top-left at the point.
+  - The side rounds half-up: size 1.25 at zoom 2 is 3 pixels.
+  - A point is at least one pixel, and a point with no `point_size` is one map unit.
+  - A point on the viewport's top-left edge is cut by the strict clip, which starts one pixel in.
+- Finding: libtmx makes any object with a `height` attribute a rectangle, even a zero-sized one. A point is written
+  as a `<point/>` child with no width or height attribute, as Tiled writes it.
+- Mutation checks: floor instead of half-up, and no one-pixel minimum, each fail their tests.
+- Full suite under AddressSanitizer: 378 test cases pass with no reports. Every sample builds.
+- Not yet checked by eye: `samples/shapes/resources/map/thick.tmx` has three points at the bottom right, sizes 4, 10 and 2.5.
 
 **Across all of Phase C**
 - Byte-identical harnesses at default width (the animation and camera traces).
@@ -148,46 +265,442 @@ the viewport boundary.
 
 | # | Item | Status |
 |---|------|--------|
-| D1 | Apply Tiled object rotation to shapes, text and tile objects | TODO |
+| D1a | Rotate rectangle, polyline and polygon outlines about their pivot | DONE |
+| D1b | Rotate ellipses (rotated ring: the inside test runs in the ellipse's own frame) | DONE |
+| D1c | Points: not applicable. Tiled 1.11 does not offer rotation for point objects | N/A |
+| D1d | Rotate tile and text objects (needs `IEngine` to draw with a rotation) | DONE |
 
-**D1: object rotation.** libtmx parses each object's `rotation`, but `DrawObjects`
-ignores it. Rotate each shape's points about its pivot before drawing, so rotated shapes
-also get the thick-primitive work from Phase C. The pivot must follow Tiled's convention,
-which differs between rectangle, tile and text objects, so it is verified against Tiled
-before implementation.
-- Test items: rotation 0 is byte-identical to today; a 90 degree rectangle matches a
-  reference; a rotated text object is drawn at the rotated position; a rotated tile object
-  uses Tiled's pivot; a rotated thick outline matches the reference from Phase C.
+**Verified pivots (Tiled 1.11.0, checked by hand on a test map).** Each object turns about its stored X and Y,
+which is the point Tiled keeps when a rotation is set. Rotation is clockwise on screen, with a 90° turn for
+each test:
+- Rectangle (120 × 80 at 100, 100): pivot is the top-left corner. After 90° it sits left of and below the
+  point, covering x 20–100 and y 100–220. Confirmed.
+- Ellipse (160 × 80 at 100, 100): pivot is the top-left corner. After 90° its centre is at (60, 180), left
+  of and below the point. Corrected from (60, 160): the unrotated centre is (180, 140), not (160, 140).
+- Tile object (32 × 32 at 100, 100): pivot is the bottom-left corner. After 90° it sits right of and below
+  the point, covering x 100–132 and y 100–132. Confirmed.
+- Point: Tiled does not rotate it. D1c is not applicable.
+- Polyline and polygon points are relative to the object's X and Y, so they turn about that point.
+
+**D1d: rotated tile and text objects (DONE).** A new `IEngine::DrawTextureRotated` draws one texture turned about
+an anchor, with an origin offset (raylib's `DrawTexturePro`). A new `IEngine::DrawTextRotated` and `IFont::DrawTextRotated`
+draw a line of text turned about its top-left corner (`DrawTextPro`). A turned tile is one texture turned about its
+bottom-left corner, Tiled's pivot. A turned text block turns each line's top-left corner about the block's top-left
+corner, and the line turns with it. A turned text block is never culled by its unturned box.
+- Test items, in `tests/test_rotated_tiles_text.cpp` (the "Rotated tiles and text" suite, 3 cases):
+  - A tile turned 90°: one turned texture, anchored at the object's point, origin (0, height).
+  - A two-line text block turned 90°: the first line at the pivot, the second line swung to the left.
+  - A text block turned into view, although its unturned box is outside the viewport, is drawn.
+- Mutation checks: the tile's origin at the top-left corner, culling by the unturned box, and the lines turned the
+  wrong way each fail their case.
+- Breaking: `IEngine` and `IFont` gain pure virtual methods (BREAKAGES item 18).
+- Sample: `samples/shapes/resources/map/rotation.tmx` has turned tiles and text at 90° and 45°. Checked by eye: it works.
+- Full suite under AddressSanitizer: 390 test cases pass with no reports.
+
+**D1a: rotated shape outlines (DONE).** Each point of a rectangle, polyline or polygon turns about the
+object's stored point in map units, before the zoom is applied. The turn is clockwise on screen, and it is exact
+for quarter turns: cosine and sine within 1e-12 of zero count as zero (`Shape::Rotate`). An object with no
+rotation gets 0, so its output is unchanged.
+- Test items, in `tests/test_thick_lines.cpp` (the "Rotated shapes" suite, 4 cases):
+  - A rectangle turned 90°: four hairline edges at the expected corners, x 30–110 and y 110–230.
+  - A polyline turned 90°: a point to the right of the stored point goes below it.
+  - A thick triangle and a thick rectangle turned 90°: the spans equal the reference of the turned corners.
+- A polyline turned 45°: its end lands on the truncated pixel (145, 145), and a thick one matches the reference.
+- Rotation 0: the existing shape tests cover this (the output for an unrotated object is unchanged).
+- Mutation checks: ignoring the rotation, and flipping the direction, each fail the four rotated cases.
+- Sample: `samples/shapes/resources/map/rotation.tmx` (a rectangle, a polyline and a polygon, each with a pivot
+  marker). Checked by eye: the shapes turn clockwise about their markers.
+- Full suite under AddressSanitizer: 382 test cases pass with no reports.
+
+**D1b: rotated ellipses (DONE).** The ring is tested in the ellipse's own frame: each pixel centre is turned
+back by the ellipse's rotation before the outer and inner tests. The centre is the box's centre, turned about the
+stored point. A one-pixel ring is used when the ellipse is turned; an unturned one-pixel outline stays the engine's.
+- Test items, in `tests/test_thick_lines.cpp` (the "Rotated ellipses" suite, 3 cases):
+  - A thick ellipse turned 45°: the spans equal the reference ring in its own frame.
+  - A one-pixel ellipse turned 90°: a one-pixel ring, not the engine's outline.
+  - An unturned one-pixel ellipse: still the engine's outline.
+- Mutation checks: ignoring the frame's turn fails the 45° and 90° cases. Turning the frame the other way fails the
+  45° case. (Flipping only the sign of the perpendicular coordinate changes nothing, because it is squared.)
+- Sample: `samples/shapes/resources/map/rotation.tmx` has a 45° ellipse, with a pivot marker. Checked by eye: it works.
+- Full suite under AddressSanitizer: 387 test cases pass with no reports.
+
+**Test map.** The Tiled files are in `Spool/test` for now. Once D1a is done, the same map goes to
+`samples/shapes/resources/map/` with a copy of the tileset image beside it.
+
+- D1a test items: rotation 0 is byte-identical to today; a 90° rectangle matches the reference of its rotated
+  corners; a rotated polyline and polygon turn about the object's X and Y.
+- D1b test items: a 90° ellipse matches a reference ring in its own frame; a rotated thick outline matches the
+  C4 reference.
+- D1d test items: a rotated tile object uses the bottom-left pivot; a rotated text object uses the top-left pivot.
 
 ## Phase E: isometric, staggered and hexagonal maps
 
+`TileMapRenderer` has no seam today between drawing a tile map and drawing an *orthogonal* one: the
+grid math is woven into the class itself. Isometric, staggered and hexagonal maps need that math behind
+an interface, so the renderer keeps everything that is not projection-specific (the view/camera/clip
+machinery, sprites, collision dispatch, shape/text/tile drawing, animation, the frame loop), and each
+map orientation supplies its own tile geometry.
+
 | # | Item | Status |
 |---|------|--------|
-| E1 | Isometric rendering (tile to pixel, pixel to tile) | TODO |
-| E2 | Staggered rendering | TODO |
-| E3 | Hexagonal rendering | TODO |
+| E0 | Projection seam: `IMapProjection` + `OrthogonalProjection`, with visible-tile culling. No behavior change | DONE |
+| E1a | Verify Tiled's isometric conventions by hand (tile anchor, object coordinate space, map pixel bounds, scroll step) | DONE |
+| E1b | `IsometricProjection`: tile to screen (diamond math), screen to tile matrix, map pixel size, default scroll step | DONE |
+| E1c | An isometric sample map and a real-window check by the owner | DONE |
+| E2a | Verify Tiled's staggered conventions by hand, all 4 `stagger_axis`/`stagger_index` combinations | DONE |
+| E2b | `StaggeredProjection`: tile to screen, screen to tile matrix, map pixel size, default scroll step | DONE |
+| E2c | A staggered sample map and a real-window check by the owner | DONE |
+| E3a | Verify Tiled's hexagonal conventions by hand, both `stagger_axis` values, both `stagger_index` values, and the effect of `hexsidelength` | DONE |
+| E3b | `HexagonalProjection`: tile to screen, screen to tile matrix, map pixel size, default scroll step | DONE |
+| E3c | A hexagonal sample map and a real-window check by the owner | DONE |
 
-This is the largest feature. It needs its own design before implementation: coordinate
-conversion in both directions, `TileMapToTileMatrix` for each orientation, culling of
-off-screen tiles, and the draw order of tiles and sprites. Each orientation needs a
-small test map, and a real-window check by the owner.
+**E0: the projection seam (DONE).** What is orthogonal-specific today, found by reading the renderer rather
+than assumed: the map's pixel size (`m_nMapWidth`/`m_nMapHeight`, 23 call sites that only ever treat it as an
+opaque number); a tile layer cell's screen position (`DrawLayer`'s `(col * tile_width, row * tile_height)`,
+using the resolved tile's own tileset size, not the map's); a tile matrix cell's view-space rectangle
+(`GetTile`, consumed only by `CollisionManager`); the inverse, view-space to tile matrix
+(`TileMapToTileMatrix`); and the default scroll step (`CreateView`, `LoadMap`, and - found during review -
+`MoveCameraUp`/`MoveCameraLeft`'s scroll-boundary clamp, which read the map's tile size directly as a rounding
+term). `DrawLayer`'s loop structure, the alignment switch, the rest of the scroll clamps and everything
+outside these five buckets stay in `TileMapRenderer` unchanged - they already only consume the buckets' output
+as opaque values, never the map's orientation itself.
 
-- Test items per orientation: tile-to-pixel and pixel-to-tile round-trip for every tile
-  of a small map; drawn positions match a reference; the viewport clip matches the
-  orthogonal rule; the existing orthogonal harnesses are unchanged.
+- `IMapProjection` lives in its own module, `renderer/projection/` (the `shape/`/`map/` pattern), with
+  `OrthogonalProjection` as the only implementation for now. `TileMapRenderer` picks one in `LoadMap` from
+  `m_pTmxMap -> orient`, the same shape as `EngineFactory`/`WindowFactory` pick a backend. An orientation with
+  no implementation keeps today's clear error.
+- **Visible-tile culling** is part of E0, not deferred: `DrawLayer` currently drew the whole grid every frame
+  and relied on the clip. A sixth projection method, `VisibleTileRange`, bounds the loop to the tiles that can
+  be seen, padded by a fixed one tile either side (`__CULL_PADDING_TILES`) - `DrawLayer` always draws a cell at
+  its resolved tile's own tileset size, never a per-tile image-size override, so the padding needs no larger
+  margin than that.
+- **Safety net for mixed tile sizes.** If a layer's tiles come from a tileset whose own declared size differs
+  from the map's declared size, a culled range computed from a single step size can genuinely miss visible
+  cells far from the origin - a scale mismatch that grows with distance, not a fixed-offset case any padding
+  could fix. `LoadMap` checks this once (`m_bUniformTileGrid`, comparing every tileset's own size against the
+  map's); `DrawLayer` falls back to the exact pre-E0 full-grid loop whenever they disagree, trading the
+  performance win for guaranteed correctness on that (rare, exotic) map.
+- Test items, in `tests/test_tileculling.cpp` (the "Tile culling" suite, 4 cases): a map much larger than the
+  viewport produces a bounded tile count, not `width x height`; a map whose tilesets disagree on tile size
+  falls back to visiting every cell; the same layout with matching tile sizes is still exact once every cell is
+  visible; and a mismatched tileset smaller than the map's declared size is not wrongly excluded near the far
+  edge - the case that specifically needs the uniform-grid fallback, not just the padding.
+- Mutation checks: removing the padding fails the first case; disabling the uniform-grid check fails the last.
+  Each was confirmed by reverting the fix, seeing the test fail, then restoring it.
+- Full suite (394 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
+
+**E1a: verify Tiled's isometric conventions (DONE).** The same practice as the object-rotation pivots: checked
+by hand in Tiled before any isometric formula was written, not assumed - and it caught the same kind of trap
+again. A probe map was built with distinct solid-color tiles (not real art - faint/translucent tile images
+turned out to be unmeasurable at the pixel level), exported to a PNG with Tiled 1.11's "Export As Image", and
+measured pixel-by-pixel:
+
+- **Map pixel bounds**, confirmed exact at two map sizes (160x80 for a 3x2 map, 224x112 for a 3x4 map, both
+  64x32 tiles): `(mapWidthCells + mapHeightCells) * tileWidth/2` by `... * tileHeight/2`.
+- **A tile layer cell's own top-left corner** (its `tileWidth x tileHeight` bounding box), confirmed exact
+  across all 18 cells of both maps:
+  `screenX = (col - row + mapHeightCells - 1) * (tileWidth/2)`, `screenY = (col + row) * (tileHeight/2)`.
+  The lattice step always uses the MAP's own declared tile size, never a resolved tile's own image size - a
+  probe tileset with 32x32 tile images on a 64x32 declared grid still landed exactly on the 64x32 lattice.
+  A formula half-remembered from Tiled's own source (`mapHeightCells * tileWidth/2`, no `-1`) looked plausible
+  and matched the FIRST map size tested (2 cells tall) - only testing a second, differently-tall map (4 cells)
+  caught it as wrong, the same lesson as the comment-reasoning mistakes this file already warns about.
+- **Tile *object* coordinates** (a stamped tile on the map, not a tile layer cell) follow a related but
+  distinct, separately-measured formula, confirmed exact at three typed values (not click-placed - Tiled's
+  Insert Tile tool does not snap to the isometric grid by default, which produced unusable noise at first):
+  `objScreenX = storedX - storedY + (mapHeightCells - 1) * (tileWidth/2) + tileHeight/2`,
+  `objScreenY = (storedX + storedY) / 2`, at the object's own bottom-left corner (Tiled's usual tile-object
+  anchor, already used by `DrawTileObject`). This answers E1a's open question - object coordinates ARE
+  projected, not plain pixel space - but `IMapProjection` does not yet have a method for it; no projection
+  consumer needs isometric object placement yet, so it is a tracked follow-up, not part of E1b.
+- Default scroll step is a design choice, not a Tiled convention to verify: `IsometricProjection` uses one
+  full tile step, the same convention `OrthogonalProjection` already uses.
+
+**E1b: `IsometricProjection` (DONE).** Implements all six `IMapProjection` methods with the formulas E1a
+confirmed. `TileDrawPosition` gained a `tmx_map *pMap` parameter it did not have in E0 - a gap E1a's own
+findings exposed: the isometric lattice step needs the map's own tile_width/tile_height, which was not
+available to that method before (`OrthogonalProjection` never needed it, since orthogonal steps by the
+resolved tile's own size, already passed in). `ViewToTileMatrix`/`VisibleTileRange` invert the confirmed
+formula algebraically (solving the two linear equations for col/row), at the same AABB precision
+`TileMapToTileMatrix` already uses for orthogonal - not a true diamond hit-test, which no consumer needs today.
+`m_bUniformTileGrid`'s mixed-tileset fallback (E0) still applies uniformly regardless of orientation; isometric
+does not actually share orthogonal's risk (its lattice step never depends on a resolved tile's own size), so
+the fallback is occasionally more conservative than isometric strictly needs, but never incorrect.
+
+- Test items, in `tests/test_isometricprojection.cpp`: `MapPixelSize` and `TileDrawPosition` against the exact
+  pixel values E1a measured, for both map sizes (not values this engine's own formula could have produced by
+  construction - independently observed facts); a layer offset still shifts the result; a resolved tile's own
+  size does not move the lattice position (unlike orthogonal); `ViewToTileMatrix` round-trips every cell of a
+  3x4 map (probed one pixel inside each cell's own top-left corner, not its bounding box's center - adjacent
+  cells' boxes overlap by half their width/height on this lattice, so a center-probe can land exactly on a
+  neighbor's own corner and round-trip to the wrong cell, a trap the first version of this test fell into); out
+  -of-bounds coordinates are refused; `DefaultScrollStep` matches orthogonal's convention; `VisibleTileRange`
+  covers the whole map for a whole-map rectangle, is bounded (not the full grid) for a small one, and clamps to
+  the grid for an oversized one. A renderer-integration test loads a real isometric map and checks `DrawLayer`
+  produces the exact measured positions end to end.
+- Mutation check: removing the lattice's height-dependent shift term fails 5 of the 12 isometric test cases
+  (including the renderer-integration one), confirmed by reverting the fix, seeing the tests fail, then
+  restoring it.
+- `tests/test_maporientation.cpp` updated: isometric now loads (a new, dedicated test case) instead of being
+  refused; staggered and hexagonal are still refused, and the "refused map doesn't block the next one" case
+  now uses hexagonal as its refused example instead of isometric.
+- Full suite (407 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
+
+**E1c: isometric sample map and real-window check (DONE).** `samples/isometric/` (new sample, mirroring
+`samples/orthogonal/` (then `samples/tilemaprenderer/`)'s structure and the same pan/zoom keys): an 8x6 checkerboard of two green diamond
+shades, with a red marker tile at (row 0, col 0) and the opposite corner (row 5, col 7) - the diamond's own top
+and bottom vertices per the confirmed formula, not its left/right ones, since those sit `tileWidth/2` off
+center on each side. Diamond tile art generated for this sample specifically (an actual 64x32 diamond polygon
+with transparent corners, not a solid square) - E1a's probe tiles were plain squares, fine for pixel
+measurement but not for a visual check of real diamond tiling. Checked by eye by the owner: every tile reads
+as one continuous, seamless diamond mosaic across the whole 8x6 grid, no gaps, no overlapping or misaligned
+seams, and the two marker tiles land exactly where the formula predicts.
+
+**E2a: verify Tiled's staggered conventions (DONE).** Same practice as E1a: measured against a real Tiled
+export (`tmxrasterizer`, Tiled 1.11.0's own CLI rasterizer - pixel-identical to its GUI "Export As Image",
+scriptable, so every combination below was rendered and measured mechanically rather than read off a single
+screenshot by eye) rather than assumed. A staggered map has two independent settings libtmx exposes on
+`tmx_map` that orthogonal and isometric never touch - `stagger_axis` (`SA_X`/`SA_Y`: whether columns or rows
+are the staggered ones) and `stagger_index` (`SI_EVEN`/`SI_ODD`: which parity of them is shifted) - so all 4
+combinations were verified, not just Tiled's own default, since E1a already showed a formula can match one
+case by coincidence and still be wrong. A probe tileset of 6 solid, non-square 64x48 colour tiles (avoiding
+any 2:1 or square coincidence that could hide a mixed-up width/height term) was placed at 5 known matrix
+positions (the 4 corners and one interior cell) on 3 map sizes per combination - a baseline, one that varies
+only row count, one that varies only column count, so a row-dependent and a column-dependent term cannot be
+confused with each other, the same isolation E1a's two differently-tall isometric probes used. 12 maps in
+total, each rendered and measured pixel-exactly by script.
+
+- **A tile layer cell's own top-left corner**, confirmed exact across every combination and all 3 sizes:
+  - `stagger_axis = SA_Y` (rows are staggered): `screenY = row * (tileHeight / 2)`; `screenX = col * tileWidth`,
+    plus `tileWidth / 2` when the row's own parity matches the stagger index (an even row for `SI_EVEN`, an
+    odd row for `SI_ODD`).
+  - `stagger_axis = SA_X` (columns are staggered): `screenX = col * (tileWidth / 2)`; `screenY = row * tileHeight`,
+    plus `tileHeight / 2` when the column's own parity matches the stagger index - the exact mirror of the Y
+    case, confirmed independently rather than assumed from the symmetry.
+- **Map pixel bounds**, confirmed exact at all 3 sizes per axis (index-independent - both `stagger_index`
+  values produced the same overall image size for a given axis and map size):
+  - `stagger_axis = SA_Y`: `(mapWidthCells * tileWidth + tileWidth / 2)` by `((mapHeightCells + 1) * tileHeight / 2)`.
+  - `stagger_axis = SA_X`: `((mapWidthCells + 1) * tileWidth / 2)` by `(mapHeightCells * tileHeight + tileHeight / 2)`.
+- **Cell bounding boxes overlap their neighbours along the staggered axis**, found while measuring, not assumed:
+  a row's (or column's) pitch is only half a tile step, not a full one, so consecutive rows/columns on the
+  staggered axis genuinely overlap by half their own rectangle - confirmed directly in the rendered probes,
+  where a later-drawn cell's rectangle visibly painted over the bottom (or right) half of an earlier one in
+  the overlap region, leaving its top-left corner (the value the formulas above report, and the only part
+  `TileDrawPosition` needs) unaffected. This is the same shape of ambiguity E1b found for isometric's diamond
+  lattice: a point-based inverse lookup (`ViewToTileMatrix`) cannot be exact from the bounding box alone near
+  the overlap, and needs the same AABB-precision approach already used there, not a true per-shape hit test.
+- **Tile *object* coordinates** (a stamped object, not a layer cell) were not measured - same deferral E1a
+  made for isometric object placement: no projection consumer needs staggered object placement yet, so this
+  is a tracked follow-up, not part of E2b.
+- Default scroll step is a design choice, not a Tiled convention to verify: `StaggeredProjection` is expected
+  to use the same one-full-tile-step convention `OrthogonalProjection` and `IsometricProjection` already use.
+
+**E2b: `StaggeredProjection` (DONE).** Implements all six `IMapProjection` methods with the formulas E2a
+confirmed. Unlike isometric, `TileDrawPosition` does not depend on the map's own width or height at all - a
+cell's own top-left corner depends only on its row/column and the tile size, confirmed directly from the
+probe data (the same corner landed at the exact same pixel across all 3 map sizes). `LoadMap`'s orientation
+switch gains an `O_STA` case, and its refusal message (stale since E1b - it still said "only orthogonal maps
+are supported" after isometric was already accepted) is corrected to name all three supported orientations.
+
+- `ViewToTileMatrix` started from the same two-candidate, nearest-corner-wins approach `IsometricProjection`
+  uses for its own overlapping lattice, reasoning the staggered lattice's cells overlap their neighbour the
+  same way. Mutation-testing that reasoning - forcing the method to always keep its first, un-disambiguated
+  candidate rather than ever considering the second - left every round-trip test still passing: a single
+  direct floor against the cell's own line shift is already exact for the only precision this method
+  promises (a point near a cell's own anchor corner). The second candidate and its distance comparison were
+  dead, untested complexity once this was found, so they were removed rather than kept.
+- `VisibleTileRange` is derived per axis (not guessed) from each axis's own two possible shifts (0 or half a
+  tile): the unshifted axis reduces to the exact floor/ceil orthogonal already uses, and the shifted axis
+  takes the loosest bound either shift value can produce, so no row/column parity in range is missed. An
+  early version's margin test only checked a rectangle starting exactly at the map's own edge, where the
+  margin's effect is clamped away regardless of whether it is there - a gap found by mutation-testing that
+  test itself (removing the margin left it passing); the fix added a second, interior-rectangle test per axis
+  that the margin's removal does actually fail.
+- Test items, in `tests/test_staggeredprojection.cpp` (20 cases): `MapPixelSize` against the exact measured
+  values for both axes across all 3 map sizes, and a dedicated case confirming it does not depend on
+  `stagger_index`; `TileDrawPosition` against the exact measured values for all 4 axis/index combinations,
+  plus the no-map-size-dependency finding, a layer-offset case and a resolved-tile-size-independence case;
+  `ViewToTileMatrix` round-trips every cell of two differently-staggered 4x3 grids and refuses an
+  out-of-bounds coordinate; `DefaultScrollStep`; `VisibleTileRange` covers the whole map for both axes, is
+  bounded for a small rectangle, clamps for an oversized one, and (the two added cases above) does not drop a
+  cell whose own span starts one pitch before an interior rectangle, on either axis. A renderer-integration
+  test loads a real staggered map (libtmx's own default axis/index, confirmed in E2a to be `SA_Y`/`SI_ODD`)
+  and checks `DrawLayer` produces the formula-derived positions end to end.
+- `tests/test_maporientation.cpp` updated: staggered now loads (a new, dedicated test case, replacing its
+  half of the old combined "staggered and hexagonal are refused" case) instead of being refused; hexagonal
+  alone is refused now.
+- Mutation checks, each confirmed by reverting the fix, seeing the specific tests fail, then restoring it:
+  flipping the shift-parity condition fails 7 of 18 `TileDrawPosition`/size-independence cases; removing the
+  `MapPixelSize` row-count term fails its own 3 assertions; using a full tile step instead of a half-tile
+  pitch in `ViewToTileMatrix` fails the round-trip suite; removing `VisibleTileRange`'s margin fails the two
+  interior-rectangle cases added for exactly that purpose.
+- Full suite (434 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
+
+**E2c: staggered sample map and real-window check (DONE).** `samples/staggered/` (new sample, mirroring
+`samples/orthogonal/` (then `samples/tilemaprenderer/`)'s structure and pan/zoom keys, `-`/`=` to zoom like `samples/isometric/`): an 8x6
+grid, `SA_Y`/`SI_ODD` (Tiled's own default), two checkerboard shades, a red marker at (row 0, col 0) and a
+gold one at the opposite corner (row 5, col 7). First checked with plain solid-color 64x48 rectangles - the
+same choice E1a made for its own probe tiles, the clearest way to see the raw grid math with no art to second
+-guess - and confirmed by eye as a clean, continuous brick/staggered weave with no gaps or misaligned seams,
+matching `tmxrasterizer`'s own independent render pixel-for-pixel. The owner then asked for diamond tile art
+(transparent corners inscribed in each 64x48 rectangle) so the sample would visually read as a mosaic the
+same way E1c's isometric sample does - confirmed working: the diamonds interlock into a seamless lattice with
+no gaps or misaligned seams, the practical payoff of Tiled's own stated reason for the staggered orientation
+("allows a map based on isometric tiles to still have an overall rectangular shape" - a staggered map's half
+-tile row pitch is exactly a diamond's own half-height, which is what makes the two techniques produce an
+identical mosaic from different storage shapes).
+- Two issues found and fixed during the owner's check, both sample-only (no `StaggeredProjection` or
+  `TileMapRenderer` change): the sample's `Run()` omitted the base `tilemaprenderer` sample's
+  `SetScrollStepSize(1, 1)` call, so held-key panning moved a full tile (64px) per frame instead of 1px -
+  fixed by adding the same call. Vertical panning appeared not to work at the default zoom; confirmed correct,
+  not a bug - the map's own pixel height ((rows + 1) * tileHeight / 2 = 168) is shorter than the viewport at
+  that zoom, so there is nothing to scroll to, the same "viewport taller than map" case `test_camera.cpp`
+  already covers for the orthogonal renderer.
+
+**E3a: verify Tiled's hexagonal conventions (DONE).** Same practice as E1a/E2a: measured against real
+`tmxrasterizer` exports, not assumed. A hexagonal map carries one parameter beyond `stagger_axis`/
+`stagger_index` that staggered maps never had: `hexsidelength`, the length of the hexagon's own two parallel
+"flat" edges (perpendicular to the stagger axis) - so the pitch along the staggered axis can no longer be a
+fixed half-tile step the way staggered's was; it has to be derived from `hexsidelength` directly. 10 probe
+maps were built and measured: the primary combination (`stagger_index = SI_ODD`, `hexsidelength = 20`) at 3
+map sizes per axis (a baseline, a row-count-only variant, a column-count-only variant, the same isolation
+E1a/E2a used), plus a second `hexsidelength` value (10) and `SI_EVEN` at one size each per axis, to isolate
+each parameter's own effect rather than risk conflating them.
+
+- **The axis that is NOT staggered behaves exactly like `StaggeredProjection`, unaffected by
+  `hexsidelength`:** for `SA_Y` (pointy-top hexagons, rows staggered), `screenX = col * tileWidth`, plus
+  `tileWidth / 2` when the row's own parity matches the stagger index - the identical formula and shift
+  amount E2a measured for staggered, confirmed unchanged across both tested `hexsidelength` values. `SA_X`
+  mirrors this on `screenY`/column parity, likewise unaffected by `hexsidelength`.
+- **The staggered axis's pitch is `(tileDimension + hexsidelength) / 2`, not a fixed half-tile step:** for
+  `SA_Y`, `screenY = row * (tileHeight + hexsidelength) / 2` - confirmed exact at both measured
+  `hexsidelength` values (20 and 10) and all 3 map sizes, with no row-count-dependent term (unlike isometric's
+  lattice). `SA_X` mirrors this on `screenX` against `tileWidth`.
+- **Map pixel bounds**, confirmed exact at all 3 sizes and both `hexsidelength` values per axis, and found to
+  be index-independent (matching E2a's equivalent staggered finding): `SA_Y`'s width is the same
+  `cols * tileWidth + tileWidth / 2` staggered already uses (hexside-independent, since that axis's formula
+  is unaffected); its height is `(rows * (tileHeight + hexsidelength) + (tileHeight - hexsidelength)) / 2`.
+  `SA_X` mirrors both onto the opposite axis.
+- **Internal cross-check, not by design but a reassuring coincidence of the derivation:** every formula above
+  reduces exactly to `StaggeredProjection`'s own, already-verified formula when `hexsidelength = 0` (the
+  pitch `(tileDimension + 0) / 2` is staggered's own half-tile step, and the bounds formula's extra term
+  likewise collapses to staggered's `(count + 1) * half` shape). This was not assumed going in - it fell out
+  of the independently-measured numbers - but it is a strong signal the two derivations agree where they
+  should.
+- **Cell bounding boxes overlap their neighbour on the staggered axis** whenever `hexsidelength` is less than
+  the tile's own dimension on that axis (the normal case for an actual hexagon shape, confirmed directly in
+  the rendered probes, the same overlap `StaggeredProjection`'s own doc comment already describes) - so
+  `ViewToTileMatrix` is expected to need the same AABB-precision approach, though E2b's own mutation-testing
+  finding (a single direct floor was enough, the two-candidate scheme was unnecessary complexity) should be
+  re-verified for hexagonal rather than assumed to carry over unchanged.
+- Tile *object* coordinates were not measured - the same deferral E1a/E2a made for isometric and staggered:
+  no projection consumer needs hexagonal object placement yet.
+- Default scroll step is a design choice, not a Tiled convention to verify: `HexagonalProjection` is expected
+  to use the same one-full-tile-step convention the other three projections already use.
+
+**E3b: `HexagonalProjection` (DONE).** Implements all six `IMapProjection` methods with the formulas E3a
+confirmed. The non-staggered axis's formula and `VisibleTileRange` bound are identical to `StaggeredProjection`'s
+own (hexsidelength plays no part there); the staggered axis replaces the fixed half-tile pitch with
+`StaggerPitch` ((tileDimension + hexsidelength) / 2), including in `VisibleTileRange`'s own bound on that axis,
+which uses the general, unsimplified intersection formula rather than `StaggeredProjection`'s "-1" shortcut -
+that shortcut relied on the pitch being exactly half the tile dimension, no longer true once hexsidelength
+isn't 0.
+
+- `ViewToTileMatrix` started from the single direct floor `StaggeredProjection` settled on (after its own
+  mutation-testing found a two-candidate, nearest-corner scheme was unneeded complexity) rather than
+  reintroducing that complexity unverified - E3a's own note said this needed re-checking, not assuming it
+  would carry over. Confirmed by mutation testing: forcing the wrong pitch (a plain `tileHeight` instead of
+  `StaggerPitch`) fails the round-trip suite, so the simplification is working correctly here too, not merely
+  unexercised.
+- Test items, in `tests/test_hexagonalprojection.cpp` (26 cases): `MapPixelSize` against the exact measured
+  values for both axes across all 3 map sizes, index-independence, and a dedicated case confirming it changes
+  with `hexsidelength`; `TileDrawPosition` against the exact measured values for both axes, both indices and
+  two `hexsidelength` values, plus the no-map-size-dependency finding, a layer-offset case and a
+  resolved-tile-size-independence case; a dedicated cross-check instantiating both `HexagonalProjection`
+  (hexsidelength 0) and `StaggeredProjection` side by side and asserting their `MapPixelSize`/`TileDrawPosition`
+  agree exactly across a whole grid - not designed in, but a direct consequence of E3a's own
+  hexsidelength-0-matches-staggered finding, now a standing regression test against the two ever drifting
+  apart; `ViewToTileMatrix` round-trips every cell of three differently-configured 4x3 grids (two axes, two
+  hexsidelengths) and refuses an out-of-bounds coordinate; `DefaultScrollStep`; `VisibleTileRange` covers the
+  whole map for both axes, is bounded for a small rectangle, clamps for an oversized one, and does not drop a
+  cell whose own span starts one pitch before an interior rectangle, on either axis. A renderer-integration
+  test loads a real hexagonal map (libtmx's own default axis/index, `SA_Y`/`SI_ODD`, with an explicit
+  `hexsidelength` - unlike `stagger_axis`/`stagger_index`, this attribute has no libtmx default) and checks
+  `DrawLayer` produces the formula-derived positions end to end.
+- `tests/test_maporientation.cpp` updated: hexagonal now loads (a new, dedicated test case). The "refused
+  map" tests needed a different real-world case once hexagonal joined orthogonal/isometric/staggered as
+  accepted - found while updating them: libtmx's own parser (`tmx_xml.c`) rejects both an unrecognized
+  orientation string AND a missing `"orientation"` attribute at parse time (two separate `tmx_err` calls), so
+  `TileMapRenderer::LoadMap`'s own orientation switch can never actually see an orientation it does not
+  recognize - the default case added to that switch is unreachable in practice, the same finding B3 made for
+  `L_NONE`/`OT_NONE`. (An earlier draft of this same comment claimed the opposite - that a missing attribute
+  left `O_NONE` to reach the switch - based on reading only the attribute's "value present but invalid"
+  branch and missing its `else`; caught by checking the actual runtime error message against the full source
+  before trusting the first read, the same discipline this file's own "Doc comments must be verified" section
+  asks for.) The "refused map" tests now use a TMX missing its `orientation` attribute entirely, which
+  genuinely is refused - by libtmx's own parser, before `LoadMap`'s switch is ever reached - the same path its
+  other "cannot open extern tileset" parse-failure cases already exercise.
+- Mutation checks, each confirmed by reverting the fix, seeing the specific tests fail, then restoring it:
+  removing `hexsidelength` from `StaggerPitch` fails 10 of 25 cases; removing `MapPixelSize`'s extra term
+  fails 3 cases, including the `StaggeredProjection` cross-check; flipping the shift-parity condition fails
+  10 cases; using a plain tile dimension instead of `StaggerPitch` in `ViewToTileMatrix` fails its round-trip
+  cases.
+- Full suite (461 cases) passes under AddressSanitizer with no reports. Every sample builds cleanly.
+
+**E3c: hexagonal sample map and real-window check (DONE).** `samples/hexagonal/` (new sample) - at the
+owner's request, this reproduces the isometric sample's full Sunny collision/movement demonstration (smooth
+cell-to-cell animation, raised obstacle tiles with authored Tile Collision Editor shapes, an edge-triggered
+camera clamped to the map's limits, `AddColliderToTileRule` wired as a demonstrated-but-not-acted-on safety
+net, a centered sprite) rather than E1c/E2c's plain pan/zoom viewer - the same structure
+`samples/isometric/world.cpp` already had, ported to hexagonal geometry. An 8x6 grid, `SA_Y`/`SI_ODD`,
+60x50 tiles, `hexsidelength=20` (explicit - E3a/E3b found this attribute has no libtmx default, unlike
+`stagger_axis`/`stagger_index`), true hexagon tile art (transparent corners, vertices at the tile's own edges
+per E3a's confirmed formula) for both the ground checkerboard and a raised, shaded obstacle cluster.
+
+- **One real adaptation, not a copy-paste**: a hex cell has six neighbors (NW/NE/W/E/SW/SE), not the diamond
+  and staggered lattices' four (row±1, col±1 only) - so movement needed a genuine neighbor-offset formula, not
+  just a renamed version of the isometric sample's `TryMoveStep`. The offset (which diagonal moves by which
+  column, depending on the current row's own parity) was derived and cross-checked directly against
+  `HexagonalProjection`'s own confirmed `CellTopLeft` formula - computing which neighboring cell's screen
+  position is actually closest - rather than assumed from a remembered hex-grid convention, the same
+  "verify, don't assume" standard this project applies to Tiled's own documented rules. Bound to `Q`/`E`/`A`/
+  `D`/`Z`/`C` (a common hex-grid keyboard layout: the QWEASDZXC block's own two diagonal rows plus level
+  left/right), since WASD/arrows alone cannot name six directions.
+- **A second real adaptation**: isometric's tile height (32) happened to equal Sunny's own sprite size, so
+  only an X centering offset was needed; a hex tile's bounding box (60x50) differs from her 32x32 sprite on
+  BOTH axes, so this sample needed its own `__SUNNY_CENTER_OFFSET_Y` too, not just reused the X-only pattern.
+- Checked by eye by the owner: confirmed working on the first try, no iteration needed (unlike the isometric
+  sample's own first pass, which went through several rounds of movement/collision/camera fixes before the
+  owner confirmed it).
+- **Follow-up (DONE, as its own change after E3 merged):** `samples/staggered/` upgraded to the same Sunny
+  collision/movement structure, so all three new orientations now demonstrate the same sample consistently.
+  Porting it required checking, not assuming, whether isometric's `TryMoveStep(row±1, col±1)` logic would
+  carry over: it would not have. In isometric, row/col ARE the diamond's own diagonal screen axes, so a plain
+  ±1 step is itself diagonal; staggered stores a plain rectangular array where col is a true screen-horizontal
+  axis, so the two same-row neighbors (`col±1`) are actually two diamond-widths apart on screen (confirmed
+  numerically against `CellTopLeft` itself: distance 64 vs the real touching neighbors' distance 40), not a
+  real touch. Staggered needed the same parity-aware neighbor logic E3c's own hex sample used (NW/NE/SW/SE),
+  just four directions instead of hex's six, since a diamond has no true "side" neighbor the way a hexagon's
+  flat edges give it one. Confirmed working by the owner in a real window.
+  Both the staggered and hexagonal obstacle tiles were then simplified from a raised, shaded 3D block (the
+  isometric sample's own obstacle art style) to a plain flat fill matching the ground tiles' own shape, at
+  the owner's request - the 3D look wasn't wanted on either of these two orientations.
 
 ## Phase F: input configuration
 
 | # | Item | Status |
 |---|------|--------|
-| F1 | Device list and hot-plug events | TODO |
-| F2 | Player slots: claim, release, reassign after unplug | TODO |
-| F3 | Action map: named actions, rebinding, load and save | TODO |
-| F4 | Tunable dead zones and thresholds per pad and axis | TODO |
-| F5 | Duplicate pad registration is ignored | TODO |
-| F6 | Default handlers are opt-in, and a game can take over input | TODO |
-| F7a | Rumble interface, factory, null and mock implementations (no real device) | TODO |
-| F7b | Real rumble backend, once a platform that vibrates is chosen | TODO |
+| F0a | Extract input dispatch/registration into `IControllerManager` + `ControllerManager`, owned by `TileMapRenderer` (mirroring `ICollisionManager`). No behavior change | DONE |
+| F0b | Extract the default camera/zoom bindings into an opt-in `DefaultControllerBindings` preset, taking `ITileMap&` + `IControllerManager&` | DONE |
+| F0c | Record the Scarab/Caravellius breakage in `doc/BREAKAGES.md` | DONE |
+| F1 | Device list and hot-plug events | DONE |
+| F2 | Player slots: claim, release, reassign after unplug | DONE |
+| F3 | Action map: named actions, rebinding, load and save | DONE |
+| F4 | Tunable dead zones and thresholds per pad and axis | DONE |
+| F5 | Duplicate pad registration is ignored | DONE |
+| F6 | Default handlers are opt-in, and a game can take over input | N/A, subsumed by F0b - once default bindings are a separate, un-auto-installed preset, there is nothing left for this item to do |
+| F7a | Rumble interface, factory, null and mock implementations (no real device) | DONE |
+| F7b | Real rumble backend, once a platform that vibrates is chosen | DONE |
 
 Today the renderer only polls gamepads a caller has added with `AddGamePad`. It does
 not detect devices, react to connect or disconnect, or let a game remap actions.
@@ -197,31 +710,329 @@ functions that Scarab provides.
 
 **Coordination rule for this phase:** any change to a sunlight input signature also
 lists the Scarab wrappers and Caravellius call sites it affects, and those are updated in
-the same coordination.
+the same coordination. Phase F stages through its own branch, `feat/complete_f_plan`,
+created from `feat/master_plan` - every sub-item merges there first, and only once the
+whole phase is finished does `feat/complete_f_plan` itself merge into `feat/master_plan`
+(the same staging pattern Phase E used with `feat/complete_e_plan`).
+
+**F0: the controller-manager seam.** `TileMapRenderer` today owns three logically distinct
+layers under one roof, confirmed by reading the renderer rather than assumed: raw input
+polling (`IInputHandler`/`InputHandlerFactory`, already a clean, swappable backend - nothing
+to change here); the event dispatch/registration machinery (the key/gamepad handler lists,
+the gamepad list, the analog-stick-to-DPad-button translation with its deadzone constants,
+`AddGamePad`/`SetUserKeyEventHandler`/`SetUserGamePadEventHandler`/`GetInputHandler`, and the
+per-frame dispatch itself, `HandleUserInput`/`HandleKeyEvent`); and the default camera/zoom
+key bindings (`InitalizeDefaultUserInputHandlers` plus the `InputKeyUp/Down/Left/Right/
+PageUp/PageDown/Home/End` callbacks, which just call `MoveCameraUp/Down/Left/Right`,
+`ZoomIn`/`ZoomOut`, `ResetZoom`, `ResetCamera` - methods `ITileMap` already declares as pure
+virtuals, confirmed by reading `tilemap/itilemap.h`, so a preset wired against `ITileMap&`
+needs no new interface surface for this part). Every reference to the second layer's own
+members (`m_pInputHandler`, `m_GamePadList`, the two handler lists,
+`m_pNullInputEventHandler`) was checked across the whole file: they are touched only by this
+small cluster of methods, never by sprite/view/collision code - a clean extraction, not a
+tangle.
+
+- `F0a` moves the second layer into `SunLight::Input::IControllerManager` (+ concrete
+  `ControllerManager`), in its own module (`input/controllermanager.*`, the same shape as
+  every other `I*`/concrete/factory split in this codebase):
+
+  ```cpp
+  enum InputDispatchMode {
+      INPUT_DISPATCH_MODE_ACTIVE,    // continuous IsKeyDown/IsGamepadButtonDown polling, fires every frame held
+      INPUT_DISPATCH_MODE_REACTIVE   // fires once per key-press edge (GetKeyPressed)
+  };
+
+  class IControllerManager {
+      public:
+      virtual ~IControllerManager( void ) = default;
+      virtual void AddGamePad( int nGamePadId ) = 0;
+      virtual void SetUserKeyEventHandler( KeyboardKey evt, INPUT_EVENT_HANDLER handler ) = 0;
+      virtual void SetUserGamePadEventHandler( GamepadButton evt, INPUT_EVENT_HANDLER handler ) = 0;
+      virtual IInputHandler& GetInputHandler( void ) = 0;
+      virtual void SetInputDispatchMode( InputDispatchMode mode ) = 0;
+      virtual InputDispatchMode GetInputDispatchMode( void ) const = 0;   // new: no equivalent getter exists today
+      virtual void Update( void ) = 0;   // per-frame dispatch, renamed from HandleUserInput
+  };
+  ```
+
+  `InputDispatchMode` moves from `SunLight::Renderer` (where it was named `ViewControlMode` -
+  a camera-flavored name for what has only ever been an input dispatch strategy, not a camera
+  concern) into `SunLight::Input`, alongside the class that actually owns dispatching.
+  `ControllerManager` is directly constructible, no factory - the same shape
+  `CollisionManager` already uses (no backend variation to swap; the only real swap point,
+  `IInputHandler`, already has its own factory and test-override hook,
+  `InputHandlerFactory::SetCreator`, confirmed sufficient for a `MockInputHandler` without
+  needing a second factory layer here). `TileMapRenderer` owns one internally
+  (`std::unique_ptr<IControllerManager>`), exposes it via `GetControllerManager()` (mirroring
+  `GetCollisionManager()` exactly), and its own frame loop calls
+  `m_pControllerManager -> Update()` where it previously called `HandleUserInput()` directly -
+  same shape as it already calls `m_CollisionManager.Update()`.
+  - Test items: a new `tests/test_controllermanager.cpp`, using a new `tests/mock_input.h`
+    (`MockInputHandler`, swapped in via `InputHandlerFactory::SetCreator`, the same pattern
+    `mock_engine.h`/`mock_window.h` already use) - every public method's behavior matches
+    today's `TileMapRenderer` dispatch exactly: `ACTIVE` mode fires continuously while a key/
+    button is held, `REACTIVE` mode fires once per press; gamepad analog sticks translate to
+    DPad-equivalent dispatch at the documented deadzones (now named constants, not the inline
+    literals `HandleUserInput` has today); a duplicate `AddGamePad` call is confirmed to
+    double-fire, matching today's actual behavior exactly (checked against the source: no
+    dedup exists) - a pinning test for the bug F5 later fixes, not a claim it is already fixed
+    here, since F0a is a pure extraction with no behavior change; the
+    gamepad-overrides-keyboard-when-handled precedence holds.
+  - This item directly unblocks T3 ("direct tests for `Run()`'s input... dispatch"), stuck
+    TODO until now because the dispatch logic had no seam to mock.
+
+**F0a (DONE).** `IControllerManager`/`ControllerManager` (`src/input/icontrollermanager.h`,
+`src/input/controllermanager.{h,cpp}`) implemented and wired in exactly as planned above.
+Every one of `TileMapRenderer`'s old public input methods (`AddGamePad`,
+`SetUserKeyEventHandler`, `SetUserGamePadEventHandler`, `GetInputHandler`,
+`SetViewControlMode`) kept its exact signature, now a one-line delegation to the internally
+owned `m_pControllerManager`; `m_ViewControlMode` as a stored member was removed entirely
+(now redundant - the manager stores its own dispatch mode), with a small, explicit
+`ToInputDispatchMode` conversion (not a `static_cast` relying on the two enums' ordinal
+values happening to agree) bridging the renderer's own `ViewControlMode` to the new
+`InputDispatchMode` at the two call sites (construction, `SetViewControlMode`). No sample or
+existing test needed a single change - confirmed by building all of them unmodified.
+- Test items, in `tests/test_controllermanager.cpp` (10 cases) using a new
+  `tests/mock_input.h` (`MockInputHandler`, swapped in via
+  `InputHandlerFactory::SetCreator`, the same pattern `mock_sound.h`'s `MockSoundFixture`
+  already uses for a factory that returns a fresh instance per call): `ACTIVE` mode fires
+  every frame a key is held and stops firing once released; `REACTIVE` mode dispatches to
+  whichever handler matches `GetKeyPressed()`'s current value; `KEY_NULL`'s fallback handler
+  fires only when nothing else handled that frame; a gamepad analog stick beyond/within the
+  deadzone does/doesn't dispatch; a duplicate `AddGamePad` call is confirmed to double-fire,
+  pinning today's real behavior (checked against the source: no dedup exists) rather than
+  assuming F5's eventual fix is already in place; gamepad activity suppresses keyboard
+  dispatch that frame even with no gamepad handler registered for the specific
+  stick/button involved (confirmed against the source: `bEventHandled` is set directly from
+  axis movement detection, before the handler-matching loop runs); `GetInputHandler` returns
+  the same instance the manager was constructed with; `SetInputDispatchMode`/
+  `GetInputDispatchMode` round-trip.
+- Mutation check: widening the left-stick X deadzone from 0.1 to 0.9 fails 2 of the 10 cases
+  (the deadzone case itself, and the gamepad-suppresses-keyboard case, which also depends on
+  axis movement being detected) - confirmed by reverting the fix, seeing the tests fail, then
+  restoring it.
+- Full suite (471 cases) passes under AddressSanitizer with no reports. Every sample and the
+  full existing suite builds and passes unmodified - the strongest form of "no behavior
+  change" this item could demonstrate.
+
+- `F0b` moves the third layer into `SunLight::Input::DefaultControllerBindings`, a stateless
+  preset (a static method, no instance - nothing here varies by backend or needs mocking):
+
+  ```cpp
+  class DefaultControllerBindings {
+      public:
+      // Wires WASD/arrow keys to camera moves, PageUp/PageDown to zoom, Home/End to
+      // reset-zoom/reset-camera, on both keyboard and every gamepad already added to
+      // controllerManager - exactly today's InitalizeDefaultUserInputHandlers behavior,
+      // just external and opt-in now.
+      static void Install( SunLight :: TileMap :: ITileMap &map, IControllerManager &controllerManager );
+  };
+  ```
+
+  `TileMapRenderer` no longer auto-installs anything; `RendererConfig::bUseDefaultKeyHandler`
+  is removed, and the classic `TileMapRenderer(width, height, title, targetFps)` constructor
+  drops its fifth parameter. A game that wants the old defaults calls
+  `DefaultControllerBindings::Install( *pRenderer, pRenderer -> GetControllerManager() )`
+  once, explicitly, itself.
+  - Test items: `Install` wires exactly the documented keys/buttons - driven through a mock
+    `IControllerManager`/`IInputHandler` (or the real `ControllerManager` against the null
+    backend, same style `test_camera.cpp` already uses), each key/button fires the matching
+    `ITileMap` camera/zoom call exactly once.
+
+**F0b (DONE).** `DefaultControllerBindings` (`src/input/defaultcontrollerbindings.{h,cpp}`)
+implemented exactly as planned, wiring the same 16 bindings (8 keyboard, 8 gamepad)
+`InitalizeDefaultUserInputHandlers` used to install. Removing the auto-install meant checking,
+not assuming, how many call sites would break: all 8 samples' own `world.cpp` files pass
+`bUseDefaultKeyHandler=false` already (confirmed by grep before removing anything), so none of
+them relied on the removed mechanism - but two more direct constructor calls outside any
+`world.cpp` (`samples/multiview/multiview_test.cpp`,
+`samples/multiview_overlap/multiview_overlap_test.cpp`) and 41 more inside the test suite
+(`tests/test_rendererconfig.cpp` x6, `tests/test_nullbackend.cpp` x1,
+`tests/test_tilemaprenderer.cpp` x18, `tests/test_tilemaprenderer_lifecycle.cpp` x16 - the exact
+counts confirmed from the diff itself, not estimated) still passed the now-removed fifth
+constructor argument positionally, found only once the build actually failed on each in turn -
+a reminder that grepping for a named parameter (`bUseDefaultKeyHandler`) misses every call site
+using positional arguments instead. None of these were testing the removed parameter's own
+effect; all 43 just needed the trailing argument dropped. Separately,
+`samples/orthogonal/world.cpp` (then `samples/tilemaprenderer/`) was checked and confirmed to use a deliberately *inverted*
+camera mapping (`KEY_UP` to `MoveCameraDown`, `KEY_PAGE_UP` to `ZoomOut` - the documented
+sprite-relative convention), not the literal default mapping, so it does not call
+`DefaultControllerBindings::Install` - no sample does, since none actually wants the literal
+default bindings.
+- Test items, in `tests/test_defaultcontrollerbindings.cpp` (3 cases), using the existing
+  `MockTileMap` (extended with call counters on its 8 camera/zoom methods, additive - no
+  existing test depends on their old no-op bodies) and `mock_input.h`: arrow keys dispatch the
+  matching `MoveCamera*` call; PageUp/PageDown/Home/End dispatch `ZoomIn`/`ZoomOut`/
+  `ResetZoom`/`ResetCamera`; a gamepad's DPad and right-face buttons dispatch the same calls.
+- Mutation check: swapping `KEY_UP`'s binding from `MoveCameraUp` to `MoveCameraDown` fails the
+  arrow-key test (both assertions on that pair), confirmed by reverting the fix, seeing it
+  fail, then restoring it.
+- Full suite (474 cases) passes under AddressSanitizer with no reports. Every sample builds
+  cleanly.
+
+- `F0c`'s scope narrowed once F0a kept every old `TileMapRenderer` input method as a permanent
+  delegating wrapper (not removed, never needed removing) and F0b found no sample wanted
+  `DefaultControllerBindings::Install` anyway: nothing further needs updating in this repo. The
+  remaining, genuinely mechanical step is recording the Scarab/Caravellius breakage (the
+  classic constructor's dropped fifth parameter, `RendererConfig::bUseDefaultKeyHandler`'s
+  removal, and `ViewControlMode`'s rename/relocation to `SunLight::Input::InputDispatchMode`)
+  in `doc/BREAKAGES.md`, per this project's standing peer-impact convention.
+  - Test items: none beyond what F0a/F0b already proved - this item is pure documentation.
 
 **F1: device list and hot-plug.** Expose the connected pads and their names, and raise
-connect and disconnect events. This needs new `IInputHandler` methods, so the mock is
-updated in the same change.
-- Test items: a scripted connect and disconnect through the mock is reported once each;
-  the null backend reports no devices.
+connect and disconnect events.
+- `IInputHandler` already had everything a device list needs (`IsGamepadAvailable`,
+  `GetGamepadName` per id) - checked against its actual header before assuming a new
+  pure virtual was required, contrary to this item's own original wording above. No
+  `IInputHandler` change was needed, so the raylib and null backends are untouched.
+- `IControllerManager` gains two members instead: `GetConnectedGamepads()` (a fresh poll
+  over every slot `0..MAX_GAMEPAD_COUNT-1`, independent of `AddGamePad` - a pad must be
+  discoverable before anything registers it for button/axis dispatch) returning a
+  `stGamepadInfo{ nGamePadId, szName }` per connected id; and
+  `SetGamepadConnectionHandler(handler)`, a `void(int, bool)` callback `Update()` fires
+  once per availability transition. `ControllerManager` tracks each slot's last-seen
+  state in a `std::array<bool, MAX_GAMEPAD_COUNT>`, diffed against a fresh poll at the
+  top of every `Update()` (`DetectGamepadConnectionChanges()`), before the existing
+  dispatch logic runs.
+- `mock_input.h` *is* updated in this change, per the item's own anticipation - just not
+  because of a new `IInputHandler` method: its single always-true `bGamepadAvailableResult`
+  bool (never read by any existing test, checked before removing it) is replaced by a
+  `std::set<int> availableGamepads`, empty by default, so a test scripts a connect by
+  inserting an id and a disconnect by erasing it between `Update()` calls.
+- Test items, in `tests/test_controllermanager.cpp` (4 new cases): `GetConnectedGamepads`
+  is empty by default and lists every scripted id with its name, in id order; a scripted
+  connect and a scripted disconnect each fire the handler exactly once, not again on a
+  following `Update()` with no change. `tests/test_nullbackend.cpp` gains one assertion
+  that a null-backend renderer's `GetControllerManager().GetConnectedGamepads()` is empty.
+- Mutation check: replacing the diff's `if( bNowAvailable != m_GamepadConnected[...] )`
+  with `if( true )` (always fire, never dedupe) failed both new "exactly once" assertions
+  (`events.size() == 20`/`10` instead of `1`, the handler firing on every slot every
+  frame), confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (478 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F2: player slots.** A pad is claimed by a slot, released on request, and reassigned
 after an unplug. Slots are a sunlight concept, so the game decides how many there are.
-- Test items: unplug and replug keeps the slot; releasing a slot frees the pad; claiming
-  an already claimed pad is refused.
+- `IPlayerSlotManager`/`PlayerSlotManager` (`src/input/iplayerslotmanager.h`,
+  `src/input/playerslotmanager.{h,cpp}`) is a new class, directly constructible like
+  `ControllerManager` - no factory, no backend variation. `ClaimSlot(slot, pad)` succeeds
+  for a free pad or a pad the same slot already holds (idempotent), replaces whatever pad
+  a slot held before (freeing it), and refuses a pad a *different* slot already holds.
+  `ReleaseSlot(slot)` frees whatever it holds, a no-op if it holds nothing. Both lookups
+  (`GetGamepadForSlot`/`GetSlotForGamepad`) return the new `NO_SLOT_ASSOCIATION` sentinel
+  when nothing matches.
+- Deliberately independent of `IControllerManager`/`IInputHandler`: a slot's claim is a
+  plain `slot -> gamepad id` map, never consulted against or cleared by the gamepad's own
+  live availability. "Reassigned after an unplug" (the item's own wording) resolves to
+  "the claim is never touched by connectivity at all" - unplugging and replugging the same
+  device need not do anything, since the slot was never told to let go; a reassignment to
+  a *different* pad after a permanent unplug is the caller's own decision (e.g. from
+  `IControllerManager`'s F1 hot-plug event), not something this class does on its own.
+- Test items, in `tests/test_playerslotmanager.cpp` (8 cases): an unclaimed slot/pad
+  report `NO_SLOT_ASSOCIATION` both ways; a claim round-trips both lookups; claiming an
+  already-claimed pad is refused and leaves state unchanged; releasing a slot frees its
+  pad for another slot; releasing an unclaimed slot is a no-op; re-claiming the same
+  slot+pad is an idempotent success; claiming a different pad for an already-claimed slot
+  replaces it and frees the old one; and the exact "unplug and replug keeps the slot"
+  scenario, using `ControllerManager` + `mock_input.h` to toggle a gamepad's live
+  availability across `Update()` calls and confirming the slot's claim never moves.
+- Mutation check: forcing `ClaimSlot`'s refusal branch to `if( false )` (always allow)
+  failed the refusal test's two assertions (`ClaimSlot` returning `true` instead of
+  `false`, and the second slot reading the pad instead of `NO_SLOT_ASSOCIATION`),
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (486 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F3: action map.** Named actions bound to keys, buttons or axes, with rebinding at run
 time and load and save. Sunlight provides the mechanism. Each game names its own actions
 and keeps its bindings in its own files. The file format is decided before implementation.
-- Test items: a rebind round trip; a saved file reloads to the same bindings; a
-  conflicting binding is reported.
+- `IActionMap`/`ActionMap` (`src/input/iactionmap.h`, `src/input/actionmap.{h,cpp}`) is a
+  new class, directly constructible like `ControllerManager`/`PlayerSlotManager` - no
+  factory. An action name maps to at most one `stActionBinding` (`{ type, nCode,
+  nDirection }`): `BindKey`/`BindGamepadButton`/`BindGamepadAxis` each replace whatever
+  binding the action held before (a rebind, free of charge - no separate "rebind" method
+  needed), and refuse (return false) a physical input already bound to a *different*
+  action, mirroring `PlayerSlotManager::ClaimSlot`'s own refuse/replace shape. An axis
+  binding's conflict check includes its direction, so opposite directions on the same
+  axis (`MoveLeft`/`MoveRight`) are two separate, non-conflicting bindings.
+  `IsActionActive(action, input, gamePadId, axisThreshold)` evaluates the binding against
+  a live `IInputHandler` - a key via `IsKeyDown`, a button via `IsGamepadButtonDown`, an
+  axis via `GetGamepadAxisMovement` compared against the caller-supplied threshold in the
+  binding's own direction. No default threshold is baked in - deadzone/threshold tuning is
+  this item's own job (F4), not F3's.
+- File format, decided before writing any code: a plain text file, one binding per line,
+  `Action=Tag:code` (`Action=Tag:code:direction` for an axis), `Tag` one of `KEY`/
+  `BUTTON`/`AXIS`, `#`-prefixed and blank lines ignored. Chosen over JSON/INI since the
+  project has no JSON dependency and the grammar is this simple; `Save`/`Load` use plain
+  `std::ofstream`/`std::ifstream` against a real OS path (not `IFileSystem` - there is no
+  write abstraction in this project yet, and a save target only makes sense as a real,
+  writable path anyway). `Load` parses into a temporary map first and only replaces the
+  live bindings if every line parsed - a malformed file fails atomically, never leaving a
+  half-loaded map.
+- Test items, in `tests/test_actionmap.cpp` (15 cases): an unbound action has no binding
+  and is never active; each of the three binding kinds both binds and drives
+  `IsActionActive` correctly (including the axis binding's threshold and direction);
+  opposite axis directions don't conflict; **a rebind round trip** (rebinding frees the
+  old input for a different action to take); a no-op self-rebind still succeeds; **a
+  conflicting binding is reported** for each of the three binding kinds; `Unbind`; **a
+  saved file reloads to the same bindings** for all three kinds; `Load` fully replaces
+  stale prior bindings; `Load` fails (state untouched) for a missing file and for a
+  malformed line.
+- Mutation check (two independent invariants): forcing every refusal branch to
+  `if( false )` failed all three conflict tests (`BindKey`/`BindGamepadButton`/
+  `BindGamepadAxis` each returning `true` instead of `false`); separately, replacing the
+  axis's direction-sign comparison with a direction-blind "past either threshold" check
+  failed the axis direction test (the wrong-direction case reading active). Both
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (501 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F4: dead zones and thresholds.** Configurable per pad and per axis, with today's values
 as the defaults.
-- Test items: a value exactly at the boundary behaves as specified; defaults match today.
+- `IControllerManager` gains `SetAxisDeadzone(pad, axis, deadzone)`/`GetAxisDeadzone(pad,
+  axis)`, backed by a `std::map<std::pair<int,int>, float>` keyed by exactly the (pad,
+  axis) pair being configured; an unconfigured pair reads the new `DEFAULT_AXIS_DEADZONE`
+  (0.1f - today's own value, unchanged).
+- Found and fixed a real pre-existing bug while wiring this in: `Update()`'s deadzone
+  check for the *left* stick's Y axis (`fPosY`) read the *right* stick's Y deadzone
+  constant (`__RIGHT_STICK_DEADZONE_Y`), not the left one - invisible before this item
+  only because all four of the old hardcoded constants happened to equal 0.1f. Now that
+  each (pad, axis) pair can genuinely differ, the swap would have been an observable bug;
+  fixed by routing all four axes through `GetAxisDeadzone` with their own correct axis.
+  The four old per-stick constants are removed - one named default replaces them, since
+  their only distinction was this bug.
+- Test items, in `tests/test_controllermanager.cpp` (4 new cases): `GetAxisDeadzone`'s
+  defaults match today's value for any (pad, axis) pair; `SetAxisDeadzone` configures
+  exactly the one pair asked, leaving every other pair (including the same axis on a
+  different pad) at the default; **a value exactly at the deadzone's own boundary behaves
+  as specified** (strictly inside reads as zero, exactly at the boundary is a real,
+  dispatchable value); and a regression test pinning the bug fix itself (a left-Y
+  deadzone of 0.5 and a right-Y deadzone of 0.0 - a left-stick Y position of 0.3 must not
+  dispatch, which it would if the swap were still present).
+- Mutation check (two independent points): reverting `fPosY`'s lookup back to
+  `fRightDeadzoneY` failed the regression test exactly as the real historical bug would
+  have; separately, changing the boundary comparison from strict `<` to `<=` failed the
+  boundary test (the boundary value reading as zero instead of real). Both confirmed by
+  reverting the fix, seeing the test fail, then restoring it.
+- Full suite (505 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F5: duplicate pads.** A pad added twice is dispatched once.
-- Test items: adding the same id twice produces one dispatch per event.
+- `AddGamePad` now checks `m_GamePadList` first (`std::find`) and is a no-op for an id
+  already present - the fix F0a's own pinning test anticipated but deliberately did not
+  make yet (that item was a pure extraction, no behavior change).
+- F0a's "double-fires" pinning test is updated in place to assert the fixed behavior
+  (one dispatch, not two) - its role was always to track this exact bug, not to prevent
+  it from ever being fixed; a second case confirms two genuinely *different* ids still
+  each dispatch their own event once.
+- Test items, in `tests/test_controllermanager.cpp` (1 new case, 1 updated in place):
+  adding the same id twice produces one dispatch per event; two different ids still
+  produce one dispatch each (not collapsed together).
+- Mutation check: reverting `AddGamePad` to its old unconditional `push_back` reproduced
+  the historical double-fire exactly (`nFireCount == 2` where the test expects `1`),
+  confirmed by reverting the fix, seeing it fail, then restoring it.
+- Full suite (506 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F6: opt-in default handlers.** The camera handlers become opt-in, and the docs explain
 how a game takes over input.
@@ -231,67 +1042,2330 @@ how a game takes over input.
 `SetVibration(pad, left, right, duration)` and `Stop(pad)`, strengths from 0 to 1. It
 gets a factory, a null implementation that reports unsupported, and a recording mock.
 Nothing is wired to a real device.
-- Test items: a game that checks `IsSupported` can skip an effect; calls reach the mock
-  with the exact arguments; the null implementation never errors.
+- `IGamepadHaptics` (`src/input/igamepadhaptics.h`) is deliberately separate from
+  `IInputHandler` - haptics is an output, not an input. `NullGamepadHaptics`
+  (`src/input/nullgamepadhaptics.{h,cpp}`) reports every pad unsupported and makes
+  `SetVibration`/`Stop` harmless no-ops; it does *not* live under `backends/null/` like
+  `NullInputHandler` does, since it isn't a headless substitute for a real backend
+  installed only while a null renderer is live - it is every build's only and permanent
+  implementation until F7b picks a real one, so it sits beside the interface in
+  `src/input/` instead.
+- `GamepadHapticsFactory` (`src/input/gamepadhapticsfactory.{h,cpp}`) follows
+  `SoundFactory`'s shape exactly: a fresh `IGamepadHaptics` per call (not a shared
+  singleton - a game could plausibly want more than one in flight), and a `SetCreator`
+  override hook for tests. Unlike `EngineFactory`/`WindowFactory`/`InputHandlerFactory`,
+  there is no build-time `#if DEFAULT_ENGINE` switch yet - `NullGamepadHaptics` is the
+  unconditional default, since no second backend exists to switch between until F7b.
+- `tests/mock_gamepadhaptics.h` adds `MockGamepadHaptics` (records every `SetVibration`/
+  `Stop` call's exact arguments in a vector, `bSupportedResult` scriptable) and
+  `MockGamepadHapticsFixture`, the same `SetCreator`-based RAII swap shape as
+  `mock_input.h`/`mock_sound.h`.
+- Test items, in `tests/test_gamepadhaptics.cpp` (7 cases): `NullGamepadHaptics`'s
+  `IsSupported` is always false and its `SetVibration`/`Stop` never error, for any
+  argument including out-of-range strengths; a game that checks `IsSupported` can skip
+  an effect entirely (checked against both the null implementation directly and through
+  the mock with support turned off); the factory defaults to `NullGamepadHaptics` and
+  `SetCreator` swaps in a mock and restores the default on `nullptr`; calls through the
+  factory-created mock reach it with the exact arguments (gamepad id, both motor
+  strengths, duration for `SetVibration`; the id for `Stop`).
+- Mutation check: making `CreateGamepadHaptics` ignore `s_pCreator` entirely broke both
+  the swap test (a null pointer instead of the mock) and the exact-arguments test (a
+  segfault, calling into a `NullGamepadHaptics` through a pointer the test expected to be
+  the mock), confirmed by reverting the fix, seeing both fail, then restoring it.
+- Full suite (513 cases) passes under AddressSanitizer with no reports. Every sample
+  builds cleanly.
 
 **F7b: rumble backend.** A real implementation, once a platform that vibrates is chosen.
 raylib's desktop build does not vibrate, so this may need another library or a custom
 backend. Real behaviour can only be proven here, so this item stays open until then.
-- Test items: on the chosen platform, each motor responds and stops on `Stop`; a
-  disconnected pad reports unsupported.
+- Confirmed directly in raylib's own vendored source before assuming anything: this
+  project's desktop backend is `rcore_desktop_glfw.c`
+  (`LibraryConfigurations.cmake`/`GlfwImport.cmake`, "Using raylib's GLFW"), and raylib's
+  own `SetGamepadVibration()` is implemented there only as a stub that logs a warning and
+  does nothing - GLFW's own public header has no vibration API at all (checked directly,
+  zero matches for rumble/vibrate/haptic). raylib's *other* platform backend
+  (`rcore_desktop_sdl.c`) has a real implementation, calling `SDL_GameControllerRumble` -
+  confirming SDL2's API shape to build against, without switching raylib's own backend
+  (which would change windowing/input for the whole engine, not just haptics - out of
+  scope for this item, discussed and explicitly rejected).
+- The real risk this item had to solve: every `nGamePadId` elsewhere in sunlight is
+  raylib/GLFW's own device index. SDL2 enumerates gamepads completely separately, with no
+  guaranteed shared index space - a naive implementation could vibrate the wrong
+  controller. Neither an SDL-compatible GUID nor a device name identifies a *specific
+  physical unit*, only its make and model (GLFW's own documentation says this explicitly
+  of its joystick GUIDs) - two identical controllers are indistinguishable by either, so
+  no approach can be fully certain with duplicate-model pads connected.
+- `MatchGamepadsByName` (`src/input/gamepadidentitymatcher.{h,cpp}`) is the pure-logic
+  answer: greedily matches two independently-ordered name lists, each candidate consumed
+  at most once, so identical-model duplicates pair up by their own relative connection
+  order - the best available heuristic, clearly documented as a heuristic, not a
+  guarantee. This is the *only* part of F7b provable without real hardware, and it is
+  fully covered: `tests/test_gamepadidentitymatcher.cpp` checks empty inputs, a clean
+  match, an unmatched name, order-independence on either side, 2-way and 3-way duplicate
+  ties, and that an empty string is a valid, matchable name like any other.
+- **Real-hardware finding, found live against a real Xbox One S controller once the
+  owner tested `samples/isometric_haptics/` (below) on their own machine**: exact-name
+  matching alone *always* failed, even with only one controller connected - no "it
+  should work" case at all. raylib/GLFW reports it as `"Xbox Wireless Controller"`; SDL2
+  reports the identical physical unit as `"Xbox One S Controller"` - two independently
+  maintained mapping databases disagreeing about a single, correctly-detected device,
+  not a duplicate-unit ambiguity. A GUID-based fix was explored next and found
+  *structurally* broken, not just unreliable: `glfwGetJoystickGUID()` called from outside
+  raylib's own compiled translation unit queries a second, independently-linked copy of
+  GLFW's internal joystick state (GLFW is statically embedded inside raylib's own shared
+  library; linking it again directly into `sunlight` creates a separate instance that
+  never receives `glfwPollEvents()` and so never detects anything) - confirmed live: it
+  returned `NULL` for a device raylib's own calls, through the *same* `IInputHandler`,
+  correctly reported as available. Reusing raylib's own already-running GLFW instance
+  would need a new, raylib-level public API this project doesn't own; not pursued.
+- The actual fix: `MatchGamepadsByName` now treats exactly one name on each side as the
+  same device *unconditionally*, regardless of whether the strings agree - the only
+  cross-library signal strong enough to trust, since raylib exposes nothing more precise
+  than a name at all (checked against its public header: no GUID, no vendor/product id).
+  Name-matching remains the fallback once there is more than one candidate on either
+  side (the duplicate-unit case this item already knew it couldn't resolve with
+  certainty). Two new test cases cover the fix directly: the exact Xbox One S regression,
+  and confirming the shortcut does *not* apply once either side has more than one name.
+- **A second, more serious finding from the same live session**: a "unit test" reached
+  out and touched real hardware. `tests/test_gamepadhaptics.cpp`'s
+  `SDLGamepadHaptics` suite had two cases that reported exactly one *mock* raylib-side
+  pad, intending "nothing real will ever match this." Before the fix above, that was
+  true unconditionally; after it, it is no longer true whenever the machine running the
+  suite happens to have exactly one real controller connected - which it did, live,
+  mid-session. One of those cases called the real `SetVibration(0, 1.0, 1.0, 1.0)`
+  directly, and it fired a real, full-strength rumble at a real, physically present Xbox
+  controller, which kept vibrating after the (sub-second) test process had already
+  exited, requiring the controller to be power-cycled to clear - `Stop()` immediately
+  following `SetVibration()` in the test should have silenced it in software, but
+  whatever stuck Bluetooth-level state resulted did not respond to it. Fixed by giving
+  both cases two mock pads instead of one (bypassing the new shortcut on purpose, so
+  they stay unmatched regardless of whatever real hardware is ever connected to the
+  machine running them) and adding an explicit warning at the top of the file: a
+  `SDLGamepadHaptics` test case is not automatically hardware-safe just because it is a
+  unit test, and every case intending "unmatched" must use at least two mock pads, never
+  one, to stay correct regardless of what's plugged into the machine that runs it.
+- `SDLGamepadHaptics` (`src/backends/sdl/sdlgamepadhaptics.{h,cpp}`) is the real
+  `IGamepadHaptics`. It takes the `IInputHandler&` whose gamepad list it correlates
+  against (the caller keeps it alive for at least as long as the haptics instance - the
+  same non-owning-reference convention as `BaseCanvas::m_pParent`). Every call
+  re-derives the raylib-name-list vs SDL-name-list match fresh (no cached mapping to go
+  stale across a hot-plug), opens the matched `SDL_GameController` only for that one
+  call, and closes it immediately after - verified against SDL's own source rather than
+  assumed: `SDL_GameControllerRumble` is a thin wrapper over `SDL_JoystickRumble`, and
+  `Stop()`'s `SDL_GameControllerRumble(pController, 0, 0, 0)` is exactly the call SDL's
+  own `SDL_JoystickClose` uses internally to silence a controller's motors - not a guess.
+  Initializes/releases SDL's game-controller subsystem with `SDL_InitSubSystem`/
+  `SDL_QuitSubSystem` (verified against `SDL_SubsystemRefCount` in SDL's own source: a
+  real per-subsystem reference count, not the all-or-nothing `SDL_Init`/`SDL_Quit`),
+  so more than one `IGamepadHaptics` instance can coexist safely.
+- `GamepadHapticsFactory` gains the build-time `#if DEFAULT_HAPTICS_ENGINE` switch
+  `EngineFactory`/`WindowFactory`/`InputHandlerFactory` already use (value `1` = SDL2,
+  the only value today) - `SDLGamepadHaptics` is now every build's real default,
+  replacing F7a's `NullGamepadHaptics` default (`NullGamepadHaptics` itself is
+  unchanged and still reachable through `SetCreator` for tests). This needed
+  `CreateGamepadHaptics()`'s own signature to grow an `IInputHandler&` parameter -
+  an F7a amendment, harmless since F7a was never merged past `feat/complete_f_plan`.
+- SDL2 is fetched via `FetchContent` (`release-2.32.10`, pinned) and built static, so -
+  like PhysFS - it links straight into `libsunlight` with no separate runtime artifact
+  to distribute and no changes needed to any `*_copy_binaries` target or
+  `release.yml` (confirmed empty grep for any hardcoded per-dependency artifact name
+  there). `SDL_VIDEO`/`SDL_AUDIO`/`SDL_RENDER` are turned off, since haptics only needs
+  the joystick/game-controller/haptic subsystems - confirmed buildable and sufficient
+  without them in a real, from-scratch `FetchContent` build (verified in a standalone
+  scratch probe before touching the real project, then again in the real one), which
+  also avoids depending on Linux's X11/Wayland dev packages for this specific
+  dependency (CI's existing Linux job already installs a superset of those for raylib
+  regardless, so nothing there needed changing either).
+- Confirmed live, not assumed, in this exact sandbox (no real gamepad attached, the
+  closest proxy available to a headless CI runner): `SDL_InitSubSystem(
+  SDL_INIT_GAMECONTROLLER)` succeeds with zero joysticks, `SDL_GameControllerOpen` on a
+  nonexistent device returns `nullptr` with a clean error string (not a crash), and
+  `SDL_QuitSubSystem` tears down cleanly - proven both as a standalone probe and inside
+  the real `sunlight_tests` binary.
+- Test items (this item's own, honestly scoped): the chosen platform's actual rumble
+  response ("each motor responds and stops on `Stop`") can only be proven on real
+  hardware, which this environment does not have - CI running this on three real OSes
+  is the actual first integration proof, not a claim made here. "A disconnected pad
+  reports unsupported" *is* provable headless and is covered:
+  `tests/test_gamepadhaptics.cpp` gains a `backends/sdl/SDLGamepadHaptics` suite (5
+  cases) proving construction/destruction, `IsSupported` false for an unavailable
+  raylib-side pad and for an available one with no real SDL match, `SetVibration`/
+  `Stop` are harmless no-ops when unmatched, and two instances coexist and tear down
+  independently. The `GamepadHapticsFactory` suite is updated in place for the new
+  default (`SDLGamepadHaptics`, not `NullGamepadHaptics`) and the new
+  `CreateGamepadHaptics(IInputHandler&)` signature.
+- Mutation check: removing `MatchGamepadsByName`'s "already consumed" guard (letting a
+  single candidate match more than one target) failed all three duplicate-handling
+  tests exactly as expected (a later duplicate target wrongly re-claiming an
+  already-matched candidate instead of reporting unmatched), confirmed by reverting the
+  fix, seeing it fail, then restoring it.
+- Full suite (528 cases) passes under AddressSanitizer with no reports - notably
+  including the subsystem-refcount and multi-instance lifetime tests, exactly where a
+  real bug would most likely hide. Every sample builds cleanly.
+- `samples/isometric_haptics/` is a new sample, an exact copy of `samples/isometric/`
+  (left untouched) plus gamepad rumble feedback: a step blocked by a "stone" obstacle
+  now rumbles a connected gamepad (a no-op with none attached, since every call is
+  `IsSupported`-gated), strength scaled by how many consecutive steps Sunny had already
+  taken in that same direction before the wall stopped her - tracked explicitly
+  (`m_nRunUpSteps`/`m_nLastDeltaRow`/`m_nLastDeltaCol`) since this sample's grid movement
+  has no analog speed of its own to derive it from; a fresh turn into a wall rumbles at
+  the minimum strength regardless of any run built up in a different direction. A
+  connected gamepad's D-pad/left stick drives Sunny too (`AddGamePad`/
+  `SetUserGamePadEventHandler` in `Run()`, binding the same `MovePlayer*` handlers the
+  keyboard uses), added once the owner asked for it while live-testing with their
+  controller.
+- This sample *is* the real-hardware integration proof the item above says is otherwise
+  unobtainable here - the owner tested it live with a real Xbox One S controller, which
+  is exactly how every real-hardware finding in this item was actually found. Two more
+  surfaced from that same live testing, beyond the name-mismatch and hardware-touching
+  unit test already covered above:
+  - **A held key re-triggered the bump every single frame it stayed down** - a blocked
+    `TryMoveStep` call doesn't set `m_bAnimating` (nothing to animate, the step never
+    happened), so nothing paced it the way a successful step is paced; a frame-by-frame
+    key-down dispatch meant a continuous stream of fresh `SetVibration` calls, each
+    re-arming its own duration before the previous one could finish - felt as one
+    unbroken rumble instead of a short pulse. Fixed in the sample (not in sunlight
+    itself - this is this sample's own dispatch pattern, not a library-level bug) by
+    tracking the direction of the *previous* blocked attempt
+    (`m_bWasBlockedLastAttempt`/`m_nLastBlockedDeltaRow`/`m_nLastBlockedDeltaCol`,
+    `world.h`) and only bumping on the first blocked frame of a given hold; cleared the
+    moment a step actually succeeds.
+  - **Even a single, correctly-isolated `SetVibration` call never stopped on its own** -
+    traced to SDL2's own source: its duration-based rumble auto-stop
+    (`rumble_expiration`, `SDL_joystick.c`) is only ever checked inside
+    `SDL_JoystickUpdate()`, and nothing else in this engine calls that function (every
+    other input query in sunlight goes through raylib/GLFW, never SDL's own event
+    pump) - the duration parameter was silently inert. This *is* a library-level gap,
+    fixed in `IGamepadHaptics` itself: a new `Update()` method (implemented as a no-op
+    by `NullGamepadHaptics`, and in `SDLGamepadHaptics` as sunlight's own replacement
+    for the missing tick, timed against `SunLight::General::Clock` rather than SDL's
+    own clock) must be called once per frame by whoever owns the instance - the sample
+    does this from its own `OnUpdate`, ahead of its early `m_bAnimating` return, since
+    it must run every frame regardless of whether Sunny is mid-animation.
+    `tests/mock_gamepadhaptics.h`'s `MockGamepadHaptics` gains the matching override
+    (a new pure virtual, per this project's own mock-update rule).
+  - Both were only found because real hardware was actually tested live - confirmed by
+    the owner afterward: the sample now rumbles once per wall hit, scaled correctly by
+    run-up distance, stops on its own, and the D-pad drives Sunny directly. This item's
+    own test items ("each motor responds and stops on `Stop`") are satisfied by this
+    live confirmation, not by anything provable in this sandbox alone.
+  - Test items, in `tests/test_gamepadhaptics.cpp` (2 new cases): `Update()` never
+    errors crossing a tracked deadline (`MockClockFixture`, deterministic, zero real
+    gamepads) with a single pad timed-vibrating, and with two pads on different
+    deadlines (exercising the collect-then-stop two-phase loop under AddressSanitizer,
+    where erasing from the deadline map while iterating it directly would actually show
+    up).
+- Full suite (530 cases) passes under AddressSanitizer with no reports. Every sample,
+  including the new one, builds cleanly.
+- **Follow-up, after S1 (owner's report: the frame rate dropped while Sunny bumped walls
+  with the gamepad, down to about 40 FPS when held against a wall).** Two causes, both
+  measured live with the owner's Xbox One S Controller (SDL's HIDAPI driver on macOS):
+  - The backend opened and closed the controller around every call. Opening one took
+    0.03 ms and sending a rumble 0.01-0.09 ms, but closing it right after a rumble took
+    about 11 ms on the calling thread, every time: SDL's close sends "motors off"
+    (`SDL_JoystickClose`) and the HIDAPI close then waits, in 10 ms `SDL_Delay` steps (up to
+    30 ms), for that pending rumble to go out (`HIDAPI_JoystickClose`) - both read in the
+    vendored SDL source. So each bump cost the frame about 11 ms when it started and again
+    when it stopped, and the close cut every rumble short. `SDLGamepadHaptics` now keeps
+    each pad's controller open (`m_Controllers`): reused while it is still attached and is
+    still the device that matches the pad, reopened otherwise, closed by the destructor.
+    SDL's macOS HID open is not exclusive (`kIOHIDOptionsTypeNone`), so raylib/GLFW keeps
+    reading the pad, and the unread input reports are capped (hidapi keeps 30).
+  - The sample remembered only the last blocked direction. A stick held at a diagonal
+    sends both of its directions every frame, so against a corner the two blocked
+    directions alternated, each looking new: 395 bumps in a few seconds, two a frame. It
+    now remembers every direction blocked since Sunny last moved.
+  - The SDL calls the backend makes are behind an internal `ISDLControllerApi`
+    (`SDLControllerApi` is the real one), so `tests/test_sdlgamepadhaptics_controllers.cpp`
+    (5 cases) runs the backend against a fake and can never reach a real controller: opened
+    once and reused, the deadline's stop on the same controller, reopened after an unplug or
+    when another device matches the pad, closed when the pad goes away, no rumble without
+    one. Putting back the close after every rumble fails 3 of them.
 
-## Later
+## Phase L: layer camera, opacity and sprite order
 
-### L1: per-layer camera and parallax
-Decisions taken:
+| # | Item | Status |
+|---|------|--------|
+| L1 | Per-layer camera and parallax | DONE |
+| L2 | Per-object opacity | DONE |
+| L3 | Sprite draw order within a layer | DONE |
+
+**Coordination rule for this phase:** same staging pattern as Phases E/F -
+`feat/complete_l_plan`, created from `feat/master_plan`; every sub-item merges there
+first, and only once the whole phase is finished does `feat/complete_l_plan` itself
+merge into `feat/master_plan`.
+
+**L1: per-layer camera and parallax (DONE).** Decisions taken:
 - Factors come from two sources: Tiled's `parallaxx`/`parallaxy` (libtmx already reads
-  them) and a code API (`SetLayerParallax`). The code value overrides the Tiled value.
-- A sprite follows its layer's factor only if it is in screen space. World-space
-  sprites stay in map coordinates.
-- Each layer's camera offset is `camera × factor`, and the map's parallax origin is
-  respected. A factor of 1 is unchanged.
+  them into `tmx_layer`) and a new code API, `SetLayerParallax(id or name, fx, fy)`,
+  mirroring `SetLayer`'s existing opacity/offset override pattern exactly (writes
+  directly into the live `tmx_layer`). The code value overrides the Tiled one, last
+  write wins - the same rule offset/opacity already follow.
+- A **world-space** sprite follows its own layer's factor; a **screen-space** sprite is
+  entirely unaffected - the opposite of this item's own original planning note above,
+  corrected once research was actually done: Tiled's own data model has no "sprite"
+  concept at all - anything placed on a layer (tile or object) inherits that layer's
+  factor uniformly, with no screen-space equivalent to fall back to. Screen-space
+  sprites are sunlight's own concept, outside Tiled's model entirely, so mapping them to
+  "unaffected" (rather than retrofitting them into the per-layer factor) was chosen
+  after comparing three options against Tiled's own documented behavior.
+- Image layers are in scope. This required `DrawImageLayer` to become camera/zoom/
+  viewport-aware for the first time - before this item it called `IEngine::DrawTexture`
+  directly at the literal screen origin, ignoring the camera, zoom and viewport
+  position entirely. Still drawn only by the default view, a separate, pre-existing,
+  undiscussed restriction, left exactly as it was.
+- The clamp/margin test item below (the original plan's own wording) is dropped: no new
+  clamp logic is added. The map author is trusted to choose sane factors and origins;
+  sunlight does not try to keep a parallax layer's visible area inside any particular
+  bound.
+- A child of a group layer accumulates its own factor with every ancestor group's own
+  factor (its own factor × the product of every parent's), matching Tiled's own nested-
+  group behavior.
+- The formula is `effectiveCamera = (camera + origin) × factor - origin` (believed to be
+  Tiled's own documented model - it was not: see the correction below), computed by one shared helper,
+  `TileMapRenderer::GetEffectiveCameraForFactor`. A factor of exactly 1.0 is special-
+  cased per axis to return the real camera position unchanged, rather than trust the
+  general formula to reduce to it bit-for-bit (floating-point associativity does not
+  guarantee that).
+- **Corrected 2026-10-15 (after Phase H's samples work; owner's report):** zooming the
+  `parallax` sample around Sunny slid the parallax layers away from the ground. Tiled measures
+  parallax from the **centre of the view**, not its top-left, and **adds** the map's parallax
+  origin: it shifts a layer by `(1 - factor) × (view centre + origin)` (`MapScene::parallaxOffset`
+  in Tiled's source, `viewCenter += map->parallaxOrigin()`; the origin is read unchanged by
+  `MapReaderPrivate::readMap`). Its manual describes the origin as subtracted, but the editor
+  draws with that code, and a map is authored by what the editor shows. The formula above
+  anchored at the top-left, which moves with every zoom about a fixed centre, so the layers
+  drifted, and it placed them where Tiled does not even without zooming. `Camera::ForParallax`
+  now returns `camera × factor + (1 - factor) × (half view + origin)` (the half view in map
+  pixels, each view its own); a factor of 1 is still the camera itself. `test_parallax`'s
+  values are recomputed from Tiled's placement, and two new cases (one per level: `Camera`,
+  and a renderer at zoom 1, 2 and 4 about a fixed centre) fail on the old formula.
+  `doc/BREAKAGES.md` entry 49.
+  `samples/parallax`, authored for the old placement, was adjusted with the owner (checked in a
+  real window): the map's parallax origin is minus the wrap rectangle's centre, (-640, -416), so
+  the layers line up with the ground where Sunny starts and the view never reaches past a parallax
+  layer's own rows (with (0, 0), near the top of the wrap rectangle it reached above the sky layer's
+  first row - a puff seemed to vanish after a wrap; a headless sweep of 265,482 frames had shown
+  the renderer drew every tile it should). The map gained a tile row at the top and the bottom,
+  each continuing its layer's pattern (the 512-pixel wrap jump times each factor is that layer's
+  repeating pattern, so the wrap rectangle itself cannot change), and `World::LimitZoomOut` stops
+  zooming out before the view can reach past the map's edge (zoom 2.5, computed from the map, the
+  markers and the viewport).
+- `GetTile`'s own camera computation uses its own layer's factor directly, not
+  accumulated with ancestor groups - a narrow, documented, accepted limitation, since
+  the only render path that matters (`DrawLayer`) never reads the field this affects;
+  only an external pick/collision caller against a tile on a *nested* group layer would
+  see the gap.
 
-Test items:
-- A factor of 1 is byte-identical to today.
-- A factor of 0.5 moves the layer half as far as the camera, against a reference.
-- The parallax origin shifts the layer as expected.
-- The clamp and margins keep each layer's visible area inside its bounds.
-- Each view applies the factor to its own camera.
-- The code API overrides the Tiled value.
-- A screen-space sprite follows its layer's factor; a world-space sprite does not.
+Implementation notes:
+- `stLayer` gains `fParallaxX`/`fParallaxY` (`tilemap/tilemapdefs.h`), appended at the
+  end rather than inserted among the existing fields, so every existing positional
+  initializer elsewhere in the codebase keeps compiling unchanged.
+- A per-frame scratch member, `TileMapRenderer::m_EffectiveLayerCameraPos`, is set once
+  per layer inside `DrawAllLayers`'s own loop, before that layer's draw dispatch, and
+  consumed by every per-layer draw helper (`DrawLayer`, `DrawTile`, the object/shape
+  primitives, `DrawTextObject`/`DrawTileObject`, the rewritten `DrawImageLayer`) - safe
+  because all of these are private methods only ever reachable synchronously from
+  within that same loop iteration, so the scratch value is never stale when read.
+- `GetCameraOffset` cannot reuse that scratch member: unlike the draw helpers above, it
+  is called by application code (through a sprite) at any time, including with no
+  render pass ever having run - an existing test already required this to work. Fixed
+  by threading a per-canvas `m_nParallaxLayerId` through `BaseCanvas` (new
+  `SetParallaxLayerId`/`GetParallaxLayerId`, mirroring `SetWorldSpace`'s own exact
+  propagation shape through `Sprite`/`TextureCanvas`), set once by
+  `TileMapRenderer::AddSprite`. `GetCameraOffset` gained a defaulted
+  `int nLayerId = -1` parameter and now always computes its answer fresh from the live
+  `tmx_layer`, never from the scratch value - this was a real regression caught by the
+  existing suite during implementation (10 failures), not a guess ahead of time.
+- `DrawImageLayer`'s rewrite (mirroring `DrawTile`'s own clip-then-`DrawTextureTiled`
+  structure) reclassified its own mock-engine draw event from an uncounted
+  `DrawTexture` call into `Event::TILE` - a necessary side effect of giving it a camera
+  term at all, not scope creep, but it broke 8 pre-existing `test_viewpasses.cpp`
+  assertions (off-by-one tile counts), each individually re-diagnosed and fixed rather
+  than blindly adjusted.
 
-### L2: per-object opacity
+Test items, in `tests/test_parallax.cpp` (7 new cases):
+- A factor of 1 is byte-identical to today, regardless of the map's own parallax
+  origin. (Correction, I23: true for tile and object layers only - image layers moved from
+  window pixels into map space at L1 at any factor; see I23.)
+- A factor of 0.5 moves the layer half as far as the camera, against the factor-1
+  reference - asserted both as a ratio and as an absolute value; the absolute check
+  alone catches an implementation that silently drops the origin term while still
+  passing the ratio check (origin cancels out of a pure shift).
+- Each view applies the factor to its own camera (two views, two different cameras, one
+  frame).
+- `SetLayerParallax` overrides the TMX-declared factor, by id and by name (and returns
+  `false` for an unknown name).
+- A world-space sprite on a parallax layer follows its own layer's factor exactly as a
+  tile on that layer would, at the same map position; a screen-space sprite on the very
+  same layer is provably unaffected by both the camera move and the layer's own factor.
+- The clamp/margin item from the original plan is dropped (see decisions above).
+- A dedicated "camera positioned exactly at the parallax origin" case was tried first
+  for the origin test item, but turned out incompatible with this map's own tile layout
+  without tripping `Viewport::GetClippedRect`'s pre-existing clipping behavior (it trims
+  anything at a negative *local*, pre-viewport-offset position, regardless of where the
+  viewport itself sits - the scroll-boundary FIXME, master plan item A6, from the
+  renderer's other end); the absolute-value check above covers the same ground safely.
+
+Verification:
+- Three mutations confirmed-fail-then-restore: `GetCameraOffset` reading the per-frame
+  scratch value instead of computing fresh (the real regression above, caught by an
+  existing test); `GetEffectiveCameraForFactor` with the origin term dropped (caught by
+  the new suite's absolute-value and multi-view checks); `SetLayerParallax(int, ...)`
+  writing only `parallaxy` (caught by its own dedicated test).
+- Full suite: 537/537 (530 existing + 7 new), both in a normal build and under
+  AddressSanitizer (clean, no reports).
+- Full project (library and every sample) builds cleanly, no new warnings beyond
+  pre-existing, unrelated `-Winconsistent-missing-override` warnings on other, untouched
+  `ITileMap` overrides.
+
+**Three pre-existing, unrelated rendering bugs found live while visually verifying L1**
+(`samples/sprite`, its default zoom - position 60, factor 3.8125 - the first non-integer
+zoom this renderer had ever actually been run at). Each confirmed against a pre-L1
+baseline build first, to rule out an L1 regression, then root-caused, fixed, covered by a
+new, mutation-tested regression case, and re-verified live before moving to the next:
+- **Tile-to-tile rasterization seam.** `DrawTile`/`DrawImageLayer`/`TextureCanvas::Draw`
+  passed their destination rect to the engine unrounded. Two adjacent tiles' edges are
+  always mathematically contiguous (their difference is an exact multiple of the tile's
+  own zoomed width), but at a non-integer zoom that shared edge commonly lands on a
+  fractional screen pixel - and two separately-issued draw calls sharing a
+  fractional-pixel edge can leave the rasterizer's coverage of that boundary pixel
+  ambiguous, a visible seam of the clear colour between nearly every pair of tiles.
+  Fixed by rounding each destination rect to the nearest whole pixel before drawing.
+- **Camera scroll-boundary gap.** `MoveCameraLeft`/`MoveCameraUp`'s own scroll-limit
+  formula never added the viewport's own `pos.x`/`pos.y` - despite a doc comment
+  claiming it did - compensating instead with an imprecise, zoom-rounded fudge term
+  mirrored in neither axis consistently. At this zoom it let the camera scroll tens of
+  pixels past the map's own edge, pulling the map inside the viewport and exposing the
+  clear colour as a gap - worse on whichever axis's fudge term was further from exact.
+  Fixed by adding the real `pos` offset and dropping the fudge term entirely; a
+  pre-existing test (`tests/test_viewport_semantics.cpp`) had pinned the old, buggy
+  formula as its own oracle and needed updating to the exact, independently-derived
+  no-gap formula instead.
+- **`std::round`'s away-from-zero tie, straddling screen x/y = 0.** Even after the first
+  fix, a sweep of every camera position from -300 to 300 against the real sample's exact
+  map/zoom found 19 positions (out of 601) with a genuine missing column - not just a
+  sub-pixel seam. Root cause: at zoom 3.8125 an integer map position can land exactly on
+  a half-pixel (e.g. one tile at -30.5, its neighbor at 91.5 - both exact ties).
+  `std::round` ties away from zero: `round(-30.5) == -31` but `round(91.5) == 92` - two
+  tiles that are otherwise exactly contiguous round away from EACH OTHER purely because
+  one is negative and the other positive, opening a real 1px gap at exactly the camera
+  positions where this happens (the "blinking" the owner first reported). This codebase
+  already had the correct convention for exactly this, elsewhere
+  (`Shape::ScreenLineWidth`'s own "half-up rounding") - factored out into a new, shared
+  `SunLight::General::Helper::RoundHalfUp` (`std::floor(x + 0.5)`, which never flips
+  direction at zero) and used at all three sites above instead of `std::round`.
+  Re-swept afterward: 0 bad positions out of 601, both axes.
+
+Each of these three fixes shipped with its own mutation-tested regression case
+(confirmed-fail-then-restore): `tests/test_pixelsnapping.cpp` (new, 3 cases - tile
+contiguity, a world-space sprite landing on a whole pixel, and the specific
+zero-straddling half-pixel tie) and `tests/test_helper.cpp` (new case, pins
+`RoundHalfUp`'s own behavior directly against `std::round`'s). Full suite after all
+three: 541/541, both normally and under AddressSanitizer (clean, no reports). Found and
+verified against the owner's own live testing throughout (two real builds compared
+side by side for the first fix; screenshots and a live isometric-sample check for the
+others) - not merely a sandboxed claim.
+
+**`samples/parallax/` (new sample, real-window checked live by the owner).** An "eternal
+map": Sunny's own sprite is screen-space, fixed at the viewport's centre for the whole
+run (never moved); what makes her look like she is walking is the camera, recomputed
+every step to centre on a tracked world position. Four marker objects
+(`wrap_left`/`right`/`top`/`bottom`, read via the existing `GetObjectByName` - the same
+mechanism Caravellius already uses on its own side to cycle a map forever between two
+authored marks, sunlight itself has no built-in map-wrap) bound a rectangle that
+position is kept inside: crossing one teleports her to the opposite marker, carrying
+over the exact overflow so there is no stutter. Three background layers (`sky`,
+`clouds`, `far_terrain`, factors 0.1/0.3/0.6, declared directly via Tiled's own
+`parallaxx`/`parallaxy`) move at their own slower rates behind the `ground` layer
+(factor 1, where Sunny stands) - each a single repeating tile, so the wrap is seamless
+for them by construction, and partial `opacity` on `clouds`/`far_terrain`/`ground` lets
+every layer blend and show through the one above it.
+- **The wrap margin must exceed the viewport's own visible half-extent on each axis** at
+  the sample's zoom (safe choice: comfortably larger than `(viewport size / zoom) / 2`)
+  - found live: with a margin smaller than that, the camera could see past the map's own
+    true edge before a wrap ever triggered, showing a gap of whatever layer happened to
+    still have content there.
+- **A screen-space canvas's own stored position is not a raw screen pixel** - it is
+  drawn at `position x zoom`, camera ignored (`BaseCanvas`'s own documented convention),
+  not something this sample's own first attempt respected: it stored the literal desired
+  screen pixel directly, which at this sample's own non-integer zoom (3.8125) scaled far
+  outside the viewport, and `Viewport::GetClippedRect` silently clipped Sunny away
+  entirely (confirmed directly via `IsOnScreen()`, not guessed). The fix divides the
+  desired screen position by the current zoom before storing it, and recomputes it on
+  every zoom change (`RecenterSunnyOnScreen`) - existing samples never hit this because
+  their own hardcoded sprite positions happened to stay small enough to survive the
+  scaling by coincidence, not because the convention does not apply to them too.
+
+### L2: per-object opacity (DONE)
 Decision taken: option A. The object's custom `opacity` property (0 to 1) is used when
 present. Tiled objects have no opacity field of their own, but custom properties can be
 set on any object in the editor. When the property is absent, the object uses its
-layer's opacity, which is the current behaviour.
+layer's opacity.
 
-Test items:
+**Found while implementing, not assumed:** the plan's own text above said falling back to
+the layer's opacity "is the current behaviour" - checked against the actual code rather
+than taken on faith, and it was only true for tile objects (`DrawTileObject` already read
+`pLayer -> opacity`). Shape objects (rectangle, polygon, polyline, ellipse, point) and text
+objects applied no opacity at all before this item - their drawn alpha was whatever their
+own stored colour's alpha byte already was, with the layer's opacity never consulted. So L2
+is not purely an override on top of existing behaviour for those two object kinds; it is the
+first time they respect layer opacity at all, with the per-object property layered on top of
+that new base behaviour.
+
+Implementation:
+- `Shape::ObjectOpacityOf` (`shapeobjects.h`/`.cpp`, alongside `LineWidthOf`/`PointSizeOf`)
+  reads an object's own `opacity` property and returns one of three outcomes: `NONE` (no
+  such property - not an error), `VALID` (a number in 0 to 1), or `INVALID` (present but
+  unusable - wrong type, or outside 0 to 1).
+- `TileMapRenderer::ObjectOpacity(pObject, fLayerOpacity)` turns that into the effective
+  opacity to draw with: the object's own value when `VALID`, otherwise `fLayerOpacity` -
+  for `INVALID` only after warning once per object id (`WarnInvalidOpacity`, the same
+  once-per-key shape as `WarnMissingFont`; its own warned-id set is cleared at the same
+  point `m_WarnedFonts` already is, `ReleaseRegisteredFonts` - the renderer's one existing
+  "forget warnings" reset point, reused rather than inventing a second one).
+- Tile objects (`DrawTileObject`): one line changed, `fOpacity` now reads
+  `ObjectOpacity(pObject, (float) pLayer -> opacity)` instead of `pLayer -> opacity`
+  directly - its own existing alpha handling (tintColor's own alpha channel ignored,
+  replaced by opacity) is otherwise untouched, since that was already tested, documented
+  behaviour from L1 and not in scope to change here.
+- Shape objects (`DrawObjects`) and text objects (`DrawTextObject`): the object's effective
+  opacity now *multiplies* into the colour's own stored alpha byte
+  (`color.nAlpha = (uint8_t)(color.nAlpha * ObjectOpacity(...))`), not a replacement -
+  deliberately different from the tile-object path above, because a shape/text object's
+  colour never had a separate alpha control to begin with (unlike a tile's tintcolor vs.
+  opacity, which are documented as independent), so there is nothing else to replace it
+  from. This also matches the test items' own wording directly ("halves the alpha of the
+  drawn colour", not "replaces it").
+
+Test items, in `tests/test_objectopacity.cpp` (7 cases):
 - With no property, output is identical to the layer opacity.
-- A property of 0.5 halves the alpha of the drawn colour.
-- An invalid value logs a warning and falls back to the layer opacity.
-- A text object follows the same rule once B1 is done.
+- A property of 0.5 halves the alpha of the drawn colour - and does so by multiplying, not
+  replacing: a dedicated case uses a group colour whose own alpha is 0x80 (128), confirms
+  the result is 64 (128 x 0.5), not 127 (0xFF x 0.5) - the value a replace-not-multiply
+  mutant would produce.
+- An opacity property outside 0 to 1 is invalid and falls back to the layer's opacity (not
+  the invalid value).
+- An opacity property of the wrong type (a string) is invalid the same way.
+- A text object follows the same rule as a shape object.
+- A tile object's own opacity property overrides its layer's.
+- A tile object with no opacity property still uses its layer's, as before L2.
 
-### L3: sprite draw order within a layer
-- Add `SetZOrder(int)` to `Sprite`, default 0.
-- Sort each layer's sprites with a stable sort, only when a z-order changed. Equal
-  values keep insertion order.
-- Z-order applies only within a layer. Layers already order sprites between each other.
+Mutation checks, each confirmed by reverting the fix, seeing the specific test fail, then
+restoring it: replacing the shape/text path's multiply with a plain replace (`0xFF *
+ObjectOpacity(...)`) fails the dedicated multiply-vs-replace case (expected 64, got 127);
+removing `ObjectOpacityOf`'s own 0-to-1 range check fails the out-of-range case (expected
+127, got 125 - `(uint8_t)(255 * 2.5)` wrapping, not even close to a plausible "valid"
+result, which is itself worth noting: an unchecked range doesn't just accept a slightly
+wrong value here, it silently overflows into nonsense).
 
-Test items:
-- With every z-order at 0, output is byte-identical to today.
-- A higher z-order is drawn after a lower one on the same layer.
-- The sort is stable: equal values keep insertion order.
-- Sprites on different layers keep the layer order, whatever their z-values.
+Full suite: 551/551 (544 existing + 7 new). Every sample builds cleanly. No new pure
+virtual methods were added to any interface, so no mock updates were needed.
+
+### L3: sprite draw order within a layer (DONE)
+- `Sprite::SetZOrder(int)`/`GetZOrder()`, default 0 - plain storage on `Sprite`, no
+  propagation to its own canvases (unlike `SetWorldSpace`/`SetParallaxLayerId`): z-order is
+  a sibling-ordering concern the renderer applies from outside the sprite, not something an
+  individual canvas needs to know about itself.
+- `TileMapRenderer::HandleSpriteUpdate` stable-sorts a layer's own `SpriteList` (a
+  `std::deque<Sprite*>`, already random-access) by ascending z-order before iterating it,
+  every time it runs. **Decided while building it, departing from the plan's own wording
+  above ("only when a z-order changed")**: a dirty-flag optimization would need `Sprite` to
+  notify its owning `TileMapRenderer` on every `SetZOrder` call, and `Sprite` has no
+  back-channel to it today (its own `m_pParent` is a generic `BaseCanvas*`, not specifically
+  a `TileMapRenderer`) - wiring one would be real new plumbing for a cost no test or real
+  workload here showed to matter. `std::stable_sort` on an already-correctly-ordered deque
+  reproduces that same order exactly, so sorting unconditionally is always correct, just not
+  maximally cheap; revisit only if a real profile shows it matters.
+- Z-order applies only within a layer: `HandleSpriteUpdate` is called once per TMX layer
+  (from `DrawAllLayers`'s own per-layer dispatch), so sorting happens independently per
+  layer's own `SpriteList` - a sprite's z-value can never move it across a layer boundary.
+
+Test items, in `tests/test_spritezorder.cpp` (4 cases):
+- With every z-order at 0 (the default), draw order is unchanged - the order sprites were
+  added in (`AddSprite`'s own `push_back`).
+- A higher z-order draws after a lower one on the same layer, even added out of order.
+- The sort is stable: equal-z sprites keep their own add order. **Found while writing this
+  case, not assumed:** a small sprite count (4, even 24) could not actually tell
+  `std::stable_sort` from a plain `std::sort` apart on this platform's standard library -
+  both passed identically, because small-range sorts commonly fall back to an
+  insertion-sort-shaped algorithm that happens to be stable anyway, even though `std::sort`
+  promises no such thing. 60 sprites spread across 5 distinct z-order groups is what
+  actually exposed the difference - confirmed directly (see the mutation check below), not
+  guessed at from a vague "probably enough" sample size.
+- Sprites on different layers keep their own layer's draw order, whatever their z-values -
+  a z=100 sprite on layer 1 still draws before a z=0 sprite on layer 2, since layer order is
+  the TMX layer order, untouched by L3.
+
+Mutation checks, each confirmed by reverting the fix, seeing the specific test fail, then
+restoring it: removing the sort entirely fails the "higher z draws after" and "stable" cases;
+replacing `stable_sort` with plain `sort` fails only the 60-sprite/5-group stable case (and,
+as found above, does NOT fail a smaller same-shape case, which is why the test uses 60/5 and
+says so).
+
+Full suite: 555/555 (551 existing + 4 new), both in a normal build and under
+AddressSanitizer (clean, no reports) - sorting a `SpriteList` of raw, non-owning pointers
+in place touches no lifetime, but the suite was run there anyway since it is the renderer's
+own sprite-registration/draw path. Every sample builds cleanly.
+
+## Phase M: a drawing surface independent of any map
+
+`TileMapRenderer` is the library's only renderer, used today as if it inherently needed a
+loaded TMX map - but a game built directly on the window canvas (no map at all) is a real,
+supported use case the library should serve as a first-class citizen, not an afterthought.
+
+| # | Item | Status |
+|---|------|--------|
+| M1 | Promote the Phase C/D shape primitives (`DrawRectangle`, `DrawPolygon`, `DrawPolyline`, `DrawEllipse`, `DrawPoint`) onto a public, mapless interface | DONE |
+| M2 | Make sprite drawing actually mapless: a frame with no map loaded still updates and draws every layer's registered sprites, completing `AddSprite`'s already-documented intent | DONE |
+| M3 | A sample demonstrating `TileMapRenderer` used purely as a drawing surface - shapes and sprites, `LoadMap` never called | DONE |
+
+**Found while investigating the owner's own question, not assumed:**
+- The shape primitives (`DrawRectangle`/`DrawPolygon`/`DrawPolyline`/`DrawEllipse`/`DrawPoint`,
+  `src/renderer/tilemaprenderer.cpp`) are private `TileMapRenderer` methods, reachable today
+  only through TMX object-group parsing (`DrawObjects`). Checked what they actually touch:
+  `m_EffectiveLayerCameraPos` is zeroed at construction and only ever set while walking a
+  loaded map's own layers; the viewport and zoom are valid immediately at construction. They
+  have no real dependency on map data at all - the only blocker is that they are private and
+  bundled inside one monolithic class, not a genuine architectural coupling.
+- There is already a precedent for exactly this split: `IDrawSurface`
+  (`src/drawsurface/idrawsurface.h`), deliberately carved out of `ITileMap` for this same
+  reason - its own doc comment says every one of its methods is "a pure pass-through straight
+  to `IEngine`... not because any of them are genuine tile-map operations." `TileMapRenderer`
+  already implements it alongside `ITileMap`. But `IDrawSurface` only carries the *simple*
+  primitives (`DrawText`, `DrawFilledRectangle`), predating Phase C/D - the thick-primitive
+  suite was never promoted the same way.
+- `ITileMap::AddSprite` already has deliberate, documented mapless support: it accepts any
+  `nLayerId` as a plain grouping key when no map is loaded. But tracing the draw path found
+  this is unfinished: `RenderMap()` only ever calls `DrawAllLayers` (the sole place
+  `Sprite::Update()`/`Draw()` are invoked) inside `if( m_pTmxMap )`. **A sprite registered
+  with no map loaded updates its collider but is never actually drawn.** `IDrawSurface`'s own
+  doc comment, which still calls sprite drawing "the missing piece for genuinely mapless
+  rendering," is itself stale relative to this - the feature is far closer to done than that
+  comment suggests, just not finished.
+
+**Decided:** no new concrete class (a second "SurfaceRenderer" alongside `TileMapRenderer`).
+The primitives already have no real map dependency, and a second class would duplicate
+window/engine lifecycle, `Start`/`Stop`, the frame loop and input dispatch that
+`TileMapRenderer` already handles identically whether or not a map is loaded. The mapless
+story is completed in place: a consumer who wants a bare drawing surface uses
+`TileMapRenderer`/`Create`/`Start` and simply never calls `LoadMap`, holding an
+`IDrawSurface` handle (not `ITileMap`) if they want the compiler to enforce that they never
+touch map-only API.
+
+**M1: a public, mapless shape interface (DONE).** All three open questions settled while
+building it:
+- The promoted methods take friendlier, higher-level parameters than the private bodies they
+  wrap: `fThickness`/`fSize` in MAP units (converted to screen pixels internally via the same
+  `Shape::ScreenLineWidth` every TMX shape object already uses - a caller never computes that
+  conversion itself), and a flat `const SunLight::Base::stVector2D *pPoints, int nPointsCount`
+  for `DrawPolyline`/`DrawPolygon` instead of libtmx's own `double**` point-array shape (a
+  small, local-only conversion back to that shape, `TileMapRenderer::ToTmxPointArray`, feeds
+  the unchanged private bodies).
+- `fRotation` gets a defaulted `0.0` overload (as does `fThickness`, defaulting to `1.0`, a
+  hairline) - most mapless callers want neither.
+- The promoted declarations live on a new sibling interface, `IShapeSurface`
+  (`src/drawsurface/ishapesurface.h`), not added to `IDrawSurface` directly - confirmed via
+  the owner's own call: `IDrawSurface`'s own doc comment is explicit that its primitives are
+  screen space, zero viewport/camera transform (a HUD layer); these shape primitives are the
+  opposite, viewport/zoom-aware the same way a Tiled object's own position already is. Merging
+  the two would make `IDrawSurface`'s own documented guarantee false for exactly these methods.
+
+Implementation: each `IShapeSurface` override on `TileMapRenderer` is a thin wrapper - convert
+units, then call straight through to the existing private method of the **same name**
+(`DrawRectangle`/`DrawEllipse`/`DrawPolyline`/`DrawPolygon`/`DrawPoint`), an intentional
+overload rather than a rename: the two signatures differ in both the type and the order of
+their later parameters (a `stColor` at a position the private body has a `double`), so the
+call is unambiguous at compile time, verified directly rather than assumed - it built and ran
+correctly on the first try, and the regression-guard tests below exist specifically to keep
+proving it rather than trust that once.
+
+Test items, in `tests/test_shapesurface.cpp` (7 cases):
+- A `TileMapRenderer` that calls `Start()` but never `LoadMap` can draw a hairline rectangle,
+  a thick polygon, and a point, each through the public `IShapeSurface` door, each landing in
+  the mock engine's own event log - no real window, no map.
+- A rotated, thick polyline and a rotated, thick ellipse, each drawn through the public API,
+  produce the exact same `FILL` spans as the identical shape drawn via a TMX object - the
+  regression guard that promoting the methods did not fork their behavior.
+- Thickness is converted by the current zoom, not passed through raw: a width-3-map-unit line
+  at zoom 2 produces the same six-row span pattern `tests/test_thick_lines.cpp`'s own TMX-based
+  "zoom scales the width" case already pins. **Added after a mutation the first four tests
+  could not catch**, found live: every other case in this file runs at the default zoom 1.0,
+  where `(int) fThickness` (a raw, un-converted cast) and the real `Shape::ScreenLineWidth`
+  conversion coincide exactly - a mutant that skipped the zoom conversion entirely still passed
+  every other test, since none of them exercised a non-default zoom. This case does.
+- A pre-existing, unrelated test case (`tests/test_thick_lines.cpp`'s own, unchanged) confirms
+  promoting the private methods to also be publicly callable did not alter `DrawObjects`' own
+  behavior - the full suite passing unchanged is the real coverage for this, this case just
+  pins one concrete value directly in this file too.
+
+**A real, pre-existing test-fixture bug found and fixed while building these tests, not in the
+feature itself:** `MockEngineFixture`'s install (`EngineFactory::SetEngine`) is a single global
+slot, not a stack. The first version of the two TMX-vs-public comparison tests kept a `TmxScene`
+and a `MaplessScene` - each carrying its own `MockEngineFixture` - alive at the same time: the
+second fixture's constructor silently clobbered the first's install, and C++'s own reverse
+local-destruction order meant the second (newer) fixture's destructor cleared the engine slot
+*before* the first (older) one's own destructor ran - leaving `TmxScene`'s own `Stop()` to reach
+the **real** `RaylibEngine` with a mock-issued render-target handle. Confirmed live as a genuine
+`SIGSEGV` in `RaylibEngine::UnloadRenderTarget`, caught under AddressSanitizer with a full stack
+trace before the test was trusted - not a flaky or environment-specific failure, reproduced on
+every run until fixed. The fix scopes the TMX side into its own block, so it is fully torn down
+(and its fixture's engine slot cleanly reset) before the mapless side's own fixture is ever
+constructed. Worth a general caution for any future test mixing two `*Fixture`-carrying scenes
+in one case: at most one may be alive at a time, full stop.
+
+Mutation checks, each confirmed by reverting the fix, seeing the specific test fail, then
+restoring it: swapping x/y in `ToTmxPointArray` fails the rotated-polyline comparison case;
+replacing the zoom conversion with a raw `(int)` cast fails only the dedicated zoom case above
+(confirmed it does NOT fail the other six, which is exactly why that dedicated case exists).
+
+Full suite: 562/562 (555 existing + 7 new), both in a normal build and under AddressSanitizer
+(clean, no reports - run here despite the change itself touching no object lifetime, because
+the fixture bug above was a real, live crash during development). Every sample builds cleanly.
+`doc/BREAKAGES.md` item 38 is written.
+
+**M2: mapless sprite drawing (DONE).**
+- `RenderMap`'s whole layer/sprite block was gated on `if( m_pTmxMap )`, so a mapless frame
+  only cleared the background. It now runs when a map is loaded **or** any sprite list exists
+  (`m_SpriteMap` non-empty); a mapless renderer with no sprites still only clears, opening no
+  clip, exactly as before.
+- A new `TileMapRenderer::DrawPassContent()` is what one pass draws, used by both the
+  single-view frame and `DrawViewPasses`: the map's own layers (`DrawAllLayers`, unchanged)
+  when a map is loaded; otherwise every layer id in `m_SpriteMap`, in ascending id order (a
+  `std::map`, the only layer order a mapless renderer has), each through the same
+  `HandleSpriteUpdate` the map path uses - so L3's z-order sort and the multi-view
+  advance-once-per-frame logic apply unchanged.
+- The active view's layer mask (`IView::ShowLayer`) applies to mapless layer ids the same way
+  it applies to map layers, since both key on the layer id.
+- `m_EffectiveLayerCameraPos` is not touched on the mapless path: `HandleSpriteUpdate` never
+  reads it, and a world-space sprite's own `GetCameraOffset` computes its camera fresh.
+- Collision dispatch (`HandleUserCollisions`) was already unconditional, confirmed by reading
+  `Run()`'s per-frame call sequence - drawing was the only gap.
+- `IDrawSurface`'s own doc comment, which still called sprite drawing "the missing piece" for
+  mapless rendering, is corrected.
+
+- **A leak found by CI, not locally:** `Stop()` and the destructor released the per-layer
+  sprite lists only through `UnloadMap()`, which does nothing without a map - so every
+  `AddSprite` on a renderer that never loaded a map leaked its layer's list (and the sprites
+  stayed registered across a `Stop()`/`Start()`). It predates M2, but M2's tests were the first
+  to exercise it. CI's Linux AddressSanitizer job caught it via LeakSanitizer; macOS's own
+  AddressSanitizer does not support leak detection (`detect_leaks is not supported on this
+  platform`), which is why the local run passed. `Stop()` and the destructor now call
+  `UnloadSprites()` unconditionally after `UnloadMap()` (a no-op when it already ran).
+
+Test items, in `tests/test_maplesssprites.cpp` (6 cases): a sprite registered with no map is
+drawn; mapless layer ids draw in ascending order whatever order they were added in; a view's
+layer mask hides a mapless layer id's sprites; with an extra view, each view draws the sprite
+once; `Stop()` releases mapless sprites as it does with a map (no longer drawn after a
+restart - the observable side of the leak fix, since leak detection itself cannot run on
+macOS); and with no map and no sprite the frame only clears, opening no clip (the case M2 must
+not change).
+
+Mutation checks, confirmed-fail-then-restore: putting the old `if( m_pTmxMap )` condition back
+fails the first four cases; the unchanged empty case passes both ways, as it should. Removing
+the new `UnloadSprites()` call from `Stop()` fails the restart case.
+
+Full suite: 568/568 (562 existing + 6 new), both in a normal build and under
+AddressSanitizer (clean, no reports - run because this is the renderer's own sprite draw
+path). Every sample builds cleanly. `doc/BREAKAGES.md` item 39 is written.
+
+**M3: `samples/surface/` (DONE, real-window checked by the owner).** A `TileMapRenderer` that
+never calls `LoadMap`, drawing only through the three mapless paths: `IShapeSurface` shapes
+(M1) - a thick square spinning about its own centre, a thick turning ellipse ring, a thick
+rectangle, a travelling sine wave as a thick polyline, and a row of growing points; Sunny as a
+sprite registered on a plain grouping id (M2), moved with the arrow keys; and an
+`IDrawSurface` HUD (a text line and a progress bar) in raw screen pixels outside the viewport.
+Shapes and the HUD are drawn from `ITileMapListener::OnUpdate`, which `Run()` calls inside the
+frame's render target after the sprites - the place a mapless game draws its own content.
+
+Found while building it: adding `override` to `TileMapRenderer`'s new `IShapeSurface`
+declarations (M1) made clang's `-Winconsistent-missing-override` fire for every other
+interface method the class overrides without the keyword - 58 warnings, all in
+`src/renderer/tilemaprenderer.h`, repeated in every file that includes it. Every one is now
+marked `override` (it also makes the compiler catch a future interface signature drift). A
+clean rebuild of every sunlight source, test and sample reports 0 warnings.
+
+**Test items, to refine further while building:**
+- A `TileMapRenderer` that calls `Start()` but never `LoadMap` can draw a shape primitive
+  directly (M1) and have a registered sprite actually appear on screen (M2) - both through
+  the mock engine, no real window.
+- A rotated/thick shape drawn through the new public API produces the exact same spans as the
+  same shape drawn via a TMX object (the same underlying private bodies) - a regression guard
+  that promoting the methods did not fork their behavior.
+- Every existing Phase C/D/L test still passes unchanged - promoting these methods to public
+  must not alter `DrawObjects`' own behavior.
+
+**Coordination:** adds public API, removes nothing. `IDrawSurface` gains new pure virtuals;
+confirmed only `TileMapRenderer` implements `IDrawSurface` today (no other class, no mock), so
+nothing else in this codebase needs updating for that alone. Still worth a `doc/BREAKAGES.md`
+entry once built, same as every other API addition - Scarab/Caravellius integration should
+check whether either keeps its own `IDrawSurface`-shaped wrapper that would need the same
+methods added.
+
+**Sequencing:** done before Structure's own `S1` (not after), so that split - which already
+plans to move "object drawing (`DrawObjects` and its dispatch)" into its own file - can be
+designed around the seam M1 establishes, instead of being redone once that seam exists.
+
+## Structure: a smaller TileMapRenderer
+
+`src/renderer/tilemaprenderer.cpp` is about 3,650 lines (1,700 of code, 1,340 of comments) and the header
+about 520. The class implements `ITileMap`, `IDrawSurface` and `IShapeSurface`, holds about 50 data members,
+and `View` (a friend) reaches into 11 of them. The helpers that were not part of the renderer already live in
+their own modules: `shapeprimitives`, `shapeobjects`, `externalresources`, `maporientation` and the
+projections.
+
+S1 does not just split the file. It moves each concern into an **independent class** with its own state, which
+knows nothing about `TileMapRenderer`; the renderer then holds and uses them. Those classes can be reused by
+another renderer later (for example one with no tile map). The drawing code is the easiest part to move: it
+reads only the active viewport (position, size, zoom), the current layer's camera offset and, for tiles and
+text, the map's tilesets or the registered fonts.
+
+| # | Item | Status |
+|---|------|--------|
+| S1a | `DrawContext` (viewport rectangle, zoom, layer camera offset, built by the renderer for each pass and layer) and `ShapeRenderer` (rectangle, ellipse, polyline, polygon, point - the private shape bodies, and `IShapeSurface` through them) | DONE |
+| S1b | `FontRegistry` (registered fonts and the missing-font warnings) and `TextObjectRenderer`; `ObjectRenderer` (the `DrawObjects` dispatch and the per-object opacity rule, `ObjectOpacity`, with its warnings). Tile objects are handed back to the renderer and move in S1c | DONE |
+| S1c1 | `MapData`: the `tmx_map`, its Resource Manager, the projection, tile animation data, map size and uniform-grid flag; load (parse first, swap on success), freeing by its destructor, and tile, layer and object lookups | DONE |
+| S1c2 | `LayerRenderer`: tile, image and group layer drawing and culling, and tile objects (`DrawTileObject`, which needs the map's tiles, their animation and `DrawTile`) | DONE |
+| S1d | `SpriteRegistry`: the sprites registered per layer, the parented-sprite set and the once-per-frame bookkeeping (`ChildRemoved`, `UnloadSprites`, advance/draw) | DONE |
+| S1e | `Camera`: position, scroll step and the `MoveCamera*` limits. `View` then holds a `Camera` instead of swapping the renderer's camera fields in and out | DONE |
+
+What stays in `TileMapRenderer`: the lifecycle (`Start`/`Run`/`Stop`), the views and the multi-view passes,
+the small setters, getters and pass-throughs to `IWindow`/`IEngine`, and the wiring between the new classes.
+Moving the views out (they are tied to the renderer the most closely) is left for a later decision, once S1e
+has simplified them.
+
+- Order: S1a to S1e (S1c in two steps, S1c1 then S1c2), lowest risk first. Each item is one branch and one PR, and the next starts only once the
+  previous one is merged.
+- No behaviour change in any step: the full suite passes, every sample builds, the AddressSanitizer run is
+  clean (S1d and S1e touch object lifetimes), `leaks --atExit` reports none, and the shapes stress benchmark
+  stays within its usual spread. The samples are checked in a real window after S1c, S1d and S1e.
+- Public API of `TileMapRenderer` does not change. Only private members move, so code built on sunlight has to
+  be rebuilt, not changed. If a step has to change the public API, the change goes in `doc/BREAKAGES.md` first.
+- Each new class gets its own doctest coverage where it does not need a window (the mocks and the null backend
+  as elsewhere).
+- Target: no file over about 1,000 lines. `tilemaprenderer.cpp` is expected to end near 1,400 lines with its
+  comments (lifecycle, `Run()`, views and about 45 small methods), so the old "under 1,000" target is dropped.
+- Every value in new code is named, as in the other modules.
+- Not in S1: shared interfaces for future renderers (an `IRenderer` base, a layer-source interface). They are
+  better designed against a second renderer once one exists.
+
+**S1a: `DrawContext` and `ShapeRenderer` (DONE).** `renderer/drawcontext.h` holds the active
+view's rectangle, its zoom and the drawn layer's camera offset, in the very types the renderer
+holds them (int rectangle, float zoom and camera), so a shape's arithmetic is unchanged bit for
+bit. `renderer/shape/shaperenderer.h/.cpp` holds the five shape bodies with `ScreenPointsOf` and
+`DrawEdge`, moved as they were; it has no state and does not know `TileMapRenderer`. The renderer
+builds the context at each call (`CurrentDrawContext`, reading what the bodies read before) for
+its shape objects and its `IShapeSurface` methods. `tilemaprenderer.cpp` 3,652 -> 3,437 lines,
+the header 522 -> 487. `tests/test_shaperenderer.cpp` (8 cases) draws with no renderer at all;
+applying the camera after the zoom fails its context test, which none of the 600 earlier tests
+noticed. Full suite 608/608, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark no slower.
+
+**S1b: `FontRegistry`, `ObjectOpacity`, `TextObjectRenderer`, `ObjectRenderer` (DONE).** In
+`renderer/text/` and `renderer/objects/`, each knowing nothing about `TileMapRenderer`:
+`FontRegistry` (`Register`/`Find`/`WarnMissing`/`Clear`; `RegisterFont` keeps its public
+signature and its "not started" check), `ObjectOpacity` (the L2 rule and its once-per-object
+warning), `TextObjectRenderer` (the `DrawTextObject` body, reading a `DrawContext`; its comment
+corrected - rotation is applied, and the view's clip cuts the text) and `ObjectRenderer` (the
+`DrawObjects` dispatch, one `DrawContext` per layer). Tile objects need the map's tiles, their
+animation and `DrawTile`, so they are handed back to the renderer with their opacity and move in
+S1c. The libtmx colour conversion is shared as `Shape::ColorOf`. `tilemaprenderer.cpp` 3,437 ->
+3,084 lines, the header 487 -> 467. `tests/test_objectrenderers.cpp` (10 cases) uses objects
+libtmx parsed, no renderer. Full suite 618/618, ASan clean, `leaks` 0, Doxygen 0, the stress
+benchmark within its spread.
+- Found, not changed (S1 changes no behaviour): libtmx keeps an object group's objects in
+  reverse file order (it prepends them, `tmx_xml.c`), and records the group's `draworder`
+  (`topdown`/`index`), which sunlight never reads - objects are drawn in that reversed list order.
+  Whether to honour `draworder` is an open point for after S1.
+
+**S1c1: `MapData` (DONE).** `renderer/map/mapdata.h/.cpp` owns one loaded map: the `tmx_map`,
+its Resource Manager, the projection, the map's size in map pixels, the uniform-grid flag and
+the tile animation state. `MapData::Load` is `LoadMap`'s loading half, unchanged (FileSystem
+read, external tilesets and templates, parse, projection, the same error messages); its
+destructor frees the map, then the Resource Manager, then the animation state - `ReleaseMap`'s
+order. Lookups: layers by id or name, `TileAt` (the gid and tile; the screen rectangle stays in
+the renderer's `GetTile`, which needs the view), `FindObjectByName`, `AnimatedFrameOf`. The
+libtmx texture hooks move with it, installed by `Load`. `TileMapRenderer` holds one
+`std::unique_ptr<MapData>`: `LoadMap` loads into a new one and only then replaces the old,
+`UnloadMap` is `UnloadSprites()` plus a reset; `ReleaseMap`, `FindObjectByName`,
+`AnimatedFrameOf`, `GetTilesetList` and seven members are gone. `tilemaprenderer.cpp` 3,084 ->
+2,728 lines, the header 467 -> 440. `tests/test_mapdata.cpp` (7 cases, no renderer); freeing the
+old map before loading the new one fails T2's failed-parse test. Full suite 625/625, ASan clean,
+`leaks` 0, Doxygen 0, the stress benchmark within its spread.
+- Found while moving it, fixed right after in its own PR (owner's call - no peer map has
+  animated tiles yet): a Tiled tile animation held its first frame for two of its durations
+  every cycle. After the last frame, `AnimatedFrameOf` wrapped the counter to 0 and showed frame
+  0 without stepping it on, so frame 0 came again on the next step (0 1 2 0 0 1 2 0 0 ...). The
+  counter now steps on and wraps in one place: each frame once per cycle, for its own duration.
+  `tests/test_mapdata.cpp` checks two full cycles of three frames and fails on the old code.
+
+**S1c2: `LayerRenderer` (DONE).** `renderer/map/layerrenderer.h/.cpp` draws a tile layer
+(`DrawTileLayer`, with its culling), an image layer and a tile object through a `DrawContext`
+and a `MapData`, the bodies moved as they were; it has no state and does not know
+`TileMapRenderer`. The viewport test a tile goes through is shared as the static
+`Viewport::ClipRect` (`GetClippedRect` calls it with its own rectangle and zoom). Group layers
+stay in `DrawAllLayers`, which still walks the layers (views, parallax camera, sprites) and
+calls `LayerRenderer` for each one; `ObjectRenderer`'s tile-object callback calls it too.
+`DrawLayer`, `DrawImageLayer`, `DrawTileObject` and `DrawTile` are gone from the renderer, and
+the outdated "animated tile objects draw their first frame only" comment is
+corrected. `tilemaprenderer.cpp` 2,728 -> 2,411 lines, the header 440 -> 427.
+`tests/test_layerrenderer.cpp` (10 cases, no renderer): tile positions with zoom, camera and
+viewport origin, opacity, tint and offset, animation, image layers, and tile objects at their
+own size, stretched and cut at the viewport, and turned; dropping the camera from `DrawTile`
+fails 4 of them. Culling saves work only (`ClipRect` skips an off-viewport tile anyway), so it
+is not visible in draw calls; `test_tileculling` still pins that it loses no visible cell.
+Full suite 635/635, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark within its spread.
+- Found while moving it, fixed right after in its own PR (owner's call): a resized tile
+  object ignored its layer's tint (it was drawn white, with its opacity), while one at its
+  tile's size and a turned one took it. It now takes the tint too; `tests/test_layerrenderer.cpp`
+  checks it and fails on the old code.
+- Found by the owner's real-window check, pre-existing (the limit dates from Phase L), fixed
+  in its own PR (owner's call): the staggered and hexagonal samples never showed their last
+  strip on the right and at the bottom. `MoveCameraUp`/`MoveCameraLeft` refused a scroll step
+  that went past the map's far edge, so up to a step less one pixel stayed hidden (about 55 map px at
+  the staggered sample's right edge, 37 and 18 at the hexagonal sample's). The last step is now
+  a partial one to the edge (rounded up to a whole map pixel: no gap, under a pixel hidden at a
+  non-integer zoom), and `MoveCameraDown`/`MoveCameraRight` end with a partial step onto the
+  origin. `tests/test_camera.cpp` (two cases) and the step-by-step check in
+  `tests/test_viewport_semantics.cpp` fail on the old code.
+
+**S1d: `SpriteRegistry` (DONE).** `renderer/sprite/spriteregistry.h/.cpp` holds the sprites
+registered per layer, the sprites the renderer is the parent of, and the once-per-frame update
+across the view passes (the z-order sort, `Update` with one view, advance-once-then-`Draw` with
+several, the end-of-frame advance of a sprite no pass had on screen), moved as they were; it
+never owns a sprite and does not know `TileMapRenderer`. Each layer's list is now held by value
+(it was a raw `new` freed by hand in `UnloadSprites`). A layer's list is still opened before
+`AddSprite`'s checks, so a refused sprite leaves it open as before (`OpenLayer`; `Empty` decides
+whether a mapless renderer runs its sprite frame). `AddSprite`/`RemoveSprite` keep their checks
+and the collider; `ChildRemoved` stays the renderer's override and asks `Forget` which sprite left
+and from which layers; `HandleSpriteUpdate`/`UnloadSprites` are one-line calls into it. One
+addition, not reachable today: `Forget` also drops a leaving sprite from the frame's
+advanced/pending sets, so a sprite destroyed during a frame could not be advanced at its end.
+`tilemaprenderer.cpp` 2,407 -> 2,312 lines, the header 427 -> 423. `tests/test_spriteregistry.cpp`
+(7 cases, no renderer): advancing in every pass, dropping the end-of-frame advance and stopping
+`Forget` at the first layer each fail one. Full suite 644/644, ASan clean, `leaks` 0, Doxygen 0,
+the stress benchmark within its spread.
+- Found while moving it, fixed right after in its own PR (owner's call): `Sprite::Unload()`
+  emptied the sprite's sequences but left its active sequence marked valid, so an unloaded sprite
+  that was drawn, advanced or asked `IsOnScreen`/`GetActiveTexture` read through a dangling
+  iterator - eg. one reused after the renderer's `Stop()`, which unloads every registered sprite.
+  No sequence is active after `Unload()` now. `tests/test_sprite.cpp` checks it; on the old code
+  AddressSanitizer reports a heap-use-after-free in it.
+
+**S1e: `Camera` (DONE).** `renderer/camera/camera.h/.cpp` holds one view's camera: its position
+(the negated map point at the viewport's top-left, as before), its scroll step (-1 until a map
+resolves it), the four moves with #201's limits, the map alignments (`LoadMap`'s switch) and the
+parallax camera (`GetEffectiveCameraForFactor`'s arithmetic), moved as they were; it knows
+nothing about `TileMapRenderer` or `View`, and is handed the map's size, the viewport and the
+zoom. Each `View` now holds its `Camera`: the renderer's `m_CameraPos` and
+`m_nScrollStepWidth`/`Height` and `View::State` are gone, `ActivateView` no longer copies a
+camera in and out (it only switches the active view and its viewport), and `View::Detach` no
+longer parks one. The renderer's camera methods keep their checks and work on the active view's
+camera (`ActiveCamera`); a view's methods still go through `View::Run`, so a removed view's
+setters stay no-ops and its getters return its last values. `tilemaprenderer.cpp` 2,312 ->
+2,201 lines, the header 423 -> 422, `view.cpp` 367 -> 349. `tests/test_cameraunit.cpp` (7
+cases, no renderer); an explicit step overwritten by `ResolveScrollStep`, a wrong axis in
+`Align` and every view using the default view's camera each fail tests (the last, 10 of the
+view tests). Full suite 652/652, ASan clean, `leaks` 0, Doxygen 0, the stress benchmark within
+its spread.
+
+**S1 result.** `tilemaprenderer.cpp` went from 3,652 to 2,201 lines and its header from 522 to
+422, across ten new classes. That is short of the "near 1,400" this section expected: what stays
+is what it lists (the lifecycle, `Run()`, the views and their passes, the layer walk with its
+parallax and masks, about 45 small setters and pass-throughs) plus `LoadMap`, the input wiring
+and `GetTile`/`TileMapToTileMatrix`, with their long comments. Moving the views out, left for
+after S1e above, is the largest piece still in it.
 
 ## Docs, samples and tests
 
-Done last, once the features they describe are settled: tidy the CHANGELOG (its
-Unreleased sections have grown long), update the README and sample docs, and extend the
-samples and tests where a feature needs a demonstration.
+Done last, once the features they describe are settled.
+
+| # | Item | Status |
+|---|------|--------|
+| T1 | Doxygen warnings: stale `@param` names, a stray `@ITileMapListener` and `\The` typo, unresolved `\link` targets | DONE |
+| T2 | Direct tests for the map-loading pipeline (parsing a real `.tmx` through the mocks) | DONE |
+| T3 | Direct tests for `Run()`'s input, update and collision dispatch (reachable now the frame loop can be driven) | DONE |
+| T4 | Tidy the CHANGELOG, whose Unreleased sections have grown long | DONE |
+| T5 | Update the README and sample docs; extend samples where a feature needs a demonstration | DONE |
+| T6 | Load TTF/OTF fonts with Latin accents, not only the 95 ASCII glyphs raylib's `LoadFont` generates | DONE |
+
+- T1: each warning is fixed, and the Doxygen run reports no new warnings.
+- T2 and T3: tests fail on a deliberate break of the loader or dispatch path.
+- T4 and T5: checked against the features as they are when this item is reached.
+- T6: the `text` sample's Press Start 2P line draws its accents; a unit test pins the code points.
+
+**T1: Doxygen warnings (DONE).** `doxygen Doxyfile` went from 147 warning lines to 0.
+- `@link X` without `@endlink` (about 40 places) became `@ref X`, qualified where the name
+  is not in scope (`SunLight::TileMap::stTile`, ...). Two stale names were corrected:
+  `stTilePosition` is `stMatrixPosition`, and `DrawTile` takes a `TextureHandle`, not a
+  `Texture2D`.
+- Stale `@param` names fixed (`AddColliderToTileRule`, `AddGamePad`, `AddTexture`,
+  `AddTextureSequence`, `LoadMap`). Parameters documented in both the header and the
+  source now live in the header only (`Collider::SetInset`, `ColliderRegistry`).
+- Three comment blocks sat above the wrong function, so Doxygen merged them into the
+  next one: `RaylibEngine::DrawFilledRectangle`'s, `Sprite::SetActiveTextureSequence`'s
+  and `Sprite::SetVisible`'s. Each was moved back above its own function.
+- Tiled XML element names in comments (`<object>`, `<objectgroup>`, ...) are in
+  backticks, so they are not read as HTML. `@ITileMapListener`, `\The` and `Timer`'s
+  `@return` on its constructor and destructor are gone.
+- README: `MARKDOWN_ID_STYLE = GITHUB` in `Doxyfile`, so the table of contents' anchors
+  resolve as they do on GitHub. Links to other repository files are absolute GitHub URLs:
+  the generated site does not hold those files, so a relative link would be broken there.
+
+**T2: map-loading tests (DONE).** `tests/test_maploading.cpp`, 13 cases on real `.tmx` bytes
+parsed by libtmx through the mocks: an unreadable and a truncated map, `GetMapInfo`'s exact
+sizes, the embedded tileset image (loaded once beside the map, released once by `UnloadMap`
+and by `Stop`, balanced over repeated cycles), `GetLayer` by id and name inside a group, and
+`GetObjectByName`, which had no test at all. Writing them found two bugs, both fixed here
+(`doc/BREAKAGES.md` 40 and 41):
+- `LoadMap` over a loaded map overwrote the map pointer: the old map, its tile textures and
+  its Resource Manager leaked (Caravellius switches stages this way), and a map that failed
+  to parse lost the old map too. The new map is now parsed first; only once it loaded is the
+  old one freed by `ReleaseMap()`, the map half of `UnloadMap()` - registered sprites are
+  the caller's and stay registered, as before.
+- `GetLayer`/`SetLayer` converted `nOpacity` with two formulas that were not inverses and
+  neither in libtmx's 0..1 (an opaque layer read 256, `SetLayer(255)` hid a layer). It is
+  now 0..255, 255 = opaque.
+
+The 5 regression tests fail on the old code, and the sprite test also fails if the reload
+calls `UnloadMap()` (which would unload the caller's sprites). Full suite 581/581, ASan clean,
+`leaks --atExit` 0 leaks.
+
+**T3: `Run()` dispatch tests (DONE).** `tests/test_run_dispatch.cpp`, 14 cases driven through
+`Run()` on the mocks, input included: a held key and a gamepad button fire once per frame (a pad
+that was not added never does), the no-input handler only on frames where nothing else fired,
+collider-to-collider and collider-to-tile collisions (the latter on a real map tile's collision
+shape) once per frame, the order inside a frame (draw, input, `OnUpdate`, collisions, fade - so
+what an input handler moves is drawn the next frame), an invisible renderer (frames presented
+and counted, nothing drawn or dispatched), and a collision callback removing what it hit.
+
+Found writing them, fixed here (`doc/BREAKAGES.md` 42): map listeners, collision listeners and
+input handlers were walked directly over the `std::deque` a callback could append to (map
+listeners: also erase from) - undefined behaviour. The input and collision lists are only ever
+appended to, so they are walked by index over the count at the start of the dispatch; the map
+listeners are walked over a copy, each re-checked as still registered before its call. Added
+during a dispatch: starts next frame. Removed: never called again. Of the 6 regression tests,
+against the old code 3 fail under AddressSanitizer (heap-use-after-free; one also crashes a
+normal build) and 3 fail their checks. Full suite 595/595, ASan clean, 0 leaks.
+
+**T4: CHANGELOG (DONE).** Every entry had stayed under one `[Unreleased]` heading (with
+`Added`/`Changed`/`Fixed` repeated 12 times), although all of it had shipped, while nothing
+merged since `v0.38.0` - this whole plan - had an entry; the header still said no release
+was tagged (49 were). Each entry now sits under the release that first contained it (found
+from the commit that added its text), condensed to what changed: `0.1.0` and `0.22.0` to
+`0.38.0` (`0.2.0`-`0.21.0` never had entries; their GitHub release notes stand), with
+compare links. `[Unreleased]` holds this plan, grouped Breaking/Added/Changed/Fixed/Removed,
+pointing here and to `doc/BREAKAGES.md` for detail. 536 lines -> 359.
+
+**T5: README, sample docs and the `input` sample (DONE, real-window checked by the owner).**
+- README: a feature list; all 19 samples, grouped by topic; SDL2 under requirements, with why
+  (raylib reads pads through GLFW, which has no vibration API - raylib's desktop
+  `SetGamepadVibration()` is an empty stub - so SDL2 is used for rumble only).
+- Sample docs: new for `isometric`, `isometric_haptics`, `staggered`, `hexagonal`, `parallax`,
+  `opacity`, `zorder`, `surface` and `input`; `shapes` gained its other maps and arguments;
+  stale details fixed in `orthogonal`, `collision`, `sprite`, `objects` and `text`.
+- `samples/input` (new): `ActionMap` actions rebound at run time and saved/loaded,
+  `PlayerSlotManager` slots claimed and released from a pad (and kept across an unplug),
+  hot-plug events, and a live stick dead zone. `DefaultControllerBindings` cannot be switched
+  off once installed (handlers have no remove call), so it is shown by the samples below
+  instead.
+- Found and fixed: `objects`, `text`, `opacity` and `shapes` could not scroll since F0b (they
+  relied on the camera keys the renderer no longer installs); they now call
+  `DefaultControllerBindings::Install`. The CHANGELOG said tile objects draw flipped (their flip
+  bits are still ignored). `iinputhandler.h` had the Circle/B and Square/X comments swapped.
+- Also: CLAUDE.md's sample list and testing note, `doc/vscode/README.md`'s folder names, and
+  `.DS_Store` in both `.gitignore` files.
+- Found, left for T6: a TTF/OTF font is loaded with the 95 ASCII glyphs only, so the `text`
+  sample's Press Start 2P line shows `?` for its accents.
+
+**T6: TTF/OTF fonts with Latin accents (DONE, real-window checked by the owner).** raylib's
+`LoadFont` builds a TTF/OTF font with the 95 ASCII glyphs alone (`FONT_TTF_DEFAULT_NUMCHARS`,
+`rtext.c`), so `SetFont`/`LoadFont` drew every accented letter as `?` - seen on the `text`
+sample's Press Start 2P line (`ção, ñ`). `RaylibEngine` now loads a `.ttf`/`.otf` through one
+helper, `LoadFontFile`, with `LoadFontEx` and `TtfCodepoints()` (ASCII 32-126, Latin-1 160-255,
+Latin Extended-A 256-383: 319 glyphs), at raylib's own size (32) and with the point filtering
+`LoadFont` sets, so ASCII text is drawn as before. `.fnt` and other formats still go to
+`LoadFont`. `LoadFontEx` reads through `LoadFileData`, so mounts and the read filter still apply.
+`tests/test_raylibfontglyphs.cpp` pins the list (5 cases); cut to ASCII only, 2 of them fail.
+
+## Phase H: handoff to Scarab
+
+sunlight's `feat/master_plan` is the integration base for three projects, not a branch about to
+merge to `main`: Scarab runs its own master plan on it next, then Caravellius does the same, and
+nothing goes to any `main` until that whole integration is done. This phase prepares the Scarab
+session to start: a code style guide taken from sunlight's own code (Scarab will align to it),
+sunlight's code aligned to that guide, and a brief that explains what changed, why, and how
+Scarab works through it.
+
+| # | Item | Status |
+|---|------|--------|
+| H1 | Code style guide: `doc/CODE_STYLE.md`, taken from sunlight's code and the owner's choices | DONE |
+| H2 | Align sunlight's code with the guide (formatting only) | DONE |
+| H3 | Write the Scarab handoff brief | DONE |
+| H4 | Review and refine the brief with the owner, as many rounds as needed | DONE |
+| H5 | On the owner's command, send the brief to the Scarab session | DONE |
+
+- H1: every rule is shown with an example from sunlight's own code; the owner reviews the guide.
+- H2: every object file's machine code is identical before and after; the full suite passes and
+  every sample builds.
+- H3 to H5: the owner approves the brief before it is sent; it is sent only on the owner's
+  command.
+
+**H1: code style guide (DONE).** sunlight was written entirely by the owner, and its code is the
+reference for Scarab's: Scarab started from some of the owner's code, but not all of it follows
+the owner's style any more. The guide is written from the code itself (the first commit,
+`e479bcd`, is the owner's alone), in English, each rule with an example:
+- File layout: the zlib header; one module per folder and namespace (`SunLight::<Module>`),
+  namespaces nested and indented; file names in lower case, matching the class
+  (`collisionmanager.cpp`); include guards `__COLLISIONMANAGER_H__`.
+- Spacing: `Class :: Method`, `std :: vector`, `p -> Method()`; `( void )` for an empty parameter
+  list; a space inside parentheses and none after the keyword (`if( x )`, `for( ... )`); a
+  4-space indent; a blank line after a function's opening brace; `else  {` on its own line.
+- Naming (Hungarian): members `m_`; `p` pointers, `n` integers, `f` floating point, `b` bool, `sz`
+  C strings, `str` `std::string`, `it` iterators, `h` handles; structs `st`, interfaces `I`;
+  enumerators in upper case with the type's prefix (`MAP_ALIGNMENT_TOP_LEFT`); a typedef for a
+  container type (`TextureSequenceList`).
+- Constants: `#define __UPPER_CASE value  // why`, aligned in columns; no magic numbers in new
+  code. Declarations aligned in columns.
+- Comments: Doxygen `/** @brief ... @param x Description; */` (each `@param` ends with `;`);
+  `/* ... */` blocks explain why; every claim in a comment is checked (`CLAUDE.md`).
+- Where the code varied, the owner chose (2026-10-14): two spaces before an opening brace on
+  every line that ends with one - control statements, functions, lambdas, `namespace`,
+  `class`, `struct`, `enum` (`if( x )  {`); `Type* pName`; `Type& name`; `#endif /* __X_H__ */`.
+- Code copied from elsewhere (the `DrawTextureTiled` body from raylib's example) is adapted to
+  the style: once in sunlight, it is sunlight's code.
+- Beyond formatting, the design rules this plan relied on: owning members are `unique_ptr`, a
+  raw pointer never owns; backends behind an interface and a factory, no raylib/SDL call
+  outside `backends/`; classes that do not know who uses them (S1); doctest coverage through
+  the mocks.
+
+**H2: sunlight aligned to the guide (DONE).** Measured before starting: about 300 `Type *p`, 530
+`Type &r`, 80 control/function braces and 300 `namespace`/`class`/`struct`/`enum` braces
+with one space, 65 `#endif  /*`, 16 `if (`/`while (`, and the copied raylib snippet. A script
+changes code lines only (never comments or strings), and only within a line, so no line number
+moves. Proof of no change in behaviour: every object file is built before and after with the
+same flags, and their machine code is compared - it must be identical. Then the full suite, and
+every sample builds.
+- Done with a script kept outside the repository: 1,298 changes in 229 files - 542 references
+  (`Type& r`), 481 pointers (`Type* p`), 175 braces, 65 `#endif /*`, 19 own headers included by
+  their path from `src/`, 16 `if (`/`while (` - each within its line (1,117 lines changed, none
+  added or removed). The braces were 175, not the 380 estimated above: that count also matched
+  braces that already had two spaces. By hand (these do move lines): `tilemaprenderer.cpp` includes its own header first, and the
+  `DrawTextureTiled` body from raylib's example is in the guide's style (braces, spacing, casts,
+  one declaration per line, Hungarian names, its `@param`s described).
+- The 164 object files of the library, the tests and the samples, built before and after with
+  the same flags (`-O3 -g0`), are identical byte for byte - 160 of them recompiled after the
+  change. Afterwards no form the guide replaced is left in code (comments keep their prose).
+  Full suite 657/657, Doxygen 0.
+
+**H3 and H4: the Scarab handoff brief (DONE).** The message the Scarab session starts from, kept as
+`doc/SCARAB_HANDOFF.md` (removed before `feat/master_plan` goes to `main`, see Process):
+1. The integration: sunlight's `feat/master_plan` is the shared base; Scarab's own master plan,
+   on its own `master_plan` branch, built against it; then Caravellius; nothing to any `main`
+   until the whole integration is done.
+2. What changed in sunlight and why: a short tour of phases A to F, L, M, S and T with their motivation;
+   `doc/BREAKAGES.md` is the authoritative list, grouped by what Scarab has to do (its build
+   breaks, behaviour changes, nothing to do).
+3. How Scarab handles it: its first items build against the new sunlight and work through
+   `BREAKAGES.md` entry by entry; the Scarab session finds how Scarab pulls in sunlight today
+   and plans the switch to `feat/master_plan`.
+4. Code style: `doc/CODE_STYLE.md` is the reference; Scarab's plan has a style phase - an
+   audit of Scarab's code against the guide, then the alignment, one item and one PR at a time.
+5. Branch strategy, the same as here: a feature branch and PR per item; large phases staged on
+   `feat/complete_<phase>_plan`, closed by one PR into `master_plan`; squash merges; a staging
+   branch in CI while its phase runs, dropped afterwards.
+6. Working rules:
+   - Planning is the strongest phase of the whole plan: every phase and every item is designed
+     and discussed with the owner before any code is written, even inside a phase already
+     approved.
+   - Nothing is committed, pushed or opened as a PR without the owner's review - integration
+     branches and small config commits included. Merging on green CI is fine once the owner
+     approved the PR.
+   - Tests first, a regression test shown to fail on the old code; the full suite, ASan and the
+     leak check; comments whose claims are checked; real-window checks by the owner.
+7. Three requisites from sunlight's own experience (the first two are early items of Scarab's
+   plan, the third applies to every visual item):
+   - An AddressSanitizer job in Scarab's CI, at least on Linux, as sunlight's "AddressSanitizer
+     (Linux)" job. Linux only for CI time alone (a sanitized build and run on every runner would
+     slow every PR); Windows and macOS can be added later if needed. On Linux it also runs
+     LeakSanitizer, which macOS's AddressSanitizer does not (see `CLAUDE.md`).
+   - Unit tests for every module that can have them, as sunlight did (doctest, through mocks
+     and a null backend where a window or device is involved). Many of sunlight's memory bugs
+     were found only by writing such tests and running them under the sanitizer, for example:
+     a heap-buffer-overflow in the tile lookup (A6); `LoadMap` over a loaded map leaking the old
+     one (T2); listener lists walked while a callback appended to them, undefined behaviour
+     (T3); `Sprite::Unload` leaving a dangling sequence iterator, a use-after-free (S1d); and a
+     mapless `AddSprite` leak caught by CI's LeakSanitizer (M2).
+   - A sample for every new visual feature, as Scarab already has samples and as sunlight does
+     (each sample with its own `docs/README.md` and an entry in the README's list): a visual
+     feature cannot be fully checked by unit tests, so the owner checks it in a real window
+     through its sample before the item is closed.
+8. A sunlight problem found by Scarab goes to the owner, who decides where and when it is
+   fixed (this session holds after the handoff, see H5).
+9. Open points from sunlight, for context: objects ignore Tiled's `draworder` and are drawn in
+   reverse file order; the views still live in `TileMapRenderer`.
+
+**H5: the handoff (DONE, 2026-10-19).** The brief is sent to the Scarab session only on the owner's
+command. This session then holds: it starts nothing on its own, and acts only on the owner's later
+requests.
+- Sent on the owner's command to the Scarab session (`scarab-c7`), after the owner had briefed it.
+  The message points to `doc/SCARAB_HANDOFF.md`, `doc/BREAKAGES.md` (49 entries) and
+  `doc/CODE_STYLE.md`, and gives the sunlight commit to pin:
+  `772851ce7120c0d4f25dbf72c8d15f7e54bcd1d5` (the head of `feat/master_plan`, #212, CI green;
+  checked to be GitHub's branch head before sending). Planning comes first there, nothing is
+  committed without the owner's review, and sunlight questions go to the owner.
+
+## Integration follow-ups
+
+Work that comes back to sunlight from Scarab's and Caravellius's own master plans, on
+`feat/master_plan` (the integration base). Each item is planned with the owner first, as every
+item here; once one merges, the new full commit hash goes to the peer that needs it, by message and
+recorded in `doc/SCARAB_HANDOFF.md`.
+
+| # | Item | Status |
+|---|------|--------|
+| I1 | Semi-transparent drawing darker than authored (reported by Scarab, its V1) | DONE |
+| I2 | A blend-mode primitive (normal, additive, multiply, ...) a game can use, with or without a map | DONE |
+| I3 | Fonts by handle: load an `IFont` once, then select it (`SetFont`) and register it for text objects (`RegisterFont`), instead of passing a file path to each | DONE |
+| I4 | A map whose embedded tileset image path contains `..` was refused (reported by Scarab, its V6) | DONE |
+| I5 | `CollisionManager` layer ids: an id out of range read past the layer array, `Clear()` left null lists, `RemoveAll()` cleared nothing (reported by Scarab) | DONE |
+| I6 | `UnloadMap()`/`Stop()` left the unloaded sprites' colliders in the collision manager (reported by Scarab, its V9) | DONE |
+| I7 | Sprite-against-tile collisions tested the wrong tile; tile picking mixed screen and map space (reported by Scarab, its V11) | DONE |
+| I8 | Layer tint at runtime (`stLayer::tint`), and a group's tint and opacity reaching the layers inside it (asked for by Scarab, its V12) | DONE |
+| I9 | A layer's opacity as a float, 0..1 (`stLayer::fOpacity`); an unchanged `GetLayer`/`SetLayer` keeps the map's opacity and parallax exactly; `SetScreenFade` clamped to 0..1 | DONE |
+| I10 | Sprite opacity and tint (`Sprite::SetOpacity`/`SetTint`) | DONE |
+| I11 | Tile animation by time, as Tiled animates (no pause off screen, no drift); `GetTileFrame`/`GetObjectTileFrame` read the frame shown (asked for by Scarab, its V13) | DONE |
+| I12 | Path schemes in the FileSystem (`vpath://`, `hpath://`), writing (`WriteFile`, write directory, write filter), a host-path switch; `ActionMap` loads and saves through it (found by Scarab) | DONE |
+| I13 | The scheme-aware path helpers public (`FilePath::ParentPath`/`JoinPath`, asked for by Scarab); `IFileSystem` a pure interface again, with `BaseFileSystem` and `FilePath` | DONE |
+| I14 | `WriteFile` atomic and durable (a temporary file, flushed to the disk, renamed over the target); `IFileSystem::RemoveFile` (asked for by Scarab) | DONE |
+| I15 | Sprites with equal z-orders draw in the order they were added on every frame, whatever z-orders changed before (found by Scarab) | DONE |
+| I16 | A shape drawn through `IShapeSurface` outside the map's layers uses the active view's own camera (found by Scarab) | DONE |
+| I17 | Tile picking (`TileMapToTileMatrix`) on isometric, staggered and hexagonal maps picks the cell under the point (found by Scarab; hexagonal found while fixing it) | DONE |
+| I18 | The far-edge map alignments put the camera where scrolling stops, at any zoom (found by Scarab) | DONE |
+| I19 | Worlds: several maps loaded and shown at once, isolated or placed together as a Tiled `.world` (asked for by Scarab, its C7) | DONE |
+| I20 | Tiled's `staggeraxis="x"` maps load: a workaround in sunlight's map loader, and the fix asked of libtmx upstream (found building I19d) | DONE |
+| I21 | `IWorld::SetLayer` (every map of a world), and `SetWorld( default world )` on the default view answers yes (asked for by Scarab after its C7) | DONE |
+| I22 | The same folder or archive mountable at several mount points, and `IFileSystem::Unmount` (asked for by Scarab, for its C8 sandbox) | DONE |
+| I23 | An opt-in screen-space image layer (`screen_space` custom property), as image layers drew before L1; BREAKAGES 34 corrected (found by Caravellius, through Scarab) | DONE |
+| I24 | Image layers drawn at their picture's real size, not the size the map declares (found by Caravellius, through Scarab) | DONE |
+| I25 | Gamepads read through SDL2, rumble on the same SDL devices, with a raylib/GLFW fallback (Caravellius' five macOS gamepad findings) | DONE |
+| I25b | Every SDL gamepad call on a thread of its own, so a pad's set-up (2 to 4 s on Bluetooth, measured by Caravellius) never freezes the game | DONE |
+
+**I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
+layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
+default `BLEND_ALPHA` is one `glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA )` for all four
+channels (`rlgl.h`, `rlSetBlendMode`), so drawing into the frame's render target also blended its
+alpha - a 0.69 layer then a 0.65 one over opaque sky left alpha at 0.69 (177) - and `Run()` draws
+that target onto the window over black, darkening those places to about 70%. The colours in the
+target were right. `RaylibEngine::BeginRenderTarget` now blends colour as before and alpha as "over"
+(`rlSetBlendFactorsSeparate`: one, one minus source alpha; `BLEND_CUSTOM_SEPARATE`), and
+`EndRenderTarget` restores raylib's default. It applies to everything drawn in a frame - map or no
+map. Measured through the real `RaylibEngine` (a hidden-window probe, not committed): the same
+draws give rgba 242 250 253 177, shown as 167 173 175, before; 242 250 253 255, shown as is,
+after. Not unit-testable (blending happens on the GPU; the mocks draw nothing); checked by the owner
+in a real window. `doc/BREAKAGES.md` entry 50.
+
+**I2: blend modes (DONE).** Asked by the owner while I1 was discussed: a way for a game to choose
+how what it draws next combines (lights, glows, shadows), on the drawing surface, map or no map.
+Designed with the owner (2026-10-22):
+
+- **The modes:** `SunLight::Base::BlendMode` (`base/blendmode.h`): `BLEND_MODE_NORMAL`, `_ADD`,
+  `_MULTIPLY`, `_SUBTRACT`. For each one the colour channels get that mode's formula, and alpha is
+  always "over", as I1 set it, so no mode can bring I1's darkening back.
+- **The API:**
+  - `IEngine::SetBlendMode`/`GetBlendMode`, in the backend.
+  - `IDrawSurface::BeginBlendMode`/`EndBlendMode` around a game's own drawing. They follow raylib's
+    pattern: no nesting, and `End` goes back to normal.
+  - `Sprite::SetBlendMode`/`ClearBlendMode`/`HasBlendMode`/`GetBlendMode`. A sprite with a mode
+    switches to it for its own `Draw()` only, in every view pass, then goes back to the mode in
+    effect before. A sprite with none switches nothing.
+- **The frame:**
+  - Every frame starts in normal (`BeginRenderTarget`).
+  - `Run()` returns to normal before the screen fade, so a missing `EndBlendMode` lasts one frame at
+    most, and the fade always darkens.
+  - A frame that uses no mode makes no blend call.
+- **raylib backend:** each mode is a `BLEND_CUSTOM_SEPARATE` with its own colour factors. Add is
+  (src alpha, one), subtract is (src alpha, one) with reverse subtract, and multiply is (dst colour,
+  one minus src alpha). raylib's own modes blend alpha with the colour's factors, which is I1's bug
+  again.
+- **Multiply:** its formula, d x (s x a + 1 - a), cannot be built from blend factors alone. raylib's
+  `BLEND_MULTIPLIED` gives d x (s + 1 - a), which is exact only for opaque or black source pixels.
+  Measured in a render target over sky (135, 206, 235):
+  - a fully transparent white pixel turned the sky white;
+  - a half-transparent grey (128) left the sky unchanged instead of making it (101, 154, 176).
+
+  The owner chose to make it exact with a premultiply shader: raylib's own default GLSL 330 fragment
+  shader, premultiplied, used only while multiply is active. It is loaded on the first multiply and
+  released with the window (`ReleaseWindowState`). On a GL without GLSL 330, multiply falls back to
+  the factors alone and warns once.
+- **Measured through the real `RaylibEngine`** (a hidden-window probe, not committed):
+  - every mode's colours match its formula;
+  - every pixel stays opaque;
+  - normal drawing after multiply is not premultiplied any more.
+- **Tests:** `tests/test_blendmodes.cpp` (11 cases, mocks and the null engine) pins who asks for
+  which mode, when, and in what order. The tests aimed at each one were shown to fail when it was
+  removed:
+  - the end-of-frame reset;
+  - the sprite's switch back;
+  - the off-screen skip.
+- **Sample:** `samples/blend`, over the map or with `nomap`. Sunny's glow takes a mode from the
+  number keys, a soft shadow with white transparent pixels always multiplies, and four panels are
+  drawn by the game, one per mode.
+
+`doc/BREAKAGES.md` entry 51.
+
+**I3: fonts by handle (DONE).** Asked by the owner on 2026-10-24, for Scarab's handle-based font
+API. Before, `SetFont( path )` loaded a file *and* made it the active font for `DrawText`. There was
+no way to select a font already loaded, and `RegisterFont( family, path, … )` loaded its own copy
+of the file, so a game could not use one font for both its own text and a map's text objects.
+Designed with the owner (Scarab compatibility deliberately broken, to be adjusted with Scarab
+directly):
+
+- **Load:** `IEngine::LoadFont( path )` returns `std::shared_ptr<IFont>` (it returned `unique_ptr`).
+- **Select:**
+  - `IEngine::SetFont( std::shared_ptr<IFont> )` replaces `SetFont( path )`. The engine shares
+    ownership of the active font, so the game's handle can go without the font dangling.
+  - `SetFont( nullptr )` selects the backend's built-in font.
+  - A font another engine created, or one already invalid, is refused (false) and the active font
+    is kept.
+  - New `IEngine::GetFont()` returns the active font, or `nullptr` for the built-in one.
+- **Draw:** `IEngine::DrawText`/`MeasureText`/`DrawTextRotated` draw with the active `IFont` while
+  it is valid, or with the built-in font.
+- **Surface:** `IDrawSurface::SetFont( std::shared_ptr<IFont> )` replaces `SetFont( path )`; new
+  `IDrawSurface::LoadFont( path )` and `GetFont()`.
+- **Text objects:** `TileMapRenderer::RegisterFont( family, std::shared_ptr<IFont>, bold, italic )`
+  replaces the path form. `FontRegistry` shares the font, so one font serves `SetFont` and any
+  number of families.
+- **Unregistering:** `TileMapRenderer::UnregisterFont( font )` removes the font from every family
+  and style it serves; the handle is all that is needed. `UnregisterFont( family, bold, italic )`
+  removes one slot. Text objects left without a font draw `??????` again.
+  - The owner considered putting the family and style on `IFont` itself, read-only, set at load.
+    The registration key was kept instead: a key on the font would allow one slot per font, so a
+    font serving two families, or standing in for a missing bold face, would need a second load.
+- **Lifetime:**
+  - `Stop()` releases the registered fonts and selects the built-in font again, while the window is
+    open.
+  - When the window closes, every live font becomes invalid, as before, and the raylib engine drops
+    its active font.
+- **raylib:** the engine's own `m_CurrentFont` is gone. `DrawText`/`MeasureText`/`DrawTextRotated`
+  call the active font's own `IFont` methods, the same calls a game makes on its handle, or draw with
+  `GetFontDefault()`. Only a `RaylibFont` can be selected.
+- **Measured through the real `RaylibEngine`** (a hidden-window probe, not committed), with
+  "Hello, world" at size 20:
+  - the built-in font measured 94 and the loaded Anonymous Pro 127;
+  - after `SetFont( font )` the engine measured 127, and still 127 after the game dropped its handle;
+  - after `SetFont( nullptr )` it measured 94 again.
+- **Tests:**
+  - New: `SetFont`/`GetFont` on the null engine, with a font from another engine refused;
+    `FontRegistry` sharing one font across families, refusing an invalid font, and letting go
+    without releasing a font the caller still holds; unregistering by font (every slot it fills)
+    and by family and style (one slot); one font used as the active font and a map text family,
+    loaded once; a text object whose font is unregistered drawing `??????` again; `Stop()` going
+    back to the built-in font.
+  - The tests aimed at each of these failed when it was removed in turn: `Stop()` going back to the
+    built-in font, the registry's validity check, the null engine refusing another engine's font,
+    and unregistering by font removing every slot.
+  - Every `RegisterFont`/`SetFont( path )` test was moved to the new form.
+- **Samples:** `blend`, `objects`, `opacity`, `shapes` and `zorder` load, then select or register.
+  `text` loads each face once, and also selects the Mono face for a HUD line, so one font serves the
+  HUD and the map's Mono labels.
+
+`doc/BREAKAGES.md` entry 52.
+
+**I4: `..` in an embedded tileset's image path (DONE).** Reported by Scarab: a map whose own,
+embedded tileset wrote `<image source="../../sprites/sunny_idle_down.png">` failed `LoadMap` with
+"an error occured in the delegated image loading function". `..` in an external tileset's reference
+already worked.
+
+- **Cause** (read in libtmx's and PhysFS's sources):
+  - libtmx's `mk_absolute_path` (tmx_utils.c) only concatenates the map's directory and the image
+    path, giving `resources/tilemap/shapes/../../sprites/x.png`.
+  - The image hook, `TextureLoaderCallback` (`mapdata.cpp`), collapsed `.` and `..` only for images
+    of external tilesets and templates (`ExternalResources::JoinVirtualPath`). Its comment wrongly
+    said a map's own images arrived "already resolved".
+  - PhysFS rejects any `.` or `..` segment (`PHYSFS_ERR_BAD_FILENAME`, physfs.c), so the texture
+    failed and libtmx refused the map.
+- **Fix:** every image path goes through the same `JoinVirtualPath`: backslashes become `/`, and `.`
+  and `..` are collapsed lexically. A path that would climb above the root is passed on as written
+  and fails as before. A path without `.` or `..` is unchanged.
+- **Windows:**
+  - libtmx's `dirpath_len` takes the last `/` or `\` as the directory.
+  - `JoinVirtualPath` turns `\` into `/` before collapsing, the same function and the same handling
+    the external-tileset test with backslashes already passes on `windows-latest`.
+  - A drive letter stays the first segment, and the FileSystem strips it later, as before.
+- **Tests** (`tests/test_externaltilesets.cpp`), each shown to fail on the old code:
+  - The path handed to `LoadTexture`: `../../`, `../`, `./`, Windows-style `..\..\`, and a plain
+    path left unchanged.
+  - A path climbing above the root, passed on as written.
+  - End to end, through the null backend, whose `LoadTexture` reads the image through the
+    FileSystem: a map in `maps/sub/` with its image in `images/` loads.
+  - The same from a scrambled `.zip` behind a read filter, through real PhysFS.
+
+**I5: `CollisionManager` layer ids (DONE).** Scarab reported the first two points; the owner approved
+fixing all four together:
+
+1. `AddColliderToColliderRule`'s duplicate search indexed the layer array with both ids before any
+   check, which read past the array for an id `>= MAX_COLLIDER_LAYERS` or a negative one.
+2. Its check then tested the first id twice. `( 1, 300 )` and `( 1, -1 )` returned true and stored a
+   pointer read from outside the array, and the next `Update()` dereferenced it (a crash in the test).
+3. `Clear()` (public, called only by the destructor today) destroyed every layer's list, so
+   `AddCollider`, `RemoveCollider` and `Update` dereferenced null after it (a crash in the test).
+4. `RemoveAll()`'s documented default, `-1` ("every layer"), was compared with the array's `size_t`
+   size, became a huge unsigned value, and never matched: it returned false and cleared nothing.
+
+- **Fix:** a private `IsValidLayerId( id )` (`0 <= id < MAX_COLLIDER_LAYERS`), checked first by every
+  method taking a layer id; `AddColliderToColliderRule` checks both ids before the search. `Clear()`
+  empties each list instead of destroying it. `RemoveAll( -1 )` clears every layer.
+- **Tests** (`tests/test_collisionmanager.cpp`), each shown to fail on the old code, except the
+  third, which pins the new explicit check:
+  - an out-of-range id on either side is refused and adds no rule (old: true, then a crash in
+    `Update`);
+  - a negative id on either side while a rule exists (old: `( 1, -1 )` true);
+  - every layer method refusing a negative id;
+  - `Clear()` leaving every layer empty but usable (old: a crash);
+  - `RemoveAll()`, `RemoveAll( id )` and an invalid id (old: `RemoveAll()` false, nothing cleared).
+- **Who it affects:** nothing found. Scarab already refuses layer ids outside 0..254, and nothing in
+  sunlight, Scarab or Caravellius calls `Clear()` or `RemoveAll()`.
+
+**I6: unloaded sprites' colliders (DONE).** Scarab reported it, while checking BREAKAGES 47 (its V9).
+
+- **What happened:**
+  - `UnloadMap()` and `Stop()` both unload the sprites through `UnloadSprites()` ->
+    `SpriteRegistry::UnloadAll()`, which unloads and forgets them but left each sprite's collider in
+    its layer's collision list. So an unloaded, unregistered sprite kept colliding.
+  - The next `AddSprite` saw the sprite as new and added the collider again. Scarab measured 4 hits
+    per frame for 2 overlapping sprites, where 1 is right.
+  - `RemoveSprite` and `ChildRemoved` already removed the collider; only this bulk path did not.
+- **Fix:** `UnloadSprites()` removes each registered sprite's collider from every layer it was
+  registered on (`RemoveCollider`), then unloads. `SpriteRegistry` gained a read-only
+  `Registrations()` (layer, sprite) for it, and still knows nothing about collisions.
+- **Decided with the owner:**
+  - Only the sprites' own colliders are removed. One the game added to the manager itself stays,
+    which `RemoveAll( layer )` would have wiped.
+  - The collision rules stay: they are the game's setup, not the map's.
+- **Tests** (`tests/test_spriteregistration.cpp`), each shown to fail on the old code with Scarab's
+  numbers:
+  - one hit per frame with the map loaded, then 0 after `UnloadMap()` (old: still 1 per frame), then
+    1 per frame after `LoadMap` and `AddSprite` again (old: 4);
+  - the same through `Stop()` and `Start()` (old: 4);
+  - a collider the game added itself surviving `UnloadMap()`.
+
+**I7: tile collisions and tile picking in map space (DONE).** Scarab reported it while checking
+BREAKAGES 4 (its V11), with a sweep of a 32 x 32 sprite past a 32 x 32 collision tile.
+
+- **What was wrong** (orthogonal; isometric, staggered and hexagonal had the same pattern):
+  1. Only the tile under the collider's top-left corner was tested, so a sprite reaching a wall from
+     the left or from above never collided.
+  2. The lookup (`TileMapToTileMatrix` -> `ViewToTileMatrix`) added the viewport origin (screen
+     pixels) to a position in map units, shifting it. Scarab measured a window of 150..180 where
+     129..191 is right.
+  3. A world-space sprite's position, already a map position, got the camera added again, so it
+     collided with a tile one camera offset away.
+  4. The tile handed to `OnCollision`, and `GetTile`'s tile, came in view space (map position +
+     viewport origin + camera).
+  5. Found while checking: `Collider::Hit( stTile& )` stepped to the first shape's `next` every
+     time, so on a tile with two or more shapes where the second missed, it looped forever (a hung
+     frame).
+  6. Found while checking: the lookup's bounds check divided the position by the zoom, the index
+     did not.
+- **Design, decided with the owner:** everything in MAP space (map pixels, before camera, zoom or
+  viewport origin).
+  - `TileMapToTileMatrix( coord )` takes a map position.
+  - `GetTile`'s `tile.dimension` is the tile's map rectangle (its cell's `TileDrawPosition` for its
+    tileset's size, plus the layer offset; parallax left out, a view effect).
+  - The new `ITileMap::GetCollidingTiles( rect, bWorldSpace, layer, tiles )` turns a collider into a
+    map rectangle - a world-space one as is, a view-relative one minus the camera the layer is drawn
+    with - visits every cell it can reach (the projection's culling range padded a tile, or every
+    cell on a grid of mixed tile sizes), and reports each tile with an overlapping collision
+    rectangle once, half-open (sharing an edge is not touching).
+  - `CollisionManager` fires `OnCollision` once per tile reported.
+  - The projection interface's `TileViewRect`/`ViewToTileMatrix` became one map-space
+    `MapToTileMatrix`; a view's `TileMapToTileMatrix` gives the same answer as any other's.
+- **The collider's world-space mode:** a sprite's collider has the sprite's PARENT as its own parent
+  (`Canvas::SetParent`), not the sprite, so it could not ask the sprite. `Canvas::SetWorldSpace` now
+  passes the mode on to its collider, as `SetParent` and `SetDimension2DPtr` already pass theirs.
+- Also: `GetTile` with no map loaded dereferenced null; it now answers false.
+- **Tests** (`tests/test_tilecollisions.cpp`, a real renderer with viewport origin (10, 10)), each
+  shown to fail on the old code (built from `feat/master_plan` in a worktree):
+  - the sweep window, 129..191, for a view-relative sprite at camera 0;
+  - with the camera at (64, 64);
+  - for a world-space sprite (and none two rows away);
+  - at a non-1 zoom;
+  - two walls touched, each reported once with its map rectangle;
+  - a wall reached from above, and edges that only meet;
+  - `TileMapToTileMatrix`/`GetTile` round-tripping a wall cell;
+  - an isometric wall at the map position worked out by hand from the lattice.
+
+  The old `Collider::Hit` hung on the three-shape case (killed by a time limit); the new test
+  passes. `tests/test_collisionmanager.cpp`'s tile cases test the new contract through the mock;
+  the projection, bounds, view and viewport tests moved to map space.
+- **Sample:** `samples/collision` gained a box of brick walls (a `walls` tile layer, `tileset_wall.tsx`
+  with a Tiled collision rectangle): Sunny stops at every wall from every side, at any zoom, with the
+  centre-aligned map's camera. The isometric samples' comments were updated; their behaviour did not
+  change (they only read whether a tile has a collision shape).
+- **Found in the owner's real-window check:** the sample undid only the last key's step on a
+  collision, so a diagonal (two keys, two steps in one frame) left one axis in the wall and Sunny
+  could work her way through it - a flaw the sample always had for its obstacle too. It now sums the
+  frame's steps (`Step()`, a frame counter advanced in `OnUpdate`) and undoes them all once. The
+  owner re-checked `collision`, `isometric`, `staggered` and `hexagonal` in a real window: all fine.
+- `doc/BREAKAGES.md` entry 56.
+
+**I8: layer tint at runtime, and group tint and opacity (DONE).** Scarab asked for it, at the
+owner's request (its V12): a game could not change a layer's tint at runtime, and a group's tint and
+opacity were ignored.
+
+- **API, decided with the owner:** `stLayer` gains `stColor tint`, appended (so positional
+  initializers keep compiling), opaque white by default. `GetLayer` fills it with the authored
+  `tintcolor`, alpha included, by id and by name, for every layer type including groups; `SetLayer`
+  writes it back (`Shape::ArgbOf`, the inverse of `ColorOf`), and the next frame draws with it. A
+  read and an unchanged write-back leave libtmx's value exactly as it was. The tint's alpha is kept
+  but ignored for drawing: opacity stays the only alpha control.
+- **Groups, as Tiled draws them:** a layer's effective opacity is its own times every enclosing
+  group's, and its effective tint is its own times the groups' tints, channel by channel
+  (`Shape::MultiplyTint`: c x t / 255 rounded, so white changes nothing). `DrawAllLayers` passes
+  both down the nesting, and the drawing classes get them in `DrawContext` (`fGroupOpacity`,
+  `groupTint`); once the map is drawn they are 1 and white again.
+  - Tile layers, image layers and tile objects take both.
+  - Shapes and text take only the group opacity: they are never tinted, as before.
+  - An object's own `opacity` property still replaces its layer's opacity (L2); the groups'
+    multiplies on top.
+  - Sprites are not affected.
+- **Image layers apply their own opacity** (with their groups'): they were always drawn opaque.
+- **Tests** (`tests/test_layertint.cpp`, extended, and `tests/test_layertint_groups.cpp`, a real
+  renderer over the mocks; every alpha and tint worked out by hand):
+  - `GetLayer` by id and by name reads the authored tint with its alpha, white when there is none,
+    and a group's tint;
+  - `SetLayer` writes libtmx's ARGB, and the change shows from the next frame on a tile layer, an
+    image layer, a tile object and a group (tint and opacity);
+  - an unchanged write-back changes neither the stored value nor the frame;
+  - a group's tint and opacity reach its tile layers and nothing outside it; nested groups multiply
+    (0.5 x 0.5 gives alpha 63; `#ff8000` x `#8080ff` gives `#804000`);
+  - shapes and text in a group take its opacity, not its tint; an object's own opacity times the
+    group's;
+  - an image layer's own opacity.
+
+  Built against `feat/master_plan` in a worktree, the five rendering tests fail on the old code (the
+  sixth, nothing tinted anywhere, passes on both, as it should). The `GetLayer`/`SetLayer` tests
+  cannot be built there: `stLayer::tint` is new.
+- **Sample:** `samples/tint`: a tinted tile layer, image layer and object layer, and a tinted,
+  half-transparent group holding a tile layer and shapes over stripes outside it. Keys cycle each
+  tint and the group's opacity through `GetLayer`/`SetLayer`.
+- **Open point, left for I9:** `nOpacity` is 0..255, so a layer authored at 0.5 read back as 128
+  and was written back as 0.502. Pre-existing (T2), unrelated to the tint.
+- `doc/BREAKAGES.md` entry 57.
+
+**I9: a layer's opacity as a float (DONE).** Found while testing I8: an unchanged `GetLayer` then
+`SetLayer` moved a layer's opacity, because `stLayer::nOpacity` was an int 0..255 (T2) - an
+authored 0.5 came back as 128 / 255 = 0.502, drawn with alpha 128 instead of 127. Scarab's
+`tilemap_set_layer` does that round trip on every call.
+
+- **Design, decided with the owner:** opacity as a float from 0 to 1 at the API, as Tiled and
+  libtmx store it, as Godot, Unity, GameMaker, Phaser and libGDX expose it, and as raylib's own
+  `Fade`/`ColorAlpha` take it (raylib's `Color` holds a byte, converted at the end:
+  `(unsigned char)(255.0f*alpha)`, read in `rtextures.c`). It also matches sunlight's own
+  per-object opacity (L2) and parallax factors. `stLayer::nOpacity` became `float fOpacity`, in
+  the same place; the rename makes code that sets the field by name fail to compile rather than
+  change meaning.
+- **Write only what changed:** a float cannot hold every double Tiled writes (0.69 reads as
+  0.68999999), so `SetLayer` writes the opacity and the parallax factors only when they differ from
+  what `GetLayer` reads from libtmx (`StoreIfChanged`). An unchanged write-back keeps the map's
+  values exactly; a change is written as before. The opacity is clamped to 0..1, and a NaN leaves
+  the layer's own.
+- **A trap, documented:** a positional initializer still compiles with a new meaning -
+  `stLayer{ true, 128, ... }` is opacity 128, clamped to opaque. sunlight's five (in
+  `tests/test_collisionmanager.cpp`) now say `1.0f`; Scarab has none (read only).
+- **Tests** (`tests/test_layerroundtrip.cpp`): an unchanged write-back keeps 0.5 exactly and its
+  alpha 127, keeps 0.69 exactly, and keeps a parallax of 0.3 exactly; `GetLayer` reads 0.5, 0.69
+  and 1; a change of opacity (0.25, alpha 63) and of parallax is written and drawn; a NaN leaves
+  the layer's own. `tests/test_maploading.cpp`'s opacity tests moved to 0..1, clamping 1.5 and -0.2.
+  - The three write-back tests, built against `feat/master_plan` in a worktree, fail on the old code
+    (0.501961, alpha 128; 0.690196; 0.30000001).
+  - With `StoreIfChanged` made to always write, the 0.69 and 0.3 cases fail too: the float alone is
+    not enough.
+- **Every opacity in sunlight, checked:** the layer's (this item), an object's `opacity` property
+  (0..1, refused outside, L2) and `IDrawSurface::SetScreenFade` (0..1) are floats; `stColor`'s and
+  `DrawText`/`DrawFilledRectangle`'s `nAlpha` are a colour's alpha channel, a byte, as raylib's
+  `Color`. `SetScreenFade` did not clamp: `Run()` draws the fade with an alpha of 255 x the value,
+  and a float outside the byte's range converts with undefined behaviour - 1.5 drew alpha 126, a
+  light fade instead of black. It is now clamped to 0..1, a NaN is no fade, and the 255 is named.
+  Scarab's `screen_fade` already refuses values outside 0..1. A test (1.5 draws 255; -0.5 and NaN
+  draw no fade) fails on the old code (126). Sprites have no opacity at all: a feature for later,
+  not part of this item.
+- **Sample:** `samples/tint`'s opacity key cycles 1.0, 0.75, 0.25 and 0.0, and its HUD shows the
+  opacity as 0..1.
+- `doc/BREAKAGES.md` entry 58.
+
+**I10: sprite opacity and tint (DONE).** Found while checking every opacity in sunlight for I9: a
+sprite had none. A game could fade a sprite only by changing the colour of every frame canvas of
+every sequence (`Canvas::SetColor`, whose colour `TextureCanvas::Draw` uses as its tint).
+
+- **Design, decided with the owner:** opacity and tint, the two controls a layer has.
+  - `Sprite::SetOpacity( float )` / `GetOpacity()`: 0..1, 1 by default, clamped; a NaN leaves it.
+  - `Sprite::SetTint( stColor )` / `GetTint()`: opaque white by default; its RGB multiplies into the
+    frame's, its alpha is kept but not used.
+  - `Sprite::Draw()` multiplies both into the colour of the frame canvas it draws, for that draw
+    only, and puts the canvas's colour back after it, as it does for its blend mode and its held
+    frame: canvases are the caller's and may be shared. They multiply with the canvas's own colour
+    (a canvas alpha of 200 at opacity 0.5 draws 100). Skipped when they change nothing, so a sprite
+    without them draws exactly as before. Every frame, sequence and view takes them; `Unload()`
+    keeps them.
+  - A sprite still does not take its layer's opacity or tint (I8).
+- `MultiplyTint` moved from the renderer's shape helpers to `base/color.h` (`SunLight::Base`), so
+  the sprite module uses the same one as the layers without depending on the renderer.
+- **Tests** (`tests/test_spriteopacity.cpp`, through the mock engine, values worked out by hand):
+  the defaults; opacity 0.5 (alpha 127, and 100 over a canvas alpha of 200); a tint, alone and over a
+  canvas colour; both together (0.25: alpha 63); a sprite sharing the same canvas draws it plain, and
+  the canvas's colour is unchanged after the draw; every view pass; clamping and NaN; `Unload()`
+  keeps both. A new feature, so nothing to fail on the old code; instead, with the line that puts the
+  canvas's colour back removed, the shared-canvas and view tests fail.
+- **Sample:** `samples/tint` gained Sunny (area 5), on the object layer "houses": `6` cycles its
+  opacity, `7` its tint, and the layer's tint (key `3`) does not reach it. The owner checked it in
+  a real window.
+- **Code style, decided by the owner while reviewing it:** include directly, and forward-declare
+  only to break an include cycle. Three of sunlight's four forward declarations became includes
+  (`NullBackend` and `View` in `tilemaprenderer.h`, `Collider` in `colliderregistry.h`); the one
+  left is `view.h`'s `class TileMapRenderer;` (the renderer holds its views, a view points back at
+  it). `doc/CODE_STYLE.md` says so. No behaviour change.
+- `doc/BREAKAGES.md` entry 59.
+
+**I11: tile animation by time, and the frame a tile shows (DONE).** Scarab asked for it (its V13): to
+test BREAKAGES 44 (each animated-tile frame once per cycle) without a window, it needs to read the
+frame an animated tile shows, and that lived only in `MapData`'s private per-tile state.
+
+- **What the old animation did** (`MapData::AnimatedFrameOf`): each animated tile kept a state
+  (`__stTileAnimInfo`: the frame's end, the next frame, the tile shown) in its libtmx `user_data`,
+  created and advanced only when the tile was drawn. Read in the code, two flaws: a tile not drawn
+  (off screen, a hidden layer, a view's mask) paused, and stepped on one frame when drawn again; and
+  each frame's end was counted from the draw that noticed the previous one was over, not from that
+  one's end, so a duration that is not a whole number of frames was held until the next draw (40 ms
+  at 60 fps is held 50 ms) and a cycle stretched. And a query of the frame would have had to advance it.
+- **Design, decided with the owner:** the frame is a function of the clock, as Tiled animates - the
+  time since the map loaded (`MapData::m_nLoadMillis`) modulo the cycle (the sum of the frame
+  durations), walked through the frames (`MapData::FrameGidOf`). No state: the struct, its heap
+  blocks, `m_AnimInfoList` and the use of `user_data` are gone. Every cell and tile object of a tile
+  shows the same frame; a tile not drawn for a while shows the frame for the time now; a frame's
+  boundaries are fixed points of the cycle. A frame with no tile keeps the tile's own gid, as before;
+  a cycle of 0 ms shows the first frame.
+- **The query:** `ITileMap::GetTileFrame( layer id, cell, gid )` and `GetObjectTileFrame( name, gid )`
+  (new pure virtuals; `tests/mock_tilemap.h` updated): the gid drawn now, flip bits removed - the
+  frame's for an animated tile, its own for a static one. false with no map, an unknown layer, a
+  layer that is not a tile layer, a cell off the layer or empty, an unknown object or one that is not
+  a tile object. They only read.
+- **Tests** (`tests/test_tileframe.cpp`, a real renderer over the mocks and a mock clock; Scarab's
+  frames, 100/200/300 ms): the frame at every boundary over cycles, the same for a cell, a tile
+  object and flipped ones; a static cell; asking 10 times changes nothing and the drawn frame is the
+  frame asked; a tile hidden from 0 to 300 ms shows gid 3 when drawn again; drawn at 0 and 150 ms, the
+  second frame still ends at 300 ms; every refusal. The pause and drift tests, built against
+  `feat/master_plan` in a worktree, fail on the old code (gid 2 for 3, both). The three existing
+  animation tests (`test_mapdata`, `test_layerrenderer`, `test_tileobjects`) pass unchanged: a tile
+  always on screen animates as before.
+- **Answered to Scarab:** every cell of the same animated tile is in phase (by design, as before);
+  the old pause and drift are gone.
+- **Fix after the merge (found by Scarab in its V13):** an animation whose frames are all 0 ms showed
+  its LAST frame, drawn and asked alike, where this item says the first: with no cycle, the frame walk
+  stepped past every frame (`0 >= 0`). `FrameGidOf` no longer walks without a cycle. A 0 ms frame
+  inside a longer cycle is still never shown (it has no span). Two tests: all-zero frames show the
+  first at any time (it failed on `06009d4`, gid 6 for 5), and a 0 ms frame between two 100 ms ones is
+  skipped. Scarab's own V13 test confirmed everything else in I11 exactly, over 300 frames.
+- `doc/BREAKAGES.md` entry 60.
+
+**I12: path schemes and writing in the FileSystem (DONE).** Scarab found, planning its C1, that
+`ActionMap::Load` read with a raw `std::ifstream` - the one resource read in sunlight that went around
+the FileSystem - so a bindings file inside a mounted `.zip` or an encrypted pack could not be loaded.
+Switching `Load` alone to the FileSystem would have broken `Save` -> `Load` with an OS path (the input
+sample and the tests save to the OS temp folder; PhysFS cannot open an absolute OS path).
+
+- **Design, decided with the owner:** path schemes, in `IFileSystem` itself, for every read and write
+  in sunlight - "the kind of situation IFileSystem was created for" (owner).
+  - No scheme, `vpath://` or `virtualpath://`: a virtual path, the default - every path written
+    before means what it did. `hostpath://` or `hpath://`: an OS path, the OS's own style. Any other
+    `<letters>://` is refused; schemes are lowercase; "://" after a non-letter is not a scheme.
+  - `IFileSystem` resolves the scheme, does host-path I/O, applies the host-path switch and both
+    filters, once for every backend: `Exists`, `ReadFile`, `WriteFile`, `SetReadFilter` are no longer
+    virtual; a backend implements the protected `VirtualExists`/`VirtualReadFile`/`VirtualWriteFile`
+    and `SetWriteDirectory`.
+  - `WriteFile`: a virtual path into the write directory (archives are read-only; with none set it
+    fails), a host path to the OS; missing folders are created either way.
+  - `SetWriteDirectory( real folder )`: created if missing, set as PhysFS's write directory and
+    mounted at the virtual root ahead of every mount, so a save reads back by the same path and wins
+    over a shipped file of the same name. It is not a mount for the automatic mount of the working
+    directory.
+  - `SetWriteFilter`, the counterpart of the read filter: asked by the owner whether a `vpath` save
+    works with an encrypted pack - it goes into the write directory, never the archive, and without a
+    write filter a plain save would read back through the pack's decrypting read filter as garbage.
+    With both set, saves are encrypted and read back. The read filter applies to host reads too.
+  - `SetHostPathEnabled` (on by default): off, every host-path read, write and check fails - for a
+    scripting layer that must stay inside the virtual space. Mounting is not affected.
+  - `ActionMap::Load`/`Save` go through it; a plain path is virtual.
+- **Tests:** `tests/test_pathschemes.cpp` (schemes and refusals, host read/write/exists with folders,
+  the switch, the read filter on host reads, the write filter and the encrypted round trip, a virtual
+  write needing a write directory); `tests/test_physfsfilesystem.cpp` (no write directory, the folder
+  created and the file written and read back, the write directory winning over a mount, the working
+  directory still mounted); `tests/test_actionmap.cpp` (Load from a file that exists nowhere on disk,
+  through a read filter, from a mounted `.zip`; Save into the write directory and back; the round
+  trips with `hpath://`). The three Load tests, built against `feat/master_plan` in a worktree, fail
+  on the old code. The suite also passes in random order (PhysFS is process-global).
+- **Sample:** `samples/input` sets a write directory (`sunlight_input` in the OS temp folder) and
+  saves and loads its bindings by a plain virtual name.
+- **Fix after the merge (found by Scarab, re-pinning to `6a039ec`):** a map could not be loaded through
+  a scheme path - `LoadMap( "vpath://..." )` or `( "hpath://..." )` failed, a plain path loaded. Every
+  path inside a map (external tilesets and templates, the map's images) is joined to the map's own path
+  by `ExternalResources::JoinVirtualPath`, which split on '/' and dropped the empty segments - the "//"
+  of the scheme with them ("vpath://maps/" + "ground.tsx" gave "vpath:/maps/ground.tsx"). A map with an
+  external tileset failed with libtmx's error, one with only an embedded image silently (its texture
+  failed). `DirectoryOfVirtualPath` and `JoinVirtualPath` now split the scheme off, collapse the rest
+  only and put it back; a host path keeps OS rules (absolute stays absolute, ".." never climbs above a
+  drive); a relative path with a scheme of its own is used alone. Tests: the helpers on scheme, host,
+  drive and plain paths; both maps through `vpath://`/`virtualpath://` (in memory and from the
+  encrypted `.zip`) and `hpath://`/`hostpath://` (real files) - five failed on `6a039ec`. raylib's
+  bitmap-font atlas path was checked too (`GetDirectoryPath` prefixes "./", which `ToVirtualPath`
+  strips, so a scheme survives): not affected.
+- `doc/BREAKAGES.md` entry 61.
+
+**I13: public path helpers (DONE).** Scarab asked for it: it keeps its own copy of the two path helpers
+(to build its entry script's path from a project file's folder), and re-pinning to I12 showed they were
+not scheme-aware ("scripts/x/" + "vpath://main.lua" gave "scripts/x/vpath://main.lua"). sunlight's
+scheme-aware ones lived in the map loader's internals (`Renderer::ExternalResources`).
+
+- **Design, decided with the owner:** `ParentPath( path )` and `JoinPath( dir, relative )`, public and
+  static - pure string logic, the same for every backend. The code moved from
+  `ExternalResources::DirectoryOfVirtualPath`/`JoinVirtualPath` unchanged; the map loader calls the
+  public ones, so there is one implementation.
+- **`IFileSystem` an interface again (the owner's catch while reviewing it):** since I12 it held state
+  (the filters, the host-path switch) and non-virtual logic, and with static helpers on top, its `I`
+  promised an interface it no longer was. Split the standard way, with the codebase's `Base` convention
+  (`BaseCanvas`):
+  - `IFileSystem`: a pure interface - every method pure virtual (`Init`, `Shutdown`, `Mount`,
+    `SetWriteDirectory`, `Exists`, `ReadFile`, `WriteFile`, `SetReadFilter`, `SetWriteFilter`,
+    `SetHostPathEnabled`, `IsHostPathEnabled`). `FileSystemFactory::GetFileSystem()` still returns it,
+    so no caller changes.
+  - `BaseFileSystem` (new, abstract): I12's shared code - schemes, host-path I/O, the switch, both
+    filters - and the protected `Virtual*` methods; `PhysFsFileSystem` and the tests'
+    `MemoryFileSystem` derive from it.
+  - `FilePath` (new, stateless): `PathScheme`, `SplitPath`, `ParentPath`, `JoinPath`, `ToVirtualPath`.
+  - No aliases left on `IFileSystem` (owner's choice): Scarab moves three calls (`ToVirtualPath` twice,
+    `SplitPath` once) to `FilePath`.
+- **Documented and tested, as Scarab asked:** `ParentPath` keeps the trailing '/' and its result is what
+  `JoinPath` expects as `dir` (`JoinPath` glues the two as they are); a relative part starting with '/'
+  stays inside the folder ("dir/" + "/main.lua" gives "dir/main.lua" - every empty segment is dropped),
+  and the result is absolute only when the joined path starts with '/' (an empty or absolute folder).
+- **Tests:** the helper cases moved from `tests/test_externaltilesets.cpp` to `tests/test_pathschemes.cpp`
+  under the new names, plus the pair and the leading '/'; `tests/test_ifilesystem.cpp` (`ToVirtualPath`)
+  became `tests/test_filepath.cpp`. No behaviour changed, so nothing to fail on the old code: the same
+  756 tests pass before and after the split.
+- `doc/BREAKAGES.md` entry 62.
+
+**I14: atomic writes, and RemoveFile (DONE).** Scarab asked for both, for its save-game API (its C1c).
+
+- **What was wrong:** both write paths truncated the target before the first byte - the virtual one
+  through `PHYSFS_openWrite` (physfs.h: "if it does exist, it is truncated"), the host one through
+  `std::ofstream` with `trunc` - so a crash, a power loss or a full disk in between left an empty or
+  half-written file, and the previous good copy was gone with it. `ActionMap::Save` had the same exposure.
+- **Design, decided with the owner:**
+  - `BaseFileSystem::WriteRealFile`, used by host writes and by the PhysFS backend's virtual writes:
+    the bytes go to "<target>.tmp" beside the target (the same volume), are made durable
+    (`WriteDurably`: written, flushed, synced to the disk, closed, each step checked), and the file is
+    renamed over the target with `std::filesystem::rename`. Any failure removes the temporary file -
+    only one the write created - and leaves the target as it was.
+  - The sync to the disk: the owner weighed a single source with no platform code (std::ofstream:
+    safe on a crash or a kill, the data being in the OS cache) against surviving a power loss too,
+    and chose the power loss. The C++ standard library cannot force data to the disk (a stream's
+    flush reaches the OS cache only and gives no OS handle), so `WriteDurably` is the one place with
+    platform code: `fsync( fileno() )` on POSIX, `_commit( _fileno() )` and `_wfopen` (wide paths) on
+    Windows.
+  - PhysFS has no rename, so a virtual write now goes to the write directory's real folder
+    (`RealWritePath`: the virtual path mapped inside it with PhysFS's own rules - ".", "..", ':' and
+    '\' refused - so it can never leave it). PhysFS reads a mounted native folder as it is on disk, so
+    the file reads back at once.
+  - `IFileSystem::RemoveFile( path )`: the same scheme rules as `WriteFile`; a virtual path only inside
+    the write directory - never a file of a mounted archive or folder, so removing a saved file makes
+    a shipped one of the same name readable again; a host path only while host paths are allowed;
+    files only, never a folder; false when nothing is there.
+  - A process killed mid-write can leave "<name>.tmp" beside the target; the next write replaces it.
+- **Every method in the `.cpp` documented** (owner's rule, from this item): `BaseFileSystem`,
+  `FilePath` and `PhysFsFileSystem::VirtualExists` gained the comments they lacked, each checked
+  against the code - which found that PhysFS's `Exists` answers true for a folder too (`PHYSFS_exists`
+  -> `getRealDirHandle`, physfs.c), now said and pinned by a test.
+- **Tests** (`tests/test_pathschemes.cpp`, `tests/test_physfsfilesystem.cpp`): an overwrite reads back
+  the new bytes and leaves no temporary file (host and virtual); a write that cannot start (the
+  temporary name taken by a folder) or cannot finish (the target a folder) returns false, leaves the
+  old file byte-identical and no temporary file of its own; a virtual write or remove never leaves the
+  write directory; `RemoveFile` on host and virtual paths, a missing file, a folder, host paths off, an
+  unknown scheme, no write directory; a saved file removed lets the shipped one (a mounted folder)
+  read again; a mounted `.zip`'s file is never removed. The two "failed write keeps the old file"
+  tests, built against `feat/master_plan` in a worktree, fail on the old code (it wrote over the file).
+  An actual crash or power cut cannot be reproduced in a test: these pin the mechanism that makes them
+  harmless. Windows' rename over an existing file is proven by the overwrite tests on CI's Windows job.
+- `doc/BREAKAGES.md` entry 63.
+
+**I15: equal z-orders keep the added order (DONE).** Scarab found it while planning its C3
+(`sprite_set_z_order` for Lua): sprites with equal z-orders did not keep the order they were added in
+once any z-order had changed - against L3's promise (BREAKAGES 37) and its own test names.
+
+- **Cause:** `SpriteRegistry::UpdateLayer` stable-sorted the layer's OWN list in place every frame and
+  kept it, so each frame's sort started from the previous frame's order. A sprite raised for a moment
+  (eg. a hit flash in front) and put back to 0 stayed moved among its equals: two sprites A, B drew
+  A B, then B A with A raised, and still B A with A back at 0. Its comment reasoned that "stable_sort
+  on an already-correctly-ordered deque reproduces that same order" - true, but it only shows sorting
+  twice changes nothing, not that the order does not depend on past changes. The tests checked only a
+  first frame, and `samples/zorder` only ever raised a card higher.
+- **Fix:** the layer's list stays in the added order and is never sorted; each pass copies it into a
+  reused buffer (`m_DrawOrder`) and stable-sorts the copy. No per-sprite state; drawing from the copy
+  also leaves the list free to change while sprites draw. The comment says so.
+- **Tests:** `tests/test_spriteregistry.cpp` (raise and put back over later frames; three sprites with
+  mixed changes; a removed and re-added sprite is last among its equals) and
+  `tests/test_spritezorder.cpp` (through the renderer, two later frames). Both fail with the in-place
+  sort put back.
+- **Sample:** `samples/zorder` gained key `0` - every card the same z-order - and the stack goes back
+  to its starting order however the cards were raised.
+- `doc/BREAKAGES.md` entry 64.
+
+**I16: shapes drawn outside the map use the view's camera (DONE).** Scarab found it while planning
+its C2 (`shape_draw_*` for Lua): a shape drawn through `IShapeSurface` after the map pass (eg. from
+`OnUpdate`) used the parallax camera of the LAST layer drawn, not the view's own camera.
+
+- **Cause:** `TileMapRenderer::CurrentDrawContext()` read `m_EffectiveLayerCameraPos`, which
+  `DrawAllLayers` sets per layer (that layer's parallax applied) and nothing reset after the pass - I8
+  restored the group opacity and tint there, not the camera. With a parallax sky, far background or fog
+  drawn last, every debug shape, path or range ring was shifted, by an amount that changed with the
+  layer order (Scarab measured parallax 0.5: 660, 630 instead of 310, 350; 0: the camera ignored). With
+  no map it stayed zero, so a mapless shape ignored the camera altogether. The shape tests and
+  `samples/surface` never loaded a map.
+- **Fix:** `DrawAllLayers` counts how deep it is (`m_nLayerDrawDepth`; a group recurses);
+  `CurrentDrawContext()` uses the layer's camera only while a layer is being drawn, and the active
+  view's own camera (`ActiveCamera().Position()`, the camera a layer of parallax 1 is drawn with) at
+  any other time. After the view passes the default view is active again, so a shape drawn from
+  `OnUpdate` uses the default view's camera. Map objects keep their layer's camera, unchanged.
+- **The mapless case, decided by the owner (option A):** one rule, map or no map - `IShapeSurface`
+  coordinates are map coordinates, drawn at (position - camera) x zoom + viewport origin. A mapless
+  game that moves its camera now sees its shapes move with it (no sample or peer does: checked).
+- **Tests** (`tests/test_shapesurface.cpp`, with a map at last): a point drawn after the frame with the
+  last layer at parallax 1, 0.5 and 0, the camera at (200, 160) - (310, 350) every time; no group
+  opacity carried; drawn before the first frame; drawn from `OnUpdate` with an extra view (the default
+  view's camera); mapless, the camera moved. Built with the old code, four fail with Scarab's numbers
+  (660, 630; 1010, 910; 565, 570; the mapless 510, 510).
+- `doc/BREAKAGES.md` entry 65.
+
+**I17: tile picking on non-orthogonal maps (DONE).** Scarab found it while probing its picking API:
+on the isometric sample, `TileMapToTileMatrix` at each of the 48 cells' own centres picked a
+neighbour every time; on the staggered sample, about half.
+
+- **Cause:** each projection's `MapToTileMatrix` inverted the lattice from the cell's BOUNDING-BOX
+  corner, which is exact only at that corner. An isometric diamond's top vertex is half a tile right
+  of it, so a centre floored into the next column. Staggered and hexagonal used the rectangular
+  "which box" step alone, so every point in a box's corners (a neighbour's diamond or hexagon) picked
+  the box's own cell. Scarab probed only the hexagonal centres, which happen to be right; a probe at
+  the far tips (bottom for axis Y, right for axis X) failed 48 of 48, so hexagonal was fixed too.
+- **Fix:** a true hit-test, as Tiled's own `screenToTileCoords`. Isometric: the point measured in half
+  tiles from the diamond's top vertex, then the two floors of the inverse. Staggered: the box anchored
+  at an unshifted line; inside its diamond, that cell; otherwise the corner decides the neighbour (line
+  plus or minus one, and the column or row before it on the near half). Hexagonal: the same, with a
+  box two stagger pitches long and a hexagon test (`InHexagon`; side 0 is the staggered diamond). A
+  point inside the map's rectangle but outside every cell returns false. Orthogonal is unchanged.
+- **Tests:** every cell of several maps (sizes, tile sizes, both stagger axes and indices, hex sides
+  20, 10, 0 and 32) picks itself at its centre and just inside each of its four vertices (a hexagon's
+  two sides and two tips); the empty corners and ragged edges return false. Built with the old code they fail (isometric
+  picks column 1 for 0; hexagonal fails at the bottom tip).
+- **Samples:** the comments in `samples/{isometric,isometric_haptics,staggered,hexagonal}/world.h` no
+  longer say the inverse is exact only at a cell's corner.
+- `doc/BREAKAGES.md` entry 66.
+
+**I18: far-edge alignments are the scroll limit (DONE).** Scarab found it beside I17:
+`MAP_ALIGNMENT_TOP_RIGHT` at Caravellius's viewport gave a camera of -600 on a 640-wide map, where the
+scroll limit is 314.
+
+- **Cause:** `Camera::Align` put a far edge at the map size minus the map size modulo the viewport's
+  far-edge COORDINATE (pos + size), with no zoom: a number that matched the far edge only when the
+  zoom was 1 and the map an exact multiple. `BOTTOM_LEFT` and `BOTTOM_RIGHT` even used different
+  formulas.
+- **Fix:** every far edge uses `FarCameraLimit`, the limit scrolling already stops at:
+  `ceil(viewport size / zoom - map size)`. A map smaller than the view is pushed against the view's
+  far edge. `TOP_LEFT` and the centred alignments are unchanged.
+- **Caravellius (accepted by the owner):** every stage loads with `CENTER_WIDTH_BOTTOM`; the corsair
+  stage starts at camera y 10003 instead of 10020, its bottom edge now exactly on the view's.
+- **Tests:** `tests/test_cameraunit.cpp` (zooms 1, 2, 3.8125 and 0.5, against the scrolled camera;
+  Caravellius's stage; a narrow map aligned right) and `tests/test_viewport_semantics.cpp` (the
+  640 x 640 table at Caravellius's viewport, every alignment over several viewports and zooms, a tall
+  map at a fractional zoom). The tables that pinned the old values were replaced. Built with the old
+  code, all five fail.
+- `doc/BREAKAGES.md` entry 67.
+
+**I19: worlds - several maps at once (DONE).** Scarab's C7, designed with its session and agreed
+by both owners. Games want different maps on screen at the same time: split-screen with players on
+different maps, a world map beside the local one, a picture-in-picture dungeon, a menu over a map, a
+cross-fade between two maps. Today a renderer holds one map (`m_pMap`), `LoadMap` replaces it, every
+view shows it, and a second renderer is no way around it (one window per process).
+
+- **The design: a world, not a map, is the unit** (as Godot's `World2D`). A world holds one or more
+  maps, each at an offset in the world's own coordinates, and owns the sprites and the collision
+  rules; a view shows one world (`IView::SetWorld`). Isolated maps are several worlds of one map at
+  (0, 0); a Tiled `.world` file is one world of several maps at their offsets, where a sprite walks
+  across a map edge without being moved. Doing `.world` now (owner's decision) settles where sprites
+  and collisions live once, instead of moving them out of the map later.
+- **Nothing changes for existing games.** A default world: `LoadMap` puts its single map there at
+  (0, 0), the default view shows it, and the single-map API (`LoadMap`, `GetTile`,
+  `TileMapToTileMatrix`, ...) acts on it - not on "the default view's world", which a view can
+  switch. Mapless sprites stay in the default world. Caravellius and every sample are unchanged.
+- **What a `MapData` already gives:** its own libtmx Resource Manager, textures and animation clock;
+  the camera already lives in each view.
+- **Decisions (both owners):**
+  - Coordinates: each world has its own; a map's tiles sit at their map position plus the map's
+    offset. A sprite moves to another world by being removed from one and added to the other (the
+    game converts its position).
+  - Layer ids: a world-level id per layer NAME. Tiled's layer ids are unique only within one map; a
+    name present in the world's first map keeps that map's id, a name first seen in a later map gets
+    a new id above the highest assigned. Sprites, collision rules and view layer masks take these;
+    a lookup by name gives one. A one-map world uses that map's own ids. Layers are drawn layer by
+    layer over every visible map, so a sprite draws correctly on both sides of a map edge.
+  - Collisions per world: a sprite tests the tiles of every map it overlaps; two worlds never
+    collide. A collision listener is registered per world (each world has its own collision
+    manager), so `ICollisionListener` keeps its signatures; Scarab registers an adapter per world
+    that carries the world's handle.
+  - Unloading a world (or one of its maps) DETACHES its sprites - their colliders and registrations
+    go - without `Sprite::Unload`; the game releases or moves them. The legacy `UnloadMap` keeps
+    calling `Sprite::Unload` on its sprites, as today.
+  - Every live world updates each frame (animations, collisions), shown by a view or not.
+  - Every map of a world is loaded at once (loading only the maps near the camera, Tiled's adjacent-
+    maps option, is left for later).
+  - Every map's animation clock keeps reading the process-global `Clock`, so the null backend's
+    virtual time drives all of them exactly (already true: `MapData` reads `Clock::NowMilliseconds`).
+  - Camera behaviour stays per view: alignment, scroll limits and `FitToMap` use the bounding box of
+    the world's maps and the view's own zoom, at `SetWorld` and when the world loads.
+  - `.world` files are JSON, read with nlohmann/json, declared as Scarab declares it (`FetchContent`
+    name `nlohmann_json`, target `nlohmann_json`, so one copy in Scarab's build), linked privately.
+- **To verify before building:** the exact `.world` format against Tiled's own source (the map list,
+  and the pattern form that places maps by file name); how Tiled places isometric, staggered and
+  hexagonal maps in a world (orthogonal is supported first). A tileset shared by two maps is loaded
+  twice for now; a shared texture cache can come later.
+- **Phases, each planned with the owner first and merged as its own PR.** No pin goes to Scarab per
+  phase (owner's decision, 2026-11-07): Scarab gets one handoff - the final commit and a guide to every
+  phase - once the whole of I19 is done on sunlight's side.
+  - **I19a** per-view opacity (Scarab asked for it first: a cross-fade, a menu over a map) - DONE,
+    see below;
+  - **I19b** the world container: the default world, `LoadMap` unchanged - DONE, see below;
+  - **I19c** several worlds, shown by views: world handles, `IView::SetWorld`, unloading with
+    detach, per-world collisions and listeners - DONE, see below (the planned "views show a world"
+    and "several worlds" phases merged: a view can only be given a world a game can create);
+  - **I19d** map offsets and several maps drawn per view, layers matched by name - DONE, see below;
+  - **I19e** collisions across map edges - DONE, see below;
+  - **I19f** `.world` loading - DONE, see below.
+- **Scarab's side** (its C7, planned with sunlight): `world_load( path )` (a `.tmx` or a `.world`)
+  returning a handle, `world_unload`, `view_set_world`, an optional world on the sprite and collision
+  functions; `tilemap_load_map` and every existing call stay on the default world.
+
+**I19a: view opacity (DONE).** `IView::SetOpacity`/`GetOpacity`, 0..1, 1 by default, clamped, a NaN
+ignored, as `Sprite::SetOpacity` (I10).
+
+- **Composited, not faded draw by draw.** Applying the opacity to each tile and sprite (as a group's
+  opacity is) would show a view's own floor through its own walls mid cross-fade. Below 1 the view's
+  pass - its background included - is drawn into a render target of its own, cleared transparent, and
+  that image is laid over the frame at the opacity. The target has the frame's size (fixed by
+  `RendererConfig`), so the pass draws at its usual coordinates and its clip keeps the rest
+  transparent; it is made on first use, kept, and released by `RemoveView`, `Stop` and the destructor
+  of a started renderer. At 1 nothing changes: no target, no composite. At 0 the pass still runs
+  (sprites advance only in a pass that reaches them) and the composite is skipped.
+- **Premultiplied composite** (`IEngine::CompositeRenderTarget`, new): I1's normal blending (colour by
+  source alpha, alpha "over") into a transparent target leaves colour x alpha, so the target is
+  combined as colour x opacity + destination x (1 - alpha x opacity); straight alpha would multiply a
+  semi-transparent pixel by its alpha twice. Blend modes inside the view combine with what the view
+  drew, not with what is under it.
+- **Nested render targets.** raylib's `EndTextureMode` always unbinds to the window (rcore.c), so the
+  view's target ended inside the frame's would have sent the rest of the frame to the window.
+  `RaylibEngine` keeps a stack: `EndRenderTarget` begins the outer target again
+  (`BeginTextureMode` rebinds the framebuffer, viewport and projection). `IEngine` documents nesting.
+- **Tests** (`tests/test_viewpasses.cpp`, `MockEngine` logging render-target calls with their place in
+  the draw log): the value; no target at 1; an extra view's pass in its own frame-sized target -
+  cleared transparent, its background and tiles in it, the default view's not - composited over the
+  whole frame at its opacity; the default view alone likewise, over the frame's background; at 0
+  drawn but not composited, its sprite animating; the target made once and reused; released on
+  `RemoveView`, `Stop` and destruction.
+- **Sample:** `samples/multiview` gained key `5` (the close-up's opacity 1, 0.5, 0) and key `6` (a
+  one-second cross-fade between the main view and an overlay of the same map without its sky).
+- `doc/BREAKAGES.md` entry 68.
+
+**I19b: the world container (DONE).** A refactor with no change for any game: the renderer's map
+(`MapData`), its `SpriteRegistry` and its `CollisionManager` moved into a new internal class, `World`
+(`src/renderer/world/`), and the renderer holds a DEFAULT world (`std::shared_ptr`, as world handles
+will be in I19d) and an ACTIVE world pointer, as it has a default and an active view.
+
+- Every use of the three members now goes through `Map()`, `Sprites()` and `Collisions()`, which
+  read the active world; `LoadMap`/`UnloadMap` write to the default world, and `GetCollisionManager`
+  returns its collision manager. The active world is the default one always, until a view can show
+  another (I19c).
+- Inside `World` the members are declared so the map is destroyed first, then the collision rules, then
+  the sprite lists - the renderer's own order before.
+- Kept as they were, for later phases: sprites keep the renderer as their parent; the collision
+  manager still asks the renderer for layers and colliding tiles (renderer-wide today; per world in
+  I19d, when a second world first exists); no public API yet (`SetWorld` is I19c, world handles I19d).
+- **Tests:** the 780 existing tests pass unchanged - the proof nothing changed; `tests/test_world.cpp`
+  adds a new world (empty), its map (held, freed once by `UnloadMap` or by a second `SetMap`, sprites
+  and colliders left alone) and the renderer's default world outliving its maps (the same collision
+  manager before, between and after them).
+- `world.h`'s include guard is `__RENDERER_WORLD_H__`: ten samples have a `world.h` guarded by
+  `__WORLD_H__`, and building them hid one header behind the other (the samples, not the tests, caught it).
+  Neither peer has a `World` class or that guard (read only).
+- No `doc/BREAKAGES.md` entry: nothing changes for Scarab or Caravellius.
+
+**I19c: several worlds, shown by views (DONE).**
+
+- **API.** `IWorld` (`src/tilemap/iworld.h`): `GetId`, `IsRemoved`, `LoadMap`, `UnloadMap`, `GetMapInfo`,
+  `GetLayer`, `GetTile`, `TileMapToTileMatrix`, `AddSprite`, `RemoveSprite`, `GetCollisionManager`.
+  `ITileMap` gains `GetDefaultWorld`, `CreateWorld`, `RemoveWorld`, `GetWorldCount`; `IView` gains
+  `SetWorld`/`GetWorld`. Handles are `std::shared_ptr` and inert, never dangling, once removed or once
+  the renderer is gone - as view handles.
+- **The default view always shows the default world** (owner's decision while building it): so the
+  ACTIVE world is always the active view's world, and the renderer's single-map calls and its camera
+  calls can never disagree. Another world on the whole screen is an extra view over it.
+- **How it works.** `World` implements `IWorld` the way `View` implements `IView`: each operation makes
+  the world active, runs the renderer's own method, and swaps back - one implementation of everything.
+  `ActivateView` activates the view's world with the view, so each pass draws its own view's world, and
+  a view's camera, scroll limits, `FitToMap` and layer names work on it.
+- **Every live world updates every frame.** Each world's collision rules are tested; a world no pass
+  drew advances its sprites once (`SpriteRegistry::AdvanceAll`). The default world keeps its older rule
+  (a sprite on a layer no view shows stands still).
+- **Collisions per world.** A new `ITileSource` (`GetLayer`, `GetCollidingTiles`) is what a
+  `CollisionManager` asks; each `World` is its own manager's source, so a tile rule added to one world's
+  manager never reads another world's map (found while building it: through the renderer it would have
+  read the active - default - world's). `ITileMap` derives from it, so a manager made over a renderer
+  or a test double still compiles; the peers never make one. A listener on a world's manager hears only
+  that world. A view-relative collider is tested with the camera of the first visible view showing its
+  world (the default view's when none does).
+- **Unloading.** `IWorld::UnloadMap` and `RemoveWorld` DETACH the world's sprites (registrations and
+  colliders go; `RemoveWorld` and the destructor also let go of them as children); the legacy
+  `UnloadMap` keeps `Sprite::Unload`. `RemoveWorld` sends the views showing the world back to the
+  default world. A sprite belongs to one world at a time: `AddSprite` refuses one another world holds.
+- **Kept as it was:** a scroll step already resolved stays across `SetWorld`, as across `LoadMap` (only
+  a -1 is resolved); `IWorld::LoadMap` moves no camera.
+- **Tests:** `tests/test_worlds.cpp` (12): handles, inert after removal and after the renderer; another
+  renderer's world refused; a world answering for its own map while the renderer's calls stay on the
+  default one; `SetWorld` refused for the default view; each pass drawing its view's world (16 px tiles
+  of map A, 32 px of map B); camera, `FitToMap`, scroll step and layer names on the view's world; one
+  world per sprite; an unshown world's sprites advancing; `UnloadMap` and `RemoveWorld` detaching;
+  per-world tile rules and listeners. `tests/test_world.cpp` follows the renamed `World::FreeMap`.
+- **Sample:** `samples/worlds` - the cloud map (default world) on the left, the isometric map (world B)
+  on the right, a Sunny in each; key 1 switches the right view's world, 2 cross-fades the left half
+  to world B, 3 removes and recreates world B; the keys listed on screen.
+- `doc/BREAKAGES.md` entry 69.
+
+**I19d: several maps in one world, at offsets (DONE).**
+
+- **API** (`IWorld`): `AddMap( path, x, y )` -> the map's id (never reused), `RemoveMap`, `GetMapCount`,
+  `GetMapOffset`, `GetBounds`, `GetLayerId( name )`, `TileMapToTileMatrix( coord, mapId, pos )` and
+  `GetTile( mapId, pos, layerId, tile )`. `LoadMap` makes the world its one map at (0, 0), as before.
+- **Every orientation, mixed, and negative offsets** (owner's decisions, after checking Tiled: a `.world`
+  stores pixel rectangles; Tiled's world code has no orientation check, and its editor sizes a map by
+  its renderer's `mapBoundingRect` - read in Tiled's renderers: a box from (0, 0) whose size equals
+  sunlight's `MapPixelSize` for orthogonal, isometric (the diamond's box), staggered and hexagonal
+  maps). A map's offset is its pixel box's top-left. The one exception: a staggered or hexagonal map
+  exactly one column (or row) wide, which Tiled boxes from its first shifted line - both draw its cells
+  at the same place, but sunlight's box keeps the empty strip (pinned by a test, on axis y: see the
+  finding below). Isometric maps side
+  by side leave empty triangles, as in Tiled. (The body of Tiled's generic `MapRenderer::mapBoundingRect`
+  was not read: that it is the full map's box is inferred from how the editor uses it.)
+- **Layers by name.** `World` keeps a table: one world layer id per name - the first map's ids kept, a
+  name first seen in a later map numbered above the highest - and per map the translation between its
+  ids and the world's; the table stays while the world has maps. A layer is matched to the first
+  layer of that name in each map.
+- **Drawing** (`DrawWorldMaps`, only with several maps): the world's layers in table order, each drawn
+  from every map that has it as a top-level layer - that map made the world's current one and its
+  offset added to the layer's camera (`m_MapDrawOffset`; a map point p is drawn at (p + offset +
+  camera) x zoom + viewport origin, so culling, parallax and objects follow unchanged) - then the
+  sprites of that layer and of the layers nested under it, once. View masks and sprite layers key on
+  world ids.
+- **Picking** (`World::PickCell`): each map, in the order added, takes the point less its offset through
+  its own hit-test (I17) - an isometric map's empty corner falls through to the next map.
+- **Camera:** scroll limits, `ResetCamera` and `FitToMap` use the box every map fits in
+  (`World::Bounds`), which may start at a negative position (`Camera::MoveDown/MoveRight` take that near
+  limit). One map at (0, 0) gives exactly the old values.
+- **Collisions** (until I19e): the map under the collider's top-left, its own layer of that world id, the
+  tiles' rectangles in the world's pixels.
+- **Guard:** the single-map `GetTile` refuses a layer of another of the world's maps (it would read past
+  that map's cells with this map's size).
+- **Tests:** `tests/test_worldmaps.cpp` (9): ids and offsets; a one-row staggered map (cells where
+  Tiled draws them, its box from the origin); the layer table (shared and new names, stable
+  after removing the first map); bounds with negative offsets and Tiled's whole-pixel box for odd tiles;
+  picking across maps and through an isometric corner; `GetTile` by map; drawing order across maps with a
+  sprite once between "props" and "roof", and a mask by name; camera limits, `ResetCamera` and `FitToMap`
+  from the bounds; a tile rule by world id hitting a later map's own layer.
+- **Sample:** `samples/worlds` gained a grid world - the cloud map three times and the isometric map, side
+  by side - shown on the right with key 1 (which now cycles B, the default world, the grid); IJKL walks
+  its Sunny across the seams.
+- `doc/BREAKAGES.md` entry 70.
+
+**I19e: collisions across map edges (DONE).** In a world of several maps a tile rule tested only the
+map under the collider's top-left corner (I19d), so a sprite straddling a map edge missed the walls
+on the other side. `GetCollidingTiles` now visits EVERY map whose pixel box - padded by the scan's own
+one-tile margin, so a tile drawn taller than the grid and hanging out of its map counts - the collider
+overlaps, through that map's own layer of the rule's world layer id (a map without it is skipped), in
+that map's own pixels (`CollidingTilesInCurrentMap`, the scan split out), and reports the tiles in the
+world's pixels, map by map in the order they were added, then row and column. A world of one map takes
+the same path with no offset, unchanged.
+
+- **Tests** (`tests/test_worldmaps.cpp`, 2 more): a collider straddling map C and an isometric map touches
+  a tile in each, in the world's pixels and in map order, and inside map C alone just its tile; a
+  collider between the maps touches nothing, and a map without the rule's layer is skipped. With the
+  I19d scan the straddling test fails (1 tile, not 2).
+- No sample (owner's decision): nothing on screen changes; the collision demo goes into I19f's sample.
+- `doc/BREAKAGES.md` entry 71.
+
+**I19f: Tiled `.world` files (DONE).** libtmx reads only `.tmx` maps (its loaders - `tmx_load`,
+`tmx_load_buffer`, `tmx_load_fd`, `tmx_load_callback` - parse one XML map; nothing in it reads JSON or
+mentions worlds), so sunlight reads the `.world` file itself.
+
+- **`WorldFile`** (`src/renderer/world/worldfile.h/.cpp`): reads the file through the FileSystem and
+  returns its maps - each `fileName` resolved against the `.world` file's folder (`FilePath::JoinPath`,
+  so a path scheme carries over) with its `x`, `y`. Only that: no map is loaded, no renderer touched,
+  so it is tested alone. Tiled's own JSON: an object with a `maps` array, string `fileName`, integer
+  `x`/`y`; `width`/`height` are not read (sunlight sizes a map itself, as Tiled's editor does);
+  `onlyShowAdjacentMaps` is not read (every map is loaded). A non-empty `patterns` array is refused:
+  placing maps by a regular expression over the folder needs a directory listing `IFileSystem` does
+  not offer (owner's choice: the maps list only; patterns would be an item of their own).
+- **`IWorld::LoadWorld( path )`** (`TileMapRenderer::LoadWorldFile`): all or nothing - every map is
+  loaded first, and only when all loaded are the world's maps replaced, in the file's order (the first
+  map's layer ids are the world's); on any failure the reason goes to standard error and the world
+  keeps what it had. Sprites stay registered; no camera moves.
+- **nlohmann/json**, declared exactly as Scarab declares it (`FetchContent` name `nlohmann_json`, the
+  `master` tag, target `nlohmann_json`) so Scarab's build keeps one copy, linked PRIVATE: only
+  `worldfile.cpp` includes it. `target_link_libraries( sunlight ... )` moved to the keyword form for
+  that (CMake refuses mixing the forms; PUBLIC is what the plain form meant for a shared library).
+  The fetch is a full clone of the repository (344 MB) - as Scarab's.
+- **Tests** (`tests/test_worldfile.cpp`, 4): the reader (paths against the file's folder, a scheme
+  carried over, an empty `patterns` list fine; unreadable, not JSON, not an object, no `maps`, a bad
+  entry and `patterns` refused, saying why); `LoadWorld` (the file's maps at their offsets replacing
+  the old ones, refused before `Start()`), all or nothing (a missing map frees the one already loaded
+  and leaves the world as it was; a removed world refused).
+- **Sample:** `samples/worlds` gained a demo world from `resources/iso/demo.world` - the isometric map
+  twice, the second continuing the first one map further along its column axis (offset 256, 128) - whose
+  Sunny has a tile rule on "obstacles" (both maps, I19e) and a count of the obstacle tiles it touches;
+  key 1 now also cycles to it, IJKL walks the Sunny of the world the right view shows.
+- `doc/BREAKAGES.md` entry 72.
+
+**I20: Tiled's `staggeraxis="x"` (DONE, before the Scarab handoff - owner's order).** libtmx's
+`parse_stagger_axis` (`tmx_utils.c`) accepts `"y"` or `"columns"`, but Tiled writes `"x"` (its TMX
+reference: "determines which axis ("x" or "y") is staggered"; `staggerAxisToString` in Tiled's
+`map.cpp`), so every X-staggered map saved by Tiled fails to load. No libtmx release has a fix (upstream
+`master` and `tmx_1.10.1` have the same code). Plan (owner's choice, option 3): a workaround in sunlight's
+map loader now, and the fix asked upstream - issue filed with the owner's permission,
+https://github.com/baylej/tmx/issues/90; once libtmx fixes it, drop the workaround or pin that release.
+
+- **The workaround** (`src/renderer/map/tmxworkarounds.h/.cpp`, `TmxWorkarounds::FixStaggerAxis`):
+  `MapData::Load` reads a map's bytes itself (through the FileSystem) before libtmx parses them, so it
+  rewrites the value there - `"x"` becomes `"columns"`, libtmx's word for the same axis. Only the root
+  `<map ...>` start tag is looked at, its attributes walked one by one with quoted values skipped
+  whole (a `>` or the attribute's name inside another value, or a `staggeraxis` in a property further
+  down, is never touched); single or double quotes and spaces around `=` are fine. A map libtmx reads
+  already (`"y"`, `"columns"`, no attribute) passes through unchanged. Once libtmx reads `"x"` the
+  rewrite still gives a value it accepts, so nothing breaks before it is removed.
+- **Tests** (`tests/test_tmxworkarounds.cpp`, 3): the rewrite (quotes, spaces, a `>` inside an earlier
+  value), what it leaves alone (`"y"`, `"columns"`, no attribute, a property, the name inside a value,
+  a `<mapping>` element, not XML), and a staggered and a hexagonal map written as Tiled writes them
+  loading through `MapData::Load` with axis X and a cell placed as axis X places it. Without the call in
+  `MapData::Load` the load test fails with libtmx's own "unsupported 'staggeraxis' 'x'".
+- No sample (owner's call): the tests load Tiled-style maps through the real parser.
+- `doc/BREAKAGES.md` entry 73.
+
+**I21: `IWorld::SetLayer`, and the default view's `SetWorld` (DONE).** Two gaps Scarab found exposing C7
+to Lua (scarab-7d), accepted by the owner.
+
+- **`IWorld::SetLayer( id | name, layer )`**, the counterpart of `IWorld::GetLayer`: a game could read a
+  layer of any world but change one (visibility, opacity, offset, parallax, tint) only in the default
+  world. With several maps the change goes to that world layer id in EVERY map that has it
+  (`TileMapRenderer::SetWorldLayer`, `CopyLayerToTmx` each), since the maps draw their layers matched by
+  name; `layer.pLayer` ends on the first map's, the layer `GetLayer` reads. The renderer's own `SetLayer`
+  (the default world) goes through the same path, so the two never disagree; one map behaves exactly
+  as before. By name, the world layer id of that name (`World::FindLayerId`).
+- **`IView::SetWorld( default world )` on the default view** answers true (nothing changes), so a game
+  can set every view's world in one loop; any other world on the default view stays refused.
+- **Tests:** `tests/test_worldmaps.cpp` - a tint by name through the world handle reaches the props tile
+  of both maps and not the ground; a hide by id through the renderer hides both; a created world's
+  layer that only its second map has; unknown and removed refused. With only the first map changed
+  (the old behaviour) the test fails (1 red prop, not 2). `tests/test_worlds.cpp` - the default view's
+  `SetWorld( default world )` is true.
+- `doc/BREAKAGES.md` entry 74.
+
+**I22: several mounts of one location, and `Unmount` (DONE).** Scarab's C8 (a sandbox for game
+scripts: read the save directory first, then the game's files; write to the save directory) needs the
+game's `.zip` at its own mount point and at `/`, and the save folder at `/`, at the game's mount point
+and at a private one - and a way to remove the extra mounts when the save folder changes.
+
+- **Cause** (`physfs.c`): `doMount` returns success WITHOUT mounting when the same path string is
+  already in the search path, at any mount point; `PHYSFS_unmount` removes by that string only.
+- **Fix** (`PhysFsFileSystem`): a mount table records every mount (real path, mount point - without
+  leading or trailing `/` - and the name given to PhysFS). A repeat of a path at another mount point
+  gets an equivalent spelling of its own (`UniquePhysName`: `./` in front of the last component, once
+  per mount already using a spelling, with PhysFS's own separator). PhysFS stores and opens the name as
+  given (`createDirHandle`, `openDirectory` - no normalisation), so it mounts the same folder or archive
+  again, in its own place in the search order; the extension that picks the archive reader is kept.
+  The same (path, mount point) again changes nothing and succeeds, as before.
+- **`IFileSystem::Unmount( realPath, mountPoint )`** (new pure virtual): removes that one mount by its
+  PhysFS name; false when there is none. The in-memory test FileSystem has it too.
+- **A bug fixed on the way:** `SetWriteDirectory` mounted the folder with `PHYSFS_mount` directly, so a
+  save folder the game had mounted first was silently NOT mounted at `/`, and changing the write
+  directory later unmounted the game's own mount instead. The write directory's mount is now its own
+  entry in the table, which `Mount`/`Unmount` never match.
+- **Not done:** an alias between virtual prefixes (Scarab's alternative) - it cannot give a private mount
+  point that sees only the save folder.
+- **Tests** (`tests/test_physfsfilesystem.cpp`, 5, on real folders and a real `.zip`): one folder and one
+  archive read at two mount points; each mount in its own place in the search order (append and
+  prepend); `Unmount` of one mount only, the same pair being one mount, mount points with and without
+  slashes; a folder mounted by the game then made the write directory, then replaced. With the plain
+  path as the PhysFS name (the old behaviour) all five fail. On Windows the `.\` spelling relies on the
+  Win32 path rules; the tests run on CI's windows-latest.
+- `doc/BREAKAGES.md` entry 75.
+
+**I23: screen-space image layers (DONE).** Caravellius, integrating on Scarab's pin `b5a6ca1`, found its
+cover screen broken by eye: `cover.tmx`'s window-sized image layer (1260 x 920) showed only its top-left
+part at zoom 3.8125. Since L1, `LayerRenderer::DrawImageLayer` draws an image layer in map space (moved
+by the camera, scaled by the zoom, offset by the viewport); before, it drew at its offset in raw window
+pixels - its own comment says so. L1's BREAKAGES 34 claimed a factor-1 layer was "bit-identical to
+before", true for tile and object layers only; no headless test could see it (the null backend draws
+nothing). Lua drawing is no substitute: it comes after the map and sprites, over the player's ship.
+
+- **Opt-in, decided with the owner:** an image layer with the Tiled custom property `screen_space` (bool)
+  = true (`LayerRenderer::IsScreenSpaceImageLayer`, through libtmx's `tmx_get_property`) is drawn as
+  before L1 (`DrawScreenSpaceImageLayer`): at its offset in window pixels, at its own size, with no
+  camera, parallax, zoom or viewport origin. Not cut to the viewport - Caravellius' image is window-
+  sized while its viewport is 1240 x 900 at (10, 10) - so `DrawAllLayers` ends the pass's clip (the only
+  clip open while a layer is drawn: every other clip in the renderer begins and ends inside one call)
+  around it and begins it again after. It keeps its place in the layer order and its opacity and tint
+  (times its groups'); image layers still draw in the default view only. Without the property, or with
+  it false, L1's drawing.
+- BREAKAGES 34 and the L1 test item above corrected.
+- **Tests** (`tests/test_screenspaceimagelayer.cpp`, 3): drawn at its offset, own size, scale 1, tint and
+  opacity, the clip ended and begun again around it, whatever the camera and zoom; without the property
+  and with it false, L1's drawing; a sprite on its layer drawn after it. Drawn the L1 way the first one
+  fails (at -18, -5, scaled 1.125).
+- No sample (owner's call): Scarab and Caravellius check it by eye on the real cover screen.
+- `doc/BREAKAGES.md` entry 76.
+
+**I24: image layers at their picture's real size (DONE).** Found by Caravellius by eye once its cover
+used `screen_space`: the picture is 1206 x 880 but `cover.tmx`'s `<image>` declares 1260 x 920, and both
+image-layer paths (`DrawScreenSpaceImageLayer`, `DrawImageLayer`) took the source and destination from
+the declared `pTmxImage->width/height` - `DrawTextureTiled` then read 54 x 40 pixels past the texture
+and repeated it along the right and bottom edges.
+
+- **Decided with the owner:** draw at the picture's REAL size in both paths - as sunlight did before L1
+  (`DrawTexture( image, 0, 0 )`, the texture at its own size - read in the code before `a7e73c1`); Scarab
+  reports Tiled does the same, the `<image>` width/height only recording the size at save time (not
+  verified in Tiled's source). Stretching to the declared size would distort a picture whose numbers are
+  stale.
+- **`IEngine::GetTextureSize( texture, width, height )`** (new pure virtual): raylib's `Texture2D` carries
+  it (a render target's texture is one too); the null backend's `NullSurface` keeps the size read from the
+  image's header; `MockEngine` answers the sizes a test sets. `LayerRenderer::ImageSizeOf` uses it, and
+  falls back to the declared size only when the engine cannot tell. A picture whose real size matches
+  the declared one draws exactly as before.
+- **Not in scope (noted):** a tileset whose declared image size is stale - tiles are cut by tile
+  coordinates, a different case nobody has reported.
+- **Tests** (`tests/test_screenspaceimagelayer.cpp`, 3 more; `MockEngine` now records a tiled draw's whole
+  source rectangle): a screen-space layer drawn at the real size, source and destination, never past the
+  texture; map-space layers at the real size scaled by the zoom; an unknown size or a matching one draws
+  as before. With the declared size (the old behaviour) the first two fail.
+- `doc/BREAKAGES.md` entry 77.
+- **Finding, not fixed here (for the owner):** libtmx's `parse_stagger_axis` (`tmx_utils.c`) accepts only
+  `"y"` or `"columns"`, but Tiled writes `staggeraxis="x"` - so a staggered or hexagonal map staggered
+  along X, as Tiled saves it, does not load ("unsupported 'staggeraxis' 'x'"). The samples are all
+  axis Y, and the axis-X projection tests build their maps in code, so nothing caught it.
+
+**I25: gamepads through SDL2 (DONE).** Caravellius reported five gamepad findings on macOS, each
+checked in sunlight's code and in GLFW's and SDL's sources: (1) a Switch-mode pad over USB reports
+nothing - it needs a handshake written to it, which SDL's Switch driver sends (`SDL_hidapi_switch.c`,
+`BTrySetupUSB`) and GLFW's macOS joystick code never can (`cocoa_joystick.m` never writes to a device);
+(2) the first rumble stalled the game - the SDL controller was opened then, on the main thread;
+(3) a Switch pad over Bluetooth updates about 30 times a second - GLFW leaves it in its basic report
+mode, SDL moves it to the full one; (4) with two pads, rumble could pick the wrong one - raylib/GLFW's
+and SDL's lists were paired by name (`MatchGamepadsByName`), and the two libraries name the same pad
+differently; (5) SDL's device list was never refreshed - nothing called `SDL_JoystickUpdate`.
+
+- **Decided with the owner:** read the pads through SDL2 (already linked, with its joystick and HIDAPI
+  drivers built), keyboard and mouse staying on raylib, with raylib/GLFW as a fallback.
+- **`IGamepadInput`** (`input/igamepadinput.h`): the gamepad half of `IInputHandler` plus `Update()`.
+  `RayLibInputHandler` keeps the keyboard and mouse and forwards its pad calls to one from
+  **`GamepadInputFactory`**, switched by `DEFAULT_GAMEPAD_ENGINE` (1 = SDL2, the default; 2 =
+  raylib/GLFW, today's code moved to `RayLibGamepadInput`); with 1, a process whose SDL game-controller
+  subsystem fails to start gets raylib/GLFW's pads.
+- **`IInputHandler::Update()`** (new pure virtual): `TileMapRenderer::Run` calls it once per frame right
+  after the window's `EndFrame`, where raylib reads the keyboard and mouse (`EndDrawing` ->
+  `PollInputEvents`), so every device changes state at the same moment.
+- **`SDLGamepadDevices`**: the open SDL controllers by pad id, shared by the input and the rumble.
+  `Update()` calls `SDL_GameControllerUpdate`, which is `SDL_JoystickUpdate`: every driver's `Detect()`
+  runs there, so hot-plug works with no video subsystem (finding 5). A pad is opened on the frame it
+  appears (finding 2, moved off the first rumble; opening off the main thread is not in I25 - SDL2's
+  threading rules for it were not verified), at the lowest free id up to `MAX_GAMEPAD_COUNT` (10, raylib
+  allowed 4), kept until unplugged; a device that fails to open is not retried while it stays listed.
+- **`SDLGamepadInput`**: answers as raylib does (`rcore.c`, `rcore_desktop_glfw.c`): buttons on the Xbox
+  layout by position - `SDL_GAMECONTROLLER_USE_BUTTON_LABELS` is turned off before SDL starts, as SDL2
+  reports a Nintendo pad by label by default (`RemapButton`; pads with no diamond layout always use
+  labels, `AlwaysUsesLabels`); sticks in -1..1; triggers -1 (released) .. 1; the second-trigger buttons
+  pressed past 0.1 on that scale; `GetGamepadButtonPressed` the last button held, in GLFW's order, reset
+  each update; six axes. Findings 1 and 3 come from SDL's drivers.
+- **`SDLGamepadHaptics`**: on the pads' own devices when they come from SDL (`SDLGamepadDevices ::
+  Current()`), a direct lookup by id (finding 4); the name matching stays only for the raylib/GLFW path.
+- On macOS both libraries open a pad in shared mode (`kIOHIDOptionsTypeNone`: GLFW's `IOHIDManagerOpen`,
+  SDL's `hidapi/mac/hid.c`), so GLFW still enumerating the pads does not block SDL.
+- **Tests** (`tests/test_sdlgamepadinput.cpp`, 17; the fake SDL API moved to
+  `tests/fake_sdlcontrollerapi.h`): ids, hot-plug, failed opens, the cap, every button, the axes'
+  end values exactly, the trigger threshold, the last button pressed, rumble on two same-named pads,
+  the factory's choice and fallback, and `Run` updating the input once per frame after `EndFrame`. Each
+  of eight mutations (no update call, haptics by name, a swapped button, the threshold, the trigger
+  scale, no fallback, retrying failed opens, no reset of the last button) fails a test.
+- **To check on real pads:** the owner (`samples/gamepad`, `samples/isometric_haptics`) and Caravellius
+  (its three pads: Switch over USB and Bluetooth, rumble with two pads, the connect frame's cost).
+- `doc/BREAKAGES.md` entry 78.
+
+**I25b: SDL gamepads on a thread of their own (DONE).** Caravellius measured I25 on its three pads
+(macOS 14): checks 1 to 4 passed (a Switch-mode pad over USB reports at 60/s, over Bluetooth at ~47/s,
+two pads each rumble on their own, hot-plug works), but the frame a Bluetooth pad connected took 2.3 to
+3.9 s (0.3 s over USB, 58 ms for an Xbox One S) - worse than before I25 (0.95 s, once, on the first
+rumble). Read in SDL's source: its HIDAPI drivers set a pad up by writing commands and waiting for the
+replies on the calling thread (`SDL_hidapi_switch.c`: up to 100 ms per reply, retried writes, 250 ms more
+on open), and they do it while SDL starts (`HIDAPI_JoystickInit` -> `HIDAPI_UpdateDevices`), while it
+finds a new device (inside `SDL_JoystickUpdate`) and while it opens one - with SDL's joystick lock held.
+
+- **Decided with the owner:** every SDL call on one thread of its own (`SDLGamepadDevices`,
+  `RUN_MODE_THREAD`), from starting SDL to stopping it; the game's thread never calls SDL. No wait at
+  start-up (a pad already on appears when its set-up is done), and stopping waits for SDL's current call
+  (a quit during a pad's set-up can take a few seconds) - the owner's two choices.
+- **One thread suits SDL's macOS drivers:** the IOKit driver schedules its devices on the run loop of
+  the thread that started it and runs that loop itself (`SDL_iokitjoystick.c`), HIDAPI pumps its manager
+  on the calling thread and reads each device on a thread of its own (`hidapi/mac/hid.c`).
+- **MFi off** (`SDL_JOYSTICK_MFI=0`): Apple's GameController driver registers its connect/disconnect
+  blocks with `queue:nil` (they run on the posting thread) and they take SDL's joystick lock
+  (`SDL_mfijoystick.m`), which the gamepad thread holds for seconds during a set-up. With it off the IOKit
+  driver takes the HID pads it would have handed over (`IOS_SupportedHIDDevice`); Xbox, PlayStation and
+  Switch pads stay on HIDAPI.
+- **The thread's pass** (`Step`): updates SDL, closes and opens pads, carries out the queued rumble
+  requests, and publishes a snapshot of every pad (available, name, 15 buttons, 6 axes, rumble); about
+  1 ms between passes. `SDLGamepadInput::Update` copies the snapshot, `SDLGamepadHaptics` queues rumbles
+  and reads `IsSupported` from it.
+- **The fallback** can no longer be chosen when the input is made (starting SDL itself runs the set-up):
+  `SDLGamepadInput` holds raylib/GLFW's pads and switches to them once the thread reports
+  `STATE_FAILED`.
+- **SDL's per-thread data** (its error buffer) is freed with `SDL_TLSCleanup` when the thread ends: SDL
+  does that by itself only for threads it created (`SDL_RunThread`); `leaks` found one per thread.
+- **Tests** (`tests/test_sdlgamepadinput.cpp`, 4 more; the fake gained `onOpen`/`onRumble` hooks): the
+  existing ones driven by hand (`RUN_MODE_MANUAL`), and on a real thread: `Update` returns within 100 ms
+  while the fake's open is blocked and the pad appears once it finishes, stopping during a blocked open
+  joins cleanly, a rumble asked on the game's thread is sent on the gamepad thread, and the fallback.
+  Eleven mutations each fail a test (among them the lock held during the open, rumbles never taken, the
+  thread never shutting SDL down, the fallback never used).
+- **To check on real pads:** Caravellius re-measures with the same probe (check 5 especially).
+
+
+- **SDL backend.** The README says the project aims to extend to SDL. Only raylib exists
+  today as an engine and window backend (SDL2 reads the gamepads and drives the rumble, F7b and
+  I25). A full SDL backend is a large change of its own, and will be handled in a separate
+  plan, not in this one.
+
+## Design decisions
+
+- **libtmx types in the public API (decided, as is).** `stLayer::pLayer`, `stTile::pTile`
+  and `stMapInfo::pMap` expose libtmx's own structures. libtmx is a supported dependency,
+  and these fields are for advanced use. Whether to hide them behind opaque handles is a
+  possible future discussion, not part of this plan.
 
 ## Process
 
+- Peer breakages: [doc/BREAKAGES.md](BREAKAGES.md) lists every change that affects Scarab or Caravellius, and what to do when integration starts. Add an entry for each such change as it is made. The file is removed when this plan is merged to `main`, after the peers have been told.
+- Scarab handoff: [doc/SCARAB_HANDOFF.md](SCARAB_HANDOFF.md) is the brief the Scarab session starts from (Phase H). Like `BREAKAGES.md`, it is integration material only: it is removed before `feat/master_plan` goes to `main` (owner's decision, 2026-10-14).
 - Items are closed one at a time, in phase order, unless the owner decides otherwise.
 - Each item is closed only when its test items pass and the owner has confirmed it.
 - Item 7 of the original review (manual review of documentation and code) stays manual

@@ -24,40 +24,12 @@
 #include <deque>
 #include <map>
 #include "base/object.h"
+#include "scripting/command.h"
 #include "scripting/iscriptlistener.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Scripting  {
-
-        /**
-         * @brief Base command used for all other defined commands;
-         */
-        struct BaseCommand  {
-            SunLight :: Scripting :: Commands   cmd;
-        };
-
-        /**
-         * @brief One parameter command data struct;
-         */
-        struct OneParmCommand : public SunLight :: Scripting :: BaseCommand  {
-            uint16_t      nParm;
-        };
-
-        /**
-         * @brief Two parameters command data struct;
-         */
-        struct TwoParmsCommand : public SunLight :: Scripting :: BaseCommand  {
-            uint16_t      nParm1;
-            uint16_t      nParm2;
-
-            /**
-             * @brief Internal command data;
-             */
-            struct CommandData  {
-                uint16_t      nCounter;
-            } data;
-        };
 
         /**
          * @brief Command queue definition;
@@ -104,7 +76,7 @@ namespace SunLight {
              */
             size_t                                    m_nCurrentCommandIndex;
             uint64_t                                 m_nWaitMilli;
-            SunLight :: Scripting :: IScriptListener *m_pListener;
+            SunLight :: Scripting :: IScriptListener* m_pListener;
             bool                                     m_bWaitSpritesQueueEmpty;
 
             public:
@@ -112,7 +84,7 @@ namespace SunLight {
             ScriptProcessor( void );
             virtual ~ScriptProcessor( void );
 
-            void Add( SunLight :: Scripting :: BaseCommand *pCmd );
+            void Add( SunLight :: Scripting :: BaseCommand* pCmd );
             void AddNoParmCmd( SunLight :: Scripting :: Commands cmd );
             void AddOneParmCmd( SunLight :: Scripting :: Commands cmd, uint16_t nParm );
             void AddTwoParmsCmd( SunLight :: Scripting :: Commands cmd, uint16_t nParm1, uint16_t nParm2 );
@@ -121,7 +93,7 @@ namespace SunLight {
             bool Compile( void );
             bool Run( void );
 
-            void AddScriptListener( SunLight :: Scripting :: IScriptListener *pListener );
+            void AddScriptListener( SunLight :: Scripting :: IScriptListener* pListener );
             IScriptListener* GetScriptListener( void );
         };
     }

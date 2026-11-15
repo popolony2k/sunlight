@@ -24,7 +24,7 @@
 #include "filesystem/ifilesystem.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace FileSystem  {
 
         /**
@@ -51,9 +51,9 @@ namespace SunLight {
              * @param pOverride The replacement filesystem, or nullptr to
              * reset back to the default backend;
              */
-            static void SetFileSystem( IFileSystem *pOverride );
+            static void SetFileSystem( IFileSystem* pOverride );
         };
     }
 }
 
-#endif  /* __FILESYSTEMFACTORY_H__ */
+#endif /* __FILESYSTEMFACTORY_H__ */

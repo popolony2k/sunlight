@@ -24,7 +24,9 @@
  *   - the MAIN view, the renderer's own (default) view: the whole map;
  *   - a MINIMAP (top right): the whole map, small;
  *   - a CLOSE-UP (right, below it): a zoomed view whose camera FOLLOWS Sunny - it stands still while
- *     Sunny walks inside it and scrolls when Sunny reaches its border.
+ *     Sunny walks inside it and scrolls when Sunny reaches its border;
+ *   - an OVERLAY over the main view, the same map without its sky on a dark background, at opacity 0:
+ *     key 6 cross-fades between the main view and it (IView::SetOpacity, I19a of the master plan).
  *
  * Sunny is ONE sprite, in WORLD space (Sprite::SetWorldSpace): its position is a map position, in pixels,
  * and every view draws it where it draws the map at that position, whatever the view's zoom and camera.
@@ -38,6 +40,7 @@
  */
 
 #include "renderer/tilemaprenderer.h"
+#include "../shared/zoomkeys.h"
 #include "sprite/sprite.h"
 #include "canvas/texturecanvas.h"
 #include <algorithm>
@@ -58,20 +61,113 @@
 #define __SUNNY_LAYER_ID            8       // "birb": the last layer, so Sunny is drawn on top of the map
 #define __CLOSEUP_ZOOM_POS          46      // factor 2.9375
 #define __FOLLOW_MARGIN             28      // map pixels between Sunny and the close-up's border before it scrolls
+#define __SKY_LAYER_ID              1       // "sky": masked out of the overlay, so the cross-fade shows a difference
+#define __FADE_FRAMES               60      // a cross-fade's length: one second at __FRAMES_PER_SECOND
+#define __OPACITY_SHOWN             1.0f
+#define __OPACITY_HIDDEN            0.0f
+#define __OPACITY_STEP              0.5f    // key 5: the close-up's opacity goes 1, 0.5, 0, then back to 1
+#define __HUD_X                     932     // the key list: under the close-up (930..1230 x 330..630), clear of every view
+#define __HUD_Y                     640
+#define __HUD_LINE_HEIGHT           21
+#define __HUD_FONT_SIZE             20      // twice raylib's built-in 10 px font: a whole multiple stays crisp
+#define __HUD_TEXT_SIZE             64
+#define __HUD_CHANNEL               255     // the labels: opaque white
 
 namespace  {
 
-    SunLight :: TileMap :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
+    SunLight :: Base :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
 
-        SunLight :: TileMap :: stDimension2D  rect {};
+        SunLight :: Base :: stDimension2D  rect {};
 
         rect.pos.x = nX;  rect.pos.y = nY;  rect.size.nWidth = nW;  rect.size.nHeight = nH;
 
         return rect;
     }
+
+    /*
+     * The cross-fade (key 6): every frame, OnUpdate moves the overlay's opacity one step towards its target,
+     * __FADE_FRAMES steps from one end to the other. The view's finished image fades, not each thing in it, so
+     * mid-fade the overlay's map still hides the main view's map under it (I19a).
+     */
+    struct CrossFade : public SunLight :: TileMap :: ITileMapListener  {
+
+        std :: shared_ptr<SunLight :: TileMap :: IView>  m_pView;
+        float                                            m_fTarget = __OPACITY_HIDDEN;
+
+        void Toggle( void )  {
+            m_fTarget = ( m_fTarget == __OPACITY_HIDDEN ) ? __OPACITY_SHOWN : __OPACITY_HIDDEN;
+        }
+
+        void OnUpdate( SunLight :: TileMap :: ITileMap& )  override  {
+            const float  fStep    = ( __OPACITY_SHOWN - __OPACITY_HIDDEN ) / ( float ) __FADE_FRAMES;
+            float        fOpacity = m_pView -> GetOpacity();
+
+            if( fOpacity < m_fTarget )
+                m_pView -> SetOpacity( std :: min( fOpacity + fStep, m_fTarget ) );
+            else if( fOpacity > m_fTarget )
+                m_pView -> SetOpacity( std :: max( fOpacity - fStep, m_fTarget ) );
+        }
+
+        void OnStop( void )  override  {
+        }
+    };
+
+    /*
+     * The key list, drawn every frame (after the views, so on top) in the free area under the close-up, which no
+     * view covers: what each key does, and the two opacities keys 5 and 6 change.
+     */
+    struct KeyList : public SunLight :: TileMap :: ITileMapListener  {
+
+        SunLight :: Renderer :: TileMapRenderer          &m_Renderer;
+        std :: shared_ptr<SunLight :: TileMap :: IView>  m_pCloseUp;
+        std :: shared_ptr<SunLight :: TileMap :: IView>  m_pOverlay;
+
+        KeyList( SunLight :: Renderer :: TileMapRenderer& renderer ) : m_Renderer( renderer )  {
+        }
+
+        void Line( int nLine, const char* szText )  {
+            m_Renderer.DrawText( szText, __HUD_X, __HUD_Y + ( nLine * __HUD_LINE_HEIGHT ), __HUD_FONT_SIZE,
+                                 __HUD_CHANNEL, __HUD_CHANNEL, __HUD_CHANNEL, __HUD_CHANNEL );
+        }
+
+        void OnUpdate( SunLight :: TileMap :: ITileMap& )  override  {
+            static const char  *s_Keys[] = {
+                "KEYS",
+                "Arrows/WASD  walk",
+                "PgUp/PgDn  zoom close-up",
+                "+ - =  zoom close-up",
+                "1  minimap on/off",
+                "2  close-up on/off",
+                "3  sky on/off (main)",
+                "4  overlay back/front",
+                "5  close-up opacity",
+                "6  cross-fade overlay",
+            };
+            const int          nKeys = ( int ) ( sizeof( s_Keys ) / sizeof( s_Keys[0] ) );
+            char               szText[__HUD_TEXT_SIZE];
+
+            for( int nLine = 0; nLine < nKeys; nLine++ )
+                Line( nLine, s_Keys[nLine] );
+
+            // A blank line, then the two opacities.
+            snprintf( szText, sizeof( szText ), "close-up  %.2f", m_pCloseUp -> GetOpacity() );
+            Line( nKeys + 1, szText );
+            snprintf( szText, sizeof( szText ), "overlay   %.2f%s", m_pOverlay -> GetOpacity(),
+                      ( m_pOverlay -> GetDrawOrder() < 0 ) ? "  (back)" : "" );
+            Line( nKeys + 2, szText );
+
+            m_nFrame++;
+        }
+
+        // Frames drawn so far: what Once (below) tells a held key from a new press by.
+        long  m_nFrame = 0;
+
+        void OnStop( void )  override  {
+        }
+    };
 }
 
-int main( int argc, char **argv )  {
+int main( int argc, char** argv )  {
 
     if( argc < 2 )  {
         fprintf( stderr, "usage: %s <this sample's directory> (e.g. samples/multiview/)\n", argv[0] );
@@ -88,7 +184,7 @@ int main( int argc, char **argv )  {
         return EXIT_FAILURE;
     }
 
-    SunLight :: Renderer :: TileMapRenderer  renderer( __DISPLAY_W, __DISPLAY_H, "Multiview test", __FRAMES_PER_SECOND, false );
+    SunLight :: Renderer :: TileMapRenderer  renderer( __DISPLAY_W, __DISPLAY_H, "Multiview test", __FRAMES_PER_SECOND );
 
     renderer.SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
     renderer.SetDrawFPS( true );
@@ -124,6 +220,22 @@ int main( int argc, char **argv )  {
     pCloseUp -> GetViewport().SetZoom( __CLOSEUP_ZOOM_POS );
     pCloseUp -> SetBackgroundColor( SunLight :: Base :: stColor { 30, 30, 60, 255 } );
 
+    // The overlay: exactly over the main view, the same map without its sky, invisible until key 6 fades it in.
+    CrossFade  crossFade;
+
+    crossFade.m_pView = renderer.CreateView( mainView.GetViewport().GetDimension2D() );
+    crossFade.m_pView -> FitToMap();
+    crossFade.m_pView -> ShowLayer( __SKY_LAYER_ID, false );
+    crossFade.m_pView -> SetBackgroundColor( SunLight :: Base :: stColor { 20, 20, 50, 255 } );
+    crossFade.m_pView -> SetOpacity( __OPACITY_HIDDEN );
+    renderer.AddTileMapListener( &crossFade );
+
+    KeyList  keyList( renderer );
+
+    keyList.m_pCloseUp = pCloseUp;
+    keyList.m_pOverlay = crossFade.m_pView;
+    renderer.AddTileMapListener( &keyList );
+
     // Sunny: ONE sprite, in world space. (The canvas is declared first so it is destroyed after the sprite that uses it.)
     SunLight :: Canvas :: TextureCanvas  canvas;
     SunLight :: Sprite :: Sprite         sunny;
@@ -135,7 +247,7 @@ int main( int argc, char **argv )  {
 
     canvas.SetTileSize( __SUNNY_SIZE );
     canvas.SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
-    canvas.SetDimension2D( SunLight :: TileMap :: stDimension2D { { 0, 0 }, { __SUNNY_SIZE, __SUNNY_SIZE } } );
+    canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { __SUNNY_SIZE, __SUNNY_SIZE } } );
     sunny.AddTextureSequence( 0, &canvas, __SUNNY_ANIMATION_DELAY );
     sunny.SetActiveTextureSequence( 0 );
     sunny.SetVisible( true );
@@ -153,7 +265,7 @@ int main( int argc, char **argv )  {
      * the map point shown at the view's top-left.
      */
     auto  followSunny = [&]()  {
-        SunLight :: TileMap :: stDimension2D  &closeUpRect = pCloseUp -> GetViewport().GetDimension2D();
+        SunLight :: Base :: stDimension2D  &closeUpRect = pCloseUp -> GetViewport().GetDimension2D();
         float  fZoom  = pCloseUp -> GetViewport().GetZoomProperties().fZoomFactor;
         int    nVisW  = ( int ) ( closeUpRect.size.nWidth  / fZoom );      // map pixels visible in the close-up
         int    nVisH  = ( int ) ( closeUpRect.size.nHeight / fZoom );
@@ -163,12 +275,21 @@ int main( int argc, char **argv )  {
 
         pCloseUp -> GetCameraPosition( nCamX, nCamY );
 
-        if( nSunnyX - nCamX < __FOLLOW_MARGIN )
+        // Zoomed in far enough, the close-up shows less than Sunny and a margin on each side
+        // (__SUNNY_SIZE + 2 x __FOLLOW_MARGIN map pixels, a zoom of about 3.44 for this 300 px view): no
+        // camera keeps both margins, and the two rules below would move it back and forth on every call -
+        // Sunny trembled while a zoom key was held. Sunny is centred on that axis instead; at exactly that
+        // size the margin rules centre her too, so the two cases meet without a jump.
+        if( nVisW < __SUNNY_SIZE + ( 2 * __FOLLOW_MARGIN ) )
+            nCamX = nSunnyX + ( ( __SUNNY_SIZE - nVisW ) / 2 );
+        else if( nSunnyX - nCamX < __FOLLOW_MARGIN )
             nCamX = nSunnyX - __FOLLOW_MARGIN;
         else if( nSunnyX + __SUNNY_SIZE - nCamX > nVisW - __FOLLOW_MARGIN )
             nCamX = nSunnyX + __SUNNY_SIZE + __FOLLOW_MARGIN - nVisW;
 
-        if( nSunnyY - nCamY < __FOLLOW_MARGIN )
+        if( nVisH < __SUNNY_SIZE + ( 2 * __FOLLOW_MARGIN ) )
+            nCamY = nSunnyY + ( ( __SUNNY_SIZE - nVisH ) / 2 );
+        else if( nSunnyY - nCamY < __FOLLOW_MARGIN )
             nCamY = nSunnyY - __FOLLOW_MARGIN;
         else if( nSunnyY + __SUNNY_SIZE - nCamY > nVisH - __FOLLOW_MARGIN )
             nCamY = nSunnyY + __SUNNY_SIZE + __FOLLOW_MARGIN - nVisH;
@@ -180,7 +301,7 @@ int main( int argc, char **argv )  {
     };
 
     auto  moveSunny = [&]( int nDX, int nDY )  {
-        SunLight :: TileMap :: stDimension2D  &dim = sunny.GetDimension2D();
+        SunLight :: Base :: stDimension2D  &dim = sunny.GetDimension2D();
 
         dim.pos.x = std :: max( 0, std :: min( dim.pos.x + nDX, nMapWidth  - __SUNNY_SIZE ) );
         dim.pos.y = std :: max( 0, std :: min( dim.pos.y + nDY, nMapHeight - __SUNNY_SIZE ) );
@@ -188,6 +309,23 @@ int main( int argc, char **argv )  {
     };
 
     typedef SunLight :: Input :: ControllerType  Controller;
+
+    /*
+     * This renderer dispatches keys in ACTIVE mode (SetViewControlMode above): a key's handler runs on EVERY frame
+     * the key is down, which walking and zooming want. A toggle must not: a press lasting a few frames flipped it
+     * a few times, so it blinked and ended wherever the last frame left it. Once() runs its action only when the
+     * key was not down on the frame before (the handler runs before the listeners' OnUpdate, which counts frames).
+     */
+    auto  Once = [&keyList]( std :: function<void( void )> action )  {
+        std :: shared_ptr<long>  pLastFrame = std :: make_shared<long>( -2 );
+
+        return [&keyList, action, pLastFrame]()  {
+            if( keyList.m_nFrame != *pLastFrame + 1 )
+                action();
+
+            *pLastFrame = keyList.m_nFrame;
+        };
+    };
 
     auto  bind = [&renderer]( SunLight :: Input :: KeyboardKey key, std :: function<void( void )> action )  {
         renderer.SetUserKeyEventHandler( key, [action]( Controller, int ) { action(); } );
@@ -207,13 +345,33 @@ int main( int argc, char **argv )  {
     bind( SunLight :: Input :: KEY_PAGE_UP,   [&]() { pCloseUp -> ZoomOut();  followSunny(); } );
     bind( SunLight :: Input :: KEY_PAGE_DOWN, [&]() { pCloseUp -> ZoomIn();   followSunny(); } );
 
-    // 1 / 2: show or hide the minimap / the close-up. 3: mask the "sky" layer (id 1) out of the MAIN view.
-    bind( SunLight :: Input :: KEY_ONE,   [&]() { pMinimap -> SetVisible( !pMinimap -> GetVisible() ); } );
-    bind( SunLight :: Input :: KEY_TWO,   [&]() { pCloseUp -> SetVisible( !pCloseUp -> GetVisible() ); } );
-    bind( SunLight :: Input :: KEY_THREE, [&]() { mainView.ShowLayer( 1, !mainView.IsLayerShown( 1 ) ); } );
+    // + / - / =: zoom the close-up in / out / back to its preferred zoom, on the keyboard and on the keypad -
+    // the same keys in every sample that zooms (samples/shared/zoomkeys.h). Its camera then re-follows Sunny.
+    Samples :: InstallZoomKeys( renderer,
+                                [&]() { pCloseUp -> ZoomIn();    followSunny(); },
+                                [&]() { pCloseUp -> ZoomOut();   followSunny(); },
+                                [&]() { pCloseUp -> ResetZoom(); followSunny(); } );
 
-    // 4: bring the minimap in front of / behind the main view.
-    bind( SunLight :: Input :: KEY_FOUR,  [&]() { pMinimap -> SetDrawOrder( pMinimap -> GetDrawOrder() >= 0 ? -1 : pMinimap -> GetId() ); } );
+    // 1 / 2: show or hide the minimap / the close-up. 3: mask the "sky" layer (id 1) out of the MAIN view.
+    bind( SunLight :: Input :: KEY_ONE,   Once( [&]() { pMinimap -> SetVisible( !pMinimap -> GetVisible() ); } ) );
+    bind( SunLight :: Input :: KEY_TWO,   Once( [&]() { pCloseUp -> SetVisible( !pCloseUp -> GetVisible() ); } ) );
+    bind( SunLight :: Input :: KEY_THREE, Once( [&]() { mainView.ShowLayer( __SKY_LAYER_ID, !mainView.IsLayerShown( __SKY_LAYER_ID ) ); } ) );
+
+    // 4: send the overlay behind / bring it in front of the main view (draw order). Faded in (key 6), it disappears
+    // behind the main view, which covers it whole, and comes back in front.
+    bind( SunLight :: Input :: KEY_FOUR,  Once( [&]() {
+        crossFade.m_pView -> SetDrawOrder( crossFade.m_pView -> GetDrawOrder() >= 0 ? -1 : crossFade.m_pView -> GetId() );
+    } ) );
+
+    // 5: the close-up's opacity, 1 -> 0.5 -> 0 -> 1 (at 0 it shows nothing, but Sunny keeps animating in it).
+    bind( SunLight :: Input :: KEY_FIVE,  Once( [&]() {
+        float  fNext = pCloseUp -> GetOpacity() - __OPACITY_STEP;
+
+        pCloseUp -> SetOpacity( ( fNext < __OPACITY_HIDDEN ) ? __OPACITY_SHOWN : fNext );
+    } ) );
+
+    // 6: cross-fade between the main view and the overlay over it, one way then the other.
+    bind( SunLight :: Input :: KEY_SIX,   Once( [&]() { crossFade.Toggle(); } ) );
 
     // Sunny starts somewhere in the map; the close-up starts at the map's origin and then follows.
     sunny.GetDimension2D().pos.x = 128;
@@ -223,6 +381,8 @@ int main( int argc, char **argv )  {
 
     renderer.Run();
     renderer.Stop();
+    renderer.RemoveTileMapListener( &crossFade );
+    renderer.RemoveTileMapListener( &keyList );
 
     return EXIT_SUCCESS;
 }

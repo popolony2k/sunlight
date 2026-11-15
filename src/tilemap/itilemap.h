@@ -22,13 +22,15 @@
 #define __ITILEMAP_H__
 
 #include <memory>
+#include <vector>
 #include "sprite/sprite.h"
 #include "tilemap/iview.h"
+#include "tilemap/itilesource.h"
 #include "input/iinputhandler.h"
 #include "collision/icollisionmanager.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace TileMap  {
 
         /**
@@ -38,7 +40,7 @@ namespace SunLight {
          * Screen-space drawing/window-state primitives (text, filled
          * rectangles, screen fade, fullscreen/resizeable/stretch-to-fill
          * toggles, window title, the fixed design-resolution getters)
-         * used to live here too - moved out to @link
+         * used to live here too - moved out to @ref
          * SunLight::DrawSurface::IDrawSurface once it became clear every
          * one of them was a pure IEngine pass-through with zero access to
          * map data, kept here only because ITileMap was the sole public
@@ -46,7 +48,7 @@ namespace SunLight {
          * the one concrete class implementing ITileMap, now also
          * implements IDrawSurface directly.
          */
-        class ITileMap : public SunLight :: Canvas :: BaseCanvas {
+        class ITileMap : public SunLight :: Canvas :: BaseCanvas, public SunLight :: TileMap :: ITileSource  {
 
             public:
 
@@ -109,7 +111,7 @@ namespace SunLight {
             /**
              * @brief Get the Input Handler object
              * 
-             * @return S\The reference to IInputHandler object;
+             * @return The reference to IInputHandler object;
              */
             virtual SunLight :: Input :: IInputHandler& GetInputHandler( void ) = 0;
 
@@ -140,7 +142,7 @@ namespace SunLight {
              * the renderer; an empty pointer means a backend that could not
              * create the view;
              */
-            virtual std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: TileMap :: stDimension2D& rect ) = 0;
+            virtual std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: Base :: stDimension2D& rect ) = 0;
 
             /**
              * @brief Get a view by id: 0 is the default view. Same shared
@@ -167,13 +169,45 @@ namespace SunLight {
              * already removed view or an empty pointer removes nothing).
              * @return true if it was removed;
              */
-            virtual bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView ) = 0;
+            virtual bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView>& pView ) = 0;
 
             /**
              * @brief The number of views, the default view included (so at
              * least 1).
              */
             virtual int GetViewCount( void ) = 0;
+
+            /**
+             * @brief The DEFAULT world (I19c of the master plan, see @see IWorld): the one this
+             * interface's single-map calls act on (LoadMap, AddSprite, GetTile, GetCollisionManager,
+             * ...) and the default view shows. Always exists, id 0, never removed.
+             */
+            virtual std :: shared_ptr<SunLight :: TileMap :: IWorld> GetDefaultWorld( void ) = 0;
+
+            /**
+             * @brief Create a new, empty world: no map, no sprites, no collision rules. Show it with
+             * IView::SetWorld on a view made by CreateView; fill it with IWorld::LoadMap and
+             * IWorld::AddSprite. The renderer keeps its own reference until @see RemoveWorld.
+             * @return The world (its id, always > 0, is IWorld::GetId);
+             */
+            virtual std :: shared_ptr<SunLight :: TileMap :: IWorld> CreateWorld( void ) = 0;
+
+            /**
+             * @brief Remove a world made by @see CreateWorld: its map is freed, its sprites are
+             * DETACHED (registrations and colliders go, the sprites are the game's: neither
+             * destroyed nor emptied, and no longer parented to the renderer), every view showing it
+             * goes back to the default world, and a handle still held becomes inert
+             * (IWorld::IsRemoved). The default world is never removed.
+             * @param pWorld The world;
+             * @return false for the default world, an empty or already removed one, or another
+             * renderer's;
+             */
+            virtual bool RemoveWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) = 0;
+
+            /**
+             * @brief The number of worlds, the default world included (so at least 1).
+             */
+            virtual int GetWorldCount( void ) = 0;
 
             /**
              * @brief Reset zoom to it's default state.
@@ -196,22 +230,22 @@ namespace SunLight {
             virtual void ResetCamera( void ) = 0;
 
             /**
-             * Move view camera up.
+             * Move view camera up: one scroll step, or less when less is left, until the map's bottom edge reaches the viewport's.
              */
             virtual void MoveCameraUp( void ) = 0;
 
             /**
-             * Move view camera down.
+             * Move view camera down: one scroll step, or less when less is left, back to the origin (the map's unscrolled alignment).
              */
             virtual void MoveCameraDown( void ) = 0;
 
             /**
-             * Move view camera left.
+             * Move view camera left: one scroll step, or less when less is left, until the map's right edge reaches the viewport's.
              */
             virtual void MoveCameraLeft( void ) = 0;
 
             /**
-             * Move view camera right.
+             * Move view camera right: one scroll step, or less when less is left, back to the origin (the map's unscrolled alignment).
              */
             virtual void MoveCameraRight( void ) = 0;
 
@@ -247,67 +281,72 @@ namespace SunLight {
              * @param nY Receives the world-space y coordinate (pixels)
              * currently shown at the viewport's top edge.
              */
-            virtual void GetCameraPosition( int &nX, int &nY ) = 0;
+            virtual void GetCameraPosition( int& nX, int& nY ) = 0;
 
             /**
              * Set layer parameters.
              * @param nLayerId The layer id to set layer parameters;
              * @param layer reference to layer parameters structure to set;
              */
-            virtual bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer ) = 0;
+            virtual bool SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
              * Set layer parameters.
              * @param szLayerName The layer name to set layer parameters;
              * @param layer reference to layer parameters structure to set;
              */
-            virtual bool SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer ) = 0;
+            virtual bool SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
 
-            /**
-             * Get the layer parameters.
-             * @param nLayerId The layer id to get layer parameters;
-             * @param layer reference to layer parameters structure to get;
-             */
-            virtual bool GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer ) = 0;
+            // GetLayer( int, stLayer& ) is ITileSource's (I19c): a collision manager asks it. Brought
+            // into this scope, or the overloads below would hide it from a caller holding an ITileMap.
+            using SunLight :: TileMap :: ITileSource :: GetLayer;
 
             /**
              * Get the layer parameters.
              * @param szLayerName The layer name to get layer parameters;
              * @param layer reference to layer parameters structure to get;
              */
-            virtual bool GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer ) = 0;
+            virtual bool GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer ) = 0;
 
             /**
-             * Get a tile based row and column on specified map layer;
+             * Get a tile based row and column on specified map layer. The tile's dimension is its
+             * rectangle in MAP space - map pixels, where it is drawn on the map before any camera,
+             * zoom or viewport origin, with the layer's own offset (I7 of the master plan).
              * @param pos The tile position on layer map.
              * @param layer Reference to the layer whose tile will be
              * retrieved;
-             * @param tile reference to @link stTile object to receive
+             * @param tile reference to @ref stTile object to receive
              * tile information;
+             * @return Whether there is a tile there;
              */
             virtual bool GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
                                   const SunLight :: TileMap :: stLayer& layer,
                                   SunLight :: TileMap :: stTile& tile ) = 0;
 
+            // GetCollidingTiles is ITileSource's (I19c): a collision manager asks it.
+
             /**
-             * Get the tile position based on TileMap absolute coordinate passed as parameter.
-             * @param coord The TileMap absolute coordinate to translate to tile position;
-             * @param pos Reference to struct @link stTilePosition to receive the
-             * tile position based on world coordinate passed as parameter;
+             * Get the tile matrix cell under a MAP position (map pixels - no camera, zoom or viewport
+             * origin; I7 of the master plan). A view-relative sprite's map position is its own position
+             * minus the camera (see GetCameraPosition).
+             * @param coord The map position to translate to tile position;
+             * @param pos Reference to struct @ref SunLight::TileMap::stMatrixPosition to receive the
+             * tile position;
+             * @return Whether the position is on the map;
              */
-            virtual bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+            virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                               SunLight :: TileMap :: stMatrixPosition& pos ) = 0;
 
             /**
              * Get the current map information data.
-             * @param mapInfo Reference to the struct @link stMapInfo that will
+             * @param mapInfo Reference to the struct @ref stMapInfo that will
              * receive the map information.
              */
             virtual bool GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo ) = 0;
 
             /**
              * @brief Look up a level-design-authored object (a Tiled
-             * <object> placed inside any <objectgroup> layer, eg. a
+             * `<object>` placed inside any `<objectgroup>` layer, eg. a
              * trigger/marker) by name.
              *
              * @param szObjectName The object's name, as set in the map
@@ -317,7 +356,31 @@ namespace SunLight {
              * @return true if an object with this name was found (searched
              * across every object-group layer), false otherwise.
              */
-            virtual bool GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object ) = 0;
+            virtual bool GetObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object ) = 0;
+
+            /**
+             * @brief The gid a tile layer's cell draws now (I11 of the master plan): for an
+             * animated tile, the gid of the frame its animation shows at this moment; for a static
+             * one, its own gid. Flip bits removed. Only reads - asking never changes what is drawn
+             * (a tile's animation is a function of the time since the map loaded, see
+             * MapData::FrameGidOf).
+             * @param nLayerId The tile layer's id;
+             * @param pos The cell;
+             * @param nGID Receives the gid;
+             * @return false when no map is loaded, there is no layer with that id, it is not a tile
+             * layer, the cell is off the layer, or the cell is empty;
+             */
+            virtual bool GetTileFrame( int nLayerId, const SunLight :: TileMap :: stMatrixPosition& pos, unsigned int& nGID ) = 0;
+
+            /**
+             * @brief The same for a tile object (Tiled's tile objects), found by name as
+             * @ref GetObjectByName finds it: the gid it draws now, flip bits removed.
+             * @param szObjectName The object's name;
+             * @param nGID Receives the gid;
+             * @return false when no map is loaded, there is no object with that name, or it is not
+             * a tile object;
+             */
+            virtual bool GetObjectTileFrame( const char* szObjectName, unsigned int& nGID ) = 0;
 
             /**
              * Return the reference to internal renderer collision manager.
@@ -354,10 +417,10 @@ namespace SunLight {
 
             /**
              * Load the specified map to renderer.
-             * @param szTmxMapFile Renderer map file;
-             * @param alignment Map alignment according @link MapAlignment enumerator;
+             * @param szTxMapFile Renderer map file;
+             * @param alignment Map alignment according @ref MapAlignment enumerator;
              */
-            virtual bool LoadMap( const char *szTxMapFile, 
+            virtual bool LoadMap( const char* szTxMapFile, 
                                   SunLight :: TileMap :: ITileMap :: MapAlignment alignment = SunLight :: TileMap :: ITileMap :: MapAlignment :: MAP_ALIGNMENT_CENTER ) = 0;
 
             /**

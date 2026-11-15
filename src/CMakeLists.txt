@@ -18,7 +18,7 @@
 
 cmake_minimum_required (VERSION 3.24)
 
-project (sunlight VERSION 0.31.0)
+project (sunlight VERSION 0.39.0)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -37,6 +37,21 @@ set(SUNLIGHT_DEFAULT_BACKEND_ENGINE 1)
 # 1 - PHYSFS
 #
 set(SUNLIGHT_DEFAULT_BACKEND_FILESYSTEM 1)
+
+#
+# Setup default gamepad haptics (rumble) backend (DEFAULT_HAPTICS_ENGINE
+# preprocessor) - F7b of the master plan
+# 1 - SDL2
+#
+set(SUNLIGHT_DEFAULT_BACKEND_HAPTICS 1)
+
+#
+# Setup default gamepad input backend (DEFAULT_GAMEPAD_ENGINE preprocessor) -
+# I25 of the master plan
+# 1 - SDL2, with raylib/GLFW as the fallback when SDL cannot start
+# 2 - raylib/GLFW
+#
+set(SUNLIGHT_DEFAULT_BACKEND_GAMEPAD 1)
 
 if(NOT USE_LOCAL_LIBXML2)
     ####################################################################
@@ -63,6 +78,19 @@ FetchContent_Declare(tmx
                      GIT_REPOSITORY https://github.com/baylej/tmx.git
                      GIT_TAG tmx_1.10.1)
 FetchContent_MakeAvailable(tmx)
+
+####################################################################
+# nlohmann/json (I19f of the master plan: Tiled .world files are JSON,
+# which libtmx does not read). Declared EXACTLY as Scarab declares it -
+# same FetchContent name and tag, same target - so in Scarab's build,
+# where both projects declare it, FetchContent's first declaration wins
+# and there is one copy. Header-only, linked PRIVATE below: only
+# worldfile.cpp includes it, never a public header.
+####################################################################
+FetchContent_Declare(nlohmann_json
+                     GIT_REPOSITORY https://github.com/nlohmann/json.git
+                     GIT_TAG master)
+FetchContent_MakeAvailable(nlohmann_json)
 
 ####################################################################
 # RayLib
@@ -111,6 +139,30 @@ FetchContent_Declare(physfs
                      GIT_REPOSITORY https://github.com/icculus/physfs.git
                      GIT_TAG release-3.2.0)
 FetchContent_MakeAvailable(physfs)
+
+####################################################################
+# SDL2 (F7b: a real gamepad rumble backend - raylib's own GLFW desktop
+# backend (rcore_desktop_glfw.c) has SetGamepadVibration() declared but
+# only as a stub that logs a warning and does nothing; GLFW itself has
+# no vibration API at all. SDL2's GameController API does, used here
+# ONLY for haptics - raylib/GLFW keep doing everything else (windowing,
+# rendering, button/axis polling) exactly as before. Static, so - like
+# PhysFS above - it links straight into libsunlight with no separate
+# runtime artifact to distribute; video/audio/render are turned off
+# since haptics only needs the joystick/game-controller/haptic
+# subsystems (confirmed buildable and sufficient without them).
+####################################################################
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+set(SDL_VIDEO OFF CACHE BOOL "" FORCE)
+set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+set(SDL_RENDER OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(sdl2
+                     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+                     GIT_TAG release-2.32.10)
+FetchContent_MakeAvailable(sdl2)
 
 # PhysFS's own CMakeLists.txt unconditionally forces CMAKE_SKIP_RPATH ON
 # (as a CACHE variable, with FORCE) on Clang/GCC "to avoid using -rpath" -
@@ -201,6 +253,8 @@ endif()
 
 add_definitions(-DDEFAULT_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_ENGINE})
 add_definitions(-DDEFAULT_FILESYSTEM=${SUNLIGHT_DEFAULT_BACKEND_FILESYSTEM})
+add_definitions(-DDEFAULT_HAPTICS_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_HAPTICS})
+add_definitions(-DDEFAULT_GAMEPAD_ENGINE=${SUNLIGHT_DEFAULT_BACKEND_GAMEPAD})
 
 add_library(sunlight ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 
@@ -218,7 +272,10 @@ find_package(ZLIB REQUIRED)
 include(FindLibXml2)
 find_package(LibXml2 REQUIRED)
 
-target_link_libraries(sunlight ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS} PhysFS::PhysFS-static)
+# Keyword form (CMake refuses to mix it with the plain form on one target): PUBLIC is what the plain
+# form meant for these, a shared library's link interface; nlohmann_json is PRIVATE (see above).
+target_link_libraries(sunlight PUBLIC ${CMAKE_THREAD_LIBS_INIT} raylib tmx LibXml2::LibXml2 ZLIB::ZLIB ${CMAKE_DL_LIBS} PhysFS::PhysFS-static SDL2::SDL2-static
+                               PRIVATE nlohmann_json)
 
 # Installation
 

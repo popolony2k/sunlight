@@ -35,7 +35,7 @@ namespace SunLight  {
              * @param bRealTimePacing true to hold the loop to the target FPS
              * in real time, false to run frames as fast as possible;
              */
-            NullWindow :: NullWindow( SunLight :: General :: VirtualClock &clock, bool bRealTimePacing ) :
+            NullWindow :: NullWindow( SunLight :: General :: VirtualClock& clock, bool bRealTimePacing ) :
                                       m_Clock( clock ),
                                       m_bRealTimePacing( bRealTimePacing )  {
             }
@@ -85,7 +85,7 @@ namespace SunLight  {
             void NullWindow :: SetExitKey( SunLight :: Input :: KeyboardKey )  {
             }
 
-            int NullWindow :: AddCloseHandler( const std :: function<void( void )> &handler )  {
+            int NullWindow :: AddCloseHandler( const std :: function<void( void )>& handler )  {
 
                 return m_CloseHandlers.Add( handler );
             }

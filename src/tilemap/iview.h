@@ -24,10 +24,12 @@
 #include <vector>
 #include "base/color.h"
 #include "base/viewport.h"
+#include <memory>
 #include "tilemap/tilemapdefs.h"
+#include "tilemap/iworld.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace TileMap  {
 
         /**
@@ -121,7 +123,7 @@ namespace SunLight {
              * top-left).
              */
             virtual void SetCameraPosition( int nX, int nY ) = 0;
-            virtual void GetCameraPosition( int &nX, int &nY ) = 0;
+            virtual void GetCameraPosition( int& nX, int& nY ) = 0;
 
             /**
              * @brief Set this view's scroll step size (see
@@ -143,7 +145,7 @@ namespace SunLight {
              * @param nStepWidth Output parameter receiving the horizontal step;
              * @param nStepHeight Output parameter receiving the vertical step;
              */
-            virtual void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) = 0;
+            virtual void GetScrollStepSize( int& nStepWidth, int& nStepHeight ) = 0;
 
             /**
              * @brief Whether this view has been removed from its renderer
@@ -175,6 +177,52 @@ namespace SunLight {
             virtual int GetDrawOrder( void ) = 0;
 
             /**
+             * @brief The WORLD the view shows (I19c of the master plan, see @see IWorld): its map,
+             * the sprites on its layers. A view made by CreateView shows the default world until
+             * told otherwise; the DEFAULT view always shows the default world - so the renderer's own
+             * single-map calls and its own camera calls always agree on what they act on - and
+             * refuses another (a whole screen of another world is an extra view over it; the
+             * default view can be hidden, SetVisible). The view's camera, zoom, scroll limits and
+             * FitToMap then work on that world's map; the camera is not moved (FitToMap or
+             * SetCameraPosition place it), and a scroll step of -1 is resolved for the new map.
+             * When the world is removed (ITileMap::RemoveWorld) the view goes back to the default world.
+             * @param pWorld A world of this view's renderer, not removed;
+             * @return false (nothing changed) for an empty or removed world, another renderer's
+             * world, a removed view, or the default view given any world but the default one - true
+             * for the default view given the default world, which changes nothing (I21: so every
+             * view's world can be set in one loop);
+             */
+            virtual bool SetWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) = 0;
+
+            /**
+             * @brief The world the view shows: the default world unless SetWorld chose another.
+             * A removed view still answers with the last one.
+             */
+            virtual std :: shared_ptr<SunLight :: TileMap :: IWorld> GetWorld( void ) = 0;
+
+            /**
+             * @brief The view's OPACITY (I19a of the master plan): 1 (the
+             * default) draws the view as always; below 1 the view is drawn
+             * whole into a render target of its own and that image is laid
+             * over what is under the view at this opacity - a cross-fade is
+             * two views over the same rectangle, the upper one going from 0
+             * to 1; a menu over a map is an upper view at any opacity. The
+             * view's FINISHED image is faded, not each thing in it: at 0.5 a
+             * wall still hides the floor behind it, and the view's own
+             * background (@see SetClearBackground) fades with it. Blend
+             * modes used inside the view (sprites', a game's) combine with
+             * what the view itself drew, not with what is under it. At 0
+             * nothing is shown, but the view is still drawn into its target,
+             * so its sprites keep animating exactly as at any other opacity.
+             * The default view fades over the frame's background color.
+             *
+             * Clamped to 0..1; a NaN leaves the opacity as it was. The view's
+             * own data: it works on a removed view too.
+             */
+            virtual void SetOpacity( float fOpacity ) = 0;
+            virtual float GetOpacity( void ) = 0;
+
+            /**
              * @brief Whether the view's rectangle is filled with a
              * background color before its layers are drawn, and with which.
              * For a view made by CreateView this is what stops the scene
@@ -191,7 +239,7 @@ namespace SunLight {
              */
             virtual void SetClearBackground( bool bClear ) = 0;
             virtual bool GetClearBackground( void ) = 0;
-            virtual void SetBackgroundColor( const SunLight :: Base :: stColor &color ) = 0;
+            virtual void SetBackgroundColor( const SunLight :: Base :: stColor& color ) = 0;
 
             /**
              * @brief Go back to the default background color: the loaded
@@ -223,13 +271,13 @@ namespace SunLight {
              * @return false (and nothing changed) when no layer of the loaded
              * map has that name, or no map is loaded.
              */
-            virtual bool ShowLayer( const char *szLayerName, bool bShow ) = 0;
+            virtual bool ShowLayer( const char* szLayerName, bool bShow ) = 0;
 
             /**
              * @brief Show ONLY the given layers (by id); every other layer -
              * including any added to the map later - is masked out.
              */
-            virtual void ShowOnlyLayers( const std :: vector<int> &layerIds ) = 0;
+            virtual void ShowOnlyLayers( const std :: vector<int>& layerIds ) = 0;
 
             /**
              * @brief Clear the mask: every layer is shown again.
@@ -257,15 +305,16 @@ namespace SunLight {
             virtual bool FitToMap( void ) = 0;
 
             /**
-             * @brief Convert a coordinate in THIS view (screen space,
-             * through its viewport, zoom and camera) to the tile matrix
-             * position under it (see ITileMap::TileMapToTileMatrix, which
-             * does the same for the default view).
+             * @brief The tile matrix position under a MAP position: exactly
+             * ITileMap::TileMapToTileMatrix (I7 of the master plan). A map
+             * position has no view, so every view answers the same; this used
+             * to take a coordinate through THIS view's viewport origin and
+             * camera.
              */
-            virtual bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+            virtual bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                               SunLight :: TileMap :: stMatrixPosition& pos ) = 0;
         };
     }
 }
 
-#endif  /* __IVIEW_H__ */
+#endif /* __IVIEW_H__ */

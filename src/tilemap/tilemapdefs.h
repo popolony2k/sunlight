@@ -23,34 +23,12 @@
 
 #include <tmx.h>
 #include <string>
+#include "base/color.h"
+#include "base/primitives.h"
 
 
 namespace SunLight  {
     namespace TileMap  {
-        /**
-         * 2D coordinate structs.
-         */
-        struct stCoordinate2D  {
-            int            x;
-            int            y;
-        };
-
-        /**
-         * 2D size struct.
-         */
-        struct stSize2D  {
-            int            nWidth;
-            int            nHeight;
-        };
-
-        /**
-         * 2D dimension struct;
-         */
-        struct stDimension2D  {
-            stCoordinate2D pos;
-            stSize2D       size;
-        };
-
         /**
          * Matrix position struct.
          */
@@ -60,13 +38,33 @@ namespace SunLight  {
         };
 
         /**
-         * Layer definition struct.
+         * Layer definition struct. fParallaxX/fParallaxY (L1 of the master plan) mirror the
+         * TMX layer's own parallaxx/parallaxy (1.0 = no parallax, today's exact behavior) -
+         * appended at the end, not inserted among the existing fields, so positional
+         * initializers (eg. `stLayer{ true, 1.0f, {0,0}, nullptr }`) keep compiling.
+         *
+         * fOpacity (I9 of the master plan) is Tiled's and libtmx's own opacity, 0 (transparent)
+         * to 1 (opaque); SetLayer clamps it. It replaced `int nOpacity` (0..255) in the same
+         * place, so an old positional initializer still compiles with a new meaning:
+         * `stLayer{ true, 128, ... }` is now opacity 128, clamped to opaque - write 0.5f.
+         * SetLayer writes a float field (opacity, parallax) only when it differs from what
+         * GetLayer reads, so an unchanged write-back leaves the map's value exactly as authored.
          */
         struct stLayer  {
             bool           bVisible;
-            int            nOpacity;
-            stCoordinate2D offset;
+            float          fOpacity;
+            Base :: stCoordinate2D offset;
             tmx_layer      *pLayer;
+            float          fParallaxX = 1.0f;
+            float          fParallaxY = 1.0f;
+
+            // I8 of the master plan: the layer's Tiled "tintcolor", read and written by GetLayer/SetLayer
+            // - opaque white (no tint) when the map declares none. Its RGB multiplies into every tile and
+            // image the layer draws (and, for a group, into everything inside it); its alpha is kept as
+            // authored but ignored for drawing - opacity stays the only alpha control. Appended, like the
+            // parallax factors, so positional initializers keep compiling; a stLayer built by hand rather
+            // than read with GetLayer therefore carries white, and SetLayer writes it.
+            Base :: stColor tint { 0xFF, 0xFF, 0xFF, 0xFF };
         };
 
         /**
@@ -77,7 +75,7 @@ namespace SunLight  {
                                     * a tile at map scope.
                                     * https://libtmx.readthedocs.io/en/latest/glossary.html#term-gid
                                     */
-            stDimension2D  dimension; // Position and size based on layer
+            Base :: stDimension2D  dimension; // Position and size based on layer
             tmx_tile       *pTile;
         };
 
@@ -85,19 +83,19 @@ namespace SunLight  {
          * Map definition struct.
          */
         struct stMapInfo  {
-            stSize2D       mapSize;
-            stSize2D       tileSize;
+            Base :: stSize2D       mapSize;
+            Base :: stSize2D       tileSize;
             tmx_map        *pMap;
         };
 
         /**
-         * A single Tiled object (<object> element inside an <objectgroup>
+         * A single Tiled object (`<object>` element inside an `<objectgroup>`
          * layer), eg. a level-design-authored marker/trigger placed in the
          * map editor - world-space position/size, in pixels.
          */
         struct stObject  {
             std :: string  strName;
-            stDimension2D  dimension;
+            Base :: stDimension2D  dimension;
         };
     }
 }

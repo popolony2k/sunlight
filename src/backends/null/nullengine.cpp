@@ -21,6 +21,7 @@
 #include "backends/null/nullengine.h"
 #include "backends/null/imageheader.h"
 #include "filesystem/filesystemfactory.h"
+#include "filesystem/filepath.h"
 #include <cstdint>
 #include <vector>
 
@@ -65,6 +66,27 @@ namespace SunLight  {
             };
 
             /**
+             * @brief A texture's real size (I24 of the master plan): the NullSurface LoadTexture made
+             * holds the size it read from the image's own header (or a render target's size).
+             * @param hTexture The texture;
+             * @param nWidth Receives its width;
+             * @param nHeight Receives its height;
+             * @return false for an empty handle;
+             */
+            bool NullEngine :: GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight )  {
+
+                if( !hTexture )
+                    return false;
+
+                const NullSurface  *pSurface = reinterpret_cast<const NullSurface*>( hTexture );
+
+                nWidth  = pSurface -> nWidth;
+                nHeight = pSurface -> nHeight;
+
+                return true;
+            }
+
+            /**
              * @brief "Load" a texture: read the file through
              * SunLight::FileSystem (same virtual-path routing the real
              * backend's loader hook applies), and take its size from the
@@ -75,12 +97,12 @@ namespace SunLight  {
              * @return A handle, or nullptr (with 0x0) if the file can't be
              * read or isn't a recognised PNG/JPEG;
              */
-            SunLight :: Base :: TextureHandle NullEngine :: LoadTexture( const char *szFileName,
+            SunLight :: Base :: TextureHandle NullEngine :: LoadTexture( const char* szFileName,
                                                                          int& nWidth,
                                                                          int& nHeight )  {
 
                 std :: vector<unsigned char>  data;
-                std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
+                std :: string                 strVirtualPath = SunLight :: FileSystem :: FilePath :: ToVirtualPath( szFileName );
                 int                           nReadWidth  = 0;
                 int                           nReadHeight = 0;
 
@@ -107,12 +129,6 @@ namespace SunLight  {
                 delete reinterpret_cast<NullSurface*>( hTexture );
             }
 
-            /**
-             * @brief Drawing is a no-op.
-             */
-            void NullEngine :: SetPixel( int, int, SunLight :: Base :: stColor )  {
-            }
-
             void NullEngine :: DrawTexture( SunLight :: Base :: TextureHandle, int, int, SunLight :: Base :: stColor )  {
             }
 
@@ -128,6 +144,12 @@ namespace SunLight  {
             void NullEngine :: DrawFilledRectangle( int, int, int, int, SunLight :: Base :: stColor )  {
             }
 
+            void NullEngine :: DrawLine( float, float, float, float, float, SunLight :: Base :: stColor )  {
+            }
+
+            void NullEngine :: DrawEllipseOutline( float, float, float, float, SunLight :: Base :: stColor )  {
+            }
+
             void NullEngine :: DrawText( const char *, int, int, int, SunLight :: Base :: stColor )  {
             }
 
@@ -137,10 +159,58 @@ namespace SunLight  {
             void NullEngine :: DrawFPS( int, int )  {
             }
 
+            /**
+             * @brief Nothing is drawn into it; drawing "into" it starts in BLEND_MODE_NORMAL, as
+             * IEngine::BeginRenderTarget says.
+             */
             void NullEngine :: BeginRenderTarget( SunLight :: Base :: TextureHandle )  {
+
+                m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
             }
 
+            /**
+             * @brief Nothing is drawn into a target, so there is nothing to go back to: calls nest
+             * (IEngine::EndRenderTarget) with no state to keep.
+             */
             void NullEngine :: EndRenderTarget( void )  {
+            }
+
+            /**
+             * @brief Nothing is drawn, so nothing is composited (I19a), and the blend mode stays as
+             * it was, as IEngine::CompositeRenderTarget says.
+             */
+            void NullEngine :: CompositeRenderTarget( SunLight :: Base :: TextureHandle,
+                                                      const SunLight :: Base :: stRectangle&,
+                                                      float )  {
+            }
+
+            /**
+             * @brief Nothing is drawn, so nothing blends: the mode is only kept, for GetBlendMode.
+             * @param mode The mode to keep;
+             */
+            void NullEngine :: SetBlendMode( SunLight :: Base :: BlendMode mode )  {
+
+                m_BlendMode = mode;
+            }
+
+            /**
+             * @brief The mode the last SetBlendMode kept, or BLEND_MODE_NORMAL after BeginRenderTarget.
+             * @return The kept mode;
+             */
+            SunLight :: Base :: BlendMode NullEngine :: GetBlendMode( void )  {
+
+                return m_BlendMode;
+            }
+
+            void NullEngine :: DrawTextureRotated( SunLight :: Base :: TextureHandle,
+                                                   SunLight :: Base :: stRectangle,
+                                                   SunLight :: Base :: stRectangle,
+                                                   SunLight :: Base :: stVector2D,
+                                                   float,
+                                                   SunLight :: Base :: stColor )  {
+            }
+
+            void NullEngine :: DrawTextRotated( const char *, int, int, int, float, SunLight :: Base :: stColor )  {
             }
 
             void NullEngine :: DrawTextureScaled( SunLight :: Base :: TextureHandle,
@@ -149,17 +219,84 @@ namespace SunLight  {
                                                   SunLight :: Base :: stColor )  {
             }
 
-            /**
-             * @brief Succeeds iff the font file exists (nothing is loaded -
-             * MeasureText's metric doesn't depend on the font).
-             */
-            bool NullEngine :: SetFont( const char *szFilePath )  {
+            static int NullTextWidth( const char* szText, int nFontSize );
 
-                if( ( szFilePath == nullptr ) || ( szFilePath[0] == '\0' ) )
+            /**
+             * @brief A font LoadFont returned. It only remembers that its file
+             * existed: the null backend's metrics do not depend on the font, and
+             * nothing is drawn, so there is nothing else to hold.
+             */
+            class NullFont : public SunLight :: Font :: IFont  {
+
+                public:
+
+                bool IsValid( void ) const override  {
+                    return true;
+                }
+
+                int MeasureText( const char* szText, int nFontSize ) override  {
+                    return NullTextWidth( szText, nFontSize );
+                }
+
+                void DrawText( const char *, int, int, int, SunLight :: Base :: stColor ) override  {
+                }
+
+                void DrawTextRotated( const char *, int, int, int, float, SunLight :: Base :: stColor ) override  {
+                }
+            };
+
+            /**
+             * @brief Succeeds iff the font file exists (see @see IEngine::LoadFont): nothing is
+             * loaded, since the metrics do not depend on the font.
+             * @param szFilePath The font file;
+             * @return A NullFont; nullptr if there is no such file;
+             */
+            std :: shared_ptr<SunLight :: Font :: IFont> NullEngine :: LoadFont( const char* szFilePath )  {
+
+                if( ( szFilePath == nullptr ) || ( szFilePath[0] == '\0' ) ||
+                    !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().Exists(
+                         SunLight :: FileSystem :: FilePath :: ToVirtualPath( szFilePath ) ) )
+                    return nullptr;
+
+                return std :: make_shared<NullFont>();
+            }
+
+            /**
+             * @brief Keep the selected font, as the real engine would (see
+             * @see IEngine::SetFont): only a NullFont, this engine's own, is taken.
+             * @param pFont A font from LoadFont, or nullptr for the built-in font;
+             * @return Whether pFont is now the active font;
+             */
+            bool NullEngine :: SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont )  {
+
+                if( pFont && ( dynamic_cast<NullFont*>( pFont.get() ) == nullptr ) )
                     return false;
 
-                return SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().Exists(
-                           SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFilePath ) );
+                m_pActiveFont = std :: move( pFont );
+
+                return true;
+            }
+
+            /**
+             * @brief The font SetFont kept (see @see IEngine::GetFont).
+             * @return The active font; nullptr for the built-in one;
+             */
+            std :: shared_ptr<SunLight :: Font :: IFont> NullEngine :: GetFont( void )  {
+
+                return m_pActiveFont;
+            }
+
+            /**
+             * @brief No-op: the null backend draws nothing, so there is no
+             * output to clip (see @see IEngine::BeginClip).
+             */
+            void NullEngine :: BeginClip( SunLight :: Base :: stRectangle )  {
+            }
+
+            /**
+             * @brief No-op counterpart of BeginClip.
+             */
+            void NullEngine :: EndClip( void )  {
             }
 
             /**
@@ -167,22 +304,31 @@ namespace SunLight  {
              * (UTF-8 code points, not bytes) x nFontSize / 2. Not
              * pixel-accurate to any real font - it exists so layout code
              * that positions things from this value behaves identically on
-             * every machine.
+             * every machine. The font is not consulted (see LoadFont).
              */
-            int NullEngine :: MeasureText( const char *szText, int nFontSize )  {
+            static int NullTextWidth( const char* szText, int nFontSize )  {
 
                 if( szText == nullptr )
                     return 0;
 
                 long  nCharacters = 0;
 
-                for( const unsigned char *p = ( const unsigned char * ) szText; *p; p++ )  {
+                for( const unsigned char* p = ( const unsigned char * ) szText; *p; p++ )  {
                     // Count every byte that isn't a UTF-8 continuation (10xxxxxx).
                     if( ( *p & 0xC0 ) != 0x80 )
                         nCharacters++;
                 }
 
                 return ( int ) ( ( nCharacters * ( long ) nFontSize ) / 2 );
+            }
+
+            /**
+             * @brief The active font's width for a line - the same fixed metric
+             * the loaded fonts use (see @see IEngine::MeasureText).
+             */
+            int NullEngine :: MeasureText( const char* szText, int nFontSize )  {
+
+                return NullTextWidth( szText, nFontSize );
             }
 
             /**

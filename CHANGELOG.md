@@ -1,536 +1,560 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project are documented in this file. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-This project has not yet made a tagged release; version numbers will start
-once `0.1.0` ships.
-
-This changelog starts from the point the project adopted the practices
-described in `CLAUDE.md` (backend abstraction, CI, unit tests). Earlier
-history (2021–2023, the project's early prototyping phase) isn't itemized
-here — see the git log for that period.
+Versions are `0.MINOR.PATCH`: a patch release only fixes bugs; a minor release adds features
+and, while the version is below 1.0, may break compatibility - every such change is marked
+**Breaking**. Each version is a git tag with a [GitHub release](https://github.com/popolony2k/sunlight/releases)
+(source plus Linux, Windows and macOS archives). Releases 0.2.0 to 0.21.0 are described only in
+their GitHub release notes. History before 0.1.0 (the 2021-2023 prototype) is in the git log.
 
 ## [Unreleased]
 
-### Fixed
+## [0.39.0] - 2026-11-14
 
-- **Two animation modes stepped through the wrong frames** (audited by caravellius-a5 against the code; the
-  frame sequences below are what the real library draws, measured before and after):
-  - **`TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR` stepped one frame PAST the last one every cycle.** It
-    wrapped to frame 0 only once the position had *reached* the sheet's width, so on a sheet of N frames it
-    also drew a source rectangle entirely outside the sheet (`[N]` below) once per cycle. It now wraps when
-    the *next* position would fall outside the sheet: every frame once per cycle, period N. (The first
-    `Update()` still shows frame 1, not frame 0 - unchanged.)
-  - **`TEXTURE_ANIMATION_MODE_AUTOMATIC_RIGHT_LEFT` held its two ends unevenly**: the last frame twice and
-    frame 0 THREE times in a row (period 2N + 1), because its turn-round steps re-showed the frame they
-    turned on and the next pass began by showing frame 0 again. It is now a true ping-pong that shows each
-    end once (period 2N - 2, the classic 0 1 2 3 2 1 0 1 ...); a sheet of fewer than two frames stays on
-    frame 0. Chosen by the owner after comparing the current version, "hold each end twice" and this one
-    side by side on the real Alien/Galileo/player-option sheets.
-  Tile shown at each successive step (N = frames on the sheet, starting index 0):
+The master plan ([`doc/MASTER_PLAN.md`](doc/MASTER_PLAN.md)), developed on `feat/master_plan`.
+Each item is described in full in the plan. What each change meant for code built on sunlight
+(Scarab, Caravellius) was tracked in `doc/BREAKAGES.md` while the plan was developed; that file is
+removed at this release (it is in the git history), and the Breaking section below summarises it.
 
-  | Mode | N | Before | After |
-  |---|---|---|---|
-  | CIRCULAR | 3 | 1 2 [3] 0 1 2 [3] 0 | 1 2 0 1 2 0 1 2 0 |
-  | CIRCULAR | 4 | 1 2 3 [4] 0 1 2 3 [4] 0 | 1 2 3 0 1 2 3 0 1 2 3 0 |
-  | CIRCULAR | 5 | 1 2 3 4 [5] 0 1 2 3 4 [5] 0 | 1 2 3 4 0 1 2 3 4 0 |
-  | CIRCULAR | 8 | 1 2 3 4 5 6 7 [8] 0 1 2 … | 1 2 3 4 5 6 7 0 1 2 3 … |
-  | RIGHT_LEFT | 3 | 0 1 2 2 1 0 0 0 1 2 2 1 0 0 0 | 0 1 2 1 0 1 2 1 0 1 2 1 |
-  | RIGHT_LEFT | 4 | 0 1 2 3 3 2 1 0 0 0 1 2 3 3 2 1 0 0 0 | 0 1 2 3 2 1 0 1 2 3 2 1 0 |
-  | RIGHT_LEFT | 5 | 0 1 2 3 4 4 3 2 1 0 0 0 1 2 3 4 4 … | 0 1 2 3 4 3 2 1 0 1 2 3 4 3 2 1 0 |
-  | RIGHT_LEFT | 8 | 0 1 … 7 7 6 … 1 0 0 0 1 … | 0 1 … 7 6 5 4 3 2 1 0 1 … |
+### Breaking
 
-  `ANIMATE_RIGHT`, `ANIMATE_LEFT`, `ANIMATE_CENTER` and `MANUAL` are unchanged (pinned by a test per mode).
-  Behaviour change to expect: a CIRCULAR cycle is one step shorter, and a RIGHT_LEFT cycle is 2N - 2 steps
-  instead of 2N + 1 (e.g. 6 instead of 9 on a 4-frame sheet, so it runs faster at the same delay). Sprite
-  animation trace over all six modes, several tile sizes, positions, clocks and delays: MANUAL and the three
-  `ANIMATE_*` modes byte-identical to the previous release; CIRCULAR and RIGHT_LEFT differ in 39 of 102 traced
-  cases each.
-
-- **`TextureMap` no longer keeps a `std::deque` iterator as its cursor (use-after-free once a sequence had
-  thousands of entries).** The cursor - the texture currently shown - was a deque iterator set when the FIRST
-  texture was added and kept across every later `push_back`, which the standard invalidates: once the deque
-  had outgrown its internal block map, the next `Next()` from that cursor read freed memory (AddressSanitizer:
-  `heap-use-after-free` in the iterator's `operator++`; below about a block's worth of entries it happened to
-  work, and a `First()` re-point hid it in most flows). It is an index now, with identical stepping - the
-  sprite animation trace (219,133 lines) and camera trace (1,747,235 lines) are byte-identical to the previous
-  release. `Next()` on an empty list is now a plain `false` (it dereferenced a singular iterator). Found by
-  scarab-df, whose recycled pool slots re-add the same canvas on every configure and so grow a sequence by
-  one entry per recycle; reproduced with a scratch program under ASAN, pinned by a test that fails on the old
-  code even without ASAN (the walk visits the wrong entries).
-
-- **A sprite and its renderer can now be destroyed in either order, registered or not.** The renderer
-  kept a raw pointer to every sprite registered with `AddSprite` (advanced and drawn every frame, unloaded
-  at `Stop()`), and each sprite - with its collider and canvases - kept a raw pointer to the renderer as
-  its parent, with nothing telling either side when the other went away: a sprite destroyed while still
-  registered was a use-after-free in the very next frame (found by AddressSanitizer:
-  `heap-use-after-free` in `HandleSpriteUpdate`), and a sprite outliving its renderer kept a dangling
-  parent (`GetVisible()`/`GetViewport()` read a dead object). Now they unregister from each other: a
-  sprite that is destroyed or given another parent calls the new `BaseCanvas::ChildRemoved` on the parent
-  it leaves (`Sprite::~Sprite`, and the new `Sprite::SetParent` override), and the renderer forgets it
-  (layer lists and collision manager); when the renderer is destroyed it lets go of every sprite it still
-  parents - the registered ones and the ones removed with `RemoveSprite`, which keep their parent exactly
-  as before - so their parent pointers, their colliders' and their canvases' become null / point at the
-  sprite. `Sprite::Unload()` now also unparents the canvases it releases (it empties the list, after which
-  nothing could repoint them); the renderer unloads every registered sprite when it stops or is
-  destroyed, so this is what keeps a canvas parented to the renderer from outliving it with a dangling
-  parent. `AddSprite`/`RemoveSprite` and every other signature are unchanged, no ownership moved (the
-  caller still owns sprites and canvases). Behaviour note: a sprite added to a second renderer is
-  forgotten by the first (it used to stay registered in both). Verified byte-for-byte: the sprite
-  animation trace and the camera/alignment trace are identical to the previous release.
-- **`~Sprite` no longer unloads the canvases it was given - it no longer touches them at all.**
-  `AddTextureSequence` only stores raw pointers to canvases the CALLER owns, but the destructor walked
-  them to unload their textures, so a canvas that was already destroyed (declared after its sprite, or
-  a member declared after it - the declaration order of `samples/sprite`'s `World` and of most of the
-  tests) was read through a dead pointer: undefined behaviour (AddressSanitizer:
-  `stack-use-after-scope` in `TextureCanvas::Unload`), invisible in a normal run because the canvas had
-  nothing loaded. A canvas frees its own texture when it is destroyed, so nothing leaks; the visible
-  difference is only that a canvas outliving its sprite keeps its texture until it is destroyed itself,
-  instead of losing it when the sprite dies. The explicit `Sprite::Unload()` still unloads them all
-  (Scarab's `SpritePool::Clear()` relies on it). The destructor still empties the sprite's own sequence
-  list. Rule, now documented at `AddTextureSequence`: the caller keeps the canvases alive while the
-  sprite uses them and does not use one after the sprite is destroyed. The whole suite is now clean
-  under AddressSanitizer (see CLAUDE.md for how to run it).
-
-- **`MoveCameraUp()` / `MoveCameraLeft()` crashed (segfault) when no map was loaded** - on the renderer
-  and, through it, on any view (`IView::MoveCameraUp/Left`). Their scroll limit is worked out from the
-  map's tile size, and they dereferenced the (null) map without checking. They now do nothing while no
-  map is loaded. (`MoveCameraDown/Right` never touched the map and are unchanged.) Found by the Scarab
-  view API work, where a script may call `camera_move_up()` before loading a map.
-
-- **A map's external tilesets (`.tsx`) and object templates (`.tx`) are now read through
-  `SunLight::FileSystem`.** libtmx opened them itself, straight from the OS relative to the working
-  directory, so they bypassed the filesystem layer: a map with an external tileset failed to load
-  (`cannot open extern tileset ...`) from a mounted archive with no loose copy (a `.zip` pack), and
-  could never pass through the read filter (an encrypted pack - a raw OS open cannot decode it). Only
-  the `.tmx` itself, and textures/sound/fonts, honoured mounts and the filter. `LoadMap` now reads
-  every external reference up front through the FileSystem - resolved against the directory of the file
-  that names it, `..` and backslashes normalised, a template's own tileset loaded first, the images they
-  name resolved against THEIR directory - and hands them to libtmx as buffers through its Resource
-  Manager, which lives as long as the map (freed by `UnloadMap`). A reference the FileSystem cannot
-  provide is left to libtmx's own lookup, so a project keeping them loose beside the working directory
-  works exactly as before; a map with only embedded tilesets takes the unchanged, manager-less path.
-  Found and fixed on the way: libtmx's allocator hooks are only initialised by its `tmx_load*` entry
-  points, not by `tmx_make_resource_manager()`, so creating the manager first (the first map in a
-  process) would have crashed.
-
-- The five samples (`sprite`, `collision`, `gamepad`, `scriptprocessor`, `tilemaprenderer`) failed to
-  load their map ("Cannot load map: ... could not be read") when given an absolute base path - which
-  is what the IDE launch configuration passes - ever since the resource filesystem (v0.16.0) started
-  reading only inside mounted locations. They now make the given directory their working directory
-  and load everything by relative name, so an absolute and a relative base path both work. (When this
-  was fixed, a map's external `.tsx` tilesets were still opened by libtmx itself, straight from the OS
-  relative to the working directory, which is why the working directory - not just a mount - was needed;
-  that limitation is gone, see the external tilesets fix above.) Samples only: not part of any release
-  archive.
+- `stCoordinate2D`, `stSize2D` and `stDimension2D` moved from `SunLight::TileMap` to
+  `SunLight::Base` (`base/primitives.h`), with no aliases.
+- `IEngine` gains pure virtuals `LoadFont`, `BeginClip`/`EndClip`, `DrawLine`,
+  `DrawEllipseOutline`, `DrawTextureRotated` and `DrawTextRotated`, and loses `SetPixel`;
+  `IFont` gains `DrawTextRotated`. Backend implementers must update.
+- `RendererConfig::bUseDefaultKeyHandler` is removed and the classic constructor loses its fifth
+  parameter: `TileMapRenderer(width, height, title, targetFps)`. The camera/zoom key bindings are
+  no longer installed by default - call `DefaultControllerBindings::Install(map, controllerManager)`.
+- `SetWindowBackgroundColor` takes a `SunLight::Base::stColor` instead of a packed `uint32_t`.
+- `KEY_MENU` is 5 (was 82), matching raylib; key codes are translated by name.
+- `BaseCommand` has a virtual destructor, and the command enum moved to `scripting/command.h`.
+- The per-stick dead-zone constants are replaced by one `DEFAULT_AXIS_DEADZONE` (same value),
+  configurable per pad and axis.
+- A layer's opacity (`GetLayer`/`SetLayer`) is `stLayer::fOpacity`, a float from 0 to 1 (1 =
+  opaque), as in Tiled and libtmx; it was `int nOpacity`, whose conversions were not inverses (an
+  opaque layer read 256, and `SetLayer(255)` hid the layer). A positional initializer still
+  compiles with the new meaning: `stLayer{ true, 128, ... }` is now clamped to opaque.
+- `IEngine` gains pure virtuals `SetBlendMode`/`GetBlendMode`, and `IDrawSurface` gains
+  `BeginBlendMode`/`EndBlendMode`. Only a class implementing one of them must update.
+- Tile positions are in map space: `TileMapToTileMatrix` takes a map position (it added the
+  viewport origin and the camera), and the tile from `GetTile` and from `OnCollision( Collider*,
+  stTile* )` has its map rectangle (it was in view space). `ITileMap` gains
+  `GetCollidingTiles`; the projection interface's `TileViewRect`/`ViewToTileMatrix` became
+  `MapToTileMatrix`.
+- Fonts by handle: `SetFont` takes a loaded font (`std::shared_ptr<IFont>`, `nullptr` for the
+  built-in one) instead of a file path, on `IEngine` and `IDrawSurface`; `LoadFont` returns a
+  `std::shared_ptr<IFont>`; `RegisterFont( family, font, bold, italic )` takes a loaded font
+  instead of a path. A game loads with `LoadFont`, then selects or registers the font.
+- `ActionMap::Load`/`Save` take a FileSystem path: a plain path is now a virtual path (mounts,
+  archives, the read filter; saves go into the write directory). Code that passed an OS path adds
+  `hpath://`.
+- `IFileSystem` is a pure interface; the shared behaviour (path schemes, host paths, the host-path
+  switch, the filters) is the new abstract `BaseFileSystem`'s, which a backend derives from,
+  implementing `VirtualExists`/`VirtualReadFile`/`VirtualWriteFile` plus `Init`/`Shutdown`/`Mount`/
+  `SetWriteDirectory`. The static path helpers moved to a new `FilePath` class:
+  `IFileSystem::ToVirtualPath` and `IFileSystem::SplitPath` are now `FilePath::ToVirtualPath` and
+  `FilePath::SplitPath` (and `IFileSystem::PathScheme` is `FilePath::PathScheme`).
+- The far-edge map alignments (`MAP_ALIGNMENT_TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_RIGHT`,
+  `CENTER_WIDTH_BOTTOM`, `CENTER_HEIGHT_RIGHT`) put the map's far edge on the view's far edge, at any
+  zoom: the camera starts where scrolling stops. They ignored the zoom and snapped to the viewport's
+  far-edge coordinate, so the view started past the map or short of its edge (and `BOTTOM_LEFT` and
+  `BOTTOM_RIGHT` disagreed). A game that starts at a bottom or right alignment starts at a different
+  camera position.
+- `IInputHandler` gains a pure virtual `Update()`, which reads the input devices for the coming frame;
+  `TileMapRenderer::Run` calls it once per frame, right after the window's `EndFrame`. A class
+  implementing `IInputHandler` must add it, and code driving an input handler without `Run` calls it
+  once per frame. Gamepads are read through SDL2 by default (see Added), so pad names and ids come
+  from SDL.
 
 ### Added
 
-- **Fullscreen at window creation.** `RendererConfig::bFullscreen` (default `false`) and
-  `RendererConfig::fullscreenStrategy` (`FULLSCREEN_STRATEGY_REAL` by default, or
-  `FULLSCREEN_STRATEGY_BORDERLESS_WINDOWED`) make the window come up ALREADY fullscreen instead of opening
-  windowed and being switched afterwards (asked for by Caravellius/Scarab, whose `main.lua` opened windowed,
-  loaded every module and only then called `SetFullscreen`). They are handed to `IWindow::Create`, which
-  gained two defaulted parameters (`bool bFullscreen = false, FullscreenStrategy strategy = REAL`), applied at
-  every `Start()` like the exit key, and validated (`RendererConfig::Validate` / `TileMapRenderer::Create`
-  reject a strategy outside the enum with `unknown fullscreen strategy value N`, even when fullscreen is
-  off). On the raylib backend the window is switched with exactly the call
-  `SetFullscreen( true, strategy )` makes, inside `Create()` and so before the first frame - so each strategy,
-  macOS's real fullscreen included, ends in the same state as switching an open window (same monitor, same
-  video-mode switch, same letterboxed result; the engine still renders at its fixed internal resolution).
-  `BORDERLESS_WINDOWED` is created hidden and shown once switched (no windowed flash). `REAL` is created
-  VISIBLE and switched at once (at most a brief windowed window): on macOS, tested by hand through Scarab,
-  a window that entered real fullscreen while HIDDEN came up as a mirrored desktop that never rendered,
-  while the same call on a visible window works - exactly what Caravellius' `Display.init()` does today. Raylib's own creation-time
-  `FLAG_FULLSCREEN_MODE` is deliberately NOT used: it picks its own video mode (the closest one at least as
-  large as the requested size), and `FLAG_BORDERLESS_WINDOWED_MODE` is not applied at creation at all.
-  `GetFullscreen()` reports the state right after `Create()`/`Start()`. The null backend accepts and
-  IGNORES both (never an error, `GetFullscreen()` stays false), so one configuration runs headless and
-  windowed alike. New: `IWindow::GetFullscreenStrategy()` and `IDrawSurface::GetFullscreenStrategy()`
-  (`TileMapRenderer` passes it through) - the strategy in effect, meaningful only while fullscreen, `REAL`
-  while windowed. New pure virtuals / a changed signature on `IWindow` and `IDrawSurface` (only the raylib
-  and null windows and the test mock implement them). Nothing changes with the defaults. The raylib path
-  needs a real display and is verified by hand on each platform.
+- Gamepads are read through SDL2 (`SDLGamepadInput`), while the keyboard and mouse stay on raylib, and
+  the rumble uses the very same SDL devices. Up to `MAX_GAMEPAD_COUNT` (10) pads, each at the lowest
+  free id until it is unplugged; face buttons by position, axes and triggers on raylib's scale. A new
+  build switch, `DEFAULT_GAMEPAD_ENGINE` (1 = SDL2, the default, falling back to raylib/GLFW when SDL
+  cannot start; 2 = raylib/GLFW).
+- Several maps in one world, at offsets: `IWorld::AddMap( path, x, y )`, `RemoveMap`, `GetMapCount`,
+  `GetMapOffset`, `GetBounds`, `GetLayerId`, and picking/`GetTile` by map. Any orientation, mixed,
+  negative offsets; layers matched by name and drawn layer by layer across the maps, so a sprite crosses
+  a map edge; the camera's limits cover every map.
+- Tile collisions across map edges: in a world of several maps a collider tests every map it overlaps.
+- `IWorld::SetLayer` (by id and name): change a layer of any world, in every map that has it.
+- Screen-space image layers: an image layer with the custom property `screen_space` = true is drawn at
+  its offset in window pixels, its own size, not moved by the camera or zoom (as before parallax).
+- `IFileSystem::Unmount( realPath, mountPoint )`, and the same folder or archive mountable at several
+  mount points (each mount in its own place in the search order).
+- Tiled `.world` files: `IWorld::LoadWorld( path )` loads a world's maps at their offsets, all or
+  nothing (its `maps` list; `patterns` are refused). New dependency: nlohmann/json (header-only,
+  private), declared as Scarab declares it.
+- Several worlds at once: `ITileMap::CreateWorld`/`RemoveWorld`/`GetDefaultWorld`/`GetWorldCount`, the
+  `IWorld` handle (its own map, sprites and collision rules) and `IView::SetWorld`/`GetWorld` - split
+  screens on different maps, a world map beside the local one, a cross-fade between two worlds. The
+  default view always shows the default world, which the single-map API acts on. `ITileSource`, what a
+  `CollisionManager` asks for layers and tiles (`ITileMap` is one). Sample `samples/worlds`.
+- View opacity: `IView::SetOpacity`/`GetOpacity` (0..1, 1 by default). Below 1 a view is drawn into a
+  render target of its own and its finished image is laid over what is under it at that opacity - a
+  cross-fade between two views, a menu over a map. At 0 nothing shows and its sprites keep animating.
+  `IEngine` gains a pure virtual `CompositeRenderTarget`, and render targets nest
+  (`EndRenderTarget` goes back to the target drawn into before). `TRANSPARENT_COLOR`.
+- `IFileSystem::RemoveFile`: removes a file - inside the write directory for a virtual path (never a
+  mounted archive's or folder's), an OS file for a host path while host paths are allowed; files only.
+- `FilePath::ParentPath` and `FilePath::JoinPath`: the scheme-aware path helpers the map loader uses,
+  public - a file's folder, and a path relative to it.
+- **Path schemes** in every FileSystem read and write: `vpath://` / `virtualpath://` (the default,
+  so a plain path means what it did) for a virtual path, `hostpath://` / `hpath://` for an OS path;
+  any other scheme is refused. `IFileSystem::WriteFile`, `SetWriteDirectory` (the folder a virtual
+  path is written into, also mounted first so saves read back and win over shipped files),
+  `SetWriteFilter` (the counterpart of the read filter, eg. to encrypt saves) and
+  `SetHostPathEnabled` (host paths on by default; off, every host path fails).
 
-- **Sequences can be inspected and changed after they were built** (asked for by scarab-df):
-  `Sprite::GetTextureSequenceSize(seq)` (entry count, -1 for an unknown sequence),
-  `Sprite::SetTextureSequenceDelay(seq, delay)` (the delay of EVERY entry; the entry being shown is
-  rescheduled from now so the new pace applies from the next step; it never moves which entry is shown or
-  any canvas' animation state, and it changes NOTHING when the sequence already has that delay, so it is
-  safe to call on every reconfigure) and `Sprite::ClearTextureSequence(seq)` (removes every entry; the
-  canvases are released - unparented like `Sprite::Unload()` does - but NOT unloaded or destroyed and can
-  be added again; clearing the ACTIVE sequence leaves the sprite with no active sequence, i.e.
-  `GetActiveTextureSequence()` is -1 and nothing is drawn or advanced until `SetActiveTextureSequence` is
-  called, clearing another one leaves the active sequence alone). Until now `AddTextureSequence` could only
-  append, so a pace could not be changed and a sequence could not be rebuilt - and re-adding the same canvas
-  on every reconfigure (a recycled pool slot) added another entry each time, growing the list and changing
-  the animation pace (`TextureMap::Next` steps entry to entry with each entry's own delay). Also
-  `TextureMap::GetTextureCount()` and `TextureMap::SetDelay()`. Documented: a delay of **-1 means "no timing",
-  a HELD frame by design** (a single-entry sequence with delay -1 never steps, so it never animates).
-  `AddTextureSequence` itself is unchanged: given the same canvas twice it still appends two entries.
-
-- **World-space sprites: `Sprite::SetWorldSpace(true)`** (also `BaseCanvas::SetWorldSpace`/`IsWorldSpace`).
-  A sprite's position has always been relative to the view that draws it: it is drawn at
-  `position x zoom` from the view's origin and ignores the view's camera (the map's tiles add the camera
-  first). That made a sprite wrong in any view but a camera-less one, and impossible to show correctly
-  in two views with different zoom/cameras. A world-space sprite's position is a **map position**
-  instead: every view draws it where it draws the map at that position - the drawing view's camera is
-  added first, with the very arithmetic a map tile gets, so a sprite placed at a tile's position lands
-  exactly on that tile, in every view, whatever its zoom and camera. One sprite serves all views; a
-  view that follows the sprite only has to move its own camera. The mode applies to every canvas of the
-  sprite, added before or after, and is **off by default**: nothing changes for existing code (sprite
-  animation trace and camera/alignment trace byte-identical to the previous release, 219,133 and
-  1,747,235 lines). New: `BaseCanvas::GetCameraOffset` (the camera of the view being drawn, answered by
-  the renderer), `Canvas::IsOnScreen`/`Sprite::IsOnScreen` (outside a draw pass it answers for the default
-  view, the active one). **Collision:** colliders are not affected - a collider uses its sprite's dimension
-  as is, so the collider of a world-space sprite is in map coordinates; do not mix world-space and
-  screen-relative sprites in one collision rule. `AddTextureSequence` re-applies the sprite's mode to the
-  canvas on every call (it still appends a new entry each time it is given the same canvas, as it always
-  has), and `Sprite::Unload()` leaves the mode alone.
-  Related fix in the multi-view frame: a sprite advances once per frame in the FIRST pass in which it is
-  on screen (it used to advance in the first pass that reached it even where it was off screen, wasting
-  the step while a later view showed it - which world-space sprites make common). A sprite reached by
-  the passes but on screen in none is advanced once at the end of the frame, as a single view would.
-  Single-view frames (no extra view) are untouched: they still run `Update()` exactly as before.
-
-- `samples/multiview` sample (`multiview_test`): the same map and the same character (Sunny) in three
-  places at once - a main view, a minimap and a close-up whose camera follows Sunny and scrolls when it
-  reaches the view's border - with keys to walk Sunny, zoom the close-up, show/hide views, mask a layer and
-  change draw order. Sunny is ONE world-space sprite (`Sprite::SetWorldSpace`): every view draws it at its
-  map position. Samples only: not part of any release archive.
-
-- **Extra views are now DRAWN: the multi-view frame.** Each visible view gets its own pass over the
-  same map into the one render target, in draw order, painter's style (a later view paints over an
-  earlier one where they overlap): background cleared once, whole, as always -> for each view in
-  order: make it the active one, fill its rectangle with its background (extra views only), draw the
-  layers its mask lets through -> FPS counter once. A renderer that never calls `CreateView` runs the
-  exact same single call as before (animation trace identical to the previous release; camera trace
-  byte-identical). New on `IView`:
-  - `SetVisible`/`GetVisible` (a hidden view is skipped and keeps its state; the default view can be
-    hidden too), `SetDrawOrder`/`GetDrawOrder` (ascending; ties by id; the default view starts at 0, a
-    new view at its own id, so extras start on top);
-  - `SetClearBackground`/`GetClearBackground`, `SetBackgroundColor`, `UseMapBackgroundColor`: whether
-    the view's rectangle is filled before drawing, and with what (the map's own color by default; an
-    alpha < 255 blends over what is underneath). For the default view this is the frame's own
-    background - the same flag as `TileMapRenderer::SetClearBackground`, which also gained the missing
-    `GetClearBackground()`;
-  - the **layer mask**: `ShowLayer(id | name, bool)`, `ShowOnlyLayers(ids)`, `ShowAllLayers()`,
-    `IsLayerShown(id)`. A masked layer is skipped whole in that view - and so are the sprites
-    registered against it (they belong to their layer), exactly like `visible="0"` but for one view.
-    A masked group hides all of its children; a shown group applies the mask to each child - so
-    `ShowOnlyLayers` must list a child's group as well as the child. The mask is kept by id, so it
-    can be set before a map is loaded (by name needs the map);
-  - `FitToMap()`: largest zoom at which the whole map fits the view + camera at the map's top-left
-    (the minimap setup), computed in whole zoom steps (exact for a view that is exactly a fraction of
-    the map), clamped to the zoom range; `false` with no map.
-  Also `Viewport::GetZoomLimits(min&, max&)` (both INCLUSIVE, like `SetMinZoom`/`SetMaxZoom`).
-  Sprites advance **once per frame** however many views draw them: the first pass that reaches a sprite
-  runs `Update()`, later passes only `Draw()` (the `Advance()`/`Draw()` split of v0.30.0).
-  **Limits, by design of this first version:**
-  - every visible extra view costs another full pass over the map's tiles per frame (cost is N x);
-  - a sprite's position is relative to the viewport that draws it (no world coordinates yet), so the
-    same sprite appears at the same offset inside each view showing its layer - masks are how a view
-    is given the sprites it should show;
-  - a sprite that is outside the first pass's viewport does not advance that frame even if a later
-    view has it on screen;
-  - image layers (drawn at the screen origin, blind to camera and viewport) are drawn by the default
-    view only;
-  - collisions and input stay in default-view space.
-
-- `IView::GetScrollStepSize(int&, int&)` and `TileMapRenderer::GetScrollStepSize(int&, int&)`: read a
-  view's scroll step back (until now only the setter existed, so the value - including the map tile
-  size a `-1` resolves to at `LoadMap` - was readable nowhere). Reads exactly what the next
-  `MoveCamera*` would move by, or `-1` while it is still "the map's tile size, not known yet". Asked
-  for by the Scarab view API. New pure virtual on `IView` (only `View` implements it).
-
-- **Views (state half): every renderer now has a default view, and more can be created.** A view
-  is the part of the scene's state that differs between two windows onto the same world: a
-  viewport (rectangle + zoom) and a camera position + scroll step. The map, its layers and the
-  sprites stay shared. New `SunLight::TileMap::IView` (`GetId`, `GetViewport`, `ZoomIn/Out`,
-  `ResetZoom`, `MoveCamera*`, `SetCameraPosition`/`GetCameraPosition`, `SetScrollStepSize`,
-  `ResetCamera`, `TileMapToTileMatrix`) and, on `ITileMap`/`TileMapRenderer`, `GetDefaultView()`
-  (view 0: wraps the renderer's own viewport and camera, so `renderer.MoveCameraLeft()` and
-  `renderer.GetDefaultView().MoveCameraLeft()` are the same operation), `CreateView(rect)` (returns
-  a new id; ids are never reused), `GetView(id)`, `RemoveView(id)` (the default view cannot be
-  removed) and `GetViewCount()`. A view does not reimplement camera/zoom logic: operating on one
-  briefly makes its state the renderer's working state, runs the renderer's own code, and puts
-  everything back - so an additional view scrolls, clamps and zooms exactly as the default one
-  (tested step by step against it) and cannot drift from it. A view created before a map is loaded
-  gets the map's tile size as its scroll step when `LoadMap` runs, like the default view.
-  **Additional views are not drawn yet**: this release adds only their state and control; drawing
-  them (with per-view layer masks, visibility, order) is the next release. Zero behaviour change
-  for existing code, proven against the previous release: the recorded animation trace is
-  identical and the camera/alignment trace differs only in the 42 lines already changed by the
-  previous release's `toTile` fix. New pure virtuals on `ITileMap` (`GetDefaultView`, `CreateView`,
-  `GetView`, `RemoveView`, `GetViewCount`) - a class implementing `ITileMap` itself must add them.
-
-- `TextureCanvas`/`Sprite` frame step split into its two halves: `Advance()` (the STATE half -
-  the animation mode's frame index, and for a `Sprite` the texture map's frame choice; once per
-  frame) and `Draw()` (puts the current state on screen and changes none, so it may run several
-  times for one frame - the groundwork for drawing the same scene into more than one view).
-  `Canvas` gained the virtual `Advance()`/`Draw()` (no-op defaults). `Update()` is unchanged in
-  behaviour: it is exactly `Advance()` then `Draw()`, and the renderer still calls it. Verified
-  byte-for-byte against the previous release: 219,133 recorded lines / 41,400 draw calls over all
-  six animation modes, several tile sizes, on-screen / partly off-screen / fully off-screen
-  positions, clock steps, frame delays, `Reset()`, sequence switches and visibility toggles.
+- **Isometric, staggered and hexagonal maps** load and render, each behind an `IMapProjection`
+  (orthogonal maps too), with visible-tile culling.
+- **Objects:** text objects, drawn with fonts registered through `TileMapRenderer::RegisterFont`
+  (new `IFont` module); tile objects (own size or stretched, animated; their flip bits are not
+  drawn yet); point objects. Polylines, polygons, rectangles and ellipses take a `line_width`,
+  points a `point_size` (map units, scaled by zoom). Rectangles, polylines, polygons, ellipses,
+  tile and text objects honour their Tiled rotation.
+- **Layers:** Tiled per-layer parallax (`parallaxx`/`parallaxy`, the map's parallax origin) for
+  tile, object and image layers and world-space sprites, plus `SetLayerParallax`; an object's own
+  `opacity` property overrides its layer's; `Sprite::SetZOrder` orders sprites within a layer.
+- **Input:** `IControllerManager` (`GetControllerManager()`), connected-gamepad list and hot-plug
+  events, `PlayerSlotManager` (player slots to pads), `ActionMap` (named, rebindable actions with
+  save/load), dead zones per pad and axis, and gamepad rumble (`IGamepadHaptics`, backed by SDL2 -
+  a new static dependency; call `Update()` once per frame so a timed rumble stops).
+- **A drawing surface without a map:** `IShapeSurface` (`DrawRectangle`, `DrawEllipse`,
+  `DrawPolyline`, `DrawPolygon`, `DrawPoint`, zoom-aware), and sprites registered with no map
+  loaded are drawn.
+- **Blend modes** (`SunLight::Base::BlendMode`: normal, add, multiply, subtract), map or no map:
+  `IDrawSurface::BeginBlendMode`/`EndBlendMode` around a game's own drawing, and
+  `Sprite::SetBlendMode` for a sprite that always draws in its own mode. Every frame starts in
+  normal, and a forgotten `EndBlendMode` ends with the frame. Each mode keeps an opaque pixel
+  opaque, and multiply is exact for partly transparent pixels too.
+- **Fonts by handle:** a font is loaded once (`IDrawSurface::LoadFont`) and the same handle can
+  be the active font for `DrawText` (`SetFont`, read back with `GetFont`), serve any number of
+  text-object families (`RegisterFont`), or draw by itself (`IFont`). `UnregisterFont( font )`
+  removes it from every family and style it serves; `UnregisterFont( family, bold, italic )`
+  removes one.
+- **The frame a tile shows:** `ITileMap::GetTileFrame( layer id, cell, gid )` and
+  `GetObjectTileFrame( name, gid )` read the gid an animated tile draws now (its own for a static
+  one), without changing it.
+- **Sprite opacity and tint:** `Sprite::SetOpacity` (0..1, clamped) and `Sprite::SetTint`, applied
+  to whatever frame the sprite draws, in every view, without changing its frames' own colours.
+  `SunLight::Base::MultiplyTint` (`base/color.h`) combines a colour with a tint.
+- **Layer tint at runtime:** `stLayer::tint` (`GetLayer`/`SetLayer`), the layer's Tiled
+  `tintcolor`, alpha included, opaque white when the map has none; a change shows from the next
+  frame.
+- Samples: `isometric`, `isometric_haptics`, `staggered`, `hexagonal`, `parallax`, `text`,
+  `objects`, `shapes`, `multiview_overlap`, `opacity`, `zorder`, `surface`, `input`, `blend` and `tint`,
+  each with a `docs/README.md`; shared fonts in `samples/shared/fonts`.
+- CI: an AddressSanitizer job on Linux (with leak detection), a Doxygen job that fails on any
+  warning (Doxygen pinned to 1.17.0, also for the published docs), and suffixed tags
+  (`v0.39.0-beta.1`) published as prereleases.
 
 ### Changed
 
-- **BREAKING (API): view handles are now `std::shared_ptr<IView>`, and a held handle is always safe.**
-  `ITileMap::CreateView(rect)` returns the new view (a shared handle) instead of an id, and
-  `GetView(id)` returns a shared handle (empty for an unknown or removed id) instead of a raw
-  pointer; the id is `IView::GetId()`. `RemoveView(id)` is unchanged, and `RemoveView(handle)` was
-  added (it only removes a view of THIS renderer: another renderer's view with the same id, an empty
-  pointer, or the default view remove nothing). `GetDefaultView()` still returns a reference: the
-  default view can never be removed, so it lives as long as the renderer. Before this, a raw handle
-  kept after `RemoveView` (or after the renderer was destroyed) dangled. Now the renderer keeps its
-  own reference to every view - so a view is drawn whether or not the caller keeps its handle - and
-  once a view is removed, or its renderer destroyed, a handle that is still held becomes **inert**
-  (`IView::IsRemoved()`, new): no longer drawn; camera moves, zoom steps, scroll step, `FitToMap`,
-  `TileMapToTileMatrix` and by-name layer lookups do nothing or answer "no"; the view keeps the last
-  camera/scroll step it had; and what is just its own data (its `Viewport`, visibility, draw order,
-  background, layer mask) still works, its `Viewport` staying valid as long as the handle is held. For
-  the default view outliving its renderer, the renderer's own root `Viewport` (which dies with the
-  renderer) is first copied into the view (rectangle, zoom position, preferred zoom, zoom limits,
-  user-zoom flag). Migration: `int id = r.CreateView(rect)` -> `auto view = r.CreateView(rect);`
-  (`view->GetId()` for the id); `r.GetView(id)->X()` is unchanged; `IView* p = r.GetView(id)` ->
-  `std::shared_ptr<IView> p = r.GetView(id)` (compare with `nullptr` as before). New pure virtuals /
-  changed signatures on `ITileMap` and `IView` (`IsRemoved`) - a class implementing them itself must
-  update.
-
-- **BREAKING (semantics): a viewport's `size` is now a width/height, everywhere.** A
-  viewport is the rectangle `[pos, pos + size)`: `pos` is its top-left corner and `size` its
-  width and height, so `(10, 10, 1240, 900)` shows x in `[10, 1250)` and y in `[10, 910)`.
-  Before, the clipping (`Viewport::GetClippedRect`, `SetPixel`) treated `size` as the
-  coordinate of the FAR edge whenever `pos` was not `(0, 0)` - a legacy viewport of
-  `(10, 10, 1250, 910)` is the same visible area as `(10, 10, 1240, 900)` now - while other
-  code read it as a width. **Migrate a viewport with `pos != (0, 0)` by subtracting `pos` from
-  `size`** (`(px, py, ex, ey)` -> `(px, py, ex - px, ey - py)`); viewports anchored at `(0, 0)`
-  mean the same in both. The five samples were converted (`900 x 800` -> `890 x 790`).
-  For the same visible area **everything is pixel-for-pixel identical**: clipping, `SetPixel`,
-  tile/object/sprite drawing, every `LoadMap` alignment (including the "snap to a whole
-  viewport height" of `BOTTOM_RIGHT`/`CENTER_WIDTH_BOTTOM`), and the `MoveCameraLeft`/`Up`
-  scroll limits - verified by recording ~1.75 million draw/alignment/scroll results on real
-  Caravellius maps with the legacy numbers on the previous release and the equivalent
-  width/height numbers on this one, and comparing them byte for byte (unit tests keep the
-  legacy code as an oracle). Only `TileMapToTileMatrix` changes, and only for viewports whose
-  `pos.x != pos.y`: see the fix below.
+- Internal (I19b of the master plan, no change in behaviour): the renderer's map, sprites and
+  collision rules live in a `World`, the renderer's default world - the first step towards several
+  maps at once.
+- Shapes are drawn by the backend inside an engine clip (the software clip is gone), so their
+  pixels differ slightly from the old per-pixel routines. A polyline's width now scales with
+  the zoom (2 pixels at zoom 2).
+- Objects that used to be invisible are drawn: text, tile and point objects. Rotated objects are
+  drawn rotated. Shape and text objects now respect their layer's opacity.
+- Tiles, image layers and sprites are snapped to whole pixels (`Helper::RoundHalfUp`), removing a
+  seam between tiles at non-integer zoom and a 1-pixel gap at some camera positions.
+- `AddGamePad` ignores a pad that was already added (it used to dispatch it twice).
+- `LoadMap` over a loaded map frees the old map first; a map that fails to load leaves the loaded
+  one in place. Registered sprites stay registered, as before.
+- A listener or input handler added during a dispatch starts with the next frame; a map listener
+  removed during one is not called again.
+- `samples/tilemaprenderer` is renamed `samples/orthogonal` (`orthogonal_test`).
+- A group layer's opacity and tint reach everything inside it, as Tiled draws a group: opacities
+  multiply down the nesting, tints multiply channel by channel. Tile layers, image layers and tile
+  objects take both; shapes and text take only the opacity. They were ignored.
+- An image layer applies its own opacity; it was always drawn opaque.
 
 ### Fixed
 
-- `TileMapToTileMatrix` computed the tile ROW with the viewport's `pos.x` instead of `pos.y`.
-  Invisible when `pos.x == pos.y` (e.g. `(10, 10)`), wrong otherwise.
-
-### Added
-
-- `Viewport::GetEnableUserZoom()`, the missing getter for `SetEnableUserZoom` (the
-  flag was already readable through `GetZoomProperties().bEnabledUserZoom`).
-- Public zoom-scale constants in `base/viewport.h` (`SunLight::Base`): `ZOOM_STEP`
-  (0.0625), `ZOOM_POS_MIN` (0), `ZOOM_POS_COUNT` (256 - the number of positions and the
-  EXCLUSIVE upper bound), `ZOOM_POS_MAX` (255 - the last valid position),
-  `ZOOM_POS_DEFAULT` (15, whose factor is 1.0), `ZOOM_FACTOR_MIN` (0.0625) and
-  `ZOOM_FACTOR_MAX` (16.0). A position `p` has the factor `(p + 1) x ZOOM_STEP`; the
-  step is a power of two, so every factor is exact in a float. `Viewport` is now
-  built from these (the private `#define` copies are gone), so a consumer validating
-  a zoom - e.g. a factor-based renderer creation - reads the numbers here instead of
-  hardcoding a copy that can drift.
-
-### Fixed
-
-- `TileMapRenderer::MoveCameraUp` compared the viewport WIDTH against the vertical
-  map boundary (built from map height and scroll-step height) - a copy-paste of
-  `MoveCameraLeft`'s horizontal check. It now uses the viewport HEIGHT. Invisible
-  for a square viewport; with a non-square one, vertical scrolling was bounded by the
-  wrong dimension (a wide-but-short viewport couldn't scroll up, a tall-but-narrow one
-  scrolled past the map).
-- `Viewport::SetMinZoom`/`SetMaxZoom` were a one-way ratchet (each validated against the
-  CURRENT limits, so limits could only ever narrow), and `SetMaxZoom( p )` stored `p` as an
-  EXCLUSIVE bound, so `SetMaxZoom( ZOOM_POS_MAX )` left 254 as the last usable position -
-  contradicting the position semantics of `SetZoom` and the published `ZOOM_POS_MAX`
-  constant. Both now validate against the ABSOLUTE scale `[ZOOM_POS_MIN, ZOOM_POS_MAX]` (so
-  limits can be widened again), both bounds are INCLUSIVE positions, a request that is off
-  the scale or would cross the other limit is rejected (limits unchanged), and narrowing the
-  limits clamps the current and preferred zoom (and the current factor) into the new range
-  instead of leaving them outside it. **Behaviour change** (no caller anywhere used the old
-  behaviour).
-- `Viewport::GetZoomFactor( nZoomPos )` ignored its argument: for an in-range
-  position it returned the factor of the CURRENT zoom position instead of the one
-  asked for (e.g. asking for position 60 while at the default 15 returned 1.0, not
-  3.8125). It now returns the factor of the requested position; an out-of-range
-  position still falls back to the preferred position's factor. No caller in
-  sunlight, its tests, samples or Scarab used it, so nothing changed in practice
-  (the renderer and `TextureCanvas` scale by `GetZoomProperties().fZoomFactor`).
-
-- The null backend's virtual time drifted: `VirtualClock` summed `1/fps` per frame
-  (300 frames read 4.999999999999988, 5040 read 83.99999999999652 - all 300
-  whole-second boundaries up to 18000 frames were inexact), so a script waiting
-  for `elapsed >= N` seconds released one frame late whenever the sum undershot
-  (Caravellius' 84.0 s intro sync measured 84.133 s). Frames are now COUNTED and
-  time is `base + frames / fps` - one division, exact at every whole second
-  (`300 / 60` is exactly `5.0`, `5040 / 60` exactly `84.0`). `NullWindow` keeps
-  its own counted timeline for `GetElapsedTime`, so a restart's elapsed time is
-  exact too. `VirtualClock` gained `SetFrameRate`/`AdvanceFrame`; `Advance(double)`
-  remains for arbitrary steps. The tests now assert EXACT equality (they used a
-  tolerance, which is why they missed it).
-
-### Changed
-
-- **Breaking (backend implementers only):** the window operations moved off
-  `IEngine` onto a new `IWindow` (`src/window/`, with `WindowFactory` and
-  `backends/raylib/RaylibWindow`): `SetFullscreen`/`GetFullscreen`,
-  `SetWindowResizeable`, `SetTargetFPS`, `SetWindowTitle`,
-  `GetScreenWidth`/`GetScreenHeight` and `GetElapsedTime`. `IEngine` gained
-  `ClearBackground` and `DrawFPS`.
-- **Breaking (backend implementers only):** `IEngine::OnWindowClosing` is gone.
-  "The window is about to close" is now a window event:
-  `IWindow::AddCloseHandler`/`RemoveCloseHandler`, fired by `IWindow::Close`
-  right before the render context is destroyed (shared list semantics in
-  `CloseHandlerList`). `RaylibEngine` subscribes to release its custom font;
-  `TileMapRenderer::Stop` just closes the window. `WindowFactory::GetDefaultWindow`
-  (ignores the test override) is what an engine subscribes through.
-- `FullscreenStrategy` and its `FULLSCREEN_STRATEGY_*` values moved to
-  `SunLight::Window`. The `IEngine::FullscreenStrategy`/`IEngine::FULLSCREEN_STRATEGY_*`
-  aliases kept for one release (v0.24.0) are now removed - the only known
-  consumer (Scarab) has migrated. **Breaking** for code still spelling the
-  old `IEngine::` names.
-- A renderer created without a viewport now gets one covering the whole render
-  area, instead of a zero-sized one. `LoadMap` divides by the viewport height, so
-  a renderer that never had a viewport configured crashed there with a
-  divide-by-zero (SIGFPE) instead of loading the map.
-- `Start()` now applies the renderer's configured exit key (`RendererConfig::exitKey`
-  / the last `SetExitKey`) instead of always resetting it to ESC, so a key chosen
-  before `Start()` - or before a restart - sticks. Behaviour change only for code
-  that called `SetExitKey` before `Start()` and relied on it being overwritten.
-- `TileMapRenderer`'s `Start()`/`Run()`/`Stop()` no longer call raylib directly
-  (window create/close, exit key, should-close, begin/end frame all go through
-  `IWindow`), and `tilemaprenderer.cpp` no longer includes `<raylib.h>`.
-
-### Added
-
-- **Null (headless) backend** - `RENDERER_BACKEND_NULL` is now real. A renderer
-  created with it needs no display, GPU or windowing library, and time is virtual:
-  `NullEngine` (draws nothing; `LoadTexture` returns the true PNG/JPEG size read
-  from the header through `IFileSystem` - recognised by magic bytes, so a JPEG
-  named `.png` works; `MeasureText` is a deterministic fixed metric, characters x
-  size / 2; `SetFont` succeeds iff the file exists), `NullWindow` (never closes by
-  itself; each `EndFrame` advances a `VirtualClock` by 1/target-FPS, so script
-  waits and sprite/tile animation run on virtual time; `GetElapsedTime` is 0 before
-  `Create`, restarts at 0 on each `Create`, 0 after `Close`), `NullInputHandler`
-  (no key/button ever pressed, every axis exactly 0.0, never nullptr) and
-  `NullBackend`, which installs them as one set through the engine/window/input/clock
-  factories for as long as a null renderer lives (shared process-wide; the backend
-  is global, so `TileMapRenderer::Create` refuses a null renderer while a default-backend
-  one is live and vice versa). Audio is unaffected.
-  `RendererConfig` gained `framePacing` (`FRAME_PACING_REAL_TIME` default /
-  `FRAME_PACING_UNLIMITED`, null backend only) and `nMaxFrames` (any backend:
-  `Run()` returns cleanly after that many frames since `Start()`; 0 = unlimited).
-  `SunLight::General::VirtualClock` is the reusable frame-driven clock.
-- `SunLight::General::Clock` (`src/general/clock.h`): a process-global, injectable
-  source of "now" in milliseconds (`Clock::NowMilliseconds()`, `Clock::SetClock(IClock*)`;
-  real monotonic clock by default). `ScriptProcessor`'s `WAIT_CMD`, `TextureMap`'s
-  sprite frame timing and `TileMapRenderer`'s tile animation now read it instead of
-  `steady_clock` directly, so a virtual clock (headless/test runs) can drive all of
-  them at once and long waits/animations need no real time. Behaviour is unchanged
-  unless a clock is installed. The real-thread `Timer` deliberately still uses real
-  time. Install a clock before creating anything that timestamps against it.
-- `RendererConfig` (`src/renderer/rendererconfig.h`): one value struct for
-  everything a renderer needs at creation - backend enum
-  (`RENDERER_BACKEND_DEFAULT`/`RAYLIB`/`NULL`/`LAST`), size, title, target FPS,
-  resizeable, draw-FPS, stretch-to-fill, default key handler, exit key, view
-  control mode, scroll steps, optional viewport and zoom - with `Validate()`,
-  `IsBackendAvailable()` and `BackendName()`. `TileMapRenderer(const RendererConfig&)`
-  builds from it; the checked `TileMapRenderer::Create(config, &error)` returns
-  `nullptr` plus a message for an invalid config (e.g. a backend not compiled
-  in - `RENDERER_BACKEND_NULL` is part of the contract but not implemented yet).
-  The classic `TileMapRenderer(width, height, title, fps, useDefaultKeyHandler)`
-  constructor is kept and delegates to it. `ViewControlMode` now lives in that header.
-- `tests/mock_window.h` (`MockWindow`/`MockWindowFixture`) and
-  `tests/test_tilemaprenderer_lifecycle.cpp`: `Start()`/`Run()`/`Stop()` are now
-  unit-tested end to end - window creation arguments, exit key/target FPS
-  defaults, frame bracketing, letterbox/stretch blit math, deferred
-  `RequestExit`, teardown ordering, restart.
-
-- `IEngine` backend abstraction (`src/engines/`) — all raylib draw calls now
-  go through a swappable interface + `EngineFactory`, instead of raylib types
-  leaking into `TextureCanvas`/`TileMapRenderer` headers.
-- `IEngine::GetApplicationDirectory()` for resolving resource paths relative
-  to the running executable instead of a hardcoded, machine-specific path.
-- `IEngine::GetElapsedTime()` (raylib `GetTime()`) and its
-  `IDrawSurface`/`TileMapRenderer` pass-through: high-resolution, monotonic
-  wall-clock seconds, independent of the fixed per-tick `dt` — for timing
-  logic that must not stretch when the game loop can't sustain its target FPS.
-- `TileMapRenderer::SetWindowTitle()` for changing the window title after
-  construction.
-- Right-stick analog handling for `GAMEPAD_BUTTON_RIGHT_FACE_*` events,
-  mirroring the existing left-stick → `LEFT_FACE_*` virtual DPad dispatch.
-- `samples/collision` — demonstrates `CollisionManager`, `AddColliderToColliderRule`,
-  and the `ICollisionListener` callback with a player-controlled sprite.
-- `samples/gamepad` — demonstrates independent left/right analog stick control
-  of two separate sprites on one connected gamepad.
-- GitHub Actions CI (`.github/workflows/ci.yml`) building the library, both
-  samples, and the test suite on Linux, macOS, and Windows on every push and
-  PR against `main`; the three `build (<os>)` jobs are required status checks.
-- Unit test suite (`tests/`, via [doctest](https://github.com/doctest/doctest)),
-  covering:
-  - Pure logic: `Viewport`, `Collider`, `Helper`, `base/primitives.h`.
-  - `SoundManager`, via `SoundFactory::SetCreator()` and a `MockSound` test
-    double — no real audio device involved.
-  - `TextureCanvas` and `Sprite`, via `EngineFactory::SetEngine()` and a
-    `MockEngine` test double — no real window/render context involved.
-  - `CollisionManager`, via a `MockTileMap` test double.
-  - `ScriptProcessor`, covering command queue draining, listener dispatch,
-    `WAIT_CMD`/`WAIT_SPRITES_QUEUE_EMPTY` blocking, and `LOOP_CMD`/
-    `GOTO_LABEL_CMD` control flow.
-  - `TileMapRenderer`'s pre-`Start()` contract (the parts reachable without a
-    real window).
-- `SoundFactory`/`EngineFactory::SetEngine()` test-only override hooks, giving
-  `SoundManager`/anything routing through `IEngine` a seam to substitute a
-  mock backend.
-- `cmake --install` now generates a real `sunlightConfig.cmake`/
-  `sunlightConfigVersion.cmake` and installs the `sunlight` target, its
-  headers, and the vendored `raylib`/`tmx` runtime libs.
-- `doc/MISSING_FEATURES.md` tracking project-level gaps (scaffolding, CI,
-  test/sample coverage) as they're found and closed.
-- Real usage docs for the `sprite` and `tilemaprenderer` samples (previously
-  stub placeholders).
-
-### Changed
-
-- `libxml2` and `tmx` dependencies pinned to stable release tags
-  (`v2.15.3`/`tmx_1.10.1`), matching `raylib` (`5.5`), instead of tracking
-  `master`.
-- Internal containers/members that exclusively own heap-allocated data
-  converted from raw `new`/`delete` to `std::unique_ptr` throughout the
-  library (`Sprite::m_Sequences`, `CollisionManager`'s rule lists,
-  `SoundManager::m_SoundMap`, `TileMapRenderer`'s input handler and event
-  handler lists, and others).
-- VSCode sample settings use the `VCPKG_ROOT` environment variable instead of
-  a hardcoded vcpkg path.
-
-### Fixed
-
-- Broken `install()` rule — `cmake --install` previously produced a package
-  config that couldn't actually be consumed.
-- `sunlightConfig.cmake.in` path resolution when `sunlight` is consumed via
-  `FetchContent` from another project (was using `CMAKE_SOURCE_DIR` instead of
-  `CMAKE_CURRENT_SOURCE_DIR`).
-- `TextureCanvas::Load()`'s auto-size-on-load guard checked
-  `dimension.size.nHeight == 0` twice instead of checking `nWidth` and
-  `nHeight` — harmless when both start at zero (the common case), but it
-  could silently clobber a caller-set width if only height was left at zero.
-- `ScriptProcessor`'s `LOOP_CMD` unconditionally reset its repeat counter to
-  `0` on every run and never read the requested repeat count at all — a loop
-  body always ran exactly once regardless of the count passed in.
-- `ScriptProcessor`'s `GOTO_LABEL_CMD`/`END_LOOP_CMD` dereferenced their label
-  lookup without checking for a miss, crashing on a forward reference or a
-  typo'd/unmatched label id. Now reports the failure through
-  `IScriptListener::OnError()` instead.
-- A dead `HandleGamePadEvent` declaration with no implementation, left over
-  from an earlier refactor.
-- `SunLight::Input::KeyboardKey` vs. raylib's own global `KeyboardKey` name
-  collision in `TileMapRenderer::SetExitKey`.
+- A tile lookup past the map's far edge read beyond the tile array (the scroll-past-boundary
+  FIXME).
+- `ScriptProcessor` deleted derived commands through a non-virtual `BaseCommand*`.
+- `FileSystem::Mount` crashed when it was the first call (it now sets PhysFS up itself).
+- `MoveCameraDown`/`Right` could not return the camera to its origin after one step up/left, and
+  `MoveCameraLeft`/`Up` let the camera scroll past the map's edge (the limit ignored the
+  viewport's position).
+- The left stick's Y axis used the right stick's dead zone.
+- Sprites registered with no map loaded leaked their per-layer lists at `Stop()`.
+- `LoadMap` over a loaded map leaked the old map, its textures and Resource Manager.
+- Map listeners, collision listeners and input handlers were walked while the callback could
+  change the list (undefined behaviour: a crash, a skipped or a doubled call).
+- Every Doxygen warning.
+- A TTF/OTF font was loaded with the 95 ASCII glyphs alone (raylib's `LoadFont`), so every accented
+  letter in it was drawn as `?`. It is now loaded with ASCII, Latin-1 and Latin Extended-A; a
+  bitmap (`.fnt`) font is unchanged.
+- An animated tile whose frames are all 0 ms shows its first frame; it showed its last.
+- A staggered or hexagonal map saved by Tiled with stagger axis X did not load (libtmx reads
+  `staggeraxis="columns"`, Tiled writes `"x"`): the value is rewritten before libtmx parses the map,
+  until libtmx is fixed (https://github.com/baylej/tmx/issues/90).
+- `TileMapToTileMatrix` on an isometric, staggered or hexagonal map picked a neighbour of the cell
+  under the point (in the isometric sample, none of the 48 cells picked itself at its own centre). It
+  is now a true diamond or hexagon hit-test, and returns false for a point in the map's rectangle
+  outside every cell (its empty corners, its ragged edges).
+- A shape drawn through `IShapeSurface` outside the map's layers (eg. from `OnUpdate`) used the
+  parallax camera of the last layer drawn instead of the view's own camera, and with no map ignored
+  the camera. It now uses the active view's camera (after the view passes, the default view's).
+- Sprites with equal z-orders kept the order of the last z-order change instead of the order they
+  were added in (a sprite raised and put back stayed moved among its equals): each layer was sorted in
+  place and the next frame sorted that order. A copy is sorted now, from the added order every time.
+- An image layer whose picture differs in size from what the map declares was drawn at the declared
+  size, reading past the texture and repeating it; it is drawn at the picture's real size.
+- Gamepads (found by Caravellius on macOS): a Switch-mode pad over USB reported nothing (it needs a
+  handshake GLFW never sends) and over Bluetooth updated only about 30 times a second; with two pads
+  connected, rumble could pick the wrong one (pads were matched across two libraries by name); SDL's
+  device list was never refreshed, so a pad plugged in later could not rumble; and the first rumble
+  opened the controller then, stalling that frame. Pads are now read through SDL, which does the
+  handshake and the full report mode, rumble uses the same device, and SDL is updated all the time.
+- Plugging in a gamepad froze the game for up to 4 s (a Bluetooth pad's set-up inside SDL, found by
+  Caravellius measuring I25): every SDL gamepad call now runs on a thread of its own, and the pad
+  appears once it is ready.
+- `SetWriteDirectory` on a folder the game had already mounted did not mount it at `/`, and a later
+  change of write directory removed the game's own mount.
+- `IFileSystem::WriteFile` truncated the target before writing, so a crash, a power loss or a full
+  disk lost the old file. It now writes a temporary file beside it, syncs it to the disk and renames it
+  over the target: the old file or the new one, never an empty one.
+- A map loaded through a path scheme (`vpath://`, `hpath://`, ...) could not find its external
+  tilesets, templates or images: joining their paths to the map's dropped the scheme's "//".
+- `ActionMap::Load` read its file with `std::ifstream`, around the FileSystem: a bindings file inside
+  a mounted archive or behind the read filter (an encrypted pack) could not be loaded. It reads
+  through the FileSystem now, as every other resource.
+- Tile animations follow the time since the map loaded, as Tiled animates them. Before, a tile
+  animated only while drawn - off screen, on a hidden layer or masked from a view it paused, and
+  stepped on one frame when drawn again - and each frame's end was counted from the draw that saw
+  the previous one end, so frames that are not a whole number of frames long ran late and a cycle
+  stretched.
+- A Tiled tile animation held its first frame for two of its durations every cycle (frames 0 1 2
+  played as 0 1 2 0 0 1 2 ...). Each frame now shows once per cycle, for its own duration, so an
+  animated tile's cycle is shorter by its first frame's duration.
+- A `GetLayer` followed by an unchanged `SetLayer` changed the layer: an opacity of 0.5 came
+  back as 0.502 (drawn with alpha 128 instead of 127), and a parallax of 0.3 as 0.30000001.
+  `SetLayer` now writes the opacity and the parallax only when they changed.
+- `SetScreenFade` did not clamp its value: a fade above 1 overflowed the alpha byte (undefined
+  behaviour; 1.5 drew a light fade instead of black). It is clamped to 0..1, and a NaN is no fade.
+- A tile object resized away from its tile's size ignored its object layer's tint (Tiled's
+  `tintcolor`) and was drawn untinted; it now takes the tint, as a tile object at its own size and
+  a turned one already did.
+- `MoveCameraUp`/`MoveCameraLeft` refused a scroll step that went past the map's far edge, so
+  a map whose size was not a whole number of steps past the viewport's kept its last strip
+  hidden (up to a step less one pixel; seen at the right and bottom edges of the staggered and
+  hexagonal samples). The last step is now a partial one, to the edge; `MoveCameraDown`/
+  `MoveCameraRight` likewise end with a partial step onto the origin.
+- `Sprite::Unload()` emptied the sprite's sequences but left the active one marked valid, so
+  drawing, advancing or asking an unloaded sprite `IsOnScreen`/`GetActiveTexture` read freed
+  memory (eg. a sprite reused after the renderer's `Stop()`, which unloads every registered
+  sprite). After `Unload()` no sequence is active.
+- Gamepad rumble (SDL backend) opened and closed the controller around every call, and closing
+  one right after a rumble blocked the game loop for about 11 ms (measured with an Xbox One S
+  Controller on macOS) - when a rumble started and again when it stopped - and cut the rumble
+  short. Each pad's controller now stays open, so a rumble costs well under a millisecond and
+  lasts its full duration. The `isometric_haptics` sample no longer bumps every frame when the
+  stick is held at a diagonal into a corner.
+- Parallax layers were placed from the view's top-left, with the map's parallax origin subtracted;
+  Tiled places them from the view's centre and adds the origin. The layers did not sit where Tiled
+  shows them, and zooming about a fixed point slid them away from the rest of the map. They are now
+  placed as Tiled places them, in every view.
+- Anything semi-transparent (a tile layer below full opacity, a sprite or an object with opacity,
+  the screen fade) was drawn darker than it should be: drawing into the frame's render target
+  blended its alpha channel too, so it lost opacity there, and the frame - drawn onto the window over
+  black - came out darker in those places (about 70% brightness for a 0.65 layer over a 0.69 one).
+  The render target now blends alpha as "over", so the colours shown are the colours drawn.
+- A map whose own (embedded) tileset image path contained `..` or `.`
+  (`<image source="../../sprites/x.png">`) was refused by `LoadMap`: libtmx joins the path to the
+  map's directory without collapsing it, and the FileSystem rejects those segments. It is now
+  collapsed, as an external tileset's image path already was.
+- `CollisionManager`:
+  - `AddColliderToColliderRule` read past its layer array for a layer id out of range, and accepted
+    one as its second id, storing a bad pointer that the next `Update()` crashed on.
+  - `Clear()` destroyed every layer's list, so anything after it crashed.
+  - `RemoveAll()` (every layer) cleared nothing.
+  - Every layer id is now checked to be `0 <= id < MAX_COLLIDER_LAYERS`, `Clear()` empties the
+    lists, and `RemoveAll()` clears every layer.
+- `UnloadMap()` and `Stop()` left the unloaded sprites' colliders in the collision manager: an
+  unloaded sprite kept colliding, and adding it again registered its collider twice. The sprites'
+  own colliders are now removed with them; colliders the game added itself, and the collision
+  rules, stay.
+- Sprite-against-tile collisions (`AddColliderToTileRule`) tested only the tile under the sprite's
+  top-left corner, shifted by the viewport origin, and added the camera to a world-space sprite's
+  map position. They now test every tile the sprite overlaps, in map space, once per tile per
+  frame. A tile with several collision shapes no longer hangs the frame.
+- The `objects`, `text`, `opacity` and `shapes` samples could not scroll: they relied on the camera
+  keys the renderer no longer installs. They now call `DefaultControllerBindings::Install`.
 
 ### Removed
 
-- Nothing yet.
+- `IEngine::SetPixel`, `SUNLIGHT_SOFTWARE_CLIP` and `base/clipmode.h`.
+- `RendererConfig::bUseDefaultKeyHandler`.
+- `doc/TODO.txt`, `doc/FIXME.txt` and `doc/MISSING_FEATURES.md` (all in `doc/MASTER_PLAN.md`).
+
+## [0.38.0] - 2026-09-21
+
+### Added
+
+- Fullscreen at window creation: `RendererConfig::bFullscreen` and `fullscreenStrategy`, handed to
+  `IWindow::Create` (two new defaulted parameters) and applied at every `Start()`; an unknown
+  strategy is rejected. New `IWindow::GetFullscreenStrategy()` and
+  `IDrawSurface::GetFullscreenStrategy()`. The null backend accepts and ignores both.
+
+### Fixed
+
+- `TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR` stepped one frame past the last one every cycle; it
+  now shows each frame once (period N).
+- `TEXTURE_ANIMATION_MODE_AUTOMATIC_RIGHT_LEFT` showed its last frame twice and frame 0 three
+  times (period 2N + 1); it is now a ping-pong that shows each end once (period 2N - 2), so it runs
+  faster at the same delay. The other modes are unchanged.
+
+## [0.37.0] - 2026-09-21
+
+### Added
+
+- `Sprite::GetTextureSequenceSize`, `SetTextureSequenceDelay` and `ClearTextureSequence` change a
+  sequence after it was built (also `TextureMap::GetTextureCount`/`SetDelay`). A delay of -1 means
+  a held frame.
+
+### Fixed
+
+- `TextureMap` kept a `std::deque` iterator as its cursor across appends: a use-after-free once a
+  sequence grew past a block of entries. The cursor is an index now.
+
+## [0.36.0] - 2026-09-21
+
+### Added
+
+- World-space sprites: `Sprite::SetWorldSpace(true)` makes a sprite's position a map position,
+  drawn by each view with its own camera, exactly where that view draws the map (off by default).
+  Also `BaseCanvas::GetCameraOffset` and `IsOnScreen`. Colliders are not affected.
+
+### Fixed
+
+- In the multi-view frame, a sprite advances in the first pass where it is on screen (it used to
+  advance in the first pass that reached it, even off screen).
+
+## [0.35.0] - 2026-09-21
+
+### Added
+
+- `samples/multiview`: one map and one world-space character in three views (main, minimap,
+  close-up).
+
+### Changed
+
+- **Breaking:** view handles are `std::shared_ptr<IView>` (`CreateView` returns one, `GetView`
+  returns one or empty), and `RemoveView(handle)` is added. A handle held after its view or
+  renderer is gone is inert (`IView::IsRemoved()`) instead of dangling. Migration:
+  `auto view = r.CreateView(rect);` and `view->GetId()` for the id.
+
+### Fixed
+
+- A sprite and its renderer can be destroyed in either order: each unregisters from the other
+  (`BaseCanvas::ChildRemoved`, `Sprite::SetParent`). A sprite added to a second renderer is
+  forgotten by the first.
+- `~Sprite` read canvases the caller may already have destroyed; it no longer touches them.
+  `Sprite::Unload()` still unloads them.
+
+## [0.34.0] - 2026-09-21
+
+### Added
+
+- Extra views are drawn: one pass per visible view, in draw order. New on `IView`:
+  `SetVisible`, `SetDrawOrder`, background control (`SetClearBackground`, `SetBackgroundColor`,
+  `UseMapBackgroundColor`), a per-view layer mask (`ShowLayer`, `ShowOnlyLayers`,
+  `ShowAllLayers`, `IsLayerShown`) and `FitToMap()`. Also `Viewport::GetZoomLimits` and
+  `TileMapRenderer::GetClearBackground`. Each sprite advances once per frame.
+
+## [0.33.1] - 2026-09-21
+
+### Fixed
+
+- `MoveCameraUp`/`MoveCameraLeft` crashed when no map was loaded (renderer and views).
+
+## [0.33.0] - 2026-09-21
+
+### Added
+
+- `IView::GetScrollStepSize` and `TileMapRenderer::GetScrollStepSize`.
+
+## [0.32.0] - 2026-09-21
+
+### Added
+
+- Views: every renderer has a default view (`GetDefaultView()`) and can create more
+  (`CreateView`, `GetView`, `RemoveView`, `GetViewCount`). A view holds a viewport, camera and
+  scroll step, and runs the renderer's own camera code. New pure virtuals on `ITileMap`. Extra
+  views are not drawn yet.
+
+## [0.31.0] - 2026-09-21
+
+### Fixed
+
+- A map's external tilesets (`.tsx`) and templates (`.tx`) are read through `SunLight::FileSystem`,
+  so they load from a mounted archive and pass through the read filter.
+- The samples failed to load their map when given an absolute base path.
+
+## [0.30.0] - 2026-09-21
+
+### Added
+
+- `TextureCanvas`/`Sprite` frame step split into `Advance()` (animation state, once per frame) and
+  `Draw()` (may run several times). `Update()` is both, unchanged.
+
+## [0.29.0] - 2026-09-21
+
+### Changed
+
+- **Breaking:** a viewport's `size` is a width/height everywhere: the viewport is
+  `[pos, pos + size)`. Clipping used to read it as the far edge when `pos` was not `(0, 0)`.
+  Migrate such a viewport by subtracting `pos` from `size`.
+
+### Fixed
+
+- `TileMapToTileMatrix` used the viewport's `pos.x` for the row.
+
+## [0.28.0] - 2026-09-21
+
+### Added
+
+- `Viewport::GetEnableUserZoom()`.
+
+### Fixed
+
+- `MoveCameraUp` bounded vertical scrolling by the viewport's width.
+- `Viewport::SetMinZoom`/`SetMaxZoom` could only narrow the limits, and the maximum was exclusive.
+  Both bounds are now inclusive positions, validated against the whole scale.
+
+## [0.27.0] - 2026-09-21
+
+### Added
+
+- Public zoom-scale constants in `base/viewport.h` (`ZOOM_STEP`, `ZOOM_POS_MIN`/`MAX`/`COUNT`/
+  `DEFAULT`, `ZOOM_FACTOR_MIN`/`MAX`).
+
+### Fixed
+
+- `Viewport::GetZoomFactor(nZoomPos)` ignored its argument.
+
+## [0.26.1] - 2026-09-21
+
+### Fixed
+
+- The null backend's virtual time drifted (300 frames at 60 FPS read 4.999999999999988 s). Frames
+  are counted, so whole seconds are exact.
+
+## [0.26.0] - 2026-09-21
+
+### Added
+
+- Null (headless) backend, `RENDERER_BACKEND_NULL`: no display or GPU, virtual time, real image
+  sizes from file headers. `RendererConfig` gains `framePacing` and `nMaxFrames`; also
+  `General::VirtualClock`.
+
+### Changed
+
+- A renderer created without a viewport gets one covering the render area (`LoadMap` used to
+  crash dividing by zero).
+
+## [0.25.0] - 2026-09-21
+
+### Added
+
+- `General::Clock`: a process-wide, replaceable source of "now", read by script waits, sprite
+  frame timing and tile animation.
+
+### Removed
+
+- **Breaking:** the `IEngine::FullscreenStrategy` aliases; use `SunLight::Window::FullscreenStrategy`.
+
+## [0.24.0] - 2026-09-20
+
+### Added
+
+- `RendererConfig`, one value struct for creating a renderer, with `Validate()`, and the checked
+  `TileMapRenderer::Create(config, &error)`.
+
+### Changed
+
+- **Breaking (backend implementers):** `IEngine::OnWindowClosing` is replaced by
+  `IWindow::AddCloseHandler`/`RemoveCloseHandler`.
+- `FullscreenStrategy` moved to `SunLight::Window` (the `IEngine` names kept as aliases).
+- `Start()` applies the configured exit key instead of resetting it to ESC.
+
+## [0.23.0] - 2026-09-20
+
+### Added
+
+- `MockWindow` and lifecycle tests: `Start()`/`Run()`/`Stop()` are unit-tested end to end.
+
+### Changed
+
+- **Breaking (backend implementers):** the window operations moved from `IEngine` to a new
+  `IWindow` (`src/window/`); `IEngine` gained `ClearBackground` and `DrawFPS`. `TileMapRenderer`
+  no longer calls raylib directly.
+
+## [0.22.0] - 2026-09-19
+
+### Added
+
+- `GetElapsedTime()`: wall-clock seconds, on `IEngine`, `IDrawSurface` and `TileMapRenderer`.
+
+## [0.2.0] - [0.21.0]
+
+Described in their [GitHub release notes](https://github.com/popolony2k/sunlight/releases).
+
+## [0.1.0] - 2026-07-22
+
+### Added
+
+- `IEngine` backend abstraction (`src/engines/`), with `GetApplicationDirectory()`.
+- `TileMapRenderer::SetWindowTitle()`; right-stick handling for `GAMEPAD_BUTTON_RIGHT_FACE_*`.
+- Samples `collision` and `gamepad`, and real docs for `sprite` and `tilemaprenderer`.
+- GitHub Actions CI on Linux, macOS and Windows.
+- A doctest unit test suite, with mock engine, sound and tile map seams.
+- `cmake --install` produces a usable `sunlightConfig.cmake` package.
+
+### Changed
+
+- `libxml2` and `tmx` pinned to release tags.
+- Owning raw pointers converted to `std::unique_ptr`.
+
+### Fixed
+
+- The `install()` rule, and the package config's paths when consumed through `FetchContent`.
+- `TextureCanvas::Load()` checked the height twice instead of width and height.
+- `ScriptProcessor`: `LOOP_CMD` ignored its repeat count, and a missing label crashed
+  `GOTO_LABEL_CMD`/`END_LOOP_CMD` (now reported through `OnError()`).
+- The `KeyboardKey` name clash in `TileMapRenderer::SetExitKey`.
+
+[Unreleased]: https://github.com/popolony2k/sunlight/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/popolony2k/sunlight/compare/v0.38.0...v0.39.0
+[0.38.0]: https://github.com/popolony2k/sunlight/compare/v0.37.0...v0.38.0
+[0.37.0]: https://github.com/popolony2k/sunlight/compare/v0.36.0...v0.37.0
+[0.36.0]: https://github.com/popolony2k/sunlight/compare/v0.35.0...v0.36.0
+[0.35.0]: https://github.com/popolony2k/sunlight/compare/v0.34.0...v0.35.0
+[0.34.0]: https://github.com/popolony2k/sunlight/compare/v0.33.1...v0.34.0
+[0.33.1]: https://github.com/popolony2k/sunlight/compare/v0.33.0...v0.33.1
+[0.33.0]: https://github.com/popolony2k/sunlight/compare/v0.32.0...v0.33.0
+[0.32.0]: https://github.com/popolony2k/sunlight/compare/v0.31.0...v0.32.0
+[0.31.0]: https://github.com/popolony2k/sunlight/compare/v0.30.0...v0.31.0
+[0.30.0]: https://github.com/popolony2k/sunlight/compare/v0.29.0...v0.30.0
+[0.29.0]: https://github.com/popolony2k/sunlight/compare/v0.28.0...v0.29.0
+[0.28.0]: https://github.com/popolony2k/sunlight/compare/v0.27.0...v0.28.0
+[0.27.0]: https://github.com/popolony2k/sunlight/compare/v0.26.1...v0.27.0
+[0.26.1]: https://github.com/popolony2k/sunlight/compare/v0.26.0...v0.26.1
+[0.26.0]: https://github.com/popolony2k/sunlight/compare/v0.25.0...v0.26.0
+[0.25.0]: https://github.com/popolony2k/sunlight/compare/v0.24.0...v0.25.0
+[0.24.0]: https://github.com/popolony2k/sunlight/compare/v0.23.0...v0.24.0
+[0.23.0]: https://github.com/popolony2k/sunlight/compare/v0.22.0...v0.23.0
+[0.22.0]: https://github.com/popolony2k/sunlight/compare/v0.21.0...v0.22.0
+[0.2.0]: https://github.com/popolony2k/sunlight/releases/tag/v0.2.0
+[0.21.0]: https://github.com/popolony2k/sunlight/releases/tag/v0.21.0
+[0.1.0]: https://github.com/popolony2k/sunlight/releases/tag/v0.1.0

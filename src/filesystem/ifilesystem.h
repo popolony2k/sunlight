@@ -42,6 +42,11 @@ namespace SunLight  {
          * to whatever was mounted, always using '/' as the separator
          * (matching the underlying PhysFS convention) - never an absolute
          * OS path, and never OS-specific separators.
+         *
+         * Every path may carry a scheme - see FilePath (I12 of the master plan). This is a pure
+         * interface (I13): the shared behaviour every backend has - schemes, host paths, the
+         * host-path switch, the read and write filters - is BaseFileSystem's, which a backend
+         * derives from.
          */
         class IFileSystem  {
 
@@ -61,7 +66,18 @@ namespace SunLight  {
              * called at all, and @see ReadFile behaves exactly as it
              * always has.
              */
-            typedef std :: function<bool( const std :: vector<unsigned char> &in, std :: vector<unsigned char> &out )>  ReadFilterCallback;
+            typedef std :: function<bool( const std :: vector<unsigned char>& in, std :: vector<unsigned char>& out )>  ReadFilterCallback;
+
+            /**
+             * @brief Optional pre-write transform, the counterpart of
+             * @see ReadFilterCallback: given the bytes @see WriteFile was
+             * asked to write, may replace them before they are written
+             * (true), or leave them as they are (false). A game that
+             * decrypts its pack with a read filter encrypts its own saved
+             * files with the matching write filter, so they read back
+             * through the same pair.
+             */
+            typedef std :: function<bool( const std :: vector<unsigned char>& in, std :: vector<unsigned char>& out )>  WriteFilterCallback;
 
             virtual ~IFileSystem( void )  {}
 
@@ -79,54 +95,27 @@ namespace SunLight  {
             virtual void SetReadFilter( ReadFilterCallback callback ) = 0;
 
             /**
-             * @brief Converts a real, OS-native path into its own legal
-             * virtual-path equivalent - normalizing '\' to '/', stripping
-             * a Windows drive letter prefix ("C:", "D:", ...), and
-             * stripping a leading "./". A real path is always safe to
-             * pass as @see Mount's own strRealPath (source) argument, in
-             * whatever native format the OS gives it - but never as
-             * strMountPoint (destination), and never as @see ReadFile/
-             * @see Exists's own strVirtualPath: PhysFS's own path
-             * sanitizer (verified directly in it's own source) rejects
-             * both a raw ':' anywhere in the string, and a "." path
-             * segment specifically - which a leading "./" always produces
-             * - as outright illegal, not just a mount-point restriction.
-             *
-             * The "./" case is a real, live-reproduced bug distinct from
-             * the drive-letter one: raylib's own LoadBMFont (rtext.c)
-             * builds a multi-file AngelCode BMFont's atlas image path via
-             * GetDirectoryPath(fileName), which - confirmed directly in
-             * raylib's own source - always prepends "./" to the result
-             * whenever fileName has no drive letter and doesn't already
-             * start with '/' (the common, relative-path case). A
-             * SetFont("resources/fonts/foo.fnt") call therefore reaches
-             * RaylibEngine's own FileSystemLoadFileDataCallback asking to
-             * read "./resources/fonts/foo.png" - which PHYSFS_openRead()
-             * silently rejects, with no trace at all (that total silence
-             * is itself the diagnostic tell), falling back to raylib's
-             * default font with no visible error. Single-file TTF/OTF
-             * fonts are unaffected - no such internally-constructed
-             * secondary path exists for them.
-             *
-             * Idempotent - safe to call on a string that's already a
-             * legal virtual path (eg. "/", or this method's own prior
-             * output), since none of these transformations touch it
-             * further. A consumer needing to mount it's own real
-             * directory "at itself" must call this explicitly and use the
-             * *same* resulting string both as Mount()'s own mountPoint
-             * argument and as the prefix for any virtual path it later
-             * constructs against that mount (eg. exposing it to a
-             * scripting layer as an "application directory" global) -
-             * Mount() itself cannot safely do this conversion internally
-             * on the caller's behalf, since ReadFile/Exists lookups
-             * against virtual paths built from the *unconverted* real
-             * path would then no longer match whatever Mount() actually
-             * mounted things at.
-             *
-             * @param strRealPath Real, OS-native path to convert;
-             * @return strRealPath's own equivalent, legal virtual path;
+             * @brief Register an optional filter applied to the bytes of
+             * every @see WriteFile before they are written - virtual and
+             * host paths alike. Unset by default: the bytes are written as
+             * given.
+             * @param callback The filter, or an empty WriteFilterCallback
+             * to clear a previously-set one;
              */
-            static std :: string ToVirtualPath( const std :: string &strRealPath );
+            virtual void SetWriteFilter( WriteFilterCallback callback ) = 0;
+
+            /**
+             * @brief Allow or refuse host paths ("hostpath://", "hpath://").
+             * Allowed by default. Refused, every host-path @see Exists,
+             * @see ReadFile and @see WriteFile fails - eg. a scripting layer
+             * that must keep its scripts inside the virtual path space.
+             * Mounting a real path (@see Mount, @see SetWriteDirectory) is
+             * the program's own setup, not a host-path access, and is not
+             * affected.
+             * @param bEnabled Whether host paths are allowed;
+             */
+            virtual void SetHostPathEnabled( bool bEnabled ) = 0;
+            virtual bool IsHostPathEnabled( void ) const = 0;
 
             /**
              * @brief Must be implemented to perform whatever one-time
@@ -139,7 +128,7 @@ namespace SunLight  {
              * platform-specific support files;
              * @return true on success, false on failure;
              */
-            virtual bool Init( const char *szArgv0 ) = 0;
+            virtual bool Init( const char* szArgv0 ) = 0;
 
             /**
              * @brief Must be implemented to release whatever @see Init
@@ -154,7 +143,10 @@ namespace SunLight  {
              * concrete backend auto-detects which - so it's contents
              * become readable through this interface's own virtual path
              * space. Multiple mounts can coexist, stacked in mount order
-             * (see appendToPath).
+             * (see appendToPath) - the same location included, at several
+             * mount points (I22 of the master plan), each mount in its own
+             * place in that order; mounting the same location at the same
+             * mount point again changes nothing and succeeds.
              * @param strRealPath Real, OS-native path to the directory or
              * archive to mount;
              * @param strMountPoint Where in the virtual path space this
@@ -167,32 +159,97 @@ namespace SunLight  {
              * doesn't exist, or isn't a directory/archive the backend
              * recognizes);
              */
-            virtual bool Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath ) = 0;
+            virtual bool Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath ) = 0;
 
             /**
-             * @brief Must be implemented to report whether a file exists
-             * at the given virtual path, across every currently mounted
-             * location.
-             * @param strVirtualPath Virtual path to check;
-             * @return true if a readable file exists there, false
-             * otherwise (including when nothing has been mounted yet);
+             * @brief Must be implemented to remove ONE mount made by @see Mount (I22 of the master
+             * plan): the one of that real path at that mount point - the same folder or archive may
+             * be mounted at several mount points, each in its own place in the search order, and the
+             * others stay. The write directory's own mount (@see SetWriteDirectory) is not removed by it.
+             * @param strRealPath The real path given to Mount;
+             * @param strMountPoint The mount point given to Mount ("/" and "" are the same);
+             * @return false when no such mount exists;
              */
-            virtual bool Exists( const std :: string &strVirtualPath ) = 0;
+            virtual bool Unmount( const std :: string& strRealPath, const std :: string& strMountPoint ) = 0;
 
             /**
-             * @brief Must be implemented to read an entire file's
-             * contents into memory in one call, resolving it against
-             * every currently mounted location the same way @see Exists
-             * does.
-             * @param strVirtualPath Virtual path to read;
-             * @param outData Receives the file's own raw bytes on
-             * success; left untouched on failure;
-             * @return true on success, false if the file doesn't exist or
-             * couldn't be read;
+             * @brief Must be implemented to set the real folder a virtual
+             * path is written into (@see WriteFile) - archives are
+             * read-only, so a virtual write never goes into one. The
+             * folder is created if it does not exist, and is also mounted
+             * at the virtual root ahead of every other mount, so a file
+             * written there reads back by the same virtual path and wins
+             * over a shipped file of the same name (user settings over a
+             * game's defaults). It does not count as a mount for the
+             * automatic mount of the working directory (PhysFS backend).
+             * @param strRealPath Real, OS-native path of the folder;
+             * @return true on success;
              */
-            virtual bool ReadFile( const std :: string &strVirtualPath, std :: vector<unsigned char> &outData ) = 0;
+            virtual bool SetWriteDirectory( const std :: string& strRealPath ) = 0;
+
+            /**
+             * @brief Whether a file exists at a path (see the path schemes
+             * in the class comment): across every mounted location for a
+             * virtual path, on the OS for a host path.
+             * @param strPath The path;
+             * @return true if a readable file exists there; false
+             * otherwise, for an unknown scheme, or a host path while host
+             * paths are refused;
+             */
+            virtual bool Exists( const std :: string& strPath ) = 0;
+
+            /**
+             * @brief Read an entire file into memory in one call, from a
+             * virtual or a host path (see the path schemes in the class
+             * comment), then through the read filter, if one is set.
+             * @param strPath The path;
+             * @param outData Receives the bytes on success; left untouched
+             * on failure;
+             * @return true on success; false if the file doesn't exist or
+             * couldn't be read, for an unknown scheme, or a host path
+             * while host paths are refused;
+             */
+            virtual bool ReadFile( const std :: string& strPath, std :: vector<unsigned char>& outData ) = 0;
+
+            /**
+             * @brief Write an entire file in one call, through the write
+             * filter if one is set, replacing any file there: a virtual
+             * path into the write directory (@see SetWriteDirectory), a
+             * host path to the OS. Missing folders on the way are created.
+             * Atomic (I14 of the master plan): the bytes go to a temporary
+             * file beside the target ("<name>.tmp"), flushed to the disk,
+             * which then replaces the target in one rename - a crash, a
+             * power loss or a full disk leaves the old file or the new one,
+             * never an empty or half-written one. A process killed in the
+             * middle can leave the ".tmp" beside the target; the next write
+             * of that file replaces it.
+             * @param strPath The path;
+             * @param data The bytes;
+             * @return true on success; false if it couldn't be written (the
+             * old file then is as it was), a virtual path while no write
+             * directory is set, an unknown scheme, or a host path while host
+             * paths are refused;
+             */
+            virtual bool WriteFile( const std :: string& strPath, const std :: vector<unsigned char>& data ) = 0;
+
+            /**
+             * @brief Remove a file (I14 of the master plan), under the same
+             * rules as @see WriteFile: a virtual path only inside the write
+             * directory - never a file of a mounted archive or folder, which
+             * are read-only, so removing a saved file there makes a shipped
+             * file of the same name readable again - and a host path only
+             * while host paths are allowed. Files only: a folder is never
+             * removed.
+             * @param strPath The path;
+             * @return true if a file was removed; false if there was none
+             * (so a caller can tell nothing was there), it is a folder, it
+             * couldn't be removed, a virtual path while no write directory
+             * is set, an unknown scheme, or a host path while host paths
+             * are refused;
+             */
+            virtual bool RemoveFile( const std :: string& strPath ) = 0;
         };
     }
 }
 
-#endif  /* __IFILESYSTEM_H__ */
+#endif /* __IFILESYSTEM_H__ */

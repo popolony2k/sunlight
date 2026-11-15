@@ -101,6 +101,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # A tag with a suffix (v0.39.0-beta.1, v0.39.0-rc.1) is a prerelease: it is
+          # published, but not marked as the latest release.
+          PRERELEASE_FLAG=""
+          case "${{ github.ref_name }}" in
+            *-*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
           gh release create "${{ github.ref_name }}" dist/* \
             --title "sunlight ${{ github.ref_name }}" \
-            --generate-notes
+            --generate-notes $PRERELEASE_FLAG

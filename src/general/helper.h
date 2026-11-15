@@ -33,8 +33,9 @@ namespace SunLight  {
             public:
 
             static int Random( int nBegin, int nEnd );
+            static float RoundHalfUp( float fValue );
         };
     }
 }
 
-#endif  /* __HELPER_H__ */
+#endif /* __HELPER_H__ */

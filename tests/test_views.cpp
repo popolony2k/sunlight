@@ -35,9 +35,9 @@ typedef SunLight :: TileMap :: ITileMap  ITM;
 
 namespace  {
 
-    SunLight :: TileMap :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
+    SunLight :: Base :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
 
-        SunLight :: TileMap :: stDimension2D  rect {};
+        SunLight :: Base :: stDimension2D  rect {};
 
         rect.pos.x = nX;  rect.pos.y = nY;  rect.size.nWidth = nW;  rect.size.nHeight = nH;
 
@@ -45,7 +45,7 @@ namespace  {
     }
 
     // Null-backend renderer with the default view's viewport set; optionally with a 640 x 640 map (40 x 40 tiles of 16) loaded.
-    std :: unique_ptr<TileMapRenderer> MakeRenderer( const SunLight :: TileMap :: stDimension2D &viewport, unsigned nZoomPos, bool bLoadMap )  {
+    std :: unique_ptr<TileMapRenderer> MakeRenderer( const SunLight :: Base :: stDimension2D& viewport, unsigned nZoomPos, bool bLoadMap )  {
 
         RendererConfig  config;
 
@@ -144,7 +144,7 @@ TEST_SUITE( "renderer/views" )  {
         CHECK( pRenderer -> GetView( 999 ) == nullptr );
 
         // The rectangle it was created with.
-        SunLight :: TileMap :: stDimension2D  &dim = pRenderer -> GetView( nFirst ) -> GetViewport().GetDimension2D();
+        SunLight :: Base :: stDimension2D  &dim = pRenderer -> GetView( nFirst ) -> GetViewport().GetDimension2D();
 
         CHECK( dim.pos.x == 900 );
         CHECK( dim.pos.y == 20 );
@@ -301,7 +301,7 @@ TEST_SUITE( "renderer/views" )  {
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "TileMapToTileMatrix through a view uses THAT view's viewport position and camera" )  {
+    TEST_CASE( "TileMapToTileMatrix through any view gives the same cell: a map position has no view (I7)" )  {
 
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
@@ -309,27 +309,27 @@ TEST_SUITE( "renderer/views" )  {
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( Rect( 10, 40, 500, 500 ), 15, true );
         int                                 nId = pRenderer -> CreateView( Rect( 64, 32, 200, 200 ) ) -> GetId();
         SunLight :: TileMap :: IView        &other = *pRenderer -> GetView( nId );
-        SunLight :: TileMap :: stCoordinate2D    coord { 100, 100 };
+        SunLight :: Base :: stCoordinate2D    coord { 100, 100 };
         SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
 
-        // Default view (pos (10, 40), camera 0): col (100 + 10) / 16, row (100 + 40) / 16.
+        // Map point (100, 100) is cell (6, 6) = 100 / 16, through the default view (viewport (10, 40)) ...
         REQUIRE( pRenderer -> GetDefaultView().TileMapToTileMatrix( coord, pos ) == true );
-        CHECK( pos.nTileCol == ( 100 + 10 ) / 16 );
-        CHECK( pos.nTileRow == ( 100 + 40 ) / 16 );
+        CHECK( pos.nTileCol == 100 / 16 );
+        CHECK( pos.nTileRow == 100 / 16 );
 
-        // The other view (pos (64, 32)) with its own camera at (-16, -32): the point 100,100 is a different tile.
+        // ... through another view, at another viewport (64, 32) and with its own camera ...
         other.SetCameraPosition( 16, 32 );
         pos = SunLight :: TileMap :: stMatrixPosition { -1, -1 };
 
         REQUIRE( other.TileMapToTileMatrix( coord, pos ) == true );
-        CHECK( pos.nTileCol == ( 100 + 64 + 16 ) / 16 );      // camera x is -16 -> minus it
-        CHECK( pos.nTileRow == ( 100 + 32 + 32 ) / 16 );
+        CHECK( pos.nTileCol == 100 / 16 );
+        CHECK( pos.nTileRow == 100 / 16 );
 
-        // And the renderer's (= the default view's) answer is unchanged by having asked the other.
+        // ... and through the renderer itself.
         pos = SunLight :: TileMap :: stMatrixPosition { -1, -1 };
         REQUIRE( pRenderer -> TileMapToTileMatrix( coord, pos ) == true );
-        CHECK( pos.nTileCol == ( 100 + 10 ) / 16 );
-        CHECK( pos.nTileRow == ( 100 + 40 ) / 16 );
+        CHECK( pos.nTileCol == 100 / 16 );
+        CHECK( pos.nTileRow == 100 / 16 );
 
         pRenderer -> Stop();
     }

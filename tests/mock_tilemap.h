@@ -26,12 +26,12 @@
 #include <stdexcept>
 
 /**
- * @brief Test double for SunLight::TileMap::ITileMap - only implements the
- * subset CollisionManager actually calls (GetLayer, TileMapToTileMatrix,
- * GetTile) with configurable results; everything else is a trivial stub
- * since CollisionManager never reaches it. GetInputHandler()/
- * GetCollisionManager() throw if called - there's no sane mock value for
- * either and CollisionManager doesn't call them on its parent.
+ * @brief Test double for SunLight::TileMap::ITileMap - the subset CollisionManager actually
+ * calls (GetLayer, TileMapToTileMatrix, GetTile) has configurable results; the camera/zoom
+ * methods (ResetZoom, ZoomIn, ZoomOut, ResetCamera, MoveCameraUp/Down/Left/Right) count their
+ * own calls, for DefaultControllerBindings's tests; everything else is a trivial stub since
+ * neither consumer reaches it. GetInputHandler()/GetCollisionManager() throw if called -
+ * there's no sane mock value for either and neither consumer calls them on its parent.
  */
 class MockTileMap : public SunLight :: TileMap :: ITileMap  {
 
@@ -48,6 +48,13 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     int  nGetTileCalls              = 0;
     int  nTileMapToTileMatrixCalls  = 0;
 
+    // GetCollidingTiles answers collidingTiles (for any rectangle) and records what it was asked.
+    bool                                          bGetCollidingTilesResult = true;
+    std :: vector<SunLight :: TileMap :: stTile>  collidingTiles;
+    int                                           nGetCollidingTilesCalls  = 0;
+    SunLight :: Base :: stRectangle               lastCollidingRect        { 0, 0, 0, 0 };
+    bool                                          bLastCollidingWorldSpace = false;
+
     void AddGamePad( int )  {}
     void SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey, SunLight :: Input :: INPUT_EVENT_HANDLER )  {}
     void SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton, SunLight :: Input :: INPUT_EVENT_HANDLER )  {}
@@ -59,23 +66,36 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     SunLight :: TileMap :: IView& GetDefaultView( void )  {
         throw std :: logic_error( "MockTileMap::GetDefaultView not mocked" );
     }
-    std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: TileMap :: stDimension2D & )  { return nullptr; }
+    std :: shared_ptr<SunLight :: TileMap :: IView> CreateView( const SunLight :: Base :: stDimension2D & )  { return nullptr; }
     std :: shared_ptr<SunLight :: TileMap :: IView> GetView( int )  { return nullptr; }
     bool RemoveView( int )  { return false; }
     bool RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> & )  { return false; }
+    std :: shared_ptr<SunLight :: TileMap :: IWorld> GetDefaultWorld( void )  { return nullptr; }
+    std :: shared_ptr<SunLight :: TileMap :: IWorld> CreateWorld( void )  { return nullptr; }
+    bool RemoveWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld> & )  { return false; }
+    int GetWorldCount( void )  { return 1; }
     int GetViewCount( void )  { return 1; }
 
-    void ResetZoom( void )  {}
-    void ZoomIn( void )  {}
-    void ZoomOut( void )  {}
-    void ResetCamera( void )  {}
-    void MoveCameraUp( void )  {}
-    void MoveCameraDown( void )  {}
-    void MoveCameraLeft( void )  {}
-    void MoveCameraRight( void )  {}
+    int  nResetZoomCalls      = 0;
+    int  nZoomInCalls         = 0;
+    int  nZoomOutCalls        = 0;
+    int  nResetCameraCalls    = 0;
+    int  nMoveCameraUpCalls   = 0;
+    int  nMoveCameraDownCalls = 0;
+    int  nMoveCameraLeftCalls = 0;
+    int  nMoveCameraRightCalls = 0;
+
+    void ResetZoom( void )  { nResetZoomCalls++; }
+    void ZoomIn( void )  { nZoomInCalls++; }
+    void ZoomOut( void )  { nZoomOutCalls++; }
+    void ResetCamera( void )  { nResetCameraCalls++; }
+    void MoveCameraUp( void )  { nMoveCameraUpCalls++; }
+    void MoveCameraDown( void )  { nMoveCameraDownCalls++; }
+    void MoveCameraLeft( void )  { nMoveCameraLeftCalls++; }
+    void MoveCameraRight( void )  { nMoveCameraRightCalls++; }
     void SetCameraPosition( int, int )  {}
 
-    void GetCameraPosition( int &nX, int &nY )  {
+    void GetCameraPosition( int& nX, int& nY )  {
         nX = 0;
         nY = 0;
     }
@@ -117,7 +137,17 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
         return bGetTileResult;
     }
 
-    bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D&,
+    bool GetCollidingTiles( const SunLight :: Base :: stRectangle& rect, bool bWorldSpace,
+                            const SunLight :: TileMap :: stLayer& layer,
+                            std :: vector<SunLight :: TileMap :: stTile>& tiles )  {
+        nGetCollidingTilesCalls++;
+        lastCollidingRect        = rect;
+        bLastCollidingWorldSpace = bWorldSpace;
+        tiles = collidingTiles;
+        return bGetCollidingTilesResult;
+    }
+
+    bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D&,
                               SunLight :: TileMap :: stMatrixPosition& pos )  {
         nTileMapToTileMatrixCalls++;
         pos = tileMapToTileMatrixResult;
@@ -129,6 +159,14 @@ class MockTileMap : public SunLight :: TileMap :: ITileMap  {
     }
 
     bool GetObjectByName( const char*, SunLight :: TileMap :: stObject& )  {
+        return false;
+    }
+
+    bool GetTileFrame( int, const SunLight :: TileMap :: stMatrixPosition&, unsigned int& )  {
+        return false;
+    }
+
+    bool GetObjectTileFrame( const char*, unsigned int& )  {
         return false;
     }
 

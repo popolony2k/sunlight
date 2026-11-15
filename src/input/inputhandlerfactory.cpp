@@ -32,7 +32,7 @@
 #include "input/inputhandlerfactory.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         static InputHandlerFactory :: CreatorFunction   s_pCreator = nullptr;

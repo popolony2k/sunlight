@@ -30,7 +30,7 @@
  /**
  * @brief World class implementation.
  */
-class World {
+class World  {
 
     std :: unique_ptr<SunLight :: Renderer :: TileMapRenderer>  m_pRenderer;
     std :: unique_ptr<SunLight :: Sprite :: Sprite>             m_pSpriteSunny;

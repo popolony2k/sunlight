@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include "../shared/zoomkeys.h"
 #include <cstdio>
 
 #define __DISPLAY_W                 1260
@@ -52,7 +53,7 @@
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveSunnyUp( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { 0, -__PLAYER_MOVE_STEP };
+    SunLight :: Base :: stCoordinate2D  step = { 0, -__PLAYER_MOVE_STEP };
     m_pSpriteSunny -> Move( step );
 }
 
@@ -62,7 +63,7 @@ void World :: MoveSunnyUp( SunLight :: Input :: ControllerType type, int nId )  
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveSunnyDown( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { 0, __PLAYER_MOVE_STEP };
+    SunLight :: Base :: stCoordinate2D  step = { 0, __PLAYER_MOVE_STEP };
     m_pSpriteSunny -> Move( step );
 }
 
@@ -72,7 +73,7 @@ void World :: MoveSunnyDown( SunLight :: Input :: ControllerType type, int nId )
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveSunnyLeft( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { -__PLAYER_MOVE_STEP, 0 };
+    SunLight :: Base :: stCoordinate2D  step = { -__PLAYER_MOVE_STEP, 0 };
     m_pSpriteSunny -> Move( step );
 }
 
@@ -82,7 +83,7 @@ void World :: MoveSunnyLeft( SunLight :: Input :: ControllerType type, int nId )
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveSunnyRight( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { __PLAYER_MOVE_STEP, 0 };
+    SunLight :: Base :: stCoordinate2D  step = { __PLAYER_MOVE_STEP, 0 };
     m_pSpriteSunny -> Move( step );
 }
 
@@ -94,7 +95,7 @@ void World :: MoveSunnyRight( SunLight :: Input :: ControllerType type, int nId 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveMonkeyUp( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { 0, -__PLAYER_MOVE_STEP };
+    SunLight :: Base :: stCoordinate2D  step = { 0, -__PLAYER_MOVE_STEP };
     m_pSpriteMonkey -> Move( step );
 }
 
@@ -104,7 +105,7 @@ void World :: MoveMonkeyUp( SunLight :: Input :: ControllerType type, int nId ) 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveMonkeyDown( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { 0, __PLAYER_MOVE_STEP };
+    SunLight :: Base :: stCoordinate2D  step = { 0, __PLAYER_MOVE_STEP };
     m_pSpriteMonkey -> Move( step );
 }
 
@@ -114,7 +115,7 @@ void World :: MoveMonkeyDown( SunLight :: Input :: ControllerType type, int nId 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveMonkeyLeft( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { -__PLAYER_MOVE_STEP, 0 };
+    SunLight :: Base :: stCoordinate2D  step = { -__PLAYER_MOVE_STEP, 0 };
     m_pSpriteMonkey -> Move( step );
 }
 
@@ -124,7 +125,7 @@ void World :: MoveMonkeyLeft( SunLight :: Input :: ControllerType type, int nId 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler/SetUserGamePadEventHandler.
  */
 void World :: MoveMonkeyRight( SunLight :: Input :: ControllerType type, int nId )  {
-    SunLight :: TileMap :: stCoordinate2D  step = { __PLAYER_MOVE_STEP, 0 };
+    SunLight :: Base :: stCoordinate2D  step = { __PLAYER_MOVE_STEP, 0 };
     m_pSpriteMonkey -> Move( step );
 }
 
@@ -155,12 +156,12 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> ResetZoom();
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) &&
-        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) ) {
-        SunLight :: TileMap :: stDimension2D    dimSunny;
-        SunLight :: TileMap :: stDimension2D    dimMonkey;
+        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) )  {
+        SunLight :: Base :: stDimension2D    dimSunny;
+        SunLight :: Base :: stDimension2D    dimMonkey;
 
         // Sprites don't scroll with the camera in this library - see the
         // collision sample's LoadSprites() for the full explanation. At this
@@ -213,8 +214,7 @@ World :: World( std :: string strBasePath )  {
     m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
                                                                                __DISPLAY_H,
                                                                                __GAME_NAME,
-                                                                               __FRAMES_PER_SECOND,
-                                                                               false );
+                                                                               __FRAMES_PER_SECOND );
     m_pSpriteSunny = std :: make_unique<SunLight :: Sprite :: Sprite>();
     m_pCanvasSunny = std :: make_unique<SunLight :: Canvas :: TextureCanvas>();
     m_pSpriteMonkey = std :: make_unique<SunLight :: Sprite :: Sprite>();
@@ -227,7 +227,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
 
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
 
@@ -264,6 +264,13 @@ bool World :: Run( void )  {
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &World :: ZoomOut, this, std :: placeholders :: _1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &World :: ZoomIn, this, std :: placeholders :: _1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &World :: ResetZoom, this, std :: placeholders :: _1, std :: placeholders :: _2 ) );
+
+    // + zooms in, - zooms out and = resets the zoom, on the keyboard and on the keypad - the same in
+    // every sample that zooms (samples/shared/zoomkeys.h), next to this sample's own keys above.
+    Samples :: InstallZoomKeys( *m_pRenderer,
+                                [this]() { ZoomIn( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ZoomOut( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ResetZoom( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); } );
 
     viewport.pos.x = __VIEWPORT_POS_X;
     viewport.pos.y = __VIEWPORT_POS_Y;

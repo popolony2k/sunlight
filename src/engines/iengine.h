@@ -21,9 +21,12 @@
 #ifndef __IENGINE_H__
 #define __IENGINE_H__
 
+#include <memory>
 #include <string>
+#include "base/blendmode.h"
 #include "base/color.h"
 #include "base/primitives.h"
+#include "font/ifont.h"
 
 
 namespace SunLight  {
@@ -50,7 +53,7 @@ namespace SunLight  {
              * @param nHeight Output parameter receiving the loaded texture height;
              * @return Opaque handle to the loaded texture, or nullptr if operation failed;
              */
-            virtual SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName,
+            virtual SunLight :: Base :: TextureHandle LoadTexture( const char* szFileName,
                                                                     int& nWidth,
                                                                     int& nHeight ) = 0;
 
@@ -63,14 +66,17 @@ namespace SunLight  {
             virtual void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) = 0;
 
             /**
-             * @brief Must be implemented to draw a pixel according the specified
-             * position on chosen target engine;
-             *
-             * @param nPosX The X coordinate to plot pixel;
-             * @param nPosY The Y coordinate to plot pixel;
-             * @param color Color of pixel;
+             * @brief Must be implemented to tell a loaded texture's REAL size in pixels (I24 of the
+             * master plan) - what @see LoadTexture reported for it, or a render target's own size. A
+             * map's image layer is drawn at this size: the size a .tmx declares for an image only
+             * records it when the map was saved and goes stale when the picture changes.
+             * @param hTexture A texture from LoadTexture or GetRenderTargetTexture;
+             * @param nWidth Receives its width;
+             * @param nHeight Receives its height;
+             * @return false (nothing written) when the engine cannot tell - an empty handle, or a
+             * backend that keeps no size; the caller then falls back to what it knew;
              */
-            virtual void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color ) = 0;
+            virtual bool GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight ) = 0;
 
             /**
              * @brief Must be implemented to draw a texture at the specified position
@@ -128,35 +134,120 @@ namespace SunLight  {
                                               SunLight :: Base :: stColor color ) = 0;
 
             /**
-             * @brief Must be implemented to load (or replace) the font used
-             * by @see DrawText, from a font file on disk. Implementations
-             * are expected to support at least TrueType/OpenType and, where
-             * the backend's own font loader allows it, other formats too
-             * (e.g. raylib auto-detects an AngelCode BMFont ".fnt" atlas by
-             * extension) - callers pass a plain file path and rely on the
-             * backend to sort out the format, the same way @see LoadTexture
-             * doesn't ask the caller which image codec to use. Only
-             * meaningful to call once the window/render context exists.
-             * Until this is called for the first time, @see DrawText must
-             * fall back to the backend's own built-in default font, so text
-             * can be drawn with zero setup. Implementations must release
-             * whatever font this call is replacing (if it was a font this
-             * method loaded, not the backend's built-in default), so
-             * repeated calls don't leak font resources.
+             * @brief Must be implemented to draw a straight line between two points, in screen space, with a
+             * thickness in pixels. Like every draw method here it is not clipped by the engine itself: callers
+             * cut what must stay inside a view with @see BeginClip. The backend's own line routine is used, so
+             * the pixels it draws are the backend's, not the renderer's.
+             *
+             * @param fX0 X coordinate of the first end;
+             * @param fY0 Y coordinate of the first end;
+             * @param fX1 X coordinate of the second end;
+             * @param fY1 Y coordinate of the second end;
+             * @param fThickness Line thickness, in pixels;
+             * @param color Line color (including alpha);
+             */
+            virtual void DrawLine( float fX0,
+                                   float fY0,
+                                   float fX1,
+                                   float fY1,
+                                   float fThickness,
+                                   SunLight :: Base :: stColor color ) = 0;
+
+            /**
+             * @brief Must be implemented to draw the outline of an ellipse, one pixel thick, in screen space. The
+             * backend's own ellipse routine is used, so the pixels it draws are the backend's. Like every draw method
+             * here it is not clipped by the engine itself: callers cut it with @see BeginClip.
+             *
+             * @param fCenterX X coordinate of the ellipse's centre;
+             * @param fCenterY Y coordinate of the ellipse's centre;
+             * @param fRadiusX Horizontal radius, in pixels;
+             * @param fRadiusY Vertical radius, in pixels;
+             * @param color Outline color (including alpha);
+             */
+            virtual void DrawEllipseOutline( float fCenterX,
+                                             float fCenterY,
+                                             float fRadiusX,
+                                             float fRadiusY,
+                                             SunLight :: Base :: stColor color ) = 0;
+
+            /**
+             * @brief Must be implemented to make a loaded font the active
+             * font: the one @see DrawText, @see MeasureText and
+             * @see DrawTextRotated use (I3 of the master plan). Loading is
+             * @see LoadFont's job alone; this only selects. The engine shares
+             * ownership of the active font, so the caller may drop its own
+             * handle. Until a font is selected, and after SetFont( nullptr ),
+             * the backend's own built-in font is used, so text can be drawn
+             * with zero setup; an active font that has become invalid (its
+             * window closed) is treated the same way.
+             *
+             * @param pFont The font to select (from this engine's
+             * @see LoadFont), or nullptr for the built-in font;
+             * @return true if it is now the active font; false, with the
+             * active font unchanged, if pFont was not loaded by this engine
+             * or is no longer valid;
+             */
+            virtual bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont ) = 0;
+
+            /**
+             * @brief Must be implemented to return the font @see SetFont
+             * selected.
+             *
+             * @return The active font; nullptr while the built-in font is used;
+             */
+            virtual std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void ) = 0;
+
+            /**
+             * @brief Must be implemented to load a font file, without making
+             * it the active font. Implementations are expected to support at
+             * least TrueType/OpenType and, where the backend's own font
+             * loader allows it, other formats too (e.g. raylib auto-detects
+             * an AngelCode BMFont ".fnt" atlas by extension) - callers pass a
+             * plain file path and rely on the backend to sort out the format,
+             * the same way @see LoadTexture doesn't ask the caller which
+             * image codec to use. Only meaningful to call once the
+             * window/render context exists. Several fonts can be loaded at
+             * once; each draws by itself (IFont), can be selected with
+             * @see SetFont, and can be registered for a map's text objects.
+             *
+             * Ownership is shared (std::shared_ptr): the last owner to let go
+             * releases the font; if the window has closed first, the engine
+             * has already released it and the object is invalid (see IFont).
              *
              * @param szFilePath Path to the font file to load;
-             * @return true if the font loaded successfully and is now the
-             * active font, false if it failed to load (the previously
-             * active font, if any, is left untouched).
+             * @return The loaded font, or nullptr if it failed to load;
              */
-            virtual bool SetFont( const char *szFilePath ) = 0;
+            virtual std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) = 0;
+
+            /**
+             * @brief Must be implemented to restrict everything drawn after
+             * it to a screen-space rectangle, until @see EndClip. Anything
+             * outside the rectangle is not drawn - this is what cuts a text
+             * line at the viewport's edge, since @see DrawText has no clip of
+             * its own. Backends with no clipping may ignore it, but then
+             * callers that need a cut must not rely on it.
+             *
+             * Nestable: a BeginClip inside another clip is intersected with it, so
+             * it can only narrow the clip. Each EndClip ends the innermost clip
+             * and restores the one outside it. Callers pair them one to one.
+             *
+             * @param rect Rectangle to clip to, in the same screen-space
+             * coordinates as DrawText;
+             */
+            virtual void BeginClip( SunLight :: Base :: stRectangle rect ) = 0;
+
+            /**
+             * @brief Must be implemented to end the clip started by
+             * @see BeginClip. Drawing is unrestricted again afterwards.
+             */
+            virtual void EndClip( void ) = 0;
 
             /**
              * @brief Must be implemented to draw a line of text on chosen
              * target engine, in screen space - same as every other draw
              * method on this interface, with no viewport/camera transform
              * of its own, and using whichever font is currently active (see
-             * @see SetFont).
+             * @see SetFont). A font from @see LoadFont is drawn through IFont.
              *
              * @param szText The text to draw;
              * @param nPosX X coordinate to draw at;
@@ -164,7 +255,7 @@ namespace SunLight  {
              * @param nFontSize Font size, in pixels;
              * @param color Text color;
              */
-            virtual void DrawText( const char *szText,
+            virtual void DrawText( const char* szText,
                                    int nPosX,
                                    int nPosY,
                                    int nFontSize,
@@ -173,14 +264,13 @@ namespace SunLight  {
             /**
              * @brief Must be implemented to measure how wide a line of
              * text would render, in pixels, at a given font size, using
-             * whichever font is currently active (see @see SetFont) - the
-             * same font @see DrawText itself would use.
+             * whichever font is currently active (see @see SetFont).
              *
              * @param szText The text to measure;
              * @param nFontSize Font size, in pixels;
              * @return The text's rendered width, in pixels;
              */
-            virtual int MeasureText( const char *szText, int nFontSize ) = 0;
+            virtual int MeasureText( const char* szText, int nFontSize ) = 0;
 
             /**
              * @brief Must be implemented to return the directory the running
@@ -245,7 +335,13 @@ namespace SunLight  {
             /**
              * @brief Must be implemented to redirect all subsequent drawing
              * on chosen target engine into the given render target, until
-             * the matching @see EndRenderTarget call.
+             * the matching @see EndRenderTarget call. Drawing into it
+             * starts in BLEND_MODE_NORMAL (see @see SetBlendMode).
+             *
+             * Calls NEST (I19a of the master plan): a render target begun
+             * while another one is being drawn into is drawn into until its
+             * own @see EndRenderTarget, which goes back to the outer one -
+             * a view drawn into a target of its own inside the frame's.
              *
              * @param hRenderTarget The render target to draw into;
              */
@@ -254,9 +350,54 @@ namespace SunLight  {
             /**
              * @brief Must be implemented to stop redirecting drawing into
              * whichever render target the matching @see BeginRenderTarget
-             * call started, resuming normal drawing.
+             * call started: drawing goes back to the render target that was
+             * being drawn into before it (calls nest), or to the window when
+             * there was none. The target drawn into next starts in
+             * BLEND_MODE_NORMAL.
              */
             virtual void EndRenderTarget( void ) = 0;
+
+            /**
+             * @brief Must be implemented to draw a whole render target into
+             * whatever is being drawn into now, at the given rectangle, faded
+             * by an opacity (I19a of the master plan: a view drawn at an
+             * opacity). The target is expected to have been cleared to
+             * transparent and drawn into in BLEND_MODE_NORMAL: its colour is
+             * then already multiplied by its own alpha (normal blending over
+             * a transparent pixel leaves colour x alpha), so it is combined
+             * as PREMULTIPLIED - colour x opacity + destination x (1 - alpha x
+             * opacity) - never as straight alpha, which would multiply a
+             * semi-transparent pixel by its alpha a second time and darken
+             * it. The destination's alpha combines as "over", as for every
+             * mode. Leaves the blend mode as it was.
+             *
+             * @param hRenderTarget The render target to draw (not the one
+             * being drawn into);
+             * @param dest Where to draw it, in the current target's pixels;
+             * @param fOpacity 0 (nothing) to 1 (as it is);
+             */
+            virtual void CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                                const SunLight :: Base :: stRectangle& dest,
+                                                float fOpacity ) = 0;
+
+            /**
+             * @brief Must be implemented to make every following draw combine with what is already
+             * drawn by the given mode (I2 of the master plan), until the next call or the next
+             * @see BeginRenderTarget, which starts in BLEND_MODE_NORMAL. Each mode's formula is on
+             * SunLight::Base::BlendMode; whatever the mode, the destination's alpha is combined as
+             * "over", so an opaque pixel stays opaque.
+             *
+             * @param mode The mode to draw in;
+             */
+            virtual void SetBlendMode( SunLight :: Base :: BlendMode mode ) = 0;
+
+            /**
+             * @brief Must be implemented to return the mode set by the last @see SetBlendMode, or
+             * BLEND_MODE_NORMAL after @see BeginRenderTarget.
+             *
+             * @return The mode draws combine by now;
+             */
+            virtual SunLight :: Base :: BlendMode GetBlendMode( void ) = 0;
 
             /**
              * @brief Must be implemented to return a texture handle for the
@@ -298,8 +439,45 @@ namespace SunLight  {
                                             SunLight :: Base :: stRectangle source,
                                             SunLight :: Base :: stRectangle dest,
                                             SunLight :: Base :: stColor tint ) = 0;
+
+            /**
+             * @brief Must be implemented to draw one texture turned by a rotation, clockwise on screen, about the anchor
+             * point given by dest's x and y. origin is the offset of dest's top-left corner from that anchor before the
+             * turn, so an origin of (0, height) puts dest's bottom-left corner on the anchor (Tiled's pivot for tiles).
+             *
+             * @param hTexture The texture handle to draw;
+             * @param source The part of the texture to draw;
+             * @param dest Where the texture goes, with its anchor at (x, y);
+             * @param origin Offset of dest's top-left corner from the anchor;
+             * @param rotation Clockwise rotation in degrees;
+             * @param tint Color tint applied to texture;
+             */
+            virtual void DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                                             SunLight :: Base :: stRectangle source,
+                                             SunLight :: Base :: stRectangle dest,
+                                             SunLight :: Base :: stVector2D origin,
+                                             float rotation,
+                                             SunLight :: Base :: stColor tint ) = 0;
+
+            /**
+             * @brief Must be implemented to draw one line of text turned by a clockwise rotation about its top-left
+             * corner (nPosX, nPosY), using the active font (see @see SetFont).
+             *
+             * @param szText The text to draw;
+             * @param nPosX X of the text's top-left corner;
+             * @param nPosY Y of the text's top-left corner;
+             * @param nFontSize Font size, in pixels;
+             * @param rotation Clockwise rotation in degrees;
+             * @param color Text color;
+             */
+            virtual void DrawTextRotated( const char* szText,
+                                          int nPosX,
+                                          int nPosY,
+                                          int nFontSize,
+                                          float rotation,
+                                          SunLight :: Base :: stColor color ) = 0;
         };
     }
 }
 
-#endif  /* __IENGINE_H__ */
+#endif /* __IENGINE_H__ */

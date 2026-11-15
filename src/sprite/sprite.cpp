@@ -18,19 +18,31 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "sprite.h"
+#include "sprite/sprite.h"
+#include "engines/enginefactory.h"
+#include <algorithm>
+#include <cmath>
+
+#define __OPACITY_MIN   0.0f    // a sprite's opacity: fully transparent
+#define __OPACITY_MAX   1.0f    // a sprite's opacity: fully opaque (the default)
+#define __CHANNEL_MAX   0xFF    // a colour channel's full value: a tint channel that changes nothing
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sprite  {
         /**
          * Constructor. Initialize all class data.
          */
-        Sprite :: Sprite( void ) {
+        Sprite :: Sprite( void )  {
 
             m_itActiveSequence = m_Sequences.begin();
             m_bIsValidActiveSequence = ( m_itActiveSequence != m_Sequences.end() );
             m_bFrameHeld = false;
+            m_nZOrder = 0;
+            m_bHasBlendMode = false;
+            m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
+            m_fOpacity = __OPACITY_MAX;
+            m_Tint = WHITE_COLOR;
         }
 
         /**
@@ -82,7 +94,7 @@ namespace SunLight {
          * parented to the sprite itself is left alone.
          * @param pParent The new parent, or nullptr for none;
          */
-        void Sprite :: SetParent( SunLight :: Canvas :: BaseCanvas *pParent )  {
+        void Sprite :: SetParent( SunLight :: Canvas :: BaseCanvas* pParent )  {
 
             SunLight :: Canvas :: BaseCanvas  *pOldParent = GetParent();
 
@@ -92,8 +104,8 @@ namespace SunLight {
             Canvas :: SetParent( pParent );
 
             if( pOldParent && ( pOldParent != pParent ) )  {
-                for( auto &pair : m_Sequences )  {
-                    pair.second -> ForEachTexture( [this, pOldParent, pParent]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+                for( auto& pair : m_Sequences )  {
+                    pair.second -> ForEachTexture( [this, pOldParent, pParent]( SunLight :: Canvas :: TextureCanvas* pTexture )  {
                         if( pTexture -> GetParent() == pOldParent )
                             pTexture -> SetParent( pParent ? pParent : this );
                     } );
@@ -103,17 +115,18 @@ namespace SunLight {
 
         /**
          * Loads and add a texture to the internal texture map object.
-         * @param pTexture Pointer to a @link TextureCanvas to add;
-         * @param nDetalyMilli Time in millisecond to be used in texture
+         * @param nSequence The sequence id to add the texture to;
+         * @param pTexture Pointer to a @ref SunLight::Canvas::TextureCanvas to add;
+         * @param nDelayMilli Time in millisecond to be used in texture
          * animation sequence;
          */
         void Sprite :: AddTextureSequence( int nSequence,
-                                           SunLight :: Canvas :: TextureCanvas *pTexture,
-                                           int64_t nDelayMilli ) {
+                                           SunLight :: Canvas :: TextureCanvas* pTexture,
+                                           int64_t nDelayMilli )  {
 
             TextureSequenceList :: iterator       itItem     = m_Sequences.find( nSequence );
-            SunLight :: TileMap :: stDimension2D& spritePos  = GetDimension2D();
-            SunLight :: TileMap :: stDimension2D  texturePos = pTexture -> GetDimension2D();
+            SunLight :: Base :: stDimension2D& spritePos  = GetDimension2D();
+            SunLight :: Base :: stDimension2D  texturePos = pTexture -> GetDimension2D();
             BaseCanvas                            *pParent   = GetParent();
 
             if( !pParent )
@@ -132,6 +145,7 @@ namespace SunLight {
 
             pTexture -> SetVisible( GetVisible() );
             pTexture -> SetWorldSpace( IsWorldSpace() );
+            pTexture -> SetParallaxLayerId( GetParallaxLayerId() );
             pTexture -> SetParent( pParent );
             pTexture -> SetDimension2DPtr( &spritePos );
 
@@ -146,10 +160,6 @@ namespace SunLight {
             }
         }
 
-        /**
-         * Set the active sprite sequence animation.
-         * @param nSequence The sequence id to activate;
-         */
         /**
          * The number of entries of a sequence.
          * @param nSequence The sequence id;
@@ -196,7 +206,7 @@ namespace SunLight {
             if( itItem == m_Sequences.end() )
                 return false;
 
-            itItem -> second -> ForEachTexture( [this]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+            itItem -> second -> ForEachTexture( [this]( SunLight :: Canvas :: TextureCanvas* pTexture )  {
                 if( pTexture -> GetParent() && ( ( pTexture -> GetParent() == this ) || ( pTexture -> GetParent() == GetParent() ) ) )
                     pTexture -> SetParent( nullptr );
             } );
@@ -214,6 +224,10 @@ namespace SunLight {
             return true;
         }
 
+        /**
+         * Set the active sprite sequence animation.
+         * @param nSequence The sequence id to activate;
+         */
         bool Sprite :: SetActiveTextureSequence( int nSequence )  {
 
             m_itActiveSequence = m_Sequences.find( nSequence );
@@ -252,21 +266,17 @@ namespace SunLight {
 
         /**
         * Move the sprite based on x,y steps passed a parameter.
-        * @param step Reference to a @link stCoordinate2D containing
+        * @param step Reference to a @ref SunLight::Base::stCoordinate2D containing
         * the x,y move steps;
         */
-        void Sprite :: Move( SunLight :: TileMap :: stCoordinate2D& step )  {
+        void Sprite :: Move( SunLight :: Base :: stCoordinate2D& step )  {
 
-            SunLight :: TileMap :: stDimension2D& dimension = GetDimension2D();
+            SunLight :: Base :: stDimension2D& dimension = GetDimension2D();
 
             dimension.pos.x+=step.x;
             dimension.pos.y+=step.y;
         }
 
-        /**
-        * Set the visible status of a drawing entity.
-        * @param bVisible The new visible status;
-        */
         /**
          * Switch this sprite - and every canvas it holds - between positions
          * relative to the view that draws it (false, the default) and MAP
@@ -278,11 +288,125 @@ namespace SunLight {
 
             Canvas :: SetWorldSpace( bWorldSpace );
 
-            for( auto &pair : m_Sequences )  {
-                pair.second -> ForEachTexture( [bWorldSpace]( SunLight :: Canvas :: TextureCanvas *pTexture )  {
+            for( auto& pair : m_Sequences )  {
+                pair.second -> ForEachTexture( [bWorldSpace]( SunLight :: Canvas :: TextureCanvas* pTexture )  {
                     pTexture -> SetWorldSpace( bWorldSpace );
                 } );
             }
+        }
+
+        /**
+         * L1 of the master plan: same propagation shape as SetWorldSpace, for
+         * BaseCanvas::SetParallaxLayerId.
+         */
+        void Sprite :: SetParallaxLayerId( int nLayerId )  {
+
+            Canvas :: SetParallaxLayerId( nLayerId );
+
+            for( auto& pair : m_Sequences )  {
+                pair.second -> ForEachTexture( [nLayerId]( SunLight :: Canvas :: TextureCanvas* pTexture )  {
+                    pTexture -> SetParallaxLayerId( nLayerId );
+                } );
+            }
+        }
+
+        /**
+         * @brief L3 of the master plan: this sprite's own draw order among the other sprites on the same
+         * TMX layer - plain storage, read back by TileMapRenderer::HandleSpriteUpdate before every
+         * draw. No propagation to this sprite's own canvases (unlike SetWorldSpace/
+         * SetParallaxLayerId above): z-order is a sibling-ordering concern the renderer applies
+         * from outside the sprite, not something an individual canvas needs to know about itself.
+         * @param nZOrder The draw order; a higher one draws later, on top;
+         */
+        void Sprite :: SetZOrder( int nZOrder )  {
+
+            m_nZOrder = nZOrder;
+        }
+
+        /**
+         * @brief L3 of the master plan: this sprite's draw order among the other sprites on the same
+         * TMX layer, as SetZOrder stored it.
+         * @return The draw order; 0 by default;
+         */
+        int Sprite :: GetZOrder( void )  {
+
+            return m_nZOrder;
+        }
+
+        /**
+         * @brief I2 of the master plan: the mode this sprite draws by, applied by Draw() (see the
+         * header), on every frame and in every view until ClearBlendMode.
+         * @param mode The mode to draw in;
+         */
+        void Sprite :: SetBlendMode( SunLight :: Base :: BlendMode mode )  {
+
+            m_bHasBlendMode = true;
+            m_BlendMode     = mode;
+        }
+
+        /**
+         * @brief Remove the sprite's own mode: it draws by whatever mode is in effect again, as a
+         * sprite does by default.
+         */
+        void Sprite :: ClearBlendMode( void )  {
+
+            m_bHasBlendMode = false;
+            m_BlendMode     = SunLight :: Base :: BLEND_MODE_NORMAL;
+        }
+
+        /**
+         * @brief Whether the sprite has a mode of its own (SetBlendMode, not yet ClearBlendMode).
+         * @return true if Draw() switches to the sprite's own mode;
+         */
+        bool Sprite :: HasBlendMode( void )  {
+
+            return m_bHasBlendMode;
+        }
+
+        /**
+         * @brief The mode SetBlendMode gave the sprite.
+         * @return The sprite's own mode; BLEND_MODE_NORMAL when it has none (see HasBlendMode);
+         */
+        SunLight :: Base :: BlendMode Sprite :: GetBlendMode( void )  {
+
+            return m_BlendMode;
+        }
+
+        /**
+         * @brief I10 of the master plan: the sprite's opacity, applied by Draw() (see the header).
+         * @param fOpacity 0 (transparent) to 1 (opaque), clamped; a NaN leaves the opacity as it was;
+         */
+        void Sprite :: SetOpacity( float fOpacity )  {
+
+            if( !std :: isnan( fOpacity ) )
+                m_fOpacity = std :: clamp( fOpacity, __OPACITY_MIN, __OPACITY_MAX );
+        }
+
+        /**
+         * @brief The sprite's opacity.
+         * @return 0..1; 1 by default;
+         */
+        float Sprite :: GetOpacity( void )  {
+
+            return m_fOpacity;
+        }
+
+        /**
+         * @brief I10 of the master plan: the sprite's tint, applied by Draw() (see the header).
+         * @param tint The tint; its alpha is kept but not used;
+         */
+        void Sprite :: SetTint( SunLight :: Base :: stColor tint )  {
+
+            m_Tint = tint;
+        }
+
+        /**
+         * @brief The sprite's tint, as SetTint gave it.
+         * @return The tint; opaque white by default;
+         */
+        SunLight :: Base :: stColor Sprite :: GetTint( void )  {
+
+            return m_Tint;
         }
 
         /**
@@ -298,6 +422,10 @@ namespace SunLight {
             return false;
         }
 
+        /**
+         * Set the visible status of a drawing entity.
+         * @param bVisible The new visible status;
+         */
         void Sprite :: SetVisible( bool bVisible )  {
 
             TextureSequenceList :: iterator itItem;
@@ -335,7 +463,7 @@ namespace SunLight {
             if( GetVisible() && m_bIsValidActiveSequence )  {
                 m_bFrameHeld = !m_itActiveSequence -> second -> Next();
 
-                SunLight :: Canvas :: TextureCanvas *pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
+                SunLight :: Canvas :: TextureCanvas* pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
                 unsigned int  nTileSize;
 
                 if( m_bFrameHeld )  {
@@ -359,7 +487,7 @@ namespace SunLight {
         void Sprite :: Draw( void )  {
 
             if( GetVisible() && m_bIsValidActiveSequence )  {
-                SunLight :: Canvas :: TextureCanvas *pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
+                SunLight :: Canvas :: TextureCanvas* pTextureCanvas = m_itActiveSequence -> second -> GetTextureData().pTexture;
                 unsigned int  nTileSize;
 
                 if( m_bFrameHeld )  {
@@ -367,7 +495,42 @@ namespace SunLight {
                     pTextureCanvas -> SetTileSize( 0 );
                 }
 
+                // The sprite's own mode (I2), for its own draw only: switched to, then back to the mode
+                // in effect before - skipped when that is already the mode, or the sprite is off screen
+                // (nothing is drawn, and each switch makes the backend draw what it has pending first).
+                SunLight :: Engines :: IEngine  &engine   = SunLight :: Engines :: EngineFactory :: GetEngine();
+                SunLight :: Base :: BlendMode   previous  = SunLight :: Base :: BLEND_MODE_NORMAL;
+                bool                            bSwitch   = false;
+
+                if( m_bHasBlendMode && IsOnScreen() )  {
+                    previous = engine.GetBlendMode();
+                    bSwitch  = ( previous != m_BlendMode );
+
+                    if( bSwitch )
+                        engine.SetBlendMode( m_BlendMode );
+                }
+
+                // The sprite's opacity and tint (I10), multiplied into the frame canvas's own colour for
+                // this draw only and put back after it: the canvas may be another sprite's frame too, and
+                // its colour is its own. Skipped when they change nothing, so a sprite without them
+                // draws exactly as before.
+                SunLight :: Base :: stColor  &canvasColor = pTextureCanvas -> GetColor();
+                SunLight :: Base :: stColor   ownColor    = canvasColor;
+                bool                          bColored    = ( m_fOpacity != __OPACITY_MAX ) || ( m_Tint.nRed != __CHANNEL_MAX ) ||
+                                                            ( m_Tint.nGreen != __CHANNEL_MAX ) || ( m_Tint.nBlue != __CHANNEL_MAX );
+
+                if( bColored )  {
+                    canvasColor        = SunLight :: Base :: MultiplyTint( ownColor, m_Tint );
+                    canvasColor.nAlpha = ( unsigned char ) ( ownColor.nAlpha * m_fOpacity );
+                }
+
                 pTextureCanvas -> Draw();
+
+                if( bColored )
+                    canvasColor = ownColor;
+
+                if( bSwitch )
+                    engine.SetBlendMode( previous );
 
                 if( m_bFrameHeld )
                     pTextureCanvas -> SetTileSize( nTileSize );
@@ -392,7 +555,10 @@ namespace SunLight {
         * them through the sprite any more, and one that still pointed at a
         * parent that is about to be destroyed (the renderer, which unloads
         * every sprite registered with it when it stops or is destroyed)
-        * would be left dangling.
+        * would be left dangling. The active sequence goes with them: no
+        * sequence is active afterwards (it used to stay marked active,
+        * pointing into the emptied list, so drawing, advancing or asking an
+        * unloaded sprite IsOnScreen/GetActiveTexture read freed memory).
         */
         void Sprite :: Unload( void )  {
 
@@ -412,6 +578,10 @@ namespace SunLight {
 
                 m_Sequences.clear();
             }
+
+            m_itActiveSequence       = m_Sequences.end();
+            m_bIsValidActiveSequence = false;
+            m_bFrameHeld             = false;
         }
     }
 }

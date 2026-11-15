@@ -23,11 +23,13 @@
 
 #include <map>
 #include <memory>
+#include "base/blendmode.h"
+#include "base/color.h"
 #include "collision/collider.h"
 #include "sprite/texturemap.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sprite  {
         /**
          * @brief Sunlight sprite management class implementation.
@@ -48,6 +50,19 @@ namespace SunLight {
             // Set by Advance(): this frame the texture map did NOT step to a
             // new frame, so the current one is held (see Advance/Draw).
             bool                            m_bFrameHeld;
+
+            // L3 of the master plan: draw order among sprites registered on the SAME TMX layer
+            // (TileMapRenderer::AddSprite) - default 0. Layers already order sprites between each
+            // other; this only reorders siblings within one layer, stably, on a change.
+            int                             m_nZOrder;
+
+            // I2 of the master plan: the mode this sprite draws by, if it has one (SetBlendMode).
+            bool                            m_bHasBlendMode;
+            SunLight :: Base :: BlendMode   m_BlendMode;
+
+            // I10 of the master plan: the sprite's opacity (0..1) and tint, applied by Draw().
+            float                           m_fOpacity;
+            SunLight :: Base :: stColor     m_Tint;
 
             public:
 
@@ -88,7 +103,7 @@ namespace SunLight {
             SunLight :: Canvas :: TextureCanvas* GetActiveTexture( void );
 
             // Also tells the previous parent (ChildRemoved) and moves the canvases that were following it.
-            void SetParent( SunLight :: Canvas :: BaseCanvas *pParent );
+            void SetParent( SunLight :: Canvas :: BaseCanvas* pParent );
 
             void SetVisible( bool bVisible );
 
@@ -99,6 +114,43 @@ namespace SunLight {
             // Unload() does not touch it: the mode is the sprite's, not the textures'.
             void SetWorldSpace( bool bWorldSpace );
 
+            // L1 of the master plan: same propagation shape as SetWorldSpace, for
+            // BaseCanvas::SetParallaxLayerId - set by TileMapRenderer::AddSprite, not meant to
+            // be called directly by application code.
+            void SetParallaxLayerId( int nLayerId );
+
+            // L3 of the master plan: this sprite's draw order among the other sprites on the same
+            // TMX layer. Default 0. TileMapRenderer stable-sorts a layer's sprites by this value
+            // before drawing them, so equal values keep whichever order the sprites were added in
+            // (AddSprite) - every sprite at 0 therefore draws in that same, unchanged order.
+            void SetZOrder( int nZOrder );
+            int GetZOrder( void );
+
+            // I2 of the master plan: the mode this sprite draws by (see SunLight::Base::BlendMode) - a
+            // light in BLEND_MODE_ADD, a shadow in BLEND_MODE_MULTIPLY - on every frame and in every view,
+            // until ClearBlendMode. Draw() switches to it for this sprite alone and back to the mode that
+            // was in effect, so it also holds inside a game's IDrawSurface::BeginBlendMode. A sprite with
+            // no mode (the default) draws by whatever mode is in effect and switches nothing. Unload()
+            // does not touch it: the mode is the sprite's, not the textures'.
+            void SetBlendMode( SunLight :: Base :: BlendMode mode );
+            void ClearBlendMode( void );
+            bool HasBlendMode( void );
+            // The mode set by SetBlendMode; BLEND_MODE_NORMAL when the sprite has none.
+            SunLight :: Base :: BlendMode GetBlendMode( void );
+
+            // I10 of the master plan: the sprite's opacity, 0 (transparent) to 1 (opaque, the default),
+            // as a layer's (stLayer::fOpacity) - clamped; a NaN leaves it as it was. And its tint, opaque
+            // white (none) by default: its RGB multiplies into the frame's, as a layer's tint does into
+            // its tiles; its alpha is kept but not used - the opacity is the alpha control. Draw()
+            // applies both to the frame it draws, for that draw only: the frame canvases' own colours
+            // are never changed, and multiply into the result (a canvas alpha of 200 at opacity 0.5
+            // draws 100). Every frame, sequence and view takes them, until changed; Unload() does not
+            // touch them. A sprite does not take its layer's opacity or tint (I8).
+            void SetOpacity( float fOpacity );
+            float GetOpacity( void );
+            void SetTint( SunLight :: Base :: stColor tint );
+            SunLight :: Base :: stColor GetTint( void );
+
             // Whether the ACTIVE texture passes the viewport test that gates Advance() and Draw() in the
             // view being drawn (the sprite is visible, has an active sequence, and the texture's rectangle is
             // not entirely past the viewport's far edges - one entirely before its origin still passes, as it
@@ -107,7 +159,7 @@ namespace SunLight {
             // and camera.
             bool IsOnScreen( void );
 
-            void Move( SunLight :: TileMap :: stCoordinate2D& step );
+            void Move( SunLight :: Base :: stCoordinate2D& step );
 
             void Advance( void );
             void Draw( void );

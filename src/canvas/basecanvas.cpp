@@ -18,20 +18,21 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "basecanvas.h"
+#include "canvas/basecanvas.h"
 #include <stdio.h>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
         /**
          * Constructor. Initialize all class data.
          */
         BaseCanvas :: BaseCanvas( void )  {
 
-            m_pParent     = NULL;
-            m_bWorldSpace = false;
-            m_pViewport = &m_Viewport;
+            m_pParent          = NULL;
+            m_bWorldSpace      = false;
+            m_pViewport        = &m_Viewport;
+            m_nParallaxLayerId = -1;
         }
 
         /**
@@ -45,7 +46,7 @@ namespace SunLight {
          * Set parent object.
          * @param pParent The new parent object of this object;
          */
-        void BaseCanvas :: SetParent( BaseCanvas *pParent )  {
+        void BaseCanvas :: SetParent( BaseCanvas* pParent )  {
 
             m_pParent = pParent;
         }
@@ -55,7 +56,7 @@ namespace SunLight {
          * do here, a parent that keeps pointers to its children overrides this.
          * @param pChild The child that is leaving;
          */
-        void BaseCanvas :: ChildRemoved( BaseCanvas *pChild )  {
+        void BaseCanvas :: ChildRemoved( BaseCanvas* pChild )  {
 
         }
 
@@ -85,17 +86,33 @@ namespace SunLight {
         /**
          * The camera offset of the view currently being drawn, asked of the
          * parent chain (only the renderer knows the cameras). A canvas with
-         * no renderer above it has none.
+         * no renderer above it has none. Always passes this canvas' OWN
+         * GetParallaxLayerId() up to the parent - whatever nLayerId it was called
+         * with is irrelevant here (see the header's own comment).
          */
-        void BaseCanvas :: GetCameraOffset( float &fX, float &fY )  {
+        void BaseCanvas :: GetCameraOffset( float& fX, float& fY, int nLayerId )  {
 
             if( m_pParent )  {
-                m_pParent -> GetCameraOffset( fX, fY );
+                m_pParent -> GetCameraOffset( fX, fY, m_nParallaxLayerId );
             }
             else  {
                 fX = 0.0f;
                 fY = 0.0f;
             }
+        }
+
+        /**
+         * Set which renderer layer (if any) this canvas should be treated as belonging to
+         * for parallax purposes (L1 of the master plan).
+         */
+        void BaseCanvas :: SetParallaxLayerId( int nLayerId )  {
+
+            m_nParallaxLayerId = nLayerId;
+        }
+
+        int BaseCanvas :: GetParallaxLayerId( void ) const  {
+
+            return m_nParallaxLayerId;
         }
 
         /**
@@ -122,7 +139,7 @@ namespace SunLight {
          * Set a new viewport object to this canvas.
          * @param pViewport The new viewport object to set;
          */
-        void BaseCanvas :: SetViewport( SunLight :: Base :: Viewport *pViewport )  {
+        void BaseCanvas :: SetViewport( SunLight :: Base :: Viewport* pViewport )  {
 
             m_pViewport = pViewport;
         }

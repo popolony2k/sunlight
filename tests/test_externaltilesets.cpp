@@ -74,7 +74,18 @@ namespace  {
         "<object gid=\"1\" width=\"16\" height=\"16\"/>"
         "</template>";
 
-    Bytes ToBytes( const char *sz )  {
+    // A map whose tileset is EMBEDDED, with its image at szImageSource as written in the map.
+    std :: string MapWithEmbeddedImage( const std :: string& strImageSource )  {
+
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+               "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"4\" height=\"4\" tilewidth=\"16\" tileheight=\"16\">"
+               "<tileset firstgid=\"1\" name=\"sprite\" tilewidth=\"16\" tileheight=\"16\" tilecount=\"4\" columns=\"4\">"
+               "<image source=\"" + strImageSource + "\" width=\"64\" height=\"16\"/></tileset>"
+               "<layer id=\"1\" name=\"ground\" width=\"4\" height=\"4\"><data encoding=\"csv\">1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1</data></layer>"
+               "</map>";
+    }
+
+    Bytes ToBytes( const char* sz )  {
         std :: string  str( sz );
         return Bytes( str.begin(), str.end() );
     }
@@ -92,6 +103,30 @@ namespace  {
 
         return b;
     }
+
+    // A started renderer on the null backend: its LoadTexture reads the image through the FileSystem, as the
+    // real engine does, so an image path the FileSystem cannot read fails LoadMap here too.
+    struct NullRig  {
+
+        std :: unique_ptr<TileMapRenderer>  pRenderer;
+
+        NullRig( void )  {
+            RendererConfig  config;
+
+            config.backend = RENDERER_BACKEND_NULL;
+            config.fWidth  = 320.0f;
+            config.fHeight = 240.0f;
+
+            pRenderer = TileMapRenderer :: Create( config, nullptr );
+
+            REQUIRE( pRenderer != nullptr );
+            REQUIRE( pRenderer -> Start() == true );
+        }
+
+        ~NullRig( void )  {
+            pRenderer -> Stop();
+        }
+    };
 
     // A started renderer on the mocks (default backend), ready to LoadMap.
     struct Rig  {
@@ -234,6 +269,53 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
         CHECK( rig.engineFixture.engine.nLoadTextureCalls == 0 );
     }
 
+    TEST_CASE( "A map's own embedded tileset image path is collapsed before loading: '..' and '.' segments, either slash" )  {
+
+        // libtmx joins the image path to the map's directory as written ("maps/sub/" + "../../images/x.png"),
+        // and the FileSystem rejects "." and ".." segments. Found by Scarab (its V6).
+        const struct  { std :: string strSource; std :: string strLoaded; }  cases[] = {
+            { "../../images/sprite.png",     "images/sprite.png" },
+            { "../sprite.png",               "maps/sprite.png" },
+            { "./sprite.png",                "maps/sub/sprite.png" },
+            { "..\\..\\images\\sprite.png", "images/sprite.png" },          // written Windows-style
+            { "sprite.png",                  "maps/sub/sprite.png" },          // nothing to collapse: as before
+        };
+
+        for( const auto& c : cases )  {
+            MemoryFileSystemFixture  fsFixture;
+            Rig                      rig;
+
+            INFO( "image source: " << c.strSource );
+            fsFixture.fs.files["maps/sub/level.tmx"] = ToBytes( MapWithEmbeddedImage( c.strSource ).c_str() );
+
+            REQUIRE( rig.pRenderer -> LoadMap( "maps/sub/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+            CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == c.strLoaded );
+        }
+    }
+
+    TEST_CASE( "An embedded image path climbing above the root is passed on as written, and the map is refused as before" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+        Rig                      rig;
+
+        fsFixture.fs.files["maps/level.tmx"] = ToBytes( MapWithEmbeddedImage( "../../sprite.png" ).c_str() );
+
+        REQUIRE( rig.pRenderer -> LoadMap( "maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );   // the mock loads anything
+        CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "maps/../../sprite.png" );
+    }
+
+    TEST_CASE( "A map whose embedded image is in a sibling folder ('../../') loads, with the image read through the FileSystem" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+
+        fsFixture.fs.files["maps/sub/level.tmx"] = ToBytes( MapWithEmbeddedImage( "../../images/sprite.png" ).c_str() );
+        fsFixture.fs.files["images/sprite.png"]  = PngHeader( 64, 16 );
+
+        NullRig  rig;
+
+        CHECK( rig.pRenderer -> LoadMap( "maps/sub/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+    }
+
     TEST_CASE( "The production case: a packed .zip with NO loose copy on disk, behind a read filter (an encrypted pack)" )  {
 
         // The files are stored XOR-scrambled in a real .zip; the read filter unscrambles every read. A raw
@@ -249,10 +331,10 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
         fs :: create_directories( scratch / "maps" );
         fs :: create_directories( scratch / "tilesets" );
 
-        auto  writeScrambled = [&]( const fs :: path &file, const char *szContent )  {
+        auto  writeScrambled = [&]( const fs :: path& file, const char* szContent )  {
             std :: string  str( szContent );
 
-            for( char &c : str )
+            for( char& c : str )
                 c = ( char ) ( c ^ 0x5A );
 
             std :: ofstream( file, std :: ios :: binary ) << str;
@@ -260,6 +342,20 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
 
         writeScrambled( scratch / "maps" / "level.tmx", g_szMap );
         writeScrambled( scratch / "tilesets" / "ground.tsx", g_szTileset );
+
+        // A second map, in a subfolder, whose EMBEDDED tileset's image sits two levels up (../../images/).
+        fs :: create_directories( scratch / "maps" / "sub" );
+        fs :: create_directories( scratch / "images" );
+        writeScrambled( scratch / "maps" / "sub" / "embedded.tmx", MapWithEmbeddedImage( "../../images/sprite.png" ).c_str() );
+
+        {
+            Bytes  png = PngHeader( 64, 16 );
+
+            for( unsigned char& c : png )
+                c = ( unsigned char ) ( c ^ 0x5A );
+
+            std :: ofstream( scratch / "images" / "sprite.png", std :: ios :: binary ).write( ( const char* ) png.data(), ( std :: streamsize ) png.size() );
+        }
 
         std :: string  strZipCmd = "cmake -E chdir \"" + scratch.string() + "\" cmake -E tar cf \"" + zipPath.string() + "\" --format=zip .";
 
@@ -271,10 +367,10 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
 
             REQUIRE( packFs.Init( "sunlight_tests" ) );
             REQUIRE( packFs.Mount( zipPath.string(), "/", true ) );
-            packFs.SetReadFilter( []( const std :: vector<unsigned char> &in, std :: vector<unsigned char> &out )  {
+            packFs.SetReadFilter( []( const std :: vector<unsigned char>& in, std :: vector<unsigned char>& out )  {
                 out = in;
 
-                for( unsigned char &c : out )
+                for( unsigned char& c : out )
                     c = ( unsigned char ) ( c ^ 0x5A );
 
                 return true;
@@ -287,6 +383,17 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
 
                 CHECK( rig.pRenderer -> LoadMap( "maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
                 CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "tilesets/ground.png" );
+
+                // The same through a path scheme (found by Scarab after I12).
+                CHECK( rig.pRenderer -> LoadMap( "vpath://maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+                CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "vpath://tilesets/ground.png" );
+            }
+
+            {
+                NullRig  rig;       // reads the image itself, through the pack and its filter
+
+                CHECK( rig.pRenderer -> LoadMap( "maps/sub/embedded.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+                CHECK( rig.pRenderer -> LoadMap( "vpath://maps/sub/embedded.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
             }
 
             SunLight :: FileSystem :: FileSystemFactory :: SetFileSystem( nullptr );
@@ -294,5 +401,71 @@ TEST_SUITE( "renderer/external tilesets and templates" )  {
         }
 
         fs :: remove( zipPath );
+    }
+
+    // I12 fix (found by Scarab): a map loaded through a path scheme. The paths inside it are joined to
+    // the map's own path; the join used to drop the "//" of the scheme.
+
+
+    TEST_CASE( "A map with an external tileset loads through vpath:// and virtualpath://" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+        Rig                      rig;
+
+        fsFixture.fs.files["maps/level.tmx"]      = ToBytes( g_szMap );
+        fsFixture.fs.files["tilesets/ground.tsx"] = ToBytes( g_szTileset );
+
+        REQUIRE( rig.pRenderer -> LoadMap( "vpath://maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "vpath://tilesets/ground.png" );
+        REQUIRE( rig.pRenderer -> LoadMap( "virtualpath://maps/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        CHECK( rig.engineFixture.engine.strLastLoadTextureFileName == "virtualpath://tilesets/ground.png" );
+    }
+
+    TEST_CASE( "A map with only an embedded image loads through vpath://, the image read through the FileSystem" )  {
+
+        MemoryFileSystemFixture  fsFixture;
+
+        fsFixture.fs.files["maps/sub/level.tmx"] = ToBytes( MapWithEmbeddedImage( "../../images/sprite.png" ).c_str() );
+        fsFixture.fs.files["images/sprite.png"]  = PngHeader( 64, 16 );
+
+        NullRig  rig;
+
+        CHECK( rig.pRenderer -> LoadMap( "vpath://maps/sub/level.tmx", SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+    }
+
+    TEST_CASE( "Both maps load through hpath:// and hostpath:// from real files" )  {
+
+        namespace fs = std :: filesystem;
+
+        fs :: path  root = fs :: temp_directory_path() / "sunlight_scheme_maps";
+
+        fs :: remove_all( root );
+        fs :: create_directories( root / "maps" / "sub" );
+        fs :: create_directories( root / "tilesets" );
+        fs :: create_directories( root / "images" );
+        std :: ofstream( root / "maps" / "level.tmx", std :: ios :: binary ) << g_szMap;
+        std :: ofstream( root / "tilesets" / "ground.tsx", std :: ios :: binary ) << g_szTileset;
+        std :: ofstream( root / "maps" / "sub" / "embedded.tmx", std :: ios :: binary ) << MapWithEmbeddedImage( "../../images/sprite.png" );
+
+        {
+            Bytes  png = PngHeader( 64, 16 );
+
+            std :: ofstream( root / "images" / "sprite.png", std :: ios :: binary ).write( ( const char* ) png.data(), ( std :: streamsize ) png.size() );
+            std :: ofstream( root / "tilesets" / "ground.png", std :: ios :: binary ).write( ( const char* ) png.data(), ( std :: streamsize ) png.size() );
+        }
+
+        // The in-memory FileSystem holds nothing: every read is a host read.
+        MemoryFileSystemFixture  fsFixture;
+
+        {
+            NullRig  rig;
+
+            CHECK( rig.pRenderer -> LoadMap( ( "hpath://" + ( root / "maps" / "level.tmx" ).string() ).c_str(),
+                                             SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+            CHECK( rig.pRenderer -> LoadMap( ( "hostpath://" + ( root / "maps" / "sub" / "embedded.tmx" ).string() ).c_str(),
+                                             SunLight :: TileMap :: ITileMap :: MAP_ALIGNMENT_TOP_LEFT ) == true );
+        }
+
+        fs :: remove_all( root );
     }
 }

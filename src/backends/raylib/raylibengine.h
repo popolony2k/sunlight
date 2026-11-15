@@ -23,6 +23,10 @@
 
 #include "raylib.h"
 #include "engines/iengine.h"
+#include "backends/raylib/raylibfont.h"
+
+#include <memory>
+#include <vector>
 
 namespace SunLight  {
     namespace Engines  {
@@ -39,12 +43,11 @@ namespace SunLight  {
                 RaylibEngine( void );
                 ~RaylibEngine( void );
 
-                SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName,
+                SunLight :: Base :: TextureHandle LoadTexture( const char* szFileName,
                                                                 int& nWidth,
                                                                 int& nHeight ) override;
                 void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) override;
-
-                void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color ) override;
+                bool GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight ) override;
 
                 void DrawTexture( SunLight :: Base :: TextureHandle hTexture,
                                    int nPosX,
@@ -55,8 +58,8 @@ namespace SunLight  {
                                        SunLight :: Base :: stRectangle source,
                                        SunLight :: Base :: stRectangle dest,
                                        SunLight :: Base :: stVector2D origin,
-                                       float rotation,
-                                       float scale,
+                                       float fRotation,
+                                       float fScale,
                                        SunLight :: Base :: stColor tint ) override;
 
                 void DrawFilledRectangle( int nPosX,
@@ -65,15 +68,34 @@ namespace SunLight  {
                                           int nHeight,
                                           SunLight :: Base :: stColor color ) override;
 
-                bool SetFont( const char *szFilePath ) override;
+                void DrawLine( float fX0,
+                               float fY0,
+                               float fX1,
+                               float fY1,
+                               float fThickness,
+                               SunLight :: Base :: stColor color ) override;
 
-                void DrawText( const char *szText,
+                void DrawEllipseOutline( float fCenterX,
+                                         float fCenterY,
+                                         float fRadiusX,
+                                         float fRadiusY,
+                                         SunLight :: Base :: stColor color ) override;
+
+                bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont ) override;
+                std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void ) override;
+
+                std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) override;
+
+                void BeginClip( SunLight :: Base :: stRectangle rect ) override;
+                void EndClip( void ) override;
+
+                void DrawText( const char* szText,
                                int nPosX,
                                int nPosY,
                                int nFontSize,
                                SunLight :: Base :: stColor color ) override;
 
-                int MeasureText( const char *szText, int nFontSize ) override;
+                int MeasureText( const char* szText, int nFontSize ) override;
 
                 std :: string GetApplicationDirectory( void ) override;
 
@@ -84,6 +106,11 @@ namespace SunLight  {
                 void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void EndRenderTarget( void ) override;
+                void CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                            const SunLight :: Base :: stRectangle& dest,
+                                            float fOpacity ) override;
+                void SetBlendMode( SunLight :: Base :: BlendMode mode ) override;
+                SunLight :: Base :: BlendMode GetBlendMode( void ) override;
                 SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget ) override;
 
                 void DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,
@@ -91,12 +118,26 @@ namespace SunLight  {
                                         SunLight :: Base :: stRectangle dest,
                                         SunLight :: Base :: stColor tint ) override;
 
+                void DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                                         SunLight :: Base :: stRectangle source,
+                                         SunLight :: Base :: stRectangle dest,
+                                         SunLight :: Base :: stVector2D origin,
+                                         float rotation,
+                                         SunLight :: Base :: stColor tint ) override;
+
+                void DrawTextRotated( const char* szText,
+                                      int nPosX,
+                                      int nPosY,
+                                      int nFontSize,
+                                      float rotation,
+                                      SunLight :: Base :: stColor color ) override;
+
                 private:
 
-                // Releases this class's own GPU-context-tied state - just
-                // the custom font tracking, at the moment. Registered as a
-                // close handler on the backend's window (see the
-                // constructor), so it runs right before the window/context
+                // Releases this class's own GPU-context-tied state - the
+                // active custom font and every font LoadFont still holds.
+                // Registered as a close handler on the backend's window (see
+                // the constructor), so it runs right before the window/context
                 // is destroyed.
                 void ReleaseWindowState( void );
 
@@ -104,20 +145,48 @@ namespace SunLight  {
                 // backend window (see IWindow::AddCloseHandler).
                 int   m_nCloseHandlerId   = 0;
 
-                // Shared by DrawText/MeasureText - the font either of them
-                // should use right now (see m_CurrentFont's own comment).
-                Font  GetActiveFont( void );
+                // The font SetFont selected, while it is still valid; nullptr
+                // when the built-in font is to be used (I3).
+                SunLight :: Font :: IFont* ActiveFont( void );
 
-                // Font currently used by DrawText, loaded via SetFont - only
-                // valid (and only ever Unload'd) when m_bCustomFontLoaded is
-                // true; otherwise DrawText falls back to raylib's own
-                // built-in GetFontDefault(), which this class never owns
-                // and must never Unload.
-                Font  m_CurrentFont       {};
-                bool  m_bCustomFontLoaded = false;
+                // Every font LoadFont handed out that may still be alive. The
+                // engine holds them weakly: each font owns its own state, and
+                // the window's close handler marks the live ones invalid, so a
+                // font destroyed afterwards does not release them twice.
+                std :: vector<std :: weak_ptr<__stRaylibFont>>  m_LiveFonts;
+
+                // Clips in effect, innermost last. The scissor always matches the last one (see ApplyClip).
+                std :: vector<SunLight :: Base :: stRectangle>  m_ClipStack;
+
+                void ApplyClip( SunLight :: Base :: stRectangle rect );
+
+                // The font SetFont selected (I3), shared with whoever else holds
+                // it; nullptr selects raylib's own built-in GetFontDefault(),
+                // which this class never owns and must never Unload.
+                std :: shared_ptr<SunLight :: Font :: IFont>  m_pActiveFont;
+
+                // The render targets being drawn into, innermost last (I19a): raylib's EndTextureMode
+                // always goes back to the window, so EndRenderTarget re-begins the one before it.
+                std :: vector<SunLight :: Base :: TextureHandle>  m_RenderTargetStack;
+
+                // The mode SetBlendMode set last (I2).
+                SunLight :: Base :: BlendMode  m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
+
+                // BLEND_MODE_MULTIPLY's shader, which premultiplies the source colour by its alpha
+                // (see SetBlendMode). Loaded on the first multiply, as it needs the GL context, and
+                // released with the window (ReleaseWindowState). m_bMultiplyShaderTried keeps a GL
+                // without GLSL 330 from retrying (and warning) on every multiply.
+                ::Shader  m_MultiplyShader         {};
+                bool      m_bMultiplyShaderLoaded  = false;
+                bool      m_bMultiplyShaderTried   = false;
+
+                // Whether m_MultiplyShader is the active shader now.
+                bool      m_bMultiplyShaderActive  = false;
+
+                bool LoadMultiplyShader( void );
             };
         }
     }
 }
-#endif  /* __RAYLIBENGINE_H__ */
+#endif /* __RAYLIBENGINE_H__ */
 

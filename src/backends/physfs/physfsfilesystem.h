@@ -21,7 +21,9 @@
 #ifndef __PHYSFSFILESYSTEM_H__
 #define __PHYSFSFILESYSTEM_H__
 
-#include "filesystem/ifilesystem.h"
+#include "filesystem/basefilesystem.h"
+#include <string>
+#include <vector>
 
 
 namespace SunLight  {
@@ -35,16 +37,33 @@ namespace SunLight  {
              * interface wants - this class is a thin adapter translating
              * SunLight's own plain types at the boundary, nothing more.
              */
-            class PhysFsFileSystem : public IFileSystem  {
+            class PhysFsFileSystem : public BaseFileSystem  {
 
                 bool                m_bInitialized = false;
                 bool                m_bAnyMounted = false;
                 bool                m_bDefaultMountEnsured = false;
-                ReadFilterCallback  m_ReadFilter;  // empty (unset) by default
+                std :: string       m_strWriteDir;  // the write directory, also mounted at the front (empty: none)
+
+                // I22 of the master plan: every mount made, so the same real path can be mounted at
+                // several mount points (PhysFS keeps one mount per path STRING: a repeat gets an
+                // equivalent spelling of its own, strPhysName) and one of them removed (Unmount).
+                // bWriteDir marks the write directory's own mount, which Mount/Unmount never match.
+                struct stMount  {
+                    std :: string  strRealPath;
+                    std :: string  strMountPoint;      // without leading or trailing '/' ("/" is "")
+                    std :: string  strPhysName;        // the name PhysFS knows it by
+                    bool           bWriteDir;
+                };
+
+                std :: vector<stMount>  m_Mounts;
+
+                bool MountEntry( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath, bool bWriteDir );
+                bool UnmountEntry( const std :: string& strRealPath, const std :: string& strMountPoint, bool bWriteDir );
+                std :: string UniquePhysName( const std :: string& strRealPath ) const;
 
                 /**
-                 * @brief Runs at most once, lazily, from @see Exists / @see
-                 * ReadFile - see those methods' own doc comments and this
+                 * @brief Runs at most once, lazily, from @see VirtualExists / @see
+                 * VirtualReadFile - see those methods' own doc comments and this
                  * method's definition for the full "why" (default fallback
                  * mount so a consumer that never calls @see Mount still
                  * gets plain OS-directory access, exactly as if this
@@ -54,16 +73,22 @@ namespace SunLight  {
 
                 public:
 
-                bool Init( const char *szArgv0 ) override;
+                bool Init( const char* szArgv0 ) override;
                 void Shutdown( void ) override;
 
-                bool Mount( const std :: string &strRealPath, const std :: string &strMountPoint, bool bAppendToPath ) override;
-                bool Exists( const std :: string &strVirtualPath ) override;
-                bool ReadFile( const std :: string &strVirtualPath, std :: vector<unsigned char> &outData ) override;
-                void SetReadFilter( ReadFilterCallback callback ) override;
+                bool Mount( const std :: string& strRealPath, const std :: string& strMountPoint, bool bAppendToPath ) override;
+                bool Unmount( const std :: string& strRealPath, const std :: string& strMountPoint ) override;
+                bool SetWriteDirectory( const std :: string& strRealPath ) override;
+
+                protected:
+
+                bool VirtualExists( const std :: string& strVirtualPath ) override;
+                bool VirtualReadFile( const std :: string& strVirtualPath, std :: vector<unsigned char>& outData ) override;
+                bool VirtualWriteFile( const std :: string& strVirtualPath, const std :: vector<unsigned char>& data ) override;
+                bool VirtualRemoveFile( const std :: string& strVirtualPath ) override;
             };
         }
     }
 }
 
-#endif  /* __PHYSFSFILESYSTEM_H__ */
+#endif /* __PHYSFSFILESYSTEM_H__ */

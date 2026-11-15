@@ -24,12 +24,11 @@
 #include <deque>
 #include <vector>
 #include "colliderhandle.h"
+#include "collision/collider.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
-
-        class Collider;
 
         /**
          * @brief Stable indirection table between ColliderHandle values and
@@ -110,7 +109,7 @@ namespace SunLight {
              * @param pCollider The collider being registered. Must not be
              * null;
              */
-            ColliderHandle Register( Collider *pCollider );
+            ColliderHandle Register( Collider* pCollider );
 
             /**
              * Retire a handle: the Collider it referred to is no longer

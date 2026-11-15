@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "windowfactory.h"
+#include "window/windowfactory.h"
 
 #ifndef DEFAULT_ENGINE
     #error "Unexpected value of DEFAULT_ENGINE"
@@ -33,7 +33,7 @@
 #endif
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Window  {
 
         static IWindow  *s_pOverrideWindow = nullptr;
@@ -65,7 +65,7 @@ namespace SunLight {
         /**
          * @brief Override the window returned by @see GetWindow().
          */
-        void WindowFactory :: SetWindow( IWindow *pOverride )  {
+        void WindowFactory :: SetWindow( IWindow* pOverride )  {
 
             s_pOverrideWindow = pOverride;
         }

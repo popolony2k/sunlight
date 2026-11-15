@@ -21,14 +21,12 @@
 #include "concurrent/timer.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Concurrent  {
 
         /**
          * @brief Constructor. Initialize all class data;
-         * @param nTimerId The TImer Id to assign to event hndler parameter;
-         * 
-         * @return Timer 
+         * @param nTimerId The Timer Id to assign to event handler parameter;
          */
         Timer :: Timer( int nTimerId )  {
             m_bRunning = false;
@@ -37,8 +35,6 @@ namespace SunLight {
 
         /**
          * @brief Destructor. Finalize all class data.
-         * 
-         * @return Timer 
          */
         Timer :: ~Timer( void )  {
             Stop();
@@ -53,11 +49,11 @@ namespace SunLight {
          * @return true if operation was successfull;
          * @return false if operation has failed;
          */
-        bool Timer :: Start( const Interval &nInterval, const SLEEP_TIMER_HANDLER &handler )  {
+        bool Timer :: Start( const Interval& nInterval, const SLEEP_TIMER_HANDLER& handler )  {
             if( !m_bRunning )  {
                 m_bRunning = true;
                 m_Thread   = std :: thread( [this, nInterval, handler] {
-                    while( m_bRunning ) {
+                    while( m_bRunning )  {
                         std :: this_thread :: sleep_for( nInterval );
 
                         /*

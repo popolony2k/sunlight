@@ -24,7 +24,7 @@
 #include <cstdint>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
 
         /**

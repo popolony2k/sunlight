@@ -19,6 +19,7 @@
  */
 
 #include "general/helper.h"
+#include <cmath>
 #include <cstdlib>
 
 
@@ -26,7 +27,7 @@ namespace SunLight  {
     namespace General  {
         /**
          * @brief Generate a random number between specified range;
-         * 
+         *
          * @param nBegin Initial range value;
          * @param nEnd Final range value;
          * @return the generated number;
@@ -34,6 +35,23 @@ namespace SunLight  {
         int Helper :: Random( int nBegin, int nEnd )  {
 
             return ( nBegin + ( std :: rand() % ( std :: abs( nEnd ) - std :: abs( nBegin ) + 1 ) ) );
+        }
+
+        /**
+         * @brief Round to the nearest whole number, ties rounding up (toward +infinity),
+         * never std::round's "away from zero" - which rounds a negative tie DOWN (more
+         * negative) while a positive tie rounds UP, flipping direction exactly at zero. Two
+         * screen positions straddling zero that are both exactly N.5 (a real case: an
+         * integer map position times a zoom whose fraction, applied to that position, lands
+         * on an exact half-pixel - found live at zoom 3.8125, 61/16, against small camera
+         * offsets) would then round AWAY from each other, opening a 1px gap between two tiles
+         * that are otherwise exactly, mathematically contiguous. std::floor(x + 0.5) has no
+         * such flip - already this project's own convention for exactly this reason, see
+         * Shape::ScreenLineWidth's own "half-up rounding" comment.
+         */
+        float Helper :: RoundHalfUp( float fValue )  {
+
+            return std :: floor( fValue + 0.5f );
         }
     }
 }

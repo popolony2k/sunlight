@@ -25,6 +25,10 @@
  */
 
 #include <doctest/doctest.h>
+#include <vector>
+#include <string>
+#include <cmath>
+#include <algorithm>
 #include <memory>
 #include <sstream>
 #include "renderer/tilemaprenderer.h"
@@ -41,9 +45,9 @@ typedef MockEngine :: Event              Event;
 
 namespace  {
 
-    SunLight :: TileMap :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
+    SunLight :: Base :: stDimension2D Rect( int nX, int nY, int nW, int nH )  {
 
-        SunLight :: TileMap :: stDimension2D  rect {};
+        SunLight :: Base :: stDimension2D  rect {};
 
         rect.pos.x = nX;  rect.pos.y = nY;  rect.size.nWidth = nW;  rect.size.nHeight = nH;
 
@@ -86,7 +90,10 @@ namespace  {
         MemoryFileSystemFixture             fsFixture;
         std :: unique_ptr<TileMapRenderer>  pRenderer;
 
-        Scene( void )  {
+        // bDistinctRenderTargets: every render target gets a handle of its own (MockEngine), the
+        // frame's own being the first, 0x100 (I19a).
+        explicit Scene( bool bDistinctRenderTargets = false )  {
+            engine().bDistinctRenderTargets = bDistinctRenderTargets;
             fsFixture.fs.files["maps/tiled.tmx"] = MakeTiledTmx();
 
             RendererConfig  config;
@@ -112,16 +119,17 @@ namespace  {
         // Run exactly nFrames frames, starting the event log fresh.
         void RunFrames( int nFrames )  {
             engine().events.clear();
+            engine().renderTargetEvents.clear();
             windowFixture.window.nEndFrameCalls          = 0;
             windowFixture.window.nFramesUntilShouldClose = nFrames;
             pRenderer -> Run();
         }
 
         // Number of tile draws that landed inside the rectangle (their top-left is inside it).
-        int TilesIn( const SunLight :: TileMap :: stDimension2D &rect )  {
+        int TilesIn( const SunLight :: Base :: stDimension2D& rect )  {
             int  nCount = 0;
 
-            for( const Event &evt : engine().events )  {
+            for( const Event& evt : engine().events )  {
                 if( ( evt.kind == Event :: TILE ) &&
                     ( evt.x >= rect.pos.x ) && ( evt.x < rect.pos.x + rect.size.nWidth ) &&
                     ( evt.y >= rect.pos.y ) && ( evt.y < rect.pos.y + rect.size.nHeight ) )
@@ -134,7 +142,7 @@ namespace  {
         int Count( Event :: Kind kind )  {
             int  nCount = 0;
 
-            for( const Event &evt : engine().events )
+            for( const Event& evt : engine().events )
                 if( evt.kind == kind )
                     nCount++;
 
@@ -168,8 +176,8 @@ namespace  {
         }
     };
 
-    const SunLight :: TileMap :: stDimension2D  g_DefaultRect = Rect( 10, 10, 100, 100 );
-    const SunLight :: TileMap :: stDimension2D  g_SideRect    = Rect( 300, 10, 100, 100 );
+    const SunLight :: Base :: stDimension2D  g_DefaultRect = Rect( 10, 10, 100, 100 );
+    const SunLight :: Base :: stDimension2D  g_SideRect    = Rect( 300, 10, 100, 100 );
 }
 
 TEST_SUITE( "renderer/viewpasses" )  {
@@ -182,7 +190,54 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
         CHECK( scene.FrameClear() == 0 );
         CHECK( scene.Count( Event :: FILL ) == 0 );
-        CHECK( scene.Count( Event :: TILE ) == 18 );        // ground 16 + props 1 + glow 1
+        // ground 16 + props 1 + glow 1 + sky (L1 of the master plan: LayerRenderer::DrawImageLayer is now
+        // camera/zoom/viewport-aware, via DrawTextureTiled like every other layer, so it is
+        // recorded as a TILE event too - it used to call plain DrawTexture, uncounted here).
+        CHECK( scene.Count( Event :: TILE ) == 19 );
+    }
+
+    TEST_CASE( "Each view's pass is clipped to its own rectangle, and the clip ends with the pass" )  {
+
+        Scene  scene;
+
+        int  nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
+
+        scene.RunFrames( 1 );
+
+        // Two passes (default and extra): one clip each, begun and ended around the pass's own draws.
+        std :: vector<Event>  begins;
+        int                   nBegins = 0;
+        int                   nEnds   = 0;
+        int                   nDepth  = 0;
+        int                   nMaxDepth = 0;
+
+        for( const Event& evt : scene.engine().events )  {
+            if( evt.kind == Event :: CLIP_BEGIN )  {
+                begins.push_back( evt );
+                nBegins++;
+                nDepth++;
+                nMaxDepth = ( nDepth > nMaxDepth ) ? nDepth : nMaxDepth;
+            }
+            else if( evt.kind == Event :: CLIP_END )  {
+                nEnds++;
+                nDepth--;
+            }
+        }
+
+        REQUIRE( nBegins == 2 );
+        CHECK( nEnds == nBegins );
+        CHECK( nDepth == 0 );
+        CHECK( nMaxDepth == 1 );
+
+        // The rectangles are the two views' own: the default view first, the extra view second.
+        CHECK( begins[0].x == g_DefaultRect.pos.x );
+        CHECK( begins[0].y == g_DefaultRect.pos.y );
+        CHECK( begins[0].w == g_DefaultRect.size.nWidth );
+        CHECK( begins[0].h == g_DefaultRect.size.nHeight );
+        CHECK( begins[1].x == g_SideRect.pos.x );
+        CHECK( begins[1].y == g_SideRect.pos.y );
+        CHECK( begins[1].w == g_SideRect.size.nWidth );
+        CHECK( begins[1].h == g_SideRect.size.nHeight );
     }
 
     TEST_CASE( "An extra view draws the same map again, in its own rectangle, after clearing that rectangle" )  {
@@ -218,10 +273,11 @@ TEST_SUITE( "renderer/viewpasses" )  {
         CHECK( fill.w == 100.0f );
         CHECK( fill.h == 100.0f );
 
-        // Each view drew the whole map, inside its own rectangle only.
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+        // Each view drew the whole map, inside its own rectangle only - the default view's
+        // own rect also gets the sky image layer (default-view-only), the side view's does not.
+        CHECK( scene.TilesIn( g_DefaultRect ) == 19 );
         CHECK( scene.TilesIn( g_SideRect ) == 18 );
-        CHECK( scene.Count( Event :: TILE ) == 36 );
+        CHECK( scene.Count( Event :: TILE ) == 37 );
 
         // Default view first, then the fill, then the extra view's tiles (painter's order).
         int  nFill = scene.IndexOf( Event :: FILL );
@@ -253,7 +309,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         int  nScaled = 0;
         int  nPlain  = 0;
 
-        for( const Event &evt : scene.engine().events )  {
+        for( const Event& evt : scene.engine().events )  {
             if( evt.kind != Event :: TILE )
                 continue;
 
@@ -267,28 +323,39 @@ TEST_SUITE( "renderer/viewpasses" )  {
             }
         }
 
-        CHECK( nPlain == 18 );
+        CHECK( nPlain == 19 );          // ground 16 + props 1 + glow 1 + sky (default view's own zoom)
         CHECK( nScaled > 0 );
     }
 
-    TEST_CASE( "An image layer is drawn once - by the default view - because it is drawn at the screen origin, camera- and viewport-blind" )  {
+    TEST_CASE( "An image layer is drawn once - by the default view only - even with an extra view" )  {
 
         Scene  scene;
 
+        // L1 of the master plan: LayerRenderer::DrawImageLayer is now camera/zoom/viewport-aware, via
+        // DrawTextureTiled (an Event::TILE) like every ordinary tile - it used to call plain
+        // DrawTexture at the screen origin, unmistakable on its own counter. The sky image's
+        // own distinctive size (32x32, unlike this map's 16x16 tiles) isolates its own draw(s)
+        // from ordinary tile draws now that both share the same event kind.
+        auto  nImageDraws = [&]()  {
+            int  n = 0;
+            for( const Event& evt : scene.engine().events )
+                if( ( evt.kind == Event :: TILE ) && ( evt.w == 32.0f ) && ( evt.h == 32.0f ) )
+                    n++;
+            return n;
+        };
+
         scene.RunFrames( 1 );
-        CHECK( scene.engine().nDrawTextureCalls == 1 );
+        CHECK( nImageDraws() == 1 );
 
         int  nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
 
-        scene.engine().nDrawTextureCalls = 0;
         scene.RunFrames( 1 );
-        CHECK( scene.engine().nDrawTextureCalls == 1 );          // still one, not one per view
+        CHECK( nImageDraws() == 1 );          // still one, not one per view
 
         // Hidden default view: nothing draws it (no other view does).
         scene.pRenderer -> GetDefaultView().SetVisible( false );
-        scene.engine().nDrawTextureCalls = 0;
         scene.RunFrames( 1 );
-        CHECK( scene.engine().nDrawTextureCalls == 0 );
+        CHECK( nImageDraws() == 0 );
         (void) nId;
     }
 
@@ -302,7 +369,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         view.ShowOnlyLayers( { 1 } );
         scene.RunFrames( 1 );
         CHECK( scene.TilesIn( g_SideRect ) == 16 );
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );           // the default view is untouched
+        CHECK( scene.TilesIn( g_DefaultRect ) == 19 );           // the default view is untouched (18 tiles + sky)
 
         // Ground plus props: props is a plain add-back by id...
         view.ShowLayer( 2, true );
@@ -390,7 +457,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
         int  nSide = 0;
 
-        for( const Event &evt : engineFixture.engine.events )
+        for( const Event& evt : engineFixture.engine.events )
             if( ( evt.kind == Event :: TILE ) && ( evt.x >= 200.0f ) )
                 nSide++;
 
@@ -409,7 +476,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         scene.RunFrames( 1 );
         CHECK( scene.TilesIn( g_SideRect ) == 0 );
         CHECK( scene.Count( Event :: FILL ) == 0 );                 // not even its backdrop
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+        CHECK( scene.TilesIn( g_DefaultRect ) == 19 );               // 18 tiles + sky
 
         view.SetVisible( true );
         view.SetVisible( true );
@@ -565,11 +632,11 @@ TEST_SUITE( "renderer/viewpasses" )  {
         int    nId = scene.pRenderer -> CreateView( g_SideRect ) -> GetId();
 
         scene.RunFrames( 1 );
-        CHECK( scene.Count( Event :: TILE ) == 36 );
+        CHECK( scene.Count( Event :: TILE ) == 37 );          // 18 + 18 + sky (default view only)
 
         REQUIRE( scene.pRenderer -> RemoveView( nId ) == true );
         scene.RunFrames( 1 );
-        CHECK( scene.Count( Event :: TILE ) == 18 );
+        CHECK( scene.Count( Event :: TILE ) == 19 );          // 18 + sky
         CHECK( scene.Count( Event :: FILL ) == 0 );
     }
 
@@ -643,7 +710,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         SunLight :: Sprite :: Sprite       sprite;
         SunLight :: Canvas :: TextureCanvas  canvas;
 
-        SpriteRig( Scene &scene, int nLayerId ) : m_Scene( scene ), m_nLayerId( nLayerId )  {
+        SpriteRig( Scene& scene, int nLayerId ) : m_Scene( scene ), m_nLayerId( nLayerId )  {
             scene.engine().hLoadTextureResult = ( SunLight :: Base :: TextureHandle ) 0x77;
             scene.engine().nLoadTextureWidth  = 64;
             scene.engine().nLoadTextureHeight = 16;
@@ -652,7 +719,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
             canvas.SetTileSize( 16 );
             canvas.SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
-            canvas.SetDimension2D( SunLight :: TileMap :: stDimension2D { { 20, 20 }, { 16, 16 } } );
+            canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 20, 20 }, { 16, 16 } } );
             sprite.AddTextureSequence( 0, &canvas, 0 );
             sprite.SetActiveTextureSequence( 0 );
             sprite.SetVisible( true );
@@ -668,7 +735,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
     };
 
     // The sprite's per-frame draws: for each of nFrames frames, the source x of every sprite draw in it.
-    std :: vector<std :: vector<float>> SpriteFrames( Scene &scene, int nFrames )  {
+    std :: vector<std :: vector<float>> SpriteFrames( Scene& scene, int nFrames )  {
         std :: vector<std :: vector<float>>  frames;
 
         for( int nFrame = 0; nFrame < nFrames; nFrame++ )  {
@@ -676,7 +743,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
             std :: vector<float>  draws;
 
-            for( const Event &evt : scene.engine().events )
+            for( const Event& evt : scene.engine().events )
                 if( ( evt.kind == Event :: TILE ) && ( evt.handle == ( void * ) 0x77 ) )
                     draws.push_back( evt.srcX );
 
@@ -747,7 +814,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         bool   bSprite = false, bTile = false;
         float  fSpriteX = 0, fSpriteY = 0, fTileX = 0, fTileY = 0;
 
-        for( const Event &evt : scene.engine().events )  {
+        for( const Event& evt : scene.engine().events )  {
             if( ( evt.kind != Event :: TILE ) || ( evt.x < 200.0f ) )
                 continue;                                                  // only the extra view
 
@@ -794,10 +861,10 @@ TEST_SUITE( "renderer/viewpasses" )  {
     // The sprite's draws for one frame, as (dest x, dest y, source x), texture handle 0x77 (see SpriteRig).
     struct SpriteDraw  { float x, y, srcX; };
 
-    std :: vector<SpriteDraw> SpriteDraws( Scene &scene )  {
+    std :: vector<SpriteDraw> SpriteDraws( Scene& scene )  {
         std :: vector<SpriteDraw>  draws;
 
-        for( const Event &evt : scene.engine().events )
+        for( const Event& evt : scene.engine().events )
             if( ( evt.kind == Event :: TILE ) && ( evt.handle == ( void * ) 0x77 ) )
                 draws.push_back( SpriteDraw { evt.x, evt.y, evt.srcX } );
 
@@ -806,8 +873,8 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
     // Where the map's own tile whose corner is at MAP point (nMapX, nMapY) was drawn - the only tile draws with
     // that destination in the given screen rectangle.
-    bool TileAt( Scene &scene, float fX, float fY )  {
-        for( const Event &evt : scene.engine().events )
+    bool TileAt( Scene& scene, float fX, float fY )  {
+        for( const Event& evt : scene.engine().events )
             if( ( evt.kind == Event :: TILE ) && ( evt.handle != ( void * ) 0x77 ) && ( evt.x == fX ) && ( evt.y == fY ) )
                 return true;
 
@@ -915,7 +982,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
         std :: vector<std :: vector<float>>  reference;
         std :: vector<std :: vector<float>>  multi;
 
-        auto  frames = []( Scene &scene, int nFrames )  {
+        auto  frames = []( Scene& scene, int nFrames )  {
             std :: vector<std :: vector<float>>  result;
 
             for( int nFrame = 0; nFrame < nFrames; nFrame++ )  {
@@ -923,7 +990,7 @@ TEST_SUITE( "renderer/viewpasses" )  {
 
                 std :: vector<float>  draws;
 
-                for( const SpriteDraw &draw : SpriteDraws( scene ) )
+                for( const SpriteDraw& draw : SpriteDraws( scene ) )
                     draws.push_back( draw.srcX );
 
                 result.push_back( draws );
@@ -1136,6 +1203,239 @@ TEST_SUITE( "renderer/viewpasses" )  {
         scene.RunFrames( 1 );
         CHECK( rig.sprite.IsOnScreen() == true );
     }
+    // I19a of the master plan: a view below full opacity. With Scene( true ) the frame's render target is
+    // 0x100 and the first view target 0x101.
+    const SunLight :: Base :: TextureHandle  g_FrameTarget = ( SunLight :: Base :: TextureHandle ) 0x100;
+    const SunLight :: Base :: TextureHandle  g_ViewTarget  = ( SunLight :: Base :: TextureHandle ) 0x101;
+
+    typedef MockEngine :: RenderTargetEvent  RtEvent;
+
+    // The render-target calls of the last RunFrames, as a string ("BBECE": begin, begin, end, composite, end).
+    std :: string RtKinds( Scene& scene )  {
+        std :: string  str;
+
+        for( const RtEvent& evt : scene.engine().renderTargetEvents )
+            str += evt.kind;
+
+        return str;
+    }
+
+    // Index (into renderTargetEvents) of the first event of that kind and handle at/after nFrom, or -1.
+    int RtIndex( Scene& scene, char kind, SunLight :: Base :: TextureHandle handle, int nFrom = 0 )  {
+        std :: vector<RtEvent>  &rt = scene.engine().renderTargetEvents;
+
+        for( int nIdx = nFrom; nIdx < ( int ) rt.size(); nIdx++ )
+            if( ( rt[nIdx].kind == kind ) && ( ( handle == nullptr ) || ( rt[nIdx].handle == handle ) ) )
+                return nIdx;
+
+        return -1;
+    }
+
+    // Tile draws in [nFirst, nEnd) of the event log that landed inside the rectangle.
+    int TilesBetween( Scene& scene, size_t nFirst, size_t nEnd, const SunLight :: Base :: stDimension2D& rect )  {
+        int  nCount = 0;
+
+        for( size_t nIdx = nFirst; nIdx < nEnd; nIdx++ )  {
+            const Event  &evt = scene.engine().events[nIdx];
+
+            if( ( evt.kind == Event :: TILE ) &&
+                ( evt.x >= rect.pos.x ) && ( evt.x < rect.pos.x + rect.size.nWidth ) &&
+                ( evt.y >= rect.pos.y ) && ( evt.y < rect.pos.y + rect.size.nHeight ) )
+                nCount++;
+        }
+
+        return nCount;
+    }
+
+    TEST_CASE( "A view's opacity: 1 by default, clamped to 0..1, a NaN ignored, kept by a removed view" )  {
+
+        Scene  scene;
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+        CHECK( scene.pRenderer -> GetDefaultView().GetOpacity() == 1.0f );
+        CHECK( pView -> GetOpacity() == 1.0f );
+
+        pView -> SetOpacity( 0.25f );
+        CHECK( pView -> GetOpacity() == 0.25f );
+        pView -> SetOpacity( 1.5f );
+        CHECK( pView -> GetOpacity() == 1.0f );
+        pView -> SetOpacity( -0.5f );
+        CHECK( pView -> GetOpacity() == 0.0f );
+        pView -> SetOpacity( 0.75f );
+        pView -> SetOpacity( std :: nanf( "" ) );
+        CHECK( pView -> GetOpacity() == 0.75f );
+
+        REQUIRE( scene.pRenderer -> RemoveView( pView ) == true );
+        pView -> SetOpacity( 0.5f );
+        CHECK( pView -> GetOpacity() == 0.5f );
+    }
+
+    TEST_CASE( "At full opacity a view draws as always: no render target of its own, nothing composited" )  {
+
+        Scene  scene( true );
+
+        scene.pRenderer -> CreateView( g_SideRect );
+        scene.RunFrames( 2 );
+
+        CHECK( scene.engine().nLoadRenderTargetCalls == 1 );          // the frame's own, at Start
+        CHECK( RtKinds( scene ) == "BEBE" );                            // the frame's target, twice
+        CHECK( scene.Count( Event :: COMPOSITE ) == 0 );
+    }
+
+    TEST_CASE( "Below full opacity a view's pass is drawn into a frame-sized target of its own, then laid over the frame at its opacity" )  {
+
+        Scene  scene( true );
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+        pView -> SetOpacity( 0.5f );
+        scene.RunFrames( 1 );
+
+        REQUIRE( scene.engine().renderTargetSizes.size() == 2 );
+        CHECK( scene.engine().renderTargetSizes[1] == std :: pair<int, int>( 1260, 920 ) );   // the frame's size
+
+        // The frame's target, the view's nested in it, back out, the composite into the frame's, the frame's end.
+        REQUIRE( RtKinds( scene ) == "BBECE" );
+
+        std :: vector<RtEvent>  &rt = scene.engine().renderTargetEvents;
+
+        CHECK( rt[0].handle == g_FrameTarget );
+        CHECK( rt[1].handle == g_ViewTarget );
+        CHECK( rt[3].handle == g_ViewTarget );
+        CHECK( rt[3].fOpacity == 0.5f );
+
+        // Into the view's target: first cleared transparent, then the view's background, then its tiles.
+        size_t  nBegin = rt[1].nEventIndex;
+        size_t  nEnd   = rt[2].nEventIndex;
+
+        REQUIRE( nBegin < nEnd );
+        CHECK( scene.engine().events[nBegin].kind == Event :: CLEAR );
+        CHECK( scene.engine().events[nBegin].color.nAlpha == 0 );           // TRANSPARENT_COLOR
+        CHECK( scene.engine().events[nBegin].color.nRed   == 0 );
+        CHECK( scene.engine().events[nBegin + 1].kind == Event :: CLIP_BEGIN );
+        CHECK( scene.engine().events[nBegin + 2].kind == Event :: FILL );   // after the pass's clip begins
+        CHECK( TilesBetween( scene, nBegin, nEnd, g_SideRect ) == 18 );       // the whole map, as an extra view draws it
+        CHECK( TilesBetween( scene, nBegin, nEnd, g_DefaultRect ) == 0 );     // the default view's pass is not in it
+
+        // The default view's own pass went straight into the frame, before.
+        CHECK( TilesBetween( scene, 0, nBegin, g_DefaultRect ) == 19 );
+
+        // The composite: the whole target over the whole frame.
+        const Event  &composite = scene.engine().events[rt[3].nEventIndex];
+
+        CHECK( composite.kind == Event :: COMPOSITE );
+        CHECK( composite.handle == g_ViewTarget );
+        CHECK( composite.x == 0.0f );
+        CHECK( composite.y == 0.0f );
+        CHECK( composite.w == 1260.0f );
+        CHECK( composite.h == 920.0f );
+        CHECK( composite.scale == 0.5f );
+    }
+
+    TEST_CASE( "The default view alone below full opacity goes through its own target too, over the frame's background" )  {
+
+        Scene  scene( true );
+
+        scene.pRenderer -> GetDefaultView().SetOpacity( 0.25f );
+        scene.RunFrames( 1 );
+
+        REQUIRE( RtKinds( scene ) == "BBECE" );
+
+        std :: vector<RtEvent>  &rt = scene.engine().renderTargetEvents;
+
+        CHECK( rt[1].handle == g_ViewTarget );
+        CHECK( rt[3].fOpacity == 0.25f );
+
+        // The frame's clear (its background) is in the frame's target, before; the map's tiles are in the view's.
+        CHECK( scene.FrameClear() == 0 );
+        CHECK( scene.FrameClear() < ( int ) rt[1].nEventIndex );
+        CHECK( TilesBetween( scene, 0, rt[1].nEventIndex, g_DefaultRect ) == 0 );
+        CHECK( TilesBetween( scene, rt[1].nEventIndex, rt[2].nEventIndex, g_DefaultRect ) == 19 );
+    }
+
+    TEST_CASE( "At opacity 0 the pass is still drawn into its target - its sprites keep animating - but nothing is laid over the frame" )  {
+
+        Scene      scene( true );
+        SpriteRig  rig( scene, 1 );
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+        // Only the extra view shows the sprite's layer.
+        scene.pRenderer -> GetDefaultView().ShowLayer( 1, false );
+        pView -> SetOpacity( 0.0f );
+
+        std :: vector<std :: vector<float>>  frames = SpriteFrames( scene, 3 );
+
+        CHECK( RtKinds( scene ) == "BBEE" );                            // drawn into, never composited
+        CHECK( scene.Count( Event :: COMPOSITE ) == 0 );
+
+        for( int nFrame = 0; nFrame < 3; nFrame++ )
+            REQUIRE( frames[nFrame].size() == 1 );                      // drawn (into the target) every frame
+
+        CHECK( frames[0][0] != frames[1][0] );                          // and it animated
+        CHECK( frames[1][0] != frames[2][0] );
+    }
+
+    TEST_CASE( "A view's target is made once and used every frame; going back to full opacity draws as always again" )  {
+
+        Scene  scene( true );
+        std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+        pView -> SetOpacity( 0.5f );
+        scene.RunFrames( 3 );
+
+        CHECK( scene.engine().nLoadRenderTargetCalls == 2 );           // the frame's and the view's
+        CHECK( RtKinds( scene ) == "BBECEBBECEBBECE" );
+        CHECK( RtIndex( scene, 'B', g_ViewTarget, 6 ) == 6 );           // the same target, frame after frame
+
+        pView -> SetOpacity( 1.0f );
+        scene.RunFrames( 1 );
+
+        CHECK( RtKinds( scene ) == "BE" );
+        CHECK( scene.engine().nLoadRenderTargetCalls == 2 );
+    }
+
+    TEST_CASE( "A view's target is released on RemoveView, on Stop, and when a started renderer is destroyed" )  {
+
+        SUBCASE( "RemoveView" )  {
+            Scene  scene( true );
+            std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+            pView -> SetOpacity( 0.5f );
+            scene.RunFrames( 1 );
+            REQUIRE( scene.engine().unloadedRenderTargets.empty() );
+
+            REQUIRE( scene.pRenderer -> RemoveView( pView ) == true );
+            REQUIRE( scene.engine().unloadedRenderTargets.size() == 1 );
+            CHECK( scene.engine().unloadedRenderTargets[0] == g_ViewTarget );
+        }
+
+        SUBCASE( "Stop" )  {
+            Scene  scene( true );
+
+            scene.pRenderer -> GetDefaultView().SetOpacity( 0.5f );
+            scene.RunFrames( 1 );
+            scene.pRenderer -> Stop();
+
+            std :: vector<SunLight :: Base :: TextureHandle>  &unloaded = scene.engine().unloadedRenderTargets;
+
+            CHECK( std :: count( unloaded.begin(), unloaded.end(), g_ViewTarget ) == 1 );
+            CHECK( std :: count( unloaded.begin(), unloaded.end(), g_FrameTarget ) == 1 );
+        }
+
+        SUBCASE( "a started renderer destroyed without Stop" )  {
+            Scene  scene( true );
+            std :: shared_ptr<SunLight :: TileMap :: IView>  pView = scene.pRenderer -> CreateView( g_SideRect );
+
+            pView -> SetOpacity( 0.5f );
+            scene.RunFrames( 1 );
+            scene.pRenderer.reset();
+
+            std :: vector<SunLight :: Base :: TextureHandle>  &unloaded = scene.engine().unloadedRenderTargets;
+
+            CHECK( std :: count( unloaded.begin(), unloaded.end(), g_ViewTarget ) == 1 );
+            CHECK( pView -> IsRemoved() == true );
+        }
+    }
+
 }
 
 TEST_SUITE( "renderer/viewhandles" )  {
@@ -1184,7 +1484,7 @@ TEST_SUITE( "renderer/viewhandles" )  {
 
         // Still drawn, still the renderer's own view.
         scene.RunFrames( 1 );
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+        CHECK( scene.TilesIn( g_DefaultRect ) == 19 );          // 18 tiles + sky
     }
 
     TEST_CASE( "A held handle stays SAFE after its view is removed: inert, not gone" )  {
@@ -1212,7 +1512,11 @@ TEST_SUITE( "renderer/viewhandles" )  {
         scene.RunFrames( 1 );
         CHECK( scene.TilesIn( g_SideRect ) == 0 );
         CHECK( scene.Count( Event :: FILL ) == 0 );
-        CHECK( scene.TilesIn( g_DefaultRect ) == 18 );
+
+        // The default camera is at (20, 30), so the 4x4 map (16 px tiles) starts 20 px left and 30 px above
+        // the view. Only the ground tiles at columns 2-3 and rows 2-3 start inside the view: 2 x 2 = 4. The
+        // props and glow tiles start outside it, so they are not counted (a tile is counted by its top-left).
+        CHECK( scene.TilesIn( g_DefaultRect ) == 4 );
 
         // What acts on the renderer does nothing / answers "no" - and changes nothing of the renderer's.
         pHandle -> MoveCameraLeft();
@@ -1226,7 +1530,7 @@ TEST_SUITE( "renderer/viewhandles" )  {
 
         SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
 
-        CHECK( pHandle -> TileMapToTileMatrix( SunLight :: TileMap :: stCoordinate2D { 100, 100 }, pos ) == false );
+        CHECK( pHandle -> TileMapToTileMatrix( SunLight :: Base :: stCoordinate2D { 100, 100 }, pos ) == false );
         CHECK( pHandle -> FitToMap() == false );
         CHECK( pHandle -> ShowLayer( "ground", false ) == false );
 
@@ -1362,7 +1666,7 @@ TEST_SUITE( "renderer/viewhandles" )  {
             pView -> SetClearBackground( false );
             pView -> SetVisible( false );
             pView -> UseMapBackgroundColor();
-            CHECK( pView -> TileMapToTileMatrix( SunLight :: TileMap :: stCoordinate2D { 1, 1 }, pos ) == false );
+            CHECK( pView -> TileMapToTileMatrix( SunLight :: Base :: stCoordinate2D { 1, 1 }, pos ) == false );
             CHECK( pView -> FitToMap() == false );
             CHECK( pView -> ShowLayer( "ground", true ) == false );
             CHECK( pView -> GetClearBackground() == false );

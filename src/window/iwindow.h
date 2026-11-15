@@ -97,7 +97,7 @@ namespace SunLight  {
              * @return true if the window was created and is usable, false
              * if creation failed;
              */
-            virtual bool Create( int nWidth, int nHeight, const char *szTitle, bool bResizeable,
+            virtual bool Create( int nWidth, int nHeight, const char* szTitle, bool bResizeable,
                                  bool bFullscreen = false,
                                  FullscreenStrategy strategy = FULLSCREEN_STRATEGY_REAL ) = 0;
 
@@ -151,7 +151,7 @@ namespace SunLight  {
              * @param handler The handler to call;
              * @return An id to pass to RemoveCloseHandler (always > 0);
              */
-            virtual int AddCloseHandler( const std :: function<void( void )> &handler ) = 0;
+            virtual int AddCloseHandler( const std :: function<void( void )>& handler ) = 0;
 
             /**
              * @brief Must be implemented to unregister a handler added by
@@ -269,7 +269,7 @@ namespace SunLight  {
              *
              * @param szTitle The new window title;
              */
-            virtual void SetWindowTitle( const char *szTitle ) = 0;
+            virtual void SetWindowTitle( const char* szTitle ) = 0;
 
             /**
              * @brief Must be implemented to return the current width, in
@@ -294,4 +294,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __IWINDOW_H__ */
+#endif /* __IWINDOW_H__ */

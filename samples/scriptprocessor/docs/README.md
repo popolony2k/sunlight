@@ -34,6 +34,7 @@ with the raylib/tmx/LibXml2/sunlight shared libraries copied next to it (require
 | `Page Up` | Zoom out |
 | `Page Down` | Zoom in |
 | `Home` | Reset zoom to the default level |
+| `+` / `-` / `=` (keyboard or keypad) | Zoom in / out / reset the zoom |
 | `M` | Stop the background tone directly (see "Why `M` stops the music" below) |
 
 This sample is mostly a non-interactive cutscene — there's no player-controlled sprite, the script

@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "collider.h"
+#include "collision/collider.h"
 #include "colliderregistry.h"
 #include <cstring>
 
@@ -28,7 +28,7 @@
 // #endif
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
 
         /**
@@ -54,7 +54,7 @@ namespace SunLight {
             if( ( ( fRect1X + fRect1Width ) >= fRect2X )  &&    // r1 right edge past r2 left
                 ( fRect1X <= ( fRect2X + fRect2Width ) )  &&    // r1 left edge past r2 right
                 ( ( fRect1Y + fRect1Height ) >= fRect2Y ) &&    // r1 top edge past r2 bottom
-                ( fRect1Y <= ( fRect2Y + fRect2Height ) ) ) {   // r1 bottom edge past r2 top
+                ( fRect1Y <= ( fRect2Y + fRect2Height ) ) )  {   // r1 bottom edge past r2 top
 
                 return true;
             }
@@ -98,9 +98,9 @@ namespace SunLight {
          * @param fWidth Receives the effective rectangle's width;
          * @param fHeight Receives the effective rectangle's height;
          */
-        void Collider :: GetEffectiveRect( float &fX, float &fY, float &fWidth, float &fHeight )  {
+        void Collider :: GetEffectiveRect( float& fX, float& fY, float& fWidth, float& fHeight )  {
 
-            SunLight :: TileMap :: stDimension2D&  self = GetDimension2D();
+            SunLight :: Base :: stDimension2D&  self = GetDimension2D();
             float                                 fInsetLeftPx   = self.size.nWidth  * m_fInsetLeft;
             float                                 fInsetTopPx    = self.size.nHeight * m_fInsetTop;
             float                                 fInsetRightPx  = self.size.nWidth  * m_fInsetRight;
@@ -113,12 +113,29 @@ namespace SunLight {
         }
 
         /**
-         * Check if collider object area has been hit by tile passed as parameter.
+         * @brief The rectangle this collider tests with (see GetEffectiveRect), as one value.
+         * @return The effective rectangle;
+         */
+        SunLight :: Base :: stRectangle Collider :: EffectiveRect( void )  {
+
+            SunLight :: Base :: stRectangle  rect;
+
+            GetEffectiveRect( rect.x, rect.y, rect.width, rect.height );
+
+            return rect;
+        }
+
+        /**
+         * Check if collider object area has been hit by tile passed as parameter. The collider's
+         * rectangle and the tile's dimension are compared as they are, so both must be in the same
+         * space: a tile from GetTile is in map space (I7 of the master plan), so this answers for a
+         * collider whose position is a map position. CollisionManager does not use this: it asks the
+         * map for the tiles a collider touches (ITileMap::GetCollidingTiles), which converts the
+         * collider to map space first.
          * @param tile Reference to the tile struct containing all tile information;
          */
-        bool Collider :: Hit( SunLight :: TileMap :: stTile &tile )  {
+        bool Collider :: Hit( SunLight :: TileMap :: stTile& tile )  {
 
-            SunLight :: TileMap :: stDimension2D&  viewport    = GetViewport().GetDimension2D();
             tmx_object                           *pCollision = tile.pTile -> collision;
             bool                                 bHit        = false;
             float                                fSelfX, fSelfY, fSelfWidth, fSelfHeight;
@@ -129,8 +146,8 @@ namespace SunLight {
 
                 switch( pCollision -> obj_type )  {
                     case OT_SQUARE :
-                        bHit = RectRect( fSelfX + ( float ) viewport.pos.x,
-                                         fSelfY + ( float ) viewport.pos.y,
+                        bHit = RectRect( fSelfX,
+                                         fSelfY,
                                          fSelfWidth,
                                          fSelfHeight,
                                          ( float ) ( tile.dimension.pos.x + pCollision -> x ),
@@ -163,8 +180,11 @@ namespace SunLight {
 
                 if( bHit )
                     return true;
-                else
-                    pCollision = tile.pTile -> collision -> next;
+
+                // The next shape of this tile. It used to step to the FIRST shape's next every time,
+                // so on a tile with two or more shapes where the second missed, it tested the second
+                // one again forever (a hung frame).
+                pCollision = pCollision -> next;
             }
 
             return bHit;
@@ -175,7 +195,7 @@ namespace SunLight {
          * parameter.
          * @param dimension Reference to a struct containing the area to be checked;
          */
-        bool Collider :: Hit( SunLight :: TileMap :: stDimension2D &dimension )  {
+        bool Collider :: Hit( SunLight :: Base :: stDimension2D& dimension )  {
 
             float  fSelfX, fSelfY, fSelfWidth, fSelfHeight;
 
@@ -210,7 +230,7 @@ namespace SunLight {
          * second collider in it's own collision_add_rule pairing).
          * @param other The other collider to test against;
          */
-        bool Collider :: Hit( Collider &other )  {
+        bool Collider :: Hit( Collider& other )  {
 
             float  fSelfX, fSelfY, fSelfWidth, fSelfHeight;
             float  fOtherX, fOtherY, fOtherWidth, fOtherHeight;
@@ -232,11 +252,7 @@ namespace SunLight {
          * Set the inset (as fractions of the parent's own width/height)
          * shrinking the rectangle this collider's Hit() checks use for it's
          * own side of the test. See the header's own doc comment for the
-         * full explanation.
-         * @param fLeftPct Fraction of width to shrink off the left edge;
-         * @param fTopPct Fraction of height to shrink off the top edge;
-         * @param fRightPct Fraction of width to shrink off the right edge;
-         * @param fBottomPct Fraction of height to shrink off the bottom edge;
+         * full explanation (and it's parameters).
          */
         void Collider :: SetInset( float fLeftPct, float fTopPct, float fRightPct, float fBottomPct )  {
 

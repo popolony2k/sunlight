@@ -35,14 +35,14 @@ namespace  {
 
     typedef std :: vector<unsigned char>  Bytes;
 
-    void Append32( Bytes &b, unsigned n )  {
+    void Append32( Bytes& b, unsigned n )  {
         b.push_back( ( n >> 24 ) & 0xFF );
         b.push_back( ( n >> 16 ) & 0xFF );
         b.push_back( ( n >> 8 ) & 0xFF );
         b.push_back( n & 0xFF );
     }
 
-    void Append16( Bytes &b, unsigned n )  {
+    void Append16( Bytes& b, unsigned n )  {
         b.push_back( ( n >> 8 ) & 0xFF );
         b.push_back( n & 0xFF );
     }
@@ -84,7 +84,7 @@ namespace  {
         return b;
     }
 
-    bool Read( const Bytes &b, int &w, int &h )  {
+    bool Read( const Bytes& b, int& w, int& h )  {
         return ReadImageSize( b.data(), b.size(), w, h );
     }
 }

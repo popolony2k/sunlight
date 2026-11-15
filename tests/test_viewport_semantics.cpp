@@ -21,7 +21,7 @@
 /*
  * The viewport is the rectangle [pos, pos + size) - size is a width/height, not the
  * coordinate of the far edge (which it was, in effect, before v0.29.0). These pin what
- * that means for everything in the renderer that reads it: SetPixel's visible area,
+ * that means for everything in the renderer that reads it: a shape's clip rectangle,
  * where LoadMap's alignments put the camera (incl. the modulo "snap to a whole viewport
  * height" of the bottom alignments), how far MoveCameraLeft/Up may scroll, and the
  * screen -> tile conversion. Every expectation is either an explicit number or the
@@ -51,7 +51,7 @@ namespace  {
 
     // Null-backend renderer, viewport + zoom as given, a 640 x 640 map (40 x 40 tiles of 16)
     // loaded with the given alignment.
-    std :: unique_ptr<TileMapRenderer> MakeRenderer( const VpCase &v, int nAlignment )  {
+    std :: unique_ptr<TileMapRenderer> MakeRenderer( const VpCase& v, int nAlignment )  {
 
         RendererConfig  config;
 
@@ -61,7 +61,7 @@ namespace  {
         config.fHeight     = 920.0f;
         config.nZoomPos    = v.nZoomPos;
 
-        SunLight :: TileMap :: stDimension2D  viewport {};
+        SunLight :: Base :: stDimension2D  viewport {};
 
         viewport.pos.x        = v.nPosX;
         viewport.pos.y        = v.nPosY;
@@ -84,7 +84,7 @@ namespace  {
      * GetCameraPosition reports it.
      */
     void LegacyAlignment( int nAlignment, int nMapW, int nMapH, int nPosX, int nPosY,
-                          int nFarX, int nFarY, float fZoomFactor, int &nCamX, int &nCamY )  {
+                          int nFarX, int nFarY, float fZoomFactor, int& nCamX, int& nCamY )  {
 
         float  fCamX = 0.0f;
         float  fCamY = 0.0f;
@@ -145,25 +145,27 @@ TEST_SUITE( "renderer/viewport semantics" )  {
 
     TEST_CASE( "LoadMap alignments at Caravellius' viewport (10, 10, 1240, 900), zoom 3.8125: pinned camera positions" )  {
 
-        // 640 x 640 map. Legacy (10, 10, 1250, 910) gave exactly these; (10, 10, 1240, 900) shows the same
-        // area and must too. Note BOTTOM_RIGHT / CENTER_WIDTH_BOTTOM: y = 10, not 260 - they snap to a
-        // whole multiple of the viewport's bottom edge (910): 640 mod 910 = 640, so map height - 640 = 0.
+        // 640 x 640 map; 1240 / 3.8125 = 325.25 and 900 / 3.8125 = 236.07 map pixels visible. A far edge
+        // (I18 of the master plan) is where scrolling stops: ceil(325.25 - 640) = -314, ceil(236.07 - 640) =
+        // -403 (GetCameraPosition reports them negated). They used to ignore the zoom and snap to the
+        // viewport's bottom edge coordinate: TOP_RIGHT -600, BOTTOM_RIGHT (-600, 10), BOTTOM_LEFT -260 -
+        // the two bottoms did not even agree. The centred ones are unchanged.
         struct  { int nAlignment; int nX; int nY; }  expected[] = {
             { ITM :: MAP_ALIGNMENT_CENTER,               157,  202 },
-            { ITM :: MAP_ALIGNMENT_TOP_RIGHT,           -600,    0 },
+            { ITM :: MAP_ALIGNMENT_TOP_RIGHT,            314,    0 },
             { ITM :: MAP_ALIGNMENT_TOP_LEFT,               0,    0 },
-            { ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT,        -600,   10 },
-            { ITM :: MAP_ALIGNMENT_BOTTOM_LEFT,            0, -260 },
+            { ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT,         314,  403 },
+            { ITM :: MAP_ALIGNMENT_BOTTOM_LEFT,            0,  403 },
             { ITM :: MAP_ALIGNMENT_CENTER_WIDTH_TOP,     157,    0 },
-            { ITM :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM,  157,   10 },
+            { ITM :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM,  157,  403 },
             { ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_LEFT,     0,  202 },
-            { ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT, -600,  202 },
+            { ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT,  314,  202 },
         };
 
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
 
-        for( const auto &e : expected )  {
+        for( const auto& e : expected )  {
             VpCase                              v { 10, 10, 1240, 900, 60 };
             std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, e.nAlignment );
             int                                 nX = 12345, nY = 12345;
@@ -178,7 +180,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         }
     }
 
-    TEST_CASE( "LoadMap alignments equal the legacy code on the same visible area - every alignment, several viewports and zooms" )  {
+    TEST_CASE( "LoadMap's centred and top-left alignments equal the legacy code; its far edges are where scrolling stops - several viewports and zooms" )  {
 
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
@@ -190,7 +192,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         long    nCompared   = 0;
         long    nMismatches = 0;
 
-        for( const VpCase &v : aCases )  {
+        for( const VpCase& v : aCases )  {
             for( int nAlignment : g_Alignments )  {
                 std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, nAlignment );
                 int                                 nX = 0, nY = 0, nExpX = 0, nExpY = 0;
@@ -198,6 +200,18 @@ TEST_SUITE( "renderer/viewport semantics" )  {
 
                 pRenderer -> GetCameraPosition( nX, nY );
                 LegacyAlignment( nAlignment, 640, 640, v.nPosX, v.nPosY, v.nPosX + v.nWidth, v.nPosY + v.nHeight, fZoom, nExpX, nExpY );
+
+                // I18: a far edge (right, bottom) is the scroll limit - ceil(visible - map), reported negated.
+                bool  bRight  = ( nAlignment == ITM :: MAP_ALIGNMENT_TOP_RIGHT ) || ( nAlignment == ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT ) ||
+                                ( nAlignment == ITM :: MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT );
+                bool  bBottom = ( nAlignment == ITM :: MAP_ALIGNMENT_BOTTOM_LEFT ) || ( nAlignment == ITM :: MAP_ALIGNMENT_BOTTOM_RIGHT ) ||
+                                ( nAlignment == ITM :: MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM );
+
+                if( bRight )
+                    nExpX = ( int ) -std :: ceil( ( ( float ) v.nWidth / fZoom ) - 640.0f );
+
+                if( bBottom )
+                    nExpY = ( int ) -std :: ceil( ( ( float ) v.nHeight / fZoom ) - 640.0f );
 
                 nCompared++;
 
@@ -212,11 +226,12 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         CHECK( nMismatches == 0 );
     }
 
-    TEST_CASE( "The bottom alignments snap to a whole multiple of the viewport's bottom edge (pos.y + height), so a taller map lands further along" )  {
+    TEST_CASE( "A bottom alignment puts a tall map's bottom edge on the view's bottom edge, at a fractional zoom" )  {
 
-        // BOTTOM_RIGHT / CENTER_WIDTH_BOTTOM put the camera at (map height - map height mod bottom edge + pos.y).
-        // Map 1920 tall, viewport (10, 10, 1240, 900) -> bottom edge 910: 1920 mod 910 = 100, so y = -(1920 - 100 + 10) = -1830.
-        // (Legacy (10, 10, 1250, 910) gave the same, because it IS the same bottom edge.)
+        // I18 of the master plan. Map 1920 tall, viewport (10, 10, 1240, 900), zoom 3.8125: 236.07 map pixels
+        // visible, so y = ceil(236.07 - 1920) = -1683, the map's bottom edge on the view's. It used to snap to a
+        // whole multiple of the viewport's bottom edge coordinate (910): 1920 mod 910 = 100, so -1830 - the
+        // view went 147 map pixels past the map's bottom.
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/tall.tmx"] = MakeSquareTmx( 120, 16 );          // 1920 x 1920
 
@@ -228,7 +243,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         config.fHeight     = 920.0f;
         config.nZoomPos    = 60;
 
-        SunLight :: TileMap :: stDimension2D  viewport {};
+        SunLight :: Base :: stDimension2D  viewport {};
 
         viewport.pos.x = 10;  viewport.pos.y = 10;  viewport.size.nWidth = 1240;  viewport.size.nHeight = 900;
         config.viewport = viewport;
@@ -242,46 +257,45 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         int  nX = 0, nY = 0;
 
         pRenderer -> GetCameraPosition( nX, nY );
-        CHECK( nY == 1830 );                       // GetCameraPosition reports the negated camera: camera y = -1830
+        CHECK( nY == 1683 );                       // GetCameraPosition reports the negated camera: camera y = -1683
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "MoveCameraLeft/Up limits equal the legacy code on the same visible area, step by step" )  {
+    TEST_CASE( "MoveCameraLeft/Up scroll until the map's far edge reaches the viewport's, and never past it" )  {
 
+        // Checked step by step, at four viewports and zooms (60 is 3.8125, non-integer), against
+        // what the limit means rather than a copy of its formula. A map position p is drawn at
+        // (p + camera) x zoom + viewport.pos; the map is 640 x 640. After every step:
+        // - the map's far edge is at or past the viewport's (no gap of the clear colour);
+        // - the camera moved by at most one scroll step, and stays a whole number;
+        // - once it stops moving, one more map pixel would open a gap: it went all the way.
+        // The old rule refused a step that went past the edge, so it stopped up to a step short.
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
 
-        VpCase  aCases[] = { { 10, 10, 1240, 900, 60 }, { 0, 0, 300, 300, 15 }, { 25, 40, 875, 660, 30 }, { 10, 10, 400, 350, 30 } };
-        long    nCompared   = 0;
-        long    nMismatches = 0;
-        long    nMoved      = 0;
-        long    nMovedUp    = 0;
+        VpCase      aCases[] = { { 10, 10, 1240, 900, 60 }, { 0, 0, 300, 300, 15 }, { 25, 40, 875, 660, 30 }, { 10, 10, 400, 350, 30 } };
+        const int   nStep    = 16;        // LoadMap sets the scroll step to the tile size
+        const int   nMapSize = 640;
+        const int   nIters   = 400;       // far more steps than any case needs to reach its edge
+        long        nCompared = 0;
+        long        nMovedX   = 0;
+        long        nMovedY   = 0;
 
-        for( const VpCase &v : aCases )  {
+        for( const VpCase& v : aCases )  {
             std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, ITM :: MAP_ALIGNMENT_TOP_LEFT );
             float                               fZoom     = pRenderer -> GetViewport().GetZoomProperties().fZoomFactor;
             int                                 nFarX     = v.nPosX + v.nWidth;
             int                                 nFarY     = v.nPosY + v.nHeight;
-            float                               fCamX     = 0.0f;      // the legacy simulation's camera
-            float                               fCamY     = 0.0f;
-            const int                           nStep     = 16;        // LoadMap sets the scroll step to the tile size
-            int                                 nErrorFix = ( int ) ( 16 / std :: round( fZoom ) );
+            int                                 nPrevX    = 0, nPrevY = 0;
 
-            for( int nIter = 0; nIter < 400; nIter++ )  {
-                // Legacy MoveCameraLeft / MoveCameraUp, verbatim, against the far edges.
-                int  nBoundX = ( int ) std :: round( ( fCamX - nStep + 640 + nErrorFix ) * fZoom );
-                int  nBoundY = ( int ) std :: round( ( fCamY - nStep + 640 + 16 ) * fZoom );
+            // The far edge's screen position for a camera; GetCameraPosition reports -camera.
+            auto  edge = [fZoom, nMapSize]( int nReported, int nPos )  {
+                return ( ( -nReported + nMapSize ) * fZoom ) + nPos;
+            };
 
-                if( nFarX < nBoundX )  {
-                    fCamX-=nStep;
-                    nMoved++;
-                }
+            pRenderer -> GetCameraPosition( nPrevX, nPrevY );
 
-                if( nFarY < nBoundY )  {
-                    fCamY-=nStep;
-                    nMovedUp++;
-                }
-
+            for( int nIter = 0; nIter < nIters; nIter++ )  {
                 pRenderer -> MoveCameraLeft();
                 pRenderer -> MoveCameraUp();
 
@@ -290,44 +304,61 @@ TEST_SUITE( "renderer/viewport semantics" )  {
                 pRenderer -> GetCameraPosition( nX, nY );
                 nCompared++;
 
-                if( ( nX != ( int ) -fCamX ) || ( nY != ( int ) -fCamY ) )
-                    nMismatches++;
+                CHECK( edge( nX, v.nPosX ) >= nFarX );
+                CHECK( edge( nY, v.nPosY ) >= nFarY );
+                CHECK( ( nX - nPrevX ) >= 0 );
+                CHECK( ( nX - nPrevX ) <= nStep );
+                CHECK( ( nY - nPrevY ) >= 0 );
+                CHECK( ( nY - nPrevY ) <= nStep );
+
+                if( nX == nPrevX )
+                    CHECK( edge( nX + 1, v.nPosX ) < nFarX );
+                else
+                    nMovedX++;
+
+                if( nY == nPrevY )
+                    CHECK( edge( nY + 1, v.nPosY ) < nFarY );
+                else
+                    nMovedY++;
+
+                nPrevX = nX;
+                nPrevY = nY;
             }
 
             pRenderer -> Stop();
         }
 
-        CHECK( nCompared == 1600 );
-        CHECK( nMoved > 40 );             // the scrolling really happens in both directions (not vacuous)
-        CHECK( nMovedUp > 40 );
-        CHECK( nMismatches == 0 );
+        CHECK( nCompared == 4 * nIters );
+        CHECK( nMovedX > 40 );            // the scrolling really happens in both directions (not vacuous)
+        CHECK( nMovedY > 40 );
     }
 
-    TEST_CASE( "TileMapToTileMatrix uses the viewport's pos.y for the row (it used pos.x)" )  {
+    TEST_CASE( "TileMapToTileMatrix takes a map position: the viewport origin enters neither axis (I7)" )  {
 
         MemoryFileSystemFixture  fixture;
         fixture.fs.files["maps/square.tmx"] = MakeSquareTmx( 40, 16 );
 
-        // pos.x != pos.y is what tells them apart: (10, 40).
+        // A viewport origin of (10, 40) - once added to x and, after an earlier fix, to y - no longer
+        // enters: the cell is the map position over the tile size.
         VpCase                              v { 10, 40, 500, 500, 15 };
         std :: unique_ptr<TileMapRenderer>  pRenderer = MakeRenderer( v, ITM :: MAP_ALIGNMENT_TOP_LEFT );
-        SunLight :: TileMap :: stCoordinate2D    coord { 100, 100 };
+        SunLight :: Base :: stCoordinate2D    coord { 100, 100 };
         SunLight :: TileMap :: stMatrixPosition  pos { -1, -1 };
 
         REQUIRE( pRenderer -> TileMapToTileMatrix( coord, pos ) == true );
-        CHECK( pos.nTileCol == ( 100 + 10 ) / 16 );        // 6
-        CHECK( pos.nTileRow == ( 100 + 40 ) / 16 );        // 8   (was (100 + 10) / 16 = 6)
+        CHECK( pos.nTileCol == 100 / 16 );                 // 6
+        CHECK( pos.nTileRow == 100 / 16 );                 // 6
 
-        SunLight :: TileMap :: stCoordinate2D    coord2 { 20, 30 };
+        SunLight :: Base :: stCoordinate2D    coord2 { 20, 30 };
 
         REQUIRE( pRenderer -> TileMapToTileMatrix( coord2, pos ) == true );
-        CHECK( pos.nTileCol == ( 20 + 10 ) / 16 );         // 1
-        CHECK( pos.nTileRow == ( 30 + 40 ) / 16 );         // 4
+        CHECK( pos.nTileCol == 20 / 16 );                  // 1
+        CHECK( pos.nTileRow == 30 / 16 );                  // 1
 
         pRenderer -> Stop();
     }
 
-    TEST_CASE( "SetPixel draws inside [pos, pos + size) and nowhere else, so a shape reaches the viewport's true right/bottom edge" )  {
+    TEST_CASE( "A shape's clip covers [pos, pos + size) minus the top/left edge, so it reaches the viewport's true right/bottom edge" )  {
 
         // Viewport (10, 10, 100, 100) shows x, y in [10, 110). A rectangle object at (50, 50), 200 x 200 world
         // pixels, drawn at zoom 1 / camera 0 starts at screen (60, 60): its top and left lines cross the
@@ -343,7 +374,7 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         config.fWidth  = 1260.0f;
         config.fHeight = 920.0f;
 
-        SunLight :: TileMap :: stDimension2D  viewport {};
+        SunLight :: Base :: stDimension2D  viewport {};
 
         viewport.pos.x = 10;  viewport.pos.y = 10;  viewport.size.nWidth = 100;  viewport.size.nHeight = 100;
         config.viewport = viewport;
@@ -356,30 +387,32 @@ TEST_SUITE( "renderer/viewport semantics" )  {
         REQUIRE( pRenderer -> LoadMap( "maps/shape.tmx", ITM :: MAP_ALIGNMENT_TOP_LEFT ) == true );
         pRenderer -> Run();
 
-        const std :: vector<std :: pair<int, int>>  &pixels = engineFixture.engine.setPixelPositions;
+        // The frame's clip is the viewport (10, 10, 100, 100); the shape's own clip is the one from
+        // PrimitiveClip, which starts one pixel inside the top/left edge (see __PRIMITIVE_EDGE_INSET).
+        const std :: vector<MockEngine :: Event>  &events = engineFixture.engine.events;
+        const MockEngine :: Event                 *pShapeClip = nullptr;
 
-        REQUIRE( pixels.size() > 0 );
+        for( const MockEngine :: Event& evt : events )
+            if( ( evt.kind == MockEngine :: Event :: CLIP_BEGIN ) && ( evt.x == 11.0f ) )
+                pShapeClip = &evt;
 
-        int  nMinX = 100000, nMaxX = -100000, nMinY = 100000, nMaxY = -100000;
+        REQUIRE( pShapeClip != nullptr );
 
-        for( const auto &pixel : pixels )  {
-            nMinX = std :: min( nMinX, pixel.first );
-            nMaxX = std :: max( nMaxX, pixel.first );
-            nMinY = std :: min( nMinY, pixel.second );
-            nMaxY = std :: max( nMaxY, pixel.second );
-        }
+        // Top/left edge excluded (first pixel 11), far edge reached: x + w and y + h are the first
+        // pixel OUTSIDE the clip, so the last visible column and row are 109 - not 99 (size as far edge).
+        CHECK( pShapeClip -> x == 11.0f );
+        CHECK( pShapeClip -> y == 11.0f );
+        CHECK( pShapeClip -> x + pShapeClip -> w == 110.0f );
+        CHECK( pShapeClip -> y + pShapeClip -> h == 110.0f );
 
-        // Never outside the visible rectangle (its top/left edge itself excluded, as ever)...
-        CHECK( nMinX > 10 );
-        CHECK( nMinY > 10 );
-        CHECK( nMaxX < 110 );
-        CHECK( nMaxY < 110 );
+        // The rectangle's top-left corner is drawn at screen (60, 60), where the clip starts cutting it.
+        bool bCornerDrawn = false;
 
-        // ...and it reaches all the way to the last visible column and row.
-        CHECK( nMinX == 60 );
-        CHECK( nMinY == 60 );
-        CHECK( nMaxX == 109 );
-        CHECK( nMaxY == 109 );
+        for( const MockEngine :: Event& evt : events )
+            if( ( evt.kind == MockEngine :: Event :: LINE ) && ( evt.x == 60.0f ) && ( evt.y == 60.0f ) )
+                bCornerDrawn = true;
+
+        CHECK( bCornerDrawn );
 
         pRenderer -> Stop();
     }

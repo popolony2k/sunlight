@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "enginefactory.h"
+#include "engines/enginefactory.h"
 
 #ifndef DEFAULT_ENGINE
     #error "Unexpected value of DEFAULT_ENGINE"
@@ -33,7 +33,7 @@
 #endif
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Engines  {
 
         static IEngine  *s_pOverrideEngine = nullptr;
@@ -56,7 +56,7 @@ namespace SunLight {
         /**
          * @brief Override the engine returned by @see GetEngine().
          */
-        void EngineFactory :: SetEngine( IEngine *pOverride )  {
+        void EngineFactory :: SetEngine( IEngine* pOverride )  {
 
             s_pOverrideEngine = pOverride;
         }

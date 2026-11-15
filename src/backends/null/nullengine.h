@@ -23,6 +23,9 @@
 
 #include "engines/iengine.h"
 
+#include <memory>
+#include <vector>
+
 namespace SunLight  {
     namespace Engines  {
         namespace Null  {
@@ -42,7 +45,8 @@ namespace SunLight  {
              *  - MeasureText is a fixed metric (not pixel-accurate to any
              *    real font): width = characters x fontSize / 2. Games lay
              *    text out from it, so it must be deterministic.
-             *  - SetFont succeeds iff the font file exists.
+             *  - LoadFont succeeds iff the font file exists; SetFont keeps the
+             *    font it was given (one of this engine's), for GetFont.
              *  - Handles are tiny heap records (their size), so
              *    load/unload pairs behave like the real thing.
              */
@@ -50,12 +54,11 @@ namespace SunLight  {
 
                 public:
 
-                SunLight :: Base :: TextureHandle LoadTexture( const char *szFileName,
+                SunLight :: Base :: TextureHandle LoadTexture( const char* szFileName,
                                                                 int& nWidth,
                                                                 int& nHeight ) override;
                 void UnloadTexture( SunLight :: Base :: TextureHandle hTexture ) override;
-
-                void SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color ) override;
+                bool GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight ) override;
 
                 void DrawTexture( SunLight :: Base :: TextureHandle hTexture,
                                    int nPosX,
@@ -76,15 +79,35 @@ namespace SunLight  {
                                           int nHeight,
                                           SunLight :: Base :: stColor color ) override;
 
-                bool SetFont( const char *szFilePath ) override;
+                void DrawLine( float fX0,
+                               float fY0,
+                               float fX1,
+                               float fY1,
+                               float fThickness,
+                               SunLight :: Base :: stColor color ) override;
 
-                void DrawText( const char *szText,
+                void DrawEllipseOutline( float fCenterX,
+                                         float fCenterY,
+                                         float fRadiusX,
+                                         float fRadiusY,
+                                         SunLight :: Base :: stColor color ) override;
+
+                bool SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont ) override;
+                std :: shared_ptr<SunLight :: Font :: IFont> GetFont( void ) override;
+
+                std :: shared_ptr<SunLight :: Font :: IFont> LoadFont( const char* szFilePath ) override;
+
+                // Draws nothing, so there is nothing to clip.
+                void BeginClip( SunLight :: Base :: stRectangle rect ) override;
+                void EndClip( void ) override;
+
+                void DrawText( const char* szText,
                                int nPosX,
                                int nPosY,
                                int nFontSize,
                                SunLight :: Base :: stColor color ) override;
 
-                int MeasureText( const char *szText, int nFontSize ) override;
+                int MeasureText( const char* szText, int nFontSize ) override;
 
                 std :: string GetApplicationDirectory( void ) override;
 
@@ -95,14 +118,43 @@ namespace SunLight  {
                 void UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget ) override;
                 void EndRenderTarget( void ) override;
+                void CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                            const SunLight :: Base :: stRectangle& dest,
+                                            float fOpacity ) override;
                 SunLight :: Base :: TextureHandle GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget ) override;
 
                 void DrawTextureScaled( SunLight :: Base :: TextureHandle hTexture,
                                         SunLight :: Base :: stRectangle source,
                                         SunLight :: Base :: stRectangle dest,
                                         SunLight :: Base :: stColor tint ) override;
+
+                void DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                                         SunLight :: Base :: stRectangle source,
+                                         SunLight :: Base :: stRectangle dest,
+                                         SunLight :: Base :: stVector2D origin,
+                                         float rotation,
+                                         SunLight :: Base :: stColor tint ) override;
+
+                void DrawTextRotated( const char* szText,
+                                      int nPosX,
+                                      int nPosY,
+                                      int nFontSize,
+                                      float rotation,
+                                      SunLight :: Base :: stColor color ) override;
+
+                void SetBlendMode( SunLight :: Base :: BlendMode mode ) override;
+                SunLight :: Base :: BlendMode GetBlendMode( void ) override;
+
+                private:
+
+                // Nothing is drawn, but the mode is kept: GetBlendMode answers what was set (I2).
+                SunLight :: Base :: BlendMode  m_BlendMode = SunLight :: Base :: BLEND_MODE_NORMAL;
+
+                // The font SetFont selected (I3); nullptr for the built-in one. Its metrics are
+                // the same fixed ones either way, but GetFont answers what was selected.
+                std :: shared_ptr<SunLight :: Font :: IFont>  m_pActiveFont;
             };
         }
     }
 }
-#endif  /* __NULLENGINE_H__ */
+#endif /* __NULLENGINE_H__ */

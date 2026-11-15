@@ -18,11 +18,11 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "canvas.h"
+#include "canvas/canvas.h"
 #include <cstring>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
         /**
          * Constructor. Initialize all class data.
@@ -44,18 +44,32 @@ namespace SunLight {
          * Set parent object.
          * @param pParent The new parent object of this object;
          */
-        void Canvas :: SetParent( BaseCanvas *pParent )  {
+        void Canvas :: SetParent( BaseCanvas* pParent )  {
 
             BaseCanvas :: SetParent( pParent );
             m_Collider.SetParent( pParent );
         }
 
         /**
+         * @brief Set the world-space mode (see BaseCanvas::SetWorldSpace), and the collider's with it,
+         * as SetParent and SetDimension2DPtr pass theirs on: the collider tests in the same space as
+         * the canvas it belongs to (I7 of the master plan - a world-space sprite's tile collisions use
+         * its position as a map position). The collider cannot ask the canvas instead: its parent is
+         * the canvas's parent (SetParent above), not the canvas.
+         * @param bWorldSpace The new mode;
+         */
+        void Canvas :: SetWorldSpace( bool bWorldSpace )  {
+
+            BaseCanvas :: SetWorldSpace( bWorldSpace );
+            m_Collider.SetWorldSpace( bWorldSpace );
+        }
+
+        /**
          * Set pointer to a new parent dimension object passed as parameter;
-         * @param pDimension Pointer to the new @link stDimension2D object
+         * @param pDimension Pointer to the new @ref SunLight::Base::stDimension2D object
          * that will be used by this entity;
          */
-        void Canvas :: SetDimension2DPtr( SunLight :: TileMap :: stDimension2D* pDimension )  {
+        void Canvas :: SetDimension2DPtr( SunLight :: Base :: stDimension2D* pDimension )  {
 
             BaseCanvas :: SetDimension2DPtr( pDimension );
             m_Collider.SetDimension2DPtr( pDimension );

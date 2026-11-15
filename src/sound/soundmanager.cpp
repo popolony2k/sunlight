@@ -18,10 +18,10 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "soundmanager.h"
+#include "sound/soundmanager.h"
 #include "soundfactory.h"
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sound  {
 
         /**

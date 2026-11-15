@@ -91,4 +91,4 @@ namespace SunLight  {
     }
 }
 
-#endif  /* __VIRTUALCLOCK_H__ */
+#endif /* __VIRTUALCLOCK_H__ */

@@ -18,13 +18,16 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "collisionmanager.h"
+#include "collision/collisionmanager.h"
 #include "collision/colliderregistry.h"
 #include <algorithm>
 #include <vector>
 
+// RemoveAll's id for "every layer" - its documented default (ICollisionManager::RemoveAll).
+#define __ALL_COLLIDER_LAYERS   ( -1 )
 
-namespace SunLight {
+
+namespace SunLight  {
     namespace Collision  {
 
         /**
@@ -32,11 +35,20 @@ namespace SunLight {
          * @param pFirst The first collider involved in the collision;
          * @param pSecond The second collider involved in the collision;
          */
-        void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider *pFirst, 
-                                                  SunLight :: Collision :: Collider *pSecond )  {
+        void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider* pFirst, 
+                                                  SunLight :: Collision :: Collider* pSecond )  {
 
-            for( ICollisionListener *pListener : m_Listeners )  {
-                pListener -> OnCollision( pFirst, pSecond );
+            /*
+             * A listener may call AddCollisionListener from OnCollision, which appends to
+             * m_Listeners - a std::deque, whose push_back invalidates every iterator into it, so
+             * the range-for this replaced was undefined behaviour then. Its indexes stay valid:
+             * walked by index over the listeners there were when this event fired, so one added
+             * during it starts with the next collision. (Listeners are never removed.)
+             */
+            size_t  nListeners = m_Listeners.size();
+
+            for( size_t nListener = 0; nListener < nListeners; nListener++ )  {
+                m_Listeners[nListener] -> OnCollision( pFirst, pSecond );
             }
         }
 
@@ -45,20 +57,23 @@ namespace SunLight {
          * @param pFirst The collider involved in the collision;
          * @param pSecond The layer tile object involved in the collision;
          */
-        void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider *pFirst, 
+        void CollisionManager :: FireOnCollision( SunLight :: Collision :: Collider* pFirst, 
                                                   SunLight :: TileMap :: stTile* pSecond )  {
 
-            for( ICollisionListener *pListener : m_Listeners )  {
-                pListener -> OnCollision( pFirst, pSecond );
+            // By index, as above.
+            size_t  nListeners = m_Listeners.size();
+
+            for( size_t nListener = 0; nListener < nListeners; nListener++ )  {
+                m_Listeners[nListener] -> OnCollision( pFirst, pSecond );
             }
         }
 
         /**
          * Constructor. Initialize all class data.
-         * @param pParent Pointer to the TileMap that this collision
-         * manager is attached;
+         * @param pParent What the manager asks for layers and the tiles a collider touches (I19c:
+         * an ITileSource - the world the manager belongs to, or any ITileMap, which is one);
          */
-        CollisionManager :: CollisionManager( SunLight :: TileMap :: ITileMap *pParent )  {
+        CollisionManager :: CollisionManager( SunLight :: TileMap :: ITileSource* pParent )  {
 
             m_pParent = pParent;
 
@@ -77,6 +92,20 @@ namespace SunLight {
         }
 
         /**
+         * @brief Whether a collider layer id indexes the layer array: 0 <= id < MAX_COLLIDER_LAYERS.
+         * Every method taking a layer id checks it first and refuses it otherwise. Comparing the int
+         * with the array's size_t size directly turned a negative id into a huge unsigned one: that
+         * refused a negative id only by accident, and made RemoveAll's -1 ("every layer") never
+         * match.
+         * @param nColliderLayerId The id to check;
+         * @return Whether it is a valid layer id;
+         */
+        bool CollisionManager :: IsValidLayerId( int nColliderLayerId )  {
+
+            return ( nColliderLayerId >= 0 ) && ( nColliderLayerId < MAX_COLLIDER_LAYERS );
+        }
+
+        /**
          * Add a collider to manager;
          * @param nColliderLayerId collider layer id to add the collider;
          * @param pCollider Pointer to collider to add;
@@ -84,7 +113,7 @@ namespace SunLight {
         bool CollisionManager :: AddCollider( int nColliderLayerId,
                                               SunLight :: Collision :: Collider* pCollider )  {
 
-            if( nColliderLayerId < m_ColliderLayerList.size() )  {
+            if( IsValidLayerId( nColliderLayerId ) )  {
                 m_ColliderLayerList[nColliderLayerId] -> push_back( pCollider -> GetHandle() );
 
                 return true;
@@ -103,9 +132,9 @@ namespace SunLight {
          * @param pCollider Pointer to collider to remove;
          */
         bool CollisionManager :: RemoveCollider( int nColliderLayerId,
-                                                 SunLight :: Collision :: Collider *pCollider )  {
+                                                 SunLight :: Collision :: Collider* pCollider )  {
 
-            if( nColliderLayerId < m_ColliderLayerList.size() )  {
+            if( IsValidLayerId( nColliderLayerId ) )  {
                 ColliderList   *pColliderList = m_ColliderLayerList[nColliderLayerId].get();
                 ColliderList :: iterator itItem = std :: find( pColliderList -> begin(),
                                                             pColliderList -> end(),
@@ -127,15 +156,16 @@ namespace SunLight {
          */
         bool CollisionManager :: RemoveAll( int nColliderLayerId )  {
 
-            if( nColliderLayerId < m_ColliderLayerList.size() )  {
-                if( nColliderLayerId < 0 )  {
-                    for( auto& pColliderList : m_ColliderLayerList )  {
-                        pColliderList -> clear();
-                    }
+            if( nColliderLayerId == __ALL_COLLIDER_LAYERS )  {
+                for( auto& pColliderList : m_ColliderLayerList )  {
+                    pColliderList -> clear();
                 }
-                else  {
-                    m_ColliderLayerList[nColliderLayerId] -> clear();
-                }
+
+                return true;
+            }
+
+            if( IsValidLayerId( nColliderLayerId ) )  {
+                m_ColliderLayerList[nColliderLayerId] -> clear();
 
                 return true;
             }
@@ -144,12 +174,16 @@ namespace SunLight {
         }
 
         /**
-         * Clear the collider manager object (lists status, ....
+         * Clear the collider manager object: every layer's colliders, and every rule. Each layer's
+         * list is emptied, not destroyed, so the manager stays as usable as a new one: AddCollider,
+         * RemoveCollider and Update use every layer's list without checking it, and used to
+         * dereference null after a Clear() that destroyed them. The lists themselves are freed with
+         * the manager (their unique_ptrs).
          */
         void CollisionManager :: Clear( void )  {
 
-            for( int nCount = 0; nCount < m_ColliderLayerList.size(); nCount++)  {
-                m_ColliderLayerList[nCount].reset();
+            for( auto& pColliderList : m_ColliderLayerList )  {
+                pColliderList -> clear();
             }
 
             m_ColliderToColliderRuleList.clear();
@@ -168,22 +202,26 @@ namespace SunLight {
         bool CollisionManager :: AddColliderToColliderRule( int nFirstColliderLayerId,
                                                             int nSecondColliderLayerId )  {
 
+            // Both ids are checked before the duplicate search below indexes the layer array with them.
+            // Found by Scarab: the search read past the array for an id out of range, and the old check
+            // tested the first id twice, so ( 1, 300 ) kept a pointer from past the array in a rule.
+            if( !IsValidLayerId( nFirstColliderLayerId ) || !IsValidLayerId( nSecondColliderLayerId ) )
+                return false;
+
             ColliderLayerList& colliderLayerListRef = m_ColliderLayerList;
             ColliderToColliderRuleList :: iterator itItem = std :: find_if( m_ColliderToColliderRuleList.begin(),
                                                                             m_ColliderToColliderRuleList.end(),
                                                                             [nFirstColliderLayerId,
                                                                              nSecondColliderLayerId,
-                                                                             &colliderLayerListRef]( const std :: unique_ptr<ColliderPair>& pPair ) {
+                                                                             &colliderLayerListRef]( const std :: unique_ptr<ColliderPair>& pPair )  {
 
-                                ColliderList *pFirst  = colliderLayerListRef[nFirstColliderLayerId].get();
-                                ColliderList *pSecond = colliderLayerListRef[nSecondColliderLayerId].get();
+                                ColliderList* pFirst  = colliderLayerListRef[nFirstColliderLayerId].get();
+                                ColliderList* pSecond = colliderLayerListRef[nSecondColliderLayerId].get();
 
                                 return ( ( pPair -> first == pFirst ) && ( pPair -> second == pSecond ) );
                             } );
 
-            if( ( itItem == m_ColliderToColliderRuleList.end() ) &&
-                ( nFirstColliderLayerId < m_ColliderLayerList.size() ) &&
-                ( nFirstColliderLayerId < m_ColliderLayerList.size() ) )  {
+            if( itItem == m_ColliderToColliderRuleList.end() )  {
 
                 std :: unique_ptr<ColliderPair>  pPair = std :: make_unique<ColliderPair>();
 
@@ -202,16 +240,16 @@ namespace SunLight {
          * Add collider to tile checking rule based on it's layer id.
          * This method pair two layer that will be checked in collision update
          * checking.
-         * @param nColliderId The collider layer id that will be added to
+         * @param nColliderLayerId The collider layer id that will be added to
          * checking rule;
-         * @param nLayerId The tile layer id that will be added to checking rule;
+         * @param nTileLayerId The tile layer id that will be added to checking rule;
          */
         bool CollisionManager :: AddColliderToTileRule( int nColliderLayerId,
                                                         int nTileLayerId )  {
 
             SunLight :: TileMap :: stLayer layer;
 
-            if( ( nColliderLayerId < m_ColliderLayerList.size() ) &&
+            if( IsValidLayerId( nColliderLayerId ) &&
                 m_pParent -> GetLayer( nTileLayerId, layer ) )  {
 
                 std :: unique_ptr<ColliderTileLayerPair>  pPair = std :: make_unique<ColliderTileLayerPair>();
@@ -231,7 +269,7 @@ namespace SunLight {
          * Add an ICollisionListener event object to manager;
          * @param pListener Pointer to the listener object to add;
          */
-        void CollisionManager :: AddCollisionListener( SunLight :: Collision :: ICollisionListener *pListener )  {
+        void CollisionManager :: AddCollisionListener( SunLight :: Collision :: ICollisionListener* pListener )  {
 
             m_Listeners.push_back( pListener );
         }
@@ -248,7 +286,7 @@ namespace SunLight {
          * @param pColliderList The live layer list to check against;
          * @param handle The collider handle to look for;
          */
-        bool CollisionManager :: IsColliderRegistered( ColliderList *pColliderList,
+        bool CollisionManager :: IsColliderRegistered( ColliderList* pColliderList,
                                                         const ColliderHandle& handle )  {
 
             return std :: find( pColliderList -> begin(), pColliderList -> end(), handle ) != pColliderList -> end();
@@ -339,19 +377,22 @@ namespace SunLight {
                     if( !pFirst )
                         continue;
 
-                    SunLight :: TileMap :: stTile      tile;
-                    SunLight :: TileMap :: stLayer     layer;
+                    SunLight :: TileMap :: stLayer                layer;
+                    std :: vector<SunLight :: TileMap :: stTile>  tiles;
 
-                    if( m_pParent -> GetLayer( pPair -> second, layer ) )  {
-                        SunLight :: TileMap :: stDimension2D&    spritePos = pFirst -> GetDimension2D();
-                        SunLight :: TileMap :: stMatrixPosition  tilePos   = { 0, 0 };
+                    // I7 of the master plan: every tile the collider touches, worked out by the map in map
+                    // space (ITileSource::GetCollidingTiles), each reported once and with its map-space
+                    // rectangle. It used to test only the tile under the collider's top-left corner, found
+                    // through the viewport origin and the camera (see TileMapRenderer::GetCollidingTiles).
+                    if( m_pParent -> GetLayer( pPair -> second, layer ) &&
+                        m_pParent -> GetCollidingTiles( pFirst -> EffectiveRect(), pFirst -> IsWorldSpace(), layer, tiles ) )  {
 
-                        if( m_pParent -> TileMapToTileMatrix( spritePos.pos, tilePos ) ) {
-                            if( m_pParent -> GetTile( tilePos, layer, tile ) &&
-                                pFirst -> Hit( tile ) &&
-                                IsColliderRegistered( pPair -> first, firstHandle ) )  {
-                                FireOnCollision(pFirst, &tile );
-                            }
+                        for( SunLight :: TileMap :: stTile& tile : tiles )  {
+                            // A listener may have removed (or destroyed) this collider during an earlier tile's callback.
+                            if( !IsColliderRegistered( pPair -> first, firstHandle ) || !registry.Resolve( firstHandle ) )
+                                break;
+
+                            FireOnCollision( pFirst, &tile );
                         }
                     }
                 }

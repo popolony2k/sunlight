@@ -29,13 +29,13 @@
 #include "base/object.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sprite  {
         /**
          * @brief TextureMap class implementation.
          * 
          */
-        class TextureMap : public SunLight :: Base :: Object {
+        class TextureMap : public SunLight :: Base :: Object  {
 
             public:
 
@@ -51,10 +51,10 @@ namespace SunLight {
             TextureMap( void );
             virtual ~TextureMap( void );
 
-            void AddTexture( SunLight :: Canvas :: TextureCanvas *pTexture, int64_t nDelayMilli = -1 );
+            void AddTexture( SunLight :: Canvas :: TextureCanvas* pTexture, int64_t nDelayMilli = -1 );
 
             // Visits every texture without touching the animation cursor (First/Next move it).
-            void ForEachTexture( const std :: function<void( SunLight :: Canvas :: TextureCanvas* )> &visit ) const;
+            void ForEachTexture( const std :: function<void( SunLight :: Canvas :: TextureCanvas* )>& visit ) const;
 
             // How many textures the list holds.
             size_t GetTextureCount( void ) const;

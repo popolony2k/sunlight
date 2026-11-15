@@ -26,25 +26,37 @@
 #include <vector>
 #include <sstream>
 #include "filesystem/filesystemfactory.h"
+#include "filesystem/basefilesystem.h"
 
 typedef std :: vector<unsigned char>  Bytes;
 
 /**
- * @brief In-memory IFileSystem: a map of virtual path -> bytes.
+ * @brief In-memory IFileSystem: a map of virtual path -> bytes. Path schemes, host paths and
+ * the filters are BaseFileSystem's; this holds only the virtual files. A virtual write needs
+ * SetWriteDirectory first, as with PhysFS, and lands in the same map.
  */
-class MemoryFileSystem : public SunLight :: FileSystem :: IFileSystem  {
+class MemoryFileSystem : public SunLight :: FileSystem :: BaseFileSystem  {
 
     public:
 
     std :: map<std :: string, Bytes>  files;
+    std :: string                     strWriteDirectory;   // empty: none set
 
-    void SetReadFilter( ReadFilterCallback ) override {}
     bool Init( const char * ) override { return true; }
     void Shutdown( void ) override {}
     bool Mount( const std :: string &, const std :: string &, bool ) override { return true; }
-    bool Exists( const std :: string &strPath ) override { return files.count( strPath ) > 0; }
+    bool Unmount( const std :: string &, const std :: string & ) override { return false; }
 
-    bool ReadFile( const std :: string &strPath, Bytes &out ) override {
+    bool SetWriteDirectory( const std :: string& strRealPath ) override  {
+        strWriteDirectory = strRealPath;
+        return true;
+    }
+
+    protected:
+
+    bool VirtualExists( const std :: string& strPath ) override { return files.count( strPath ) > 0; }
+
+    bool VirtualReadFile( const std :: string& strPath, Bytes& out ) override  {
         auto  it = files.find( strPath );
 
         if( it == files.end() )
@@ -52,6 +64,21 @@ class MemoryFileSystem : public SunLight :: FileSystem :: IFileSystem  {
 
         out = it -> second;
         return true;
+    }
+
+    bool VirtualWriteFile( const std :: string& strPath, const Bytes& data ) override  {
+        if( strWriteDirectory.empty() )
+            return false;
+
+        files[strPath] = data;
+        return true;
+    }
+
+    bool VirtualRemoveFile( const std :: string& strPath ) override  {
+        if( strWriteDirectory.empty() )
+            return false;
+
+        return files.erase( strPath ) > 0;
     }
 };
 
@@ -74,12 +101,13 @@ class MemoryFileSystemFixture  {
  * object layer holding one rectangle object.
  */
 inline Bytes MakeSquareTmx( int nTiles, int nTileSize, bool bWithRectangleObject = false,
-                            int nObjX = 0, int nObjY = 0, int nObjW = 0, int nObjH = 0 )  {
+                            int nObjX = 0, int nObjY = 0, int nObjW = 0, int nObjH = 0,
+                            const char* szOrientation = "orthogonal" )  {
 
     std :: ostringstream  tmx;
 
     tmx << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-        << "<map version=\"1.0\" orientation=\"orthogonal\" renderorder=\"right-down\" width=\"" << nTiles
+        << "<map version=\"1.0\" orientation=\"" << szOrientation << "\" renderorder=\"right-down\" width=\"" << nTiles
         << "\" height=\"" << nTiles << "\" tilewidth=\"" << nTileSize << "\" tileheight=\"" << nTileSize << "\">"
         << "<layer id=\"1\" name=\"ground\" width=\"" << nTiles << "\" height=\"" << nTiles << "\"><data encoding=\"csv\">";
 

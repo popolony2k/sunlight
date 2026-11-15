@@ -25,22 +25,27 @@
 #include <set>
 #include "tilemap/iview.h"
 #include "base/primitives.h"
+#include "renderer/camera/camera.h"
+#include "renderer/world/world.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
+        // The one forward declaration sunlight keeps (doc/CODE_STYLE.md): a View points back at
+        // its renderer and the renderer holds its views, so tilemaprenderer.h includes this header
+        // and this one cannot include it back.
         class TileMapRenderer;
 
         /**
          * @brief The concrete view (see @see SunLight::TileMap::IView).
          *
-         * A view is a holder of state - camera position, scroll step and a
-         * Viewport - and a handle whose operations RE-USE the renderer's own
-         * camera/zoom logic rather than duplicating it: each one briefly
-         * makes this view the ACTIVE one (the renderer's working camera,
-         * scroll step and root viewport pointer are swapped to this view's
-         * state), runs the renderer's own method, and swaps back. So a view
+         * A view is a holder of state - its Camera (position and scroll step)
+         * and a Viewport - and a handle whose operations RE-USE the renderer's
+         * own camera/zoom logic rather than duplicating it: each one briefly
+         * makes this view the ACTIVE one (the renderer then works on this
+         * view's camera, and its root viewport pointer is swapped to this
+         * view's), runs the renderer's own method, and swaps back. So a view
          * always behaves exactly as the renderer itself does, by
          * construction. The default view is the one that is active whenever
          * nothing else is - which is always, outside a draw pass and
@@ -52,21 +57,11 @@ namespace SunLight {
 
             friend class TileMapRenderer;
 
-            /**
-             * The per-view state the renderer keeps as its "working" copy
-             * while the view is active, and that is parked here while it is not.
-             */
-            struct State  {
-                SunLight :: Base :: stVector2D   camera;
-                int                              nScrollStepWidth;
-                int                              nScrollStepHeight;
-            };
-
             TileMapRenderer                        *m_pRenderer;
             int                                    m_nId;
             SunLight :: Base :: Viewport           *m_pViewport;
             std :: unique_ptr<SunLight :: Base :: Viewport>  m_pOwnedViewport;
-            State                                  m_State;
+            Camera                                 m_Camera;            // this view's camera and scroll step (S1e)
 
             // Drawing state (see IView). m_bClear / m_bExplicitBackground /
             // m_Background are read for the default view only when it is asked;
@@ -78,6 +73,9 @@ namespace SunLight {
             SunLight :: Base :: stColor            m_Background;
             bool                                   m_bMaskIsWhitelist;    // false: m_MaskIds are the HIDDEN layers; true: the SHOWN ones
             std :: set<int>                        m_MaskIds;
+            float                                  m_fOpacity;            // I19a: 1 draws as always; below 1 through m_hTarget
+            SunLight :: Base :: TextureHandle      m_hTarget;             // the view's own render target, frame-sized; nullptr until needed
+            std :: shared_ptr<World>               m_pWorld;              // I19c: the world it shows (never empty once the renderer set it)
 
             template<class Function>
             void Run( Function function );
@@ -89,7 +87,7 @@ namespace SunLight {
 
             public:
 
-            View( TileMapRenderer *pRenderer, int nId, SunLight :: Base :: Viewport *pExistingViewport );
+            View( TileMapRenderer* pRenderer, int nId, SunLight :: Base :: Viewport* pExistingViewport );
             virtual ~View( void );
 
             int GetId( void ) override;
@@ -105,31 +103,35 @@ namespace SunLight {
             void MoveCameraLeft( void ) override;
             void MoveCameraRight( void ) override;
             void SetCameraPosition( int nX, int nY ) override;
-            void GetCameraPosition( int &nX, int &nY ) override;
+            void GetCameraPosition( int& nX, int& nY ) override;
 
             void SetScrollStepSize( int nStepWidth, int nStepHeight ) override;
-            void GetScrollStepSize( int &nStepWidth, int &nStepHeight ) override;
+            void GetScrollStepSize( int& nStepWidth, int& nStepHeight ) override;
 
             bool IsRemoved( void ) override;
             void SetVisible( bool bVisible ) override;
             bool GetVisible( void ) override;
             void SetDrawOrder( int nOrder ) override;
             int GetDrawOrder( void ) override;
+            bool SetWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) override;
+            std :: shared_ptr<SunLight :: TileMap :: IWorld> GetWorld( void ) override;
+            void SetOpacity( float fOpacity ) override;
+            float GetOpacity( void ) override;
             void SetClearBackground( bool bClear ) override;
             bool GetClearBackground( void ) override;
-            void SetBackgroundColor( const SunLight :: Base :: stColor &color ) override;
+            void SetBackgroundColor( const SunLight :: Base :: stColor& color ) override;
             void UseMapBackgroundColor( void ) override;
             void ShowLayer( int nLayerId, bool bShow ) override;
-            bool ShowLayer( const char *szLayerName, bool bShow ) override;
-            void ShowOnlyLayers( const std :: vector<int> &layerIds ) override;
+            bool ShowLayer( const char* szLayerName, bool bShow ) override;
+            void ShowOnlyLayers( const std :: vector<int>& layerIds ) override;
             void ShowAllLayers( void ) override;
             bool IsLayerShown( int nLayerId ) override;
             bool FitToMap( void ) override;
 
-            bool TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+            bool TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                       SunLight :: TileMap :: stMatrixPosition& pos ) override;
         };
     }
 }
 
-#endif  /* __VIEW_H__ */
+#endif /* __VIEW_H__ */

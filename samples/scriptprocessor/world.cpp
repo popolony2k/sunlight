@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include "../shared/zoomkeys.h"
 #include <cstdio>
 #include <cmath>
 
@@ -184,7 +185,7 @@ void World :: OnUpdate( SunLight :: TileMap :: ITileMap& tileMap )  {
             m_bSunnyCircling = true;
         }
         else  {
-            SunLight :: TileMap :: stCoordinate2D  step = { __SLIDE_STEP, 0 };
+            SunLight :: Base :: stCoordinate2D  step = { __SLIDE_STEP, 0 };
             m_pSpriteSunny -> Move( step );
         }
     }
@@ -200,7 +201,7 @@ void World :: OnUpdate( SunLight :: TileMap :: ITileMap& tileMap )  {
             m_nMonkeyPatrolEdge = 0;
         }
         else  {
-            SunLight :: TileMap :: stCoordinate2D  step = { -__SLIDE_STEP, 0 };
+            SunLight :: Base :: stCoordinate2D  step = { -__SLIDE_STEP, 0 };
             m_pSpriteMonkey -> Move( step );
         }
     }
@@ -236,8 +237,8 @@ void World :: LoadStage( uint16_t nStageId )  {
 
     switch( nStageId )  {
         case __STAGE_ID :
-            m_pSpriteSunny -> SetDimension2D( SunLight :: TileMap :: stDimension2D { { __OFFSCREEN_LEFT_X, __SUNNY_Y }, { 32, 32 } } );
-            m_pSpriteMonkey -> SetDimension2D( SunLight :: TileMap :: stDimension2D { { __OFFSCREEN_RIGHT_X, __MONKEY_Y }, { 32, 32 } } );
+            m_pSpriteSunny -> SetDimension2D( SunLight :: Base :: stDimension2D { { __OFFSCREEN_LEFT_X, __SUNNY_Y }, { 32, 32 } } );
+            m_pSpriteMonkey -> SetDimension2D( SunLight :: Base :: stDimension2D { { __OFFSCREEN_RIGHT_X, __MONKEY_Y }, { 32, 32 } } );
             m_pSpriteSunny -> SetVisible( false );
             m_pSpriteMonkey -> SetVisible( false );
             m_bSunnySliding     = false;
@@ -264,7 +265,7 @@ void World :: StartSpriteEntrance( uint16_t nSpriteId )  {
 
     switch( nSpriteId )  {
         case __SUNNY_SPRITE_ID :
-            m_pSpriteSunny -> SetDimension2D( SunLight :: TileMap :: stDimension2D { { __OFFSCREEN_LEFT_X, __SUNNY_Y }, { 32, 32 } } );
+            m_pSpriteSunny -> SetDimension2D( SunLight :: Base :: stDimension2D { { __OFFSCREEN_LEFT_X, __SUNNY_Y }, { 32, 32 } } );
             m_pSpriteSunny -> SetVisible( true );
             m_bSunnySliding  = true;
             m_bSunnyCircling = false;
@@ -273,7 +274,7 @@ void World :: StartSpriteEntrance( uint16_t nSpriteId )  {
         break;
 
         case __MONKEY_SPRITE_ID :
-            m_pSpriteMonkey -> SetDimension2D( SunLight :: TileMap :: stDimension2D { { __OFFSCREEN_RIGHT_X, __MONKEY_Y }, { 32, 32 } } );
+            m_pSpriteMonkey -> SetDimension2D( SunLight :: Base :: stDimension2D { { __OFFSCREEN_RIGHT_X, __MONKEY_Y }, { 32, 32 } } );
             m_pSpriteMonkey -> SetVisible( true );
             m_bMonkeySliding    = true;
             m_bMonkeyPatrolling = false;
@@ -296,7 +297,7 @@ void World :: StartSpriteEntrance( uint16_t nSpriteId )  {
  */
 void World :: UpdateSunnyCircle( void )  {
 
-    SunLight :: TileMap :: stDimension2D  dim = m_pSpriteSunny -> GetDimension2D();
+    SunLight :: Base :: stDimension2D  dim = m_pSpriteSunny -> GetDimension2D();
 
     m_fSunnyCircleAngle += __SUNNY_CIRCLE_STEP;
 
@@ -317,7 +318,7 @@ void World :: UpdateSunnyCircle( void )  {
  */
 void World :: UpdateMonkeyPatrol( void )  {
 
-    SunLight :: TileMap :: stDimension2D  dim = m_pSpriteMonkey -> GetDimension2D();
+    SunLight :: Base :: stDimension2D  dim = m_pSpriteMonkey -> GetDimension2D();
 
     switch( m_nMonkeyPatrolEdge )  {
         case 0 :  // top edge, walking right
@@ -392,10 +393,10 @@ void World :: BuildScript( void )  {
     m_Script.Compile();
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IMAGE ) &&
-        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) ) {
+        m_pCanvasMonkey -> Load( __MONKEY_IMAGE ) )  {
 
         m_pCanvasSunny -> SetTileSize( 32 );
         m_pCanvasSunny -> SetAnimationMode( SunLight :: Canvas :: AnimationMode :: TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
@@ -434,8 +435,7 @@ World :: World( std :: string strBasePath )  {
     m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
                                                                                __DISPLAY_H,
                                                                                __GAME_NAME,
-                                                                               __FRAMES_PER_SECOND,
-                                                                               false );
+                                                                               __FRAMES_PER_SECOND );
     m_pSpriteSunny  = std :: make_unique<SunLight :: Sprite :: Sprite>();
     m_pCanvasSunny  = std :: make_unique<SunLight :: Canvas :: TextureCanvas>();
     m_pSpriteMonkey = std :: make_unique<SunLight :: Sprite :: Sprite>();
@@ -457,7 +457,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
 
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
 
@@ -466,6 +466,13 @@ bool World :: Run( void )  {
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &World :: ZoomOut, this, std :: placeholders :: _1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &World :: ZoomIn, this, std :: placeholders :: _1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &World :: ResetZoom, this, std :: placeholders :: _1, std :: placeholders :: _2 ) );
+
+    // + zooms in, - zooms out and = resets the zoom, on the keyboard and on the keypad - the same in
+    // every sample that zooms (samples/shared/zoomkeys.h), next to this sample's own keys above.
+    Samples :: InstallZoomKeys( *m_pRenderer,
+                                [this]() { ZoomIn( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ZoomOut( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ResetZoom( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); } );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_M, std :: bind( &World :: StopSongKey, this, std :: placeholders :: _1, std :: placeholders :: _2 ) );
 
     viewport.pos.x = __VIEWPORT_POS_X;

@@ -26,7 +26,7 @@
 #include "iinputhandler.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
         /**
@@ -62,4 +62,4 @@ namespace SunLight {
      }
 }
 
-#endif  /* __IINPUTHANDLERFACTORY_H__ */
+#endif /* __IINPUTHANDLERFACTORY_H__ */

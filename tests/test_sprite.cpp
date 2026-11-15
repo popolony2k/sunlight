@@ -36,7 +36,7 @@ TEST_SUITE( "sprite/Sprite" )  {
 
         Sprite         sprite;
         TextureCanvas  canvas;
-        stDimension2D  texDim { { 5, 6 }, { 32, 32 } };
+        SunLight :: Base :: stDimension2D  texDim { { 5, 6 }, { 32, 32 } };
 
         canvas.SetDimension2D( texDim );
         sprite.AddTextureSequence( 0, &canvas );
@@ -51,8 +51,8 @@ TEST_SUITE( "sprite/Sprite" )  {
 
         Sprite         sprite;
         TextureCanvas  canvas;
-        stDimension2D  spriteDim { { 100, 100 }, { 16, 16 } };
-        stDimension2D  texDim    { { 5, 6 },     { 32, 32 } };
+        SunLight :: Base :: stDimension2D  spriteDim { { 100, 100 }, { 16, 16 } };
+        SunLight :: Base :: stDimension2D  texDim    { { 5, 6 },     { 32, 32 } };
 
         sprite.SetDimension2D( spriteDim );
         canvas.SetDimension2D( texDim );
@@ -69,7 +69,7 @@ TEST_SUITE( "sprite/Sprite" )  {
 
         Sprite         sprite;
         TextureCanvas  canvas;
-        stCoordinate2D step { 5, 5 };
+        SunLight :: Base :: stCoordinate2D step { 5, 5 };
 
         sprite.AddTextureSequence( 0, &canvas );
         sprite.Move( step );
@@ -122,8 +122,8 @@ TEST_SUITE( "sprite/Sprite" )  {
     TEST_CASE( "Move offsets the sprite's own position by the given step" )  {
 
         Sprite         sprite;
-        stDimension2D  dim  { { 10, 10 }, { 32, 32 } };
-        stCoordinate2D step { 5, -3 };
+        SunLight :: Base :: stDimension2D  dim  { { 10, 10 }, { 32, 32 } };
+        SunLight :: Base :: stCoordinate2D step { 5, -3 };
 
         sprite.SetDimension2D( dim );
         sprite.Move( step );
@@ -137,7 +137,7 @@ TEST_SUITE( "sprite/Sprite" )  {
         MockEngineFixture  fixture;
         Sprite             sprite;
         TextureCanvas      canvas;
-        stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
 
         fixture.engine.hLoadTextureResult = ( TextureHandle ) 0xBEEF;
         fixture.engine.nLoadTextureWidth  = 32;
@@ -152,7 +152,7 @@ TEST_SUITE( "sprite/Sprite" )  {
         sprite.GetViewport().SetDimension2D( viewportDim );
         sprite.SetActiveTextureSequence( 0 );
         sprite.SetVisible( true );
-        sprite.SetDimension2D( stDimension2D { { 10, 10 }, { 32, 32 } } );
+        sprite.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 32, 32 } } );
 
         sprite.Update();
 
@@ -164,7 +164,7 @@ TEST_SUITE( "sprite/Sprite" )  {
         MockEngineFixture  fixture;
         Sprite             sprite;
         TextureCanvas      canvas;
-        stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
+        SunLight :: Base :: stDimension2D      viewportDim { { 0, 0 }, { 800, 600 } };
 
         fixture.engine.hLoadTextureResult = ( TextureHandle ) 0xBEEF;
         fixture.engine.nLoadTextureWidth  = 32;
@@ -174,7 +174,7 @@ TEST_SUITE( "sprite/Sprite" )  {
         sprite.AddTextureSequence( 0, &canvas );
         sprite.GetViewport().SetDimension2D( viewportDim );
         sprite.SetActiveTextureSequence( 0 );
-        sprite.SetDimension2D( stDimension2D { { 10, 10 }, { 32, 32 } } );
+        sprite.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 32, 32 } } );
 
         sprite.Update();
 
@@ -200,6 +200,40 @@ TEST_SUITE( "sprite/Sprite" )  {
         CHECK( fixture.engine.nUnloadTextureCalls == 2 );
     }
 
+    TEST_CASE( "After Unload no sequence is active: the sprite draws, advances and answers nothing, safely" )  {
+
+        // The active sequence used to stay marked valid, its iterator pointing into the emptied
+        // list: each call below read freed memory (AddressSanitizer: heap-use-after-free).
+        MockEngineFixture  fixture;
+        Sprite             sprite;
+        TextureCanvas      canvas;
+
+        fixture.engine.hLoadTextureResult = ( TextureHandle ) 0x1;
+        fixture.engine.nLoadTextureWidth  = 16;
+        fixture.engine.nLoadTextureHeight = 16;
+        REQUIRE( canvas.Load( "a.png" ) == true );
+        canvas.SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 16, 16 } } );
+        sprite.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 640, 480 } } );
+        sprite.AddTextureSequence( 0, &canvas, 0 );
+        REQUIRE( sprite.SetActiveTextureSequence( 0 ) == true );
+        sprite.SetVisible( true );
+
+        sprite.Unload();
+
+        CHECK( sprite.GetActiveTexture() == nullptr );
+        CHECK( sprite.GetActiveTextureSequence() == -1 );
+        CHECK( sprite.IsOnScreen() == false );
+
+        fixture.engine.events.clear();
+        sprite.Update();
+        CHECK( fixture.engine.events.empty() );
+
+        // A sequence added afterwards can be made active again, as on a new sprite.
+        sprite.AddTextureSequence( 0, &canvas, 0 );
+        CHECK( sprite.SetActiveTextureSequence( 0 ) == true );
+        CHECK( sprite.GetActiveTexture() == &canvas );
+    }
+
     TEST_CASE( "Advance lets the texture map pick its frame; Draw never does, however often it is called" )  {
 
         MockClockFixture   clockFixture;
@@ -217,10 +251,10 @@ TEST_SUITE( "sprite/Sprite" )  {
         clockFixture.clock.nNow = 1000;
         sprite.AddTextureSequence( 0, &frameA, 100 );      // each frame lasts 100 ms
         sprite.AddTextureSequence( 0, &frameB, 100 );
-        sprite.GetViewport().SetDimension2D( stDimension2D { { 0, 0 }, { 800, 600 } } );
+        sprite.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 800, 600 } } );
         sprite.SetActiveTextureSequence( 0 );
         sprite.SetVisible( true );
-        sprite.SetDimension2D( stDimension2D { { 10, 10 }, { 32, 32 } } );
+        sprite.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 32, 32 } } );
 
         CHECK( sprite.GetActiveTexture() == &frameA );
 
@@ -259,10 +293,10 @@ TEST_SUITE( "sprite/Sprite" )  {
         canvas.Load( "sprite.png" );
 
         sprite.AddTextureSequence( 0, &canvas );
-        sprite.GetViewport().SetDimension2D( stDimension2D { { 0, 0 }, { 800, 600 } } );
+        sprite.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 800, 600 } } );
         sprite.SetActiveTextureSequence( 0 );
         sprite.SetVisible( true );
-        sprite.SetDimension2D( stDimension2D { { 10, 10 }, { 32, 32 } } );
+        sprite.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 32, 32 } } );
 
         sprite.Advance();
         sprite.Advance();
@@ -294,7 +328,7 @@ TEST_SUITE( "sprite/Sprite" )  {
 
             TextureCanvas  *aCanvases[] = { &canvasA, &canvasB, &canvasC };
 
-            for( TextureCanvas *pCanvas : aCanvases )  {
+            for( TextureCanvas* pCanvas : aCanvases )  {
                 pCanvas -> Load( "sheet.png" );
                 pCanvas -> SetTileSize( 16 );
                 pCanvas -> SetAnimationMode( TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR );
@@ -302,13 +336,13 @@ TEST_SUITE( "sprite/Sprite" )  {
 
             clockFixture.clock.nNow = 1000;
 
-            for( TextureCanvas *pCanvas : aCanvases )
+            for( TextureCanvas* pCanvas : aCanvases )
                 sprite.AddTextureSequence( 0, pCanvas, 20 );
 
-            sprite.GetViewport().SetDimension2D( stDimension2D { { 0, 0 }, { 800, 600 } } );
+            sprite.GetViewport().SetDimension2D( SunLight :: Base :: stDimension2D { { 0, 0 }, { 800, 600 } } );
             sprite.SetActiveTextureSequence( 0 );
             sprite.SetVisible( true );
-            sprite.SetDimension2D( stDimension2D { { 10, 10 }, { 16, 16 } } );
+            sprite.SetDimension2D( SunLight :: Base :: stDimension2D { { 10, 10 }, { 16, 16 } } );
 
             for( int nFrame = 0; nFrame < 80; nFrame++ )  {
                 clockFixture.clock.Advance( 7 );

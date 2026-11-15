@@ -88,9 +88,9 @@ namespace SunLight  {
              *
              * @param pClock The clock to install, or nullptr;
              */
-            static void SetClock( IClock *pClock );
+            static void SetClock( IClock* pClock );
         };
     }
 }
 
-#endif  /* __CLOCK_H__ */
+#endif /* __CLOCK_H__ */

@@ -43,6 +43,30 @@ namespace SunLight  {
         };
 
         /**
+         * 2D coordinate structs.
+         */
+        struct stCoordinate2D  {
+            int            x;
+            int            y;
+        };
+
+        /**
+         * 2D size struct.
+         */
+        struct stSize2D  {
+            int            nWidth;
+            int            nHeight;
+        };
+
+        /**
+         * 2D dimension struct;
+         */
+        struct stDimension2D  {
+            stCoordinate2D pos;
+            stSize2D       size;
+        };
+
+        /**
          * Opaque handle to a backend-owned texture resource.
          * Only the active @see IEngine implementation knows its real type;
          * every other layer just forwards this pointer around.

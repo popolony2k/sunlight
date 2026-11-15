@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "viewport.h"
+#include "base/viewport.h"
 #include <algorithm>
 
 
@@ -174,7 +174,7 @@ namespace SunLight  {
          * @param nMinPos Receives the minimum zoom position;
          * @param nMaxPos Receives the maximum zoom position;
          */
-        void Viewport :: GetZoomLimits( unsigned &nMinPos, unsigned &nMaxPos )  {
+        void Viewport :: GetZoomLimits( unsigned& nMinPos, unsigned& nMaxPos )  {
 
             nMinPos = m_ZoomBorderLimits.first;
             nMaxPos = m_ZoomBorderLimits.second - 1;
@@ -256,13 +256,13 @@ namespace SunLight  {
          * ZoomEngine object;
          * @param pProps Pointer to the parent zoom properties to be set;
          */
-        void Viewport :: SetZoomPropertiesPtr( stZoomProperties *pProps )  {
+        void Viewport :: SetZoomPropertiesPtr( stZoomProperties* pProps )  {
 
             m_pProps = pProps;
         }
 
         /**
-         * Return the reference to internal @link stZoomProperties struct;
+         * Return the reference to internal @ref stZoomProperties struct;
          */
         stZoomProperties& Viewport :: GetZoomProperties( void )  {
 
@@ -283,37 +283,54 @@ namespace SunLight  {
          * @param dst Reference to destination clipped area;
          * @return false if nothing of src is inside the viewport;
          */
-        bool Viewport :: GetClippedRect( SunLight :: TileMap :: stDimension2D src,
-                                        SunLight :: TileMap :: stDimension2D& dst ) {
+        bool Viewport :: GetClippedRect( SunLight :: Base :: stDimension2D src,
+                                        SunLight :: Base :: stDimension2D& dst )  {
+
+            return ClipRect( GetDimension2D(), m_pProps -> fZoomFactor, src, dst );
+        }
+
+        /**
+         * GetClippedRect for an explicit viewport rectangle and zoom factor (see GetClippedRect;
+         * the same arithmetic, so the same answer for the same values).
+         * @param viewport The viewport's rectangle, [pos, pos + size);
+         * @param fZoomFactor The zoom factor;
+         * @param src Source coordinates, relative to the viewport's origin and un-zoomed;
+         * @param dst Reference to destination clipped area;
+         * @return false if nothing of src is inside the viewport;
+         */
+        bool Viewport :: ClipRect( const SunLight :: Base :: stDimension2D& viewport,
+                                   float fZoomFactor,
+                                   SunLight :: Base :: stDimension2D src,
+                                   SunLight :: Base :: stDimension2D& dst )  {
 
             float                                fClippingX;
             float                                fClippingY;
             int32_t                              nPos;
-            SunLight :: TileMap :: stDimension2D&  vp = GetDimension2D();
+            const SunLight :: Base :: stDimension2D  &vp = viewport;
 
             // The viewport's far corner: the first column/row past it.
             int32_t                              nFarX = vp.pos.x + vp.size.nWidth;
             int32_t                              nFarY = vp.pos.y + vp.size.nHeight;
 
             // Anything before the viewport's own origin is trimmed away.
-            if( src.pos.x < 0 ) {
+            if( src.pos.x < 0 )  {
                 nPos = std :: abs( src.pos.x );
                 src.size.nWidth -= ( nPos < src.size.nWidth ? nPos :
                                     src.size.nWidth );
                 src.pos.x = 0;
             }
 
-            if( src.pos.y < 0 ) {
+            if( src.pos.y < 0 )  {
                 nPos = std :: abs( src.pos.y );
                 src.size.nHeight -= ( nPos < src.size.nHeight ? nPos :
                                     src.size.nHeight );
                 src.pos.y = 0;
             }
 
-            dst.pos.x        = ( int ) ( ( src.pos.x * m_pProps -> fZoomFactor ) + vp.pos.x );
-            dst.pos.y        = ( int ) ( ( src.pos.y * m_pProps -> fZoomFactor ) + vp.pos.y );
-            dst.size.nWidth  = ( int ) ( src.size.nWidth * m_pProps -> fZoomFactor );
-            dst.size.nHeight = ( int ) ( src.size.nHeight * m_pProps -> fZoomFactor );
+            dst.pos.x        = ( int ) ( ( src.pos.x * fZoomFactor ) + vp.pos.x );
+            dst.pos.y        = ( int ) ( ( src.pos.y * fZoomFactor ) + vp.pos.y );
+            dst.size.nWidth  = ( int ) ( src.size.nWidth * fZoomFactor );
+            dst.size.nHeight = ( int ) ( src.size.nHeight * fZoomFactor );
             fClippingX       = ( float ) ( dst.pos.x + dst.size.nWidth );
             fClippingY       = ( float ) ( dst.pos.y + dst.size.nHeight );
 

@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include "../shared/zoomkeys.h"
 #include <cstdio>
 
 #define __DISPLAY_W                 1260
@@ -106,10 +107,10 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
     m_pRenderer -> ResetZoom();
 }
 
-bool World :: LoadSprites( void ) {
+bool World :: LoadSprites( void )  {
 
-    if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) ) {
-        SunLight :: TileMap :: stDimension2D    dim;
+    if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) )  {
+        SunLight :: Base :: stDimension2D    dim;
 
         dim.pos.x = 100;
         dim.pos.y = 100;
@@ -140,8 +141,7 @@ World :: World( std :: string strBasePath )  {
     m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
                                                                                __DISPLAY_H,
                                                                                __GAME_NAME,
-                                                                               __FRAMES_PER_SECOND,
-                                                                               false );
+                                                                               __FRAMES_PER_SECOND );
     m_pSpriteSunny = std :: make_unique<SunLight :: Sprite :: Sprite>();
     m_pCanvasSunny = std :: make_unique<SunLight :: Canvas :: TextureCanvas>();
 }
@@ -152,7 +152,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
     
     m_pRenderer -> SetScrollStepSize( __W_SCROLL_STEP_SIZE, __H_SCROLL_STEP_SIZE );
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
@@ -174,6 +174,13 @@ bool World :: Run( void )  {
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &World :: ZoomOut, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &World :: ZoomIn, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &World :: ResetZoom, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
+
+    // + zooms in, - zooms out and = resets the zoom, on the keyboard and on the keypad - the same in
+    // every sample that zooms (samples/shared/zoomkeys.h), next to this sample's own keys above.
+    Samples :: InstallZoomKeys( *m_pRenderer,
+                                [this]() { ZoomIn( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ZoomOut( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ResetZoom( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); } );
 
     viewport.pos.x = __VIEWPORT_POS_X;
     viewport.pos.y = __VIEWPORT_POS_Y;

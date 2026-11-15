@@ -19,17 +19,34 @@
  */
 
 #include "backends/raylib/raylibengine.h"
+#include "backends/raylib/raylibfontglyphs.h"
 #include "filesystem/filesystemfactory.h"
+#include "filesystem/filepath.h"
 #include "window/windowfactory.h"
 
+#include <rlgl.h>
+#include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
-// Extra spacing (in pixels) DrawTextEx adds between characters, on top of
-// whatever a font's own glyph metrics already provide - 0 means "use the
-// font as authored, no extra letter-spacing", the correct default for a
-// generic engine primitive with no per-call spacing parameter of it's own.
-#define __DEFAULT_TEXT_SPACING   0.0f
+// BLEND_MODE_MULTIPLY's fragment shader (see RaylibEngine::SetBlendMode): raylib's default
+// GLSL 330 fragment shader (rlgl.h, rlLoadShaderDefault), with its colour premultiplied by its alpha.
+#define __COMPOSITE_OPACITY_MIN   0.0f     // CompositeRenderTarget: draws nothing
+#define __COMPOSITE_OPACITY_MAX   1.0f     // CompositeRenderTarget: the target as it is
+#define __COMPOSITE_CHANNEL_MAX   255.0f   // a tint channel at an opacity of 1
+#define __MULTIPLY_SHADER_330  "#version 330\n"                                                     \
+                               "in vec2 fragTexCoord;\n"                                            \
+                               "in vec4 fragColor;\n"                                               \
+                               "out vec4 finalColor;\n"                                             \
+                               "uniform sampler2D texture0;\n"                                      \
+                               "uniform vec4 colDiffuse;\n"                                         \
+                               "void main()\n"                                                      \
+                               "{\n"                                                                \
+                               "    vec4 texelColor = texture(texture0, fragTexCoord);\n"           \
+                               "    vec4 color = texelColor*colDiffuse*fragColor;\n"                \
+                               "    finalColor = vec4(color.rgb*color.a, color.a);\n"               \
+                               "}\n"
 
 namespace SunLight  {
     namespace Engines  {
@@ -62,7 +79,7 @@ namespace SunLight  {
              * correctly regardless of whether raylib is configured with
              * it's own custom allocator.
              *
-             * Routes szFileName through IFileSystem::ToVirtualPath()
+             * Routes szFileName through FilePath::ToVirtualPath()
              * before reading it - not just a courtesy for a caller-
              * supplied real path, but a genuine necessity here: raylib's
              * own LoadBMFont (rtext.c) constructs a multi-file AngelCode
@@ -84,10 +101,10 @@ namespace SunLight  {
              * if it doesn't exist/couldn't be read (same failure shape as
              * raylib's own default LoadFileData);
              */
-            static unsigned char* FileSystemLoadFileDataCallback( const char *szFileName, int *pDataSize )  {
+            static unsigned char* FileSystemLoadFileDataCallback( const char* szFileName, int* pDataSize )  {
 
                 std :: vector<unsigned char>  data;
-                std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
+                std :: string                 strVirtualPath = SunLight :: FileSystem :: FilePath :: ToVirtualPath( szFileName );
 
                 if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strVirtualPath, data ) )  {
                     *pDataSize = 0;
@@ -136,10 +153,10 @@ namespace SunLight  {
              * read (same failure shape as raylib's own default
              * LoadFileText);
              */
-            static char* FileSystemLoadFileTextCallback( const char *szFileName )  {
+            static char* FileSystemLoadFileTextCallback( const char* szFileName )  {
 
                 std :: vector<unsigned char>  data;
-                std :: string                 strVirtualPath = SunLight :: FileSystem :: IFileSystem :: ToVirtualPath( szFileName );
+                std :: string                 strVirtualPath = SunLight :: FileSystem :: FilePath :: ToVirtualPath( szFileName );
 
                 if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strVirtualPath, data ) )
                     return nullptr;
@@ -151,6 +168,38 @@ namespace SunLight  {
                 pText[ data.size() ] = '\0';
 
                 return pText;
+            }
+
+            /**
+             * @brief Load a font file for LoadFont. A TrueType/OpenType
+             * font is loaded with ::LoadFontEx and the code points of TtfCodepoints() (ASCII,
+             * Latin-1 and Latin Extended-A), at raylib's own default glyph size: ::LoadFont
+             * would build it with the 95 ASCII glyphs alone (rtext.c), so an accented letter was
+             * drawn as '?'. Every other format (an AngelCode BMFont ".fnt", an image font) goes
+             * to ::LoadFont unchanged - it brings its own glyph set. ::LoadFontEx reads the file
+             * through LoadFileData, the same @see FileSystemLoadFileDataCallback route ::LoadFont
+             * takes, so mounts and the read filter apply exactly as before. A code point the
+             * font file has no glyph for is still drawn as '?'. ::LoadFont also sets a loaded
+             * font's texture to point filtering, which ::LoadFontEx leaves to the caller: done
+             * here too, so the font is sampled exactly as before.
+             * @param szFilePath The font file;
+             * @return The font; invalid (::IsFontValid false), with nothing allocated, if it
+             * could not be loaded;
+             */
+            static ::Font LoadFontFile( const char* szFilePath )  {
+
+                if( ::IsFileExtension( szFilePath, ".ttf;.otf" ) )  {
+                    const std :: vector<int>  &codepoints = TtfCodepoints();
+                    ::Font                     font       = ::LoadFontEx( szFilePath, TTF_GLYPH_SIZE,
+                                                                          const_cast<int*>( codepoints.data() ), ( int ) codepoints.size() );
+
+                    if( font.texture.id != 0 )
+                        ::SetTextureFilter( font.texture, TEXTURE_FILTER_POINT );
+
+                    return font;
+                }
+
+                return ::LoadFont( szFilePath );
             }
 
             /**
@@ -188,21 +237,22 @@ namespace SunLight  {
              * @brief Draw part of a texture (defined by a rectangle) with rotation and scale tiled into dest
              * This routines is planned to be removed after raylib 4.2.0 and was moved to a samples project directory
              * found at https://github.com/raysan5/raylib/blob/master/examples/textures/textures_draw_tiled.c
+             * (raylib's example, adapted to sunlight's code style).
              *
-             * @param hTexture
-             * @param sourceIn
-             * @param destIn
-             * @param originIn
-             * @param rotation
-             * @param scale
-             * @param tintIn
+             * @param hTexture The texture to draw from;
+             * @param sourceIn The part of the texture to repeat;
+             * @param destIn The rectangle to fill with it;
+             * @param originIn The rotation origin, relative to each drawn tile;
+             * @param fRotation The rotation, in degrees;
+             * @param fScale The scale of each tile;
+             * @param tintIn The tint to draw with;
              */
             void RaylibEngine :: DrawTextureTiled( SunLight :: Base :: TextureHandle hTexture,
                                                    SunLight :: Base :: stRectangle sourceIn,
                                                    SunLight :: Base :: stRectangle destIn,
                                                    SunLight :: Base :: stVector2D originIn,
-                                                   float rotation,
-                                                   float scale,
+                                                   float fRotation,
+                                                   float fScale,
                                                    SunLight :: Base :: stColor tintIn )  {
 
                 Texture2D  texture = *reinterpret_cast<Texture2D*>( hTexture );
@@ -211,174 +261,198 @@ namespace SunLight  {
                 Vector2    origin  { originIn.x, originIn.y };
                 Color      tint    { tintIn.nRed, tintIn.nGreen, tintIn.nBlue, tintIn.nAlpha };
 
-                if ((texture.id <= 0) || (scale <= 0.0f)) return;  // Wanna see a infinite loop?!...just delete this line!
-                if ((source.width == 0) || (source.height == 0)) return;
+                // A zero-sized tile would never advance the loops below: they would never end.
+                if( ( texture.id <= 0 ) || ( fScale <= 0.0f ) )
+                    return;
 
-                int tileWidth = (int)(source.width*scale), tileHeight = (int)(source.height*scale);
-                if ((dest.width < tileWidth) && (dest.height < tileHeight))
-                {
+                if( ( source.width == 0 ) || ( source.height == 0 ) )
+                    return;
+
+                int  nTileWidth  = ( int ) ( source.width * fScale );
+                int  nTileHeight = ( int ) ( source.height * fScale );
+
+                if( ( dest.width < nTileWidth ) && ( dest.height < nTileHeight ) )  {
                     // Can fit only one tile
-                    ::DrawTexturePro( texture, 
-                                      Rectangle{ source.x, source.y, 
-                                                 ((float)dest.width/tileWidth)*source.width, 
-                                                 ((float)dest.height/tileHeight)*source.height },
-                                      Rectangle { dest.x, 
-                                                  dest.y, 
+                    ::DrawTexturePro( texture,
+                                      Rectangle { source.x, source.y,
+                                                  ( ( float ) dest.width / nTileWidth ) * source.width,
+                                                  ( ( float ) dest.height / nTileHeight ) * source.height },
+                                      Rectangle { dest.x,
+                                                  dest.y,
                                                   dest.width,
-                                                  dest.height }, 
-                                      origin, 
-                                      rotation, 
+                                                  dest.height },
+                                      origin,
+                                      fRotation,
                                       tint );
                 }
-                else if (dest.width <= tileWidth)
-                {
+                else if( dest.width <= nTileWidth )  {
                     // Tiled vertically (one column)
-                    int dy = 0;
-                    for (;dy+tileHeight < dest.height; dy += tileHeight)
-                    {
-                        ::DrawTexturePro( texture, 
-                                          Rectangle{ source.x, 
-                                                     source.y, 
-                                                     ((float)dest.width/tileWidth)*source.width, 
-                                                     source.height }, 
-                                          Rectangle{ dest.x, 
-                                                     dest.y + dy, 
-                                                     dest.width, 
-                                                     (float)tileHeight }, 
-                                          origin, 
-                                          rotation, 
+                    int  nDy = 0;
+
+                    for( ; nDy + nTileHeight < dest.height; nDy += nTileHeight )  {
+                        ::DrawTexturePro( texture,
+                                          Rectangle { source.x,
+                                                      source.y,
+                                                      ( ( float ) dest.width / nTileWidth ) * source.width,
+                                                      source.height },
+                                          Rectangle { dest.x,
+                                                      dest.y + nDy,
+                                                      dest.width,
+                                                      ( float ) nTileHeight },
+                                          origin,
+                                          fRotation,
                                           tint );
                     }
 
                     // Fit last tile
-                    if (dy < dest.height)
-                    {
-                        ::DrawTexturePro( texture, 
-                                          Rectangle{ source.x, 
-                                                     source.y, 
-                                                     ((float)dest.width/tileWidth)*source.width, 
-                                                     ((float)(dest.height - dy)/tileHeight)*source.height },
-                                          Rectangle{ dest.x, 
-                                                     dest.y + dy, 
-                                                     dest.width, 
-                                                     dest.height - dy }, 
-                                          origin, 
-                                          rotation, 
+                    if( nDy < dest.height )  {
+                        ::DrawTexturePro( texture,
+                                          Rectangle { source.x,
+                                                      source.y,
+                                                      ( ( float ) dest.width / nTileWidth ) * source.width,
+                                                      ( ( float ) ( dest.height - nDy ) / nTileHeight ) * source.height },
+                                          Rectangle { dest.x,
+                                                      dest.y + nDy,
+                                                      dest.width,
+                                                      dest.height - nDy },
+                                          origin,
+                                          fRotation,
                                           tint );
                     }
                 }
-                else if (dest.height <= tileHeight)
-                {
+                else if( dest.height <= nTileHeight )  {
                     // Tiled horizontally (one row)
-                    int dx = 0;
-                    for (;dx+tileWidth < dest.width; dx += tileWidth)
-                    {
-                        ::DrawTexturePro( texture, 
-                                          Rectangle{ source.x, 
-                                                     source.y, 
-                                                     source.width, 
-                                                     ((float)dest.height/tileHeight)*source.height }, 
-                                          Rectangle{ dest.x + dx, 
-                                                     dest.y, 
-                                                     (float)tileWidth, 
-                                                     dest.height }, 
-                                          origin, 
-                                          rotation, 
+                    int  nDx = 0;
+
+                    for( ; nDx + nTileWidth < dest.width; nDx += nTileWidth )  {
+                        ::DrawTexturePro( texture,
+                                          Rectangle { source.x,
+                                                      source.y,
+                                                      source.width,
+                                                      ( ( float ) dest.height / nTileHeight ) * source.height },
+                                          Rectangle { dest.x + nDx,
+                                                      dest.y,
+                                                      ( float ) nTileWidth,
+                                                      dest.height },
+                                          origin,
+                                          fRotation,
                                           tint );
                     }
 
                     // Fit last tile
-                    if (dx < dest.width)
-                    {
-                        ::DrawTexturePro( texture, 
-                                          Rectangle{ source.x, 
-                                                     source.y, 
-                                                     ((float)(dest.width - dx)/tileWidth)*source.width, 
-                                                     ((float)dest.height/tileHeight)*source.height },
-                                          Rectangle{ dest.x + dx, 
-                                                     dest.y, 
-                                                     dest.width - dx,
-                                                     dest.height }, 
-                                          origin, 
-                                          rotation, 
+                    if( nDx < dest.width )  {
+                        ::DrawTexturePro( texture,
+                                          Rectangle { source.x,
+                                                      source.y,
+                                                      ( ( float ) ( dest.width - nDx ) / nTileWidth ) * source.width,
+                                                      ( ( float ) dest.height / nTileHeight ) * source.height },
+                                          Rectangle { dest.x + nDx,
+                                                      dest.y,
+                                                      dest.width - nDx,
+                                                      dest.height },
+                                          origin,
+                                          fRotation,
                                           tint );
                     }
                 }
-                else
-                {
+                else  {
                     // Tiled both horizontally and vertically (rows and columns)
-                    int dx = 0;
-                    for (;dx+tileWidth < dest.width; dx += tileWidth)
-                    {
-                        int dy = 0;
-                        for (;dy+tileHeight < dest.height; dy += tileHeight)
-                        {
-                            ::DrawTexturePro( texture, 
-                                              source, 
-                                              Rectangle{ dest.x + dx, 
-                                                         dest.y + dy, 
-                                                         (float)tileWidth, 
-                                                         (float)tileHeight }, 
-                                              origin, 
-                                              rotation, 
+                    int  nDx = 0;
+
+                    for( ; nDx + nTileWidth < dest.width; nDx += nTileWidth )  {
+                        int  nDy = 0;
+
+                        for( ; nDy + nTileHeight < dest.height; nDy += nTileHeight )  {
+                            ::DrawTexturePro( texture,
+                                              source,
+                                              Rectangle { dest.x + nDx,
+                                                          dest.y + nDy,
+                                                          ( float ) nTileWidth,
+                                                          ( float ) nTileHeight },
+                                              origin,
+                                              fRotation,
                                               tint );
                         }
 
-                        if (dy < dest.height)
-                        {
-                            ::DrawTexturePro( texture, 
-                                              Rectangle{ source.x, 
-                                                         source.y, 
-                                                         source.width, 
-                                                         ((float)(dest.height - dy)/tileHeight)*source.height },
-                                              Rectangle{ dest.x + dx, 
-                                                         dest.y + dy, 
-                                                         (float)tileWidth, 
-                                                         dest.height - dy }, 
-                                              origin, 
-                                              rotation, 
+                        if( nDy < dest.height )  {
+                            ::DrawTexturePro( texture,
+                                              Rectangle { source.x,
+                                                          source.y,
+                                                          source.width,
+                                                          ( ( float ) ( dest.height - nDy ) / nTileHeight ) * source.height },
+                                              Rectangle { dest.x + nDx,
+                                                          dest.y + nDy,
+                                                          ( float ) nTileWidth,
+                                                          dest.height - nDy },
+                                              origin,
+                                              fRotation,
                                               tint );
                         }
                     }
 
                     // Fit last column of tiles
-                    if (dx < dest.width)
-                    {
-                        int dy = 0;
-                        for (;dy+tileHeight < dest.height; dy += tileHeight)
-                        {
-                            ::DrawTexturePro( texture, 
-                                              Rectangle{ source.x, 
-                                                         source.y, 
-                                                         ((float)(dest.width - dx)/tileWidth)*source.width, 
-                                                         source.height },
-                                              Rectangle{ dest.x + dx, 
-                                                         dest.y + dy, 
-                                                         dest.width - dx, 
-                                                         (float)tileHeight}, 
-                                              origin, 
-                                              rotation, 
+                    if( nDx < dest.width )  {
+                        int  nDy = 0;
+
+                        for( ; nDy + nTileHeight < dest.height; nDy += nTileHeight )  {
+                            ::DrawTexturePro( texture,
+                                              Rectangle { source.x,
+                                                          source.y,
+                                                          ( ( float ) ( dest.width - nDx ) / nTileWidth ) * source.width,
+                                                          source.height },
+                                              Rectangle { dest.x + nDx,
+                                                          dest.y + nDy,
+                                                          dest.width - nDx,
+                                                          ( float ) nTileHeight },
+                                              origin,
+                                              fRotation,
                                               tint );
                         }
 
                         // Draw final tile in the bottom right corner
-                        if (dy < dest.height)
-                        {
-                            ::DrawTexturePro( texture, 
-                                              Rectangle{ source.x, 
-                                                         source.y, 
-                                                         ((float)(dest.width - dx)/tileWidth)*source.width, 
-                                                         ((float)(dest.height - dy)/tileHeight)*source.height },
-                                              Rectangle{ dest.x + dx, 
-                                                         dest.y + dy, 
-                                                         dest.width - dx, 
-                                                         dest.height - dy }, 
-                                              origin, 
-                                              rotation, 
+                        if( nDy < dest.height )  {
+                            ::DrawTexturePro( texture,
+                                              Rectangle { source.x,
+                                                          source.y,
+                                                          ( ( float ) ( dest.width - nDx ) / nTileWidth ) * source.width,
+                                                          ( ( float ) ( dest.height - nDy ) / nTileHeight ) * source.height },
+                                              Rectangle { dest.x + nDx,
+                                                          dest.y + nDy,
+                                                          dest.width - nDx,
+                                                          dest.height - nDy },
+                                              origin,
+                                              fRotation,
                                               tint );
                         }
                     }
                 }
+            }
+
+            /**
+             * @brief A thick line through raylib's own routine (see @see IEngine::DrawLine).
+             */
+            void RaylibEngine :: DrawLine( float fX0,
+                                           float fY0,
+                                           float fX1,
+                                           float fY1,
+                                           float fThickness,
+                                           SunLight :: Base :: stColor color )  {
+
+                ::DrawLineEx( Vector2{ fX0, fY0 }, Vector2{ fX1, fY1 }, fThickness,
+                              Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+            }
+
+            /**
+             * @brief An ellipse outline through raylib's own routine (see @see IEngine::DrawEllipseOutline).
+             */
+            void RaylibEngine :: DrawEllipseOutline( float fCenterX,
+                                                     float fCenterY,
+                                                     float fRadiusX,
+                                                     float fRadiusY,
+                                                     SunLight :: Base :: stColor color )  {
+
+                ::DrawEllipseLines( ( int ) fCenterX, ( int ) fCenterY, fRadiusX, fRadiusY,
+                                    Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }
 
             /**
@@ -402,108 +476,235 @@ namespace SunLight  {
             }
 
             /**
-             * @brief Load (or replace) the font used by DrawText (see
-             * @see IEngine::SetFont). Forwards straight to raylib's own
-             * ::LoadFont, which auto-detects the font file's format from
-             * it's extension (TrueType/OpenType, or an AngelCode BMFont
-             * ".fnt" atlas) - this method has no format-specific logic of
-             * it's own. The previous custom font, if any, is unloaded only
-             * after the new one is confirmed valid, so a failed load never
-             * leaves DrawText without a usable font.
+             * @brief Select the font DrawText, MeasureText and DrawTextRotated use (see
+             * @see IEngine::SetFont, I3 of the master plan). Only a RaylibFont can be selected:
+             * the engine draws with it through its own IFont methods, and a font of any other
+             * backend could not draw here. The previously active font is only let go - it is
+             * released when its last owner lets go too.
+             * @param pFont A font from LoadFont, or nullptr for raylib's built-in font;
+             * @return Whether pFont is now the active font;
              */
-            bool RaylibEngine :: SetFont( const char *szFilePath )  {
+            bool RaylibEngine :: SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont )  {
 
-                Font  newFont = ::LoadFont( szFilePath );
-
-                // On failure raylib's own ::LoadFont returns an all-zero,
-                // never-allocated Font (confirmed in raylib's own source -
-                // it only reaches a GPU upload on the success path), so
-                // there's nothing of newFont's to release here.
-                if( !::IsFontValid( newFont ) )
+                if( pFont && ( ( dynamic_cast<RaylibFont*>( pFont.get() ) == nullptr ) || !pFont -> IsValid() ) )
                     return false;
 
-                if( m_bCustomFontLoaded )
-                    ::UnloadFont( m_CurrentFont );
-
-                m_CurrentFont       = newFont;
-                m_bCustomFontLoaded = true;
+                m_pActiveFont = std :: move( pFont );
 
                 return true;
             }
 
             /**
-             * @brief The font DrawText/MeasureText should use right now -
-             * whichever one SetFont last loaded, or raylib's own built-in
-             * default font if SetFont has never been called (or every
-             * call to it so far has failed).
+             * @brief The font SetFont selected (see @see IEngine::GetFont).
+             * @return The active font; nullptr while the built-in font is used;
              */
-            Font  RaylibEngine :: GetActiveFont( void )  {
+            std :: shared_ptr<SunLight :: Font :: IFont> RaylibEngine :: GetFont( void )  {
 
-                return m_bCustomFontLoaded ? m_CurrentFont : ::GetFontDefault();
+                return m_pActiveFont;
             }
 
             /**
-             * @brief Draw a line of text in screen space, using whichever
-             * font is currently active - the backend's own built-in
-             * default font until @see SetFont is called for the first
-             * time (see @see IEngine::DrawText).
+             * @brief The font DrawText/MeasureText/DrawTextRotated draw with: the one SetFont
+             * selected while it is valid. nullptr means raylib's own built-in default font -
+             * also once the selected font's window has closed.
+             * @return The active font, or nullptr for the built-in one;
              */
-            void RaylibEngine :: DrawText( const char *szText,
+            SunLight :: Font :: IFont* RaylibEngine :: ActiveFont( void )  {
+
+                return ( m_pActiveFont && m_pActiveFont -> IsValid() ) ? m_pActiveFont.get() : nullptr;
+            }
+
+            /**
+             * @brief Load a font without making it the active font (see
+             * @see IEngine::LoadFont), through @see LoadFontFile (raylib
+             * picks the format from the file's extension - TrueType/OpenType,
+             * or an AngelCode BMFont ".fnt" atlas - and a TrueType/OpenType
+             * font gets its Latin glyphs).
+             * @param szFilePath The font file;
+             * @return The font; nullptr if it could not be loaded;
+             */
+            std :: shared_ptr<SunLight :: Font :: IFont> RaylibEngine :: LoadFont( const char* szFilePath )  {
+
+                ::Font  newFont = LoadFontFile( szFilePath );
+
+                // On failure raylib's ::LoadFont/::LoadFontEx return an invalid,
+                // never-allocated Font (confirmed in raylib's own source -
+                // it only builds glyphs and reaches a GPU upload on the success
+                // path), so there's nothing of newFont's to release here.
+                if( !::IsFontValid( newFont ) )
+                    return nullptr;
+
+                // Forget the fonts already destroyed, so the list does not grow without limit.
+                for( auto pIt = m_LiveFonts.begin(); pIt != m_LiveFonts.end(); )  {
+                    if( pIt -> expired() )
+                        pIt = m_LiveFonts.erase( pIt );
+                    else
+                        ++pIt;
+                }
+
+                std :: shared_ptr<__stRaylibFont>  pState = std :: make_shared<__stRaylibFont>();
+
+                pState -> font = newFont;
+                m_LiveFonts.push_back( pState );
+
+                return std :: make_shared<RaylibFont>( pState );
+            }
+
+            /**
+             * @brief Restrict drawing to a rectangle, nested in any clip already active (see
+             * @see IEngine::BeginClip). The clip is the intersection of the new rectangle and the
+             * active one, so a clip inside another can only narrow it. Two rectangles that do not
+             * overlap give an empty clip, and nothing is drawn through it.
+             */
+            void RaylibEngine :: BeginClip( SunLight :: Base :: stRectangle rect )  {
+
+                if( !m_ClipStack.empty() )  {
+                    const SunLight :: Base :: stRectangle  &outer = m_ClipStack.back();
+                    float  fLeft   = std :: max( rect.x, outer.x );
+                    float  fTop    = std :: max( rect.y, outer.y );
+                    float  fRight  = std :: min( rect.x + rect.width, outer.x + outer.width );
+                    float  fBottom = std :: min( rect.y + rect.height, outer.y + outer.height );
+
+                    rect = SunLight :: Base :: stRectangle { fLeft, fTop, std :: max( 0.0f, fRight - fLeft ),
+                                                              std :: max( 0.0f, fBottom - fTop ) };
+                }
+
+                m_ClipStack.push_back( rect );
+                ApplyClip( rect );
+            }
+
+            /**
+             * @brief End the innermost clip (see @see IEngine::EndClip). The clip that was active
+             * before it comes back; when none is left, raylib's scissor is turned off. An EndClip
+             * with no clip active does nothing.
+             */
+            void RaylibEngine :: EndClip( void )  {
+
+                if( m_ClipStack.empty() )
+                    return;
+
+                m_ClipStack.pop_back();
+
+                if( m_ClipStack.empty() )
+                    ::EndScissorMode();
+                else
+                    ApplyClip( m_ClipStack.back() );
+            }
+
+            /**
+             * @brief Make raylib's scissor test match a rectangle. BeginScissorMode flushes the
+             * pending batch first, so draws before the change keep the clip they were made with.
+             */
+            void RaylibEngine :: ApplyClip( SunLight :: Base :: stRectangle rect )  {
+
+                ::BeginScissorMode( ( int ) rect.x, ( int ) rect.y, ( int ) rect.width, ( int ) rect.height );
+            }
+
+            /**
+             * @brief Draw a line of text in screen space, with the active font (ActiveFont), or
+             * raylib's built-in default font when none is selected (see @see IEngine::DrawText).
+             * The active font draws through its own IFont::DrawText, the same call a game makes
+             * on its handle, so both draw a font alike.
+             */
+            void RaylibEngine :: DrawText( const char* szText,
                                            int nPosX,
                                            int nPosY,
                                            int nFontSize,
                                            SunLight :: Base :: stColor color )  {
 
-                ::DrawTextEx( GetActiveFont(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY },
-                             ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
-                             Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+                SunLight :: Font :: IFont  *pFont = ActiveFont();
+
+                if( pFont != nullptr )  {
+                    pFont -> DrawText( szText, nPosX, nPosY, nFontSize, color );
+                    return;
+                }
+
+                ::DrawTextEx( ::GetFontDefault(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY },
+                              ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
+                              Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }
 
             /**
-             * @brief Measure a line of text's rendered width, using
-             * whichever font is currently active - same font resolution
-             * as @see DrawText (see @see IEngine::MeasureText).
+             * @brief Measure a line of text's rendered width, with the same
+             * font as @see DrawText (see @see IEngine::MeasureText).
              */
-            int RaylibEngine :: MeasureText( const char *szText, int nFontSize )  {
+            int RaylibEngine :: MeasureText( const char* szText, int nFontSize )  {
 
-                Vector2  size = ::MeasureTextEx( GetActiveFont(), szText,
-                                                 ( float ) nFontSize, __DEFAULT_TEXT_SPACING );
+                SunLight :: Font :: IFont  *pFont = ActiveFont();
+
+                if( pFont != nullptr )
+                    return pFont -> MeasureText( szText, nFontSize );
+
+                Vector2  size = ::MeasureTextEx( ::GetFontDefault(), szText, ( float ) nFontSize, __DEFAULT_TEXT_SPACING );
 
                 return ( int ) size.x;
             }
 
             /**
-             * @brief Release this class's own GPU-context-tied state
-             * before the window/context goes away (fired by the window's
-             * close handlers, see the constructor) - just the custom font
-             * tracking, at the moment. Deliberately does NOT call ::UnloadFont here
-             * first - not because the context is already gone (it isn't:
-             * this runs before CloseWindow() is even called, so the GL
-             * context is still fully valid at this point, an explicit
-             * unload would be perfectly safe here too), but because it
-             * would be redundant work for no benefit - CloseWindow()'s own
-             * teardown (rlglClose(), then ClosePlatform()'s
-             * glfwDestroyWindow()) discards the whole GL context
-             * immediately after this runs anyway, taking every GPU handle
-             * in it with it, including this one. This only clears this
-             * class's own bookkeeping, so a *future* window (if Start() is
-             * ever called again) doesn't inherit a stale handle pointing
-             * at a texture that no longer exists.
+             * @brief Release this class's GPU-context-tied font state before
+             * the window/context goes away (fired by the window's close
+             * handlers, see the constructor). This runs before CloseWindow(),
+             * so the GL context is still valid: every font this engine
+             * loaded is unloaded here, and marked invalid so the IFont that
+             * owns it does nothing afterwards. The active font is let go too
+             * (the built-in one is used from then on), and the bookkeeping is
+             * cleared, so a future window (if Start() is ever called again)
+             * starts clean.
              */
             void RaylibEngine :: ReleaseWindowState( void )  {
 
-                m_CurrentFont       = Font {};
-                m_bCustomFontLoaded = false;
+                // The close handler runs before the window's context is
+                // destroyed (see IWindow::AddCloseHandler), so unloading here
+                // frees each font's GPU texture while it is still valid. Letting
+                // go of the active font first: if the engine was its last owner,
+                // its RaylibFont releases it right here, while the context is
+                // valid; otherwise the loop below does.
+                m_pActiveFont.reset();
+
+                // Each live font is released here and marked invalid, so the
+                // RaylibFont that owns it does not release it a second time.
+                for( std :: weak_ptr<__stRaylibFont>& pWeak : m_LiveFonts )  {
+                    std :: shared_ptr<__stRaylibFont>  pState = pWeak.lock();
+
+                    if( pState && pState -> bValid )  {
+                        ::UnloadFont( pState -> font );
+                        pState -> bValid = false;
+                    }
+                }
+
+                m_LiveFonts.clear();
+
+                // Multiply's shader is a GL program too. A future window loads it again.
+                if( m_bMultiplyShaderLoaded )
+                    ::UnloadShader( m_MultiplyShader );
+
+                m_MultiplyShader        = ::Shader {};
+                m_bMultiplyShaderLoaded = false;
+                m_bMultiplyShaderTried  = false;
+                m_bMultiplyShaderActive = false;
             }
 
             /**
-             * Draw  pixel according the specified position.
-             * @param nPosX The X coordinate to plot pixel;
-             * @param nPosY The Y coordinate to plot pixel;
-             * @param color Color of pixel;
+             * @brief A texture's real size (I24 of the master plan): raylib's Texture2D carries it
+             * (width, height - what ::LoadTexture read from the file, or a render target's). Every
+             * handle this engine gives out for a texture is a Texture2D* (LoadTexture, and
+             * GetRenderTargetTexture's &RenderTexture2D::texture).
+             * @param hTexture The texture;
+             * @param nWidth Receives its width;
+             * @param nHeight Receives its height;
+             * @return false for an empty handle;
              */
-            void RaylibEngine :: SetPixel( int nPosX, int nPosY, SunLight :: Base :: stColor color )  {
-                ::DrawPixel( nPosX, nPosY, Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
+            bool RaylibEngine :: GetTextureSize( SunLight :: Base :: TextureHandle hTexture, int& nWidth, int& nHeight )  {
+
+                if( !hTexture )
+                    return false;
+
+                const Texture2D  *pTexture = reinterpret_cast<const Texture2D*>( hTexture );
+
+                nWidth  = pTexture -> width;
+                nHeight = pTexture -> height;
+
+                return true;
             }
 
             /**
@@ -513,11 +714,11 @@ namespace SunLight  {
              * @param nHeight Output parameter receiving the loaded texture height;
              * @return An opaque handle to the loaded texture, or nullptr on failure;
              */
-            SunLight :: Base :: TextureHandle RaylibEngine :: LoadTexture( const char *szFileName,
+            SunLight :: Base :: TextureHandle RaylibEngine :: LoadTexture( const char* szFileName,
                                                                             int& nWidth,
                                                                             int& nHeight )  {
 
-                Texture2D *pTexture = new Texture2D;
+                Texture2D* pTexture = new Texture2D;
 
                 *pTexture = ::LoadTexture( szFileName );
 
@@ -541,7 +742,7 @@ namespace SunLight  {
              */
             void RaylibEngine :: UnloadTexture( SunLight :: Base :: TextureHandle hTexture )  {
 
-                Texture2D *pTexture = reinterpret_cast<Texture2D*>( hTexture );
+                Texture2D* pTexture = reinterpret_cast<Texture2D*>( hTexture );
 
                 ::UnloadTexture( *pTexture );
                 delete pTexture;
@@ -559,7 +760,7 @@ namespace SunLight  {
                                               int nPosY,
                                               SunLight :: Base :: stColor tint )  {
 
-                Texture2D *pTexture = reinterpret_cast<Texture2D*>( hTexture );
+                Texture2D* pTexture = reinterpret_cast<Texture2D*>( hTexture );
 
                 ::DrawTexture( *pTexture, nPosX, nPosY, Color{ tint.nRed, tint.nGreen, tint.nBlue, tint.nAlpha } );
             }
@@ -574,7 +775,7 @@ namespace SunLight  {
              */
             std :: string RaylibEngine :: GetApplicationDirectory( void )  {
 
-                const char *szDirectory = ::GetApplicationDirectory();
+                const char* szDirectory = ::GetApplicationDirectory();
 
                 return ( szDirectory ? std :: string( szDirectory ) : std :: string() );
             }
@@ -613,7 +814,7 @@ namespace SunLight  {
              */
             SunLight :: Base :: TextureHandle RaylibEngine :: LoadRenderTarget( int nWidth, int nHeight )  {
 
-                RenderTexture2D *pRenderTarget = new RenderTexture2D;
+                RenderTexture2D* pRenderTarget = new RenderTexture2D;
 
                 *pRenderTarget = ::LoadRenderTexture( nWidth, nHeight );
 
@@ -629,7 +830,7 @@ namespace SunLight  {
              */
             void RaylibEngine :: UnloadRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
 
-                RenderTexture2D *pRenderTarget = reinterpret_cast<RenderTexture2D*>( hRenderTarget );
+                RenderTexture2D* pRenderTarget = reinterpret_cast<RenderTexture2D*>( hRenderTarget );
 
                 ::UnloadRenderTexture( *pRenderTarget );
                 delete pRenderTarget;
@@ -638,20 +839,203 @@ namespace SunLight  {
             /**
              * @brief Redirect subsequent drawing into the given render
              * target, until the matching @see EndRenderTarget call.
+             *
+             * Drawing into it blends colour and alpha separately: colour as raylib's default
+             * (source alpha, one minus source alpha), alpha as "over" (one, one minus source
+             * alpha), so a pixel drawn over an opaque one stays opaque. raylib's default
+             * BLEND_ALPHA is a single glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA ) for all
+             * four channels (rlgl.h, rlSetBlendMode): a layer drawn at opacity 0.69 over an opaque
+             * pixel left its alpha at 0.69 x 0.69 + 0.31 = 0.79, and the frame - drawn onto the
+             * window over black (TileMapRenderer::Run) - came out about that much darker. Found by
+             * Scarab (semi-transparent Tiled layers greyer than in Tiled).
+             *
+             * Calls nest (I19a): the target is pushed on m_RenderTargetStack, and ::BeginTextureMode
+             * binds it straight over whichever one was bound (it sets the framebuffer, viewport and
+             * projection itself - rcore.c), drawing raylib's pending batch into the old one first.
              * @param hRenderTarget The render target to draw into;
              */
             void RaylibEngine :: BeginRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget )  {
 
+                m_RenderTargetStack.push_back( hRenderTarget );
                 ::BeginTextureMode( *reinterpret_cast<RenderTexture2D*>( hRenderTarget ) );
+                SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
             }
 
             /**
-             * @brief Stop redirecting drawing into whichever render target
-             * the matching @see BeginRenderTarget call started.
+             * @brief Stop redirecting drawing into whichever render target the matching
+             * @see BeginRenderTarget call started. With an outer target still on m_RenderTargetStack
+             * (I19a), that one is begun again, in BLEND_MODE_NORMAL: raylib's ::EndTextureMode always
+             * unbinds to the window's framebuffer (rcore.c: rlDisableFramebuffer, the window's
+             * viewport), never to the target bound before, so ending an inner target with it would
+             * send the rest of the outer target's drawing to the window. With none, back to the
+             * window and raylib's default blending (and its default shader, should the frame have
+             * ended in BLEND_MODE_MULTIPLY).
              */
             void RaylibEngine :: EndRenderTarget( void )  {
 
+                if( !m_RenderTargetStack.empty() )
+                    m_RenderTargetStack.pop_back();
+
+                if( !m_RenderTargetStack.empty() )  {
+                    ::BeginTextureMode( *reinterpret_cast<RenderTexture2D*>( m_RenderTargetStack.back() ) );
+                    SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
+                    return;
+                }
+
+                SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
+                ::EndBlendMode();
                 ::EndTextureMode();
+            }
+
+            /**
+             * @brief Draw a whole render target at dest, faded by fOpacity, as premultiplied colour
+             * (I19a; see IEngine::CompositeRenderTarget for why). The factors: colour (one, one minus
+             * source alpha), alpha "over" (one, one minus source alpha) - and the tint scales all four
+             * channels by the opacity (raylib's default shader multiplies the texel by the tint), so
+             * colour x opacity + destination x (1 - alpha x opacity). The multiply shader is switched
+             * off for it (the texel must reach the blending as it is), and SetBlendMode then puts the
+             * mode that was set back, shader and all. The source rectangle's negative height flips
+             * the texture, which is stored bottom-up (OpenGL), as TileMapRenderer::Run does for the
+             * frame.
+             * @param hRenderTarget The render target to draw;
+             * @param dest Where to draw it, in the current target's pixels;
+             * @param fOpacity 0 (nothing) to 1 (as it is), clamped;
+             */
+            void RaylibEngine :: CompositeRenderTarget( SunLight :: Base :: TextureHandle hRenderTarget,
+                                                        const SunLight :: Base :: stRectangle& dest,
+                                                        float fOpacity )  {
+
+                RenderTexture2D  *pRenderTarget = reinterpret_cast<RenderTexture2D*>( hRenderTarget );
+                float            fClamped      = std :: clamp( fOpacity, __COMPOSITE_OPACITY_MIN, __COMPOSITE_OPACITY_MAX );
+                unsigned char    nChannel      = ( unsigned char ) ( fClamped * __COMPOSITE_CHANNEL_MAX );
+
+                if( m_bMultiplyShaderActive )  {
+                    ::EndShaderMode();
+                    m_bMultiplyShaderActive = false;
+                }
+
+                ::rlSetBlendFactorsSeparate( RL_ONE, RL_ONE_MINUS_SRC_ALPHA,     // colour: premultiplied
+                                             RL_ONE, RL_ONE_MINUS_SRC_ALPHA,     // alpha: "over"
+                                             RL_FUNC_ADD, RL_FUNC_ADD );
+                ::BeginBlendMode( BLEND_CUSTOM_SEPARATE );
+
+                ::DrawTexturePro( pRenderTarget -> texture,
+                                  Rectangle { 0.0f, 0.0f, ( float ) pRenderTarget -> texture.width, -( float ) pRenderTarget -> texture.height },
+                                  Rectangle { dest.x, dest.y, dest.width, dest.height },
+                                  Vector2 { 0.0f, 0.0f }, 0.0f,
+                                  Color { nChannel, nChannel, nChannel, nChannel } );
+
+                SetBlendMode( m_BlendMode );
+            }
+
+            /**
+             * @brief Draw by the given mode from now on (I2 of the master plan): every mode is a
+             * BLEND_CUSTOM_SEPARATE with its own colour factors and the same alpha factors, "over"
+             * (one, one minus source alpha), as BLEND_MODE_NORMAL needs for I1 (see
+             * BeginRenderTarget). raylib's own modes blend alpha by the colour's factors, which is
+             * I1's bug again.
+             *
+             * BLEND_MODE_MULTIPLY's formula, d x (s x a + 1 - a), cannot be built from blend factors
+             * alone: the source term would need s x a x d, and a factor multiplies s by one thing
+             * only. raylib's BLEND_MULTIPLIED (dst colour, one minus src alpha) gives d x (s + 1 - a)
+             * instead, exact only for an opaque or black source pixel - measured in a render target
+             * over sky (135, 206, 235): a fully transparent white pixel turned it white, and a half
+             * transparent grey (128) left it as it was instead of making it (101, 154, 176). So
+             * multiply draws through a shader that hands the blending s x a in place of s (raylib's
+             * default fragment shader, premultiplied), which makes those same factors exact: the
+             * same pixels then measured (135, 206, 235) and (101, 154, 176). The alpha the shader
+             * hands on is unchanged, so alpha stays "over".
+             *
+             * Changing the shader, like changing the blending, first draws raylib's pending batch
+             * (rlSetShader, rlSetBlendMode), so what was drawn before keeps its own mode. With no
+             * window yet there is no GL context: the mode is only remembered, and the next
+             * BeginRenderTarget starts in BLEND_MODE_NORMAL anyway.
+             * @param mode The mode to draw in;
+             */
+            void RaylibEngine :: SetBlendMode( SunLight :: Base :: BlendMode mode )  {
+
+                m_BlendMode = mode;
+
+                if( !::IsWindowReady() )
+                    return;
+
+                int   nSrcColor   = RL_SRC_ALPHA;
+                int   nDstColor   = RL_ONE_MINUS_SRC_ALPHA;
+                int   nEquation   = RL_FUNC_ADD;
+                bool  bPremultiply = false;
+
+                switch( mode )  {
+                    case SunLight :: Base :: BLEND_MODE_ADD:
+                        nDstColor = RL_ONE;
+                    break;
+
+                    case SunLight :: Base :: BLEND_MODE_MULTIPLY:
+                        nSrcColor    = RL_DST_COLOR;
+                        bPremultiply = LoadMultiplyShader();
+                    break;
+
+                    case SunLight :: Base :: BLEND_MODE_SUBTRACT:
+                        nDstColor = RL_ONE;
+                        nEquation = RL_FUNC_REVERSE_SUBTRACT;   // destination minus source
+                    break;
+
+                    default:
+                    break;
+                }
+
+                if( bPremultiply != m_bMultiplyShaderActive )  {
+                    if( bPremultiply )
+                        ::BeginShaderMode( m_MultiplyShader );
+                    else
+                        ::EndShaderMode();
+
+                    m_bMultiplyShaderActive = bPremultiply;
+                }
+
+                ::rlSetBlendFactorsSeparate( nSrcColor, nDstColor,             // colour
+                                             RL_ONE, RL_ONE_MINUS_SRC_ALPHA,   // alpha: "over"
+                                             nEquation, RL_FUNC_ADD );
+                ::BeginBlendMode( BLEND_CUSTOM_SEPARATE );
+            }
+
+            /**
+             * @brief The mode the last SetBlendMode set.
+             * @return The mode draws combine by now;
+             */
+            SunLight :: Base :: BlendMode RaylibEngine :: GetBlendMode( void )  {
+
+                return m_BlendMode;
+            }
+
+            /**
+             * @brief Load BLEND_MODE_MULTIPLY's shader the first time it is needed (see
+             * SetBlendMode). It is GLSL 330, the version raylib's own shaders use on the desktop
+             * OpenGL 3.3 and 4.3 it builds for by default (rlgl.h, rlGlVersion); on any other GL, or
+             * should it fail to build (raylib then hands back its default shader), multiply draws
+             * with the factors alone, exact only for opaque or black pixels, and says so once.
+             * @return Whether the shader is loaded;
+             */
+            bool RaylibEngine :: LoadMultiplyShader( void )  {
+
+                if( !m_bMultiplyShaderTried )  {
+                    int  nVersion = ::rlGetVersion();
+
+                    m_bMultiplyShaderTried = true;
+
+                    if( ( nVersion == RL_OPENGL_33 ) || ( nVersion == RL_OPENGL_43 ) )  {
+                        m_MultiplyShader = ::LoadShaderFromMemory( nullptr, __MULTIPLY_SHADER_330 );
+
+                        if( m_MultiplyShader.id != ::rlGetShaderIdDefault() )
+                            m_bMultiplyShaderLoaded = true;
+                        else
+                            ::MemFree( m_MultiplyShader.locs );   // UnloadShader skips the default shader's id, table and all
+                    }
+
+                    if( !m_bMultiplyShaderLoaded )
+                        fprintf( stderr, "BLEND_MODE_MULTIPLY needs GLSL 330: partly transparent pixels multiply inexactly.\n" );
+                }
+
+                return m_bMultiplyShaderLoaded;
             }
 
             /**
@@ -665,6 +1049,41 @@ namespace SunLight  {
             SunLight :: Base :: TextureHandle RaylibEngine :: GetRenderTargetTexture( SunLight :: Base :: TextureHandle hRenderTarget )  {
 
                 return &( reinterpret_cast<RenderTexture2D*>( hRenderTarget ) -> texture );
+            }
+
+            void RaylibEngine :: DrawTextureRotated( SunLight :: Base :: TextureHandle hTexture,
+                                                     SunLight :: Base :: stRectangle source,
+                                                     SunLight :: Base :: stRectangle dest,
+                                                     SunLight :: Base :: stVector2D origin,
+                                                     float rotation,
+                                                     SunLight :: Base :: stColor tint )  {
+
+                Texture2D  texture = *reinterpret_cast<Texture2D*>( hTexture );
+                Rectangle  sourceRect { source.x, source.y, source.width, source.height };
+                Rectangle  destRect   { dest.x, dest.y, dest.width, dest.height };
+
+                // raylib turns the destination about (dest.x, dest.y), with origin as the offset of its corner from there.
+                ::DrawTexturePro( texture, sourceRect, destRect, Vector2 { origin.x, origin.y }, rotation,
+                                  Color{ tint.nRed, tint.nGreen, tint.nBlue, tint.nAlpha } );
+            }
+
+            void RaylibEngine :: DrawTextRotated( const char* szText,
+                                                  int nPosX,
+                                                  int nPosY,
+                                                  int nFontSize,
+                                                  float rotation,
+                                                  SunLight :: Base :: stColor color )  {
+
+                SunLight :: Font :: IFont  *pFont = ActiveFont();
+
+                if( pFont != nullptr )  {
+                    pFont -> DrawTextRotated( szText, nPosX, nPosY, nFontSize, rotation, color );
+                    return;
+                }
+
+                ::DrawTextPro( ::GetFontDefault(), szText, Vector2{ ( float ) nPosX, ( float ) nPosY }, Vector2 { 0.0f, 0.0f },
+                               rotation, ( float ) nFontSize, __DEFAULT_TEXT_SPACING,
+                               Color{ color.nRed, color.nGreen, color.nBlue, color.nAlpha } );
             }
 
             /**

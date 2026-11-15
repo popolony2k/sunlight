@@ -18,7 +18,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "soundfactory.h"
+#include "sound/soundfactory.h"
 
 #ifndef DEFAULT_ENGINE
     #error "Unexpected value of DEFAULT_ENGINE"
@@ -33,7 +33,7 @@
 #endif
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sound  {
 
         static SoundFactory :: CreatorFunction   s_pCreator = nullptr;

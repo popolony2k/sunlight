@@ -23,7 +23,7 @@
 
 #include <string>
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sound  {
 
         /**

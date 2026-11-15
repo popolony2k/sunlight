@@ -18,19 +18,30 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "renderer/tilemaprenderer.h"
+#include "renderer/world/worldfile.h"
 #include "engines/enginefactory.h"
 #include "window/windowfactory.h"
 #include "backends/null/nullbackend.h"
 #include "renderer/view.h"
+#include "renderer/shape/shapeprimitives.h"
+#include "renderer/projection/orthogonalprojection.h"
+#include "renderer/projection/isometricprojection.h"
+#include "renderer/projection/staggeredprojection.h"
+#include "renderer/projection/hexagonalprojection.h"
+#include "renderer/map/externalresources.h"
+#include "renderer/shape/shapeobjects.h"
+#include "renderer/map/maporientation.h"
 #include "base/primitives.h"
-#include "input/inputhandlerfactory.h"
+#include "input/controllermanager.h"
 #include "filesystem/filesystemfactory.h"
-#include "tilemaprenderer.h"
 #include <memory.h>
 #include <cstring>
 #include "general/clock.h"
+#include "general/helper.h"
 #include <cmath>
 #include <algorithm>
+#include <limits>
 #include <cctype>
 #include <cstring>
 #include <map>
@@ -45,23 +56,24 @@
 #define __DEFAULT_FPS                   30
 #define __DEFAULT_VISIBLE_STATUS        true
 #define __DEFAULT_CLEAR_BACKGROUND      true
-#define __DEFAULT_WINDOW_BK_COLOR       0xFF000000
 
 
 /*
  * Engine limits.
  */
-#define __MAX_OPACITY_LEVEL            0xFF
+#define __OPACITY_MIN                  0.0f    // a layer's opacity: fully transparent
+#define __OPACITY_MAX                  1.0f    // a layer's opacity: fully opaque
+#define __FADE_CHANNEL_MAX             255.0f  // the screen fade's alpha channel at a fade of 1 (fully black)
+#define __HALF_DIVISOR                 2.0     // half of a view's visible size: its centre
+#define __COLLISION_PADDING_TILES      1       // cells searched around a collider: a tile larger than the grid reaches a neighbour's cell
 
 
-
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         /*
          * Static class initialization.
          */
-        bool TileMapRenderer :: m_bInitialized = false;
 
         /*
          * How many live renderers run on the build's own (non-null) backend.
@@ -70,860 +82,308 @@ namespace SunLight {
          */
         static int  s_nLiveDefaultBackendRenderers = 0;
 
-
         /*
-         * External tilesets (.tsx) and object templates (.tx).
-         *
-         * libtmx opens these ITSELF (xmlReaderForFile - a raw OS open,
-         * relative to the working directory), so they bypass
-         * SunLight::FileSystem: they could not come from a mounted archive
-         * (a .zip pack with no loose copy) and could never pass through the
-         * read filter (an encrypted pack). LoadMap therefore reads them
-         * through the FileSystem UP FRONT and hands them to libtmx as buffers
-         * via its Resource Manager, which libtmx consults - keyed by the raw
-         * `source`/`template` attribute text - before it would open anything.
-         * A reference the FileSystem cannot provide is simply left for
-         * libtmx's own lookup, so a project that keeps them loose beside the
-         * working directory keeps working exactly as before.
+         * ViewControlMode (this renderer's own, construction-time config field) and
+         * InputDispatchMode (IControllerManager's, F0a of the master plan) are the same two
+         * strategies under two names - explicit, not a static_cast relying on the two enums'
+         * ordinal values happening to agree.
          */
-        namespace  {
+        static SunLight :: Input :: InputDispatchMode ToInputDispatchMode( SunLight :: Renderer :: ViewControlMode mode )  {
 
-            // Set only while an external file is being preloaded: the directory it lives in.
-            std :: string  s_strExternalImageBase;
+            switch( mode )  {
+                case SunLight :: Renderer :: VIEW_CONTROL_MODE_REACTIVE:
+                    return SunLight :: Input :: INPUT_DISPATCH_MODE_REACTIVE;
 
-            struct ExternalReference  {
-                bool           bTemplate;      // an object template (.tx) rather than a tileset (.tsx)
-                std :: string  strKey;         // the attribute text, as written
-            };
-
-            /**
-             * Directory part of a virtual path, trailing '/' included ("" if it has none).
-             */
-            std :: string DirectoryOfVirtualPath( const std :: string &strPath )  {
-
-                std :: string  str = strPath;
-
-                std :: replace( str.begin(), str.end(), '\\', '/' );
-
-                size_t  nSlash = str.find_last_of( '/' );
-
-                return ( nSlash == std :: string :: npos ) ? std :: string() : str.substr( 0, nSlash + 1 );
+                case SunLight :: Renderer :: VIEW_CONTROL_MODE_ACTIVE:
+                default:
+                    return SunLight :: Input :: INPUT_DISPATCH_MODE_ACTIVE;
             }
-
-            /**
-             * strDir + strRelative as one virtual path: backslashes become '/', and "." and ".."
-             * segments are collapsed LEXICALLY (the FileSystem rejects them). A ".." that would
-             * climb above the root gives "" - not a legal virtual path.
-             */
-            std :: string JoinVirtualPath( const std :: string &strDir, const std :: string &strRelative )  {
-
-                std :: string  joined = strDir + strRelative;
-
-                std :: replace( joined.begin(), joined.end(), '\\', '/' );
-
-                bool                          bAbsolute = ( !joined.empty() && joined[0] == '/' );
-                std :: vector<std :: string>  parts;
-                size_t                        nStart = 0;
-
-                while( nStart <= joined.size() )  {
-                    size_t         nEnd  = joined.find( '/', nStart );
-                    std :: string  part;
-
-                    if( nEnd == std :: string :: npos )
-                        nEnd = joined.size();
-
-                    part   = joined.substr( nStart, nEnd - nStart );
-                    nStart = nEnd + 1;
-
-                    if( part.empty() || part == "." )
-                        continue;
-
-                    if( part == ".." )  {
-                        if( parts.empty() )
-                            return std :: string();
-
-                        parts.pop_back();
-                        continue;
-                    }
-
-                    parts.push_back( part );
-                }
-
-                std :: string  result = ( bAbsolute ? "/" : "" );
-
-                for( size_t nCount = 0; nCount < parts.size(); nCount++ )
-                    result += ( nCount ? "/" : "" ) + parts[nCount];
-
-                return result;
-            }
-
-            /**
-             * The value of attribute szName inside one tag's text (everything between '<' and
-             * '>'), for either quote style, or false if it has no such attribute.
-             */
-            bool FindTagAttribute( const std :: string &strTag, const char *szName, std :: string &strValue )  {
-
-                size_t  nNameLength = strlen( szName );
-                size_t  nPos        = 0;
-
-                while( ( nPos = strTag.find( szName, nPos ) ) != std :: string :: npos )  {
-                    // A whole attribute name: preceded by white space, followed by '='.
-                    bool    bBoundary = ( nPos > 0 ) && isspace( ( unsigned char ) strTag[nPos - 1] );
-                    size_t  nCursor   = nPos + nNameLength;
-
-                    while( nCursor < strTag.size() && isspace( ( unsigned char ) strTag[nCursor] ) )
-                        nCursor++;
-
-                    if( bBoundary && nCursor < strTag.size() && strTag[nCursor] == '=' )  {
-                        nCursor++;
-
-                        while( nCursor < strTag.size() && isspace( ( unsigned char ) strTag[nCursor] ) )
-                            nCursor++;
-
-                        if( nCursor < strTag.size() && ( strTag[nCursor] == '"' || strTag[nCursor] == '\'' ) )  {
-                            size_t  nClose = strTag.find( strTag[nCursor], nCursor + 1 );
-
-                            if( nClose != std :: string :: npos )  {
-                                strValue = strTag.substr( nCursor + 1, nClose - nCursor - 1 );
-
-                                return true;
-                            }
-                        }
-                    }
-
-                    nPos += nNameLength;
-                }
-
-                return false;
-            }
-
-            /**
-             * Whether a tag's text starts with the element name szElement (and nothing longer).
-             */
-            bool TagIsElement( const std :: string &strTag, const char *szElement )  {
-
-                size_t  nLength = strlen( szElement );
-
-                return ( strTag.compare( 0, nLength, szElement ) == 0 ) &&
-                       ( strTag.size() == nLength || isspace( ( unsigned char ) strTag[nLength] ) || strTag[nLength] == '/' );
-            }
-
-            /**
-             * Collect every external reference in an XML document: a <tileset source="...">, and an
-             * <object template="...">. (A plain scan for those two tags - the documents are Tiled's own
-             * output; anything it misses is left for libtmx's own lookup, anything extra is harmless.)
-             */
-            void ScanExternalReferences( const std :: string &strXml, std :: vector<ExternalReference> &references )  {
-
-                size_t  nPos = 0;
-
-                while( ( nPos = strXml.find( '<', nPos ) ) != std :: string :: npos )  {
-                    size_t  nEnd = strXml.find( '>', nPos );
-
-                    if( nEnd == std :: string :: npos )
-                        break;
-
-                    std :: string  strTag = strXml.substr( nPos + 1, nEnd - nPos - 1 );
-                    std :: string  strValue;
-
-                    if( TagIsElement( strTag, "tileset" ) )  {
-                        if( FindTagAttribute( strTag, "source", strValue ) && !strValue.empty() )
-                            references.push_back( ExternalReference { false, strValue } );
-                    }
-                    else if( TagIsElement( strTag, "object" ) )  {
-                        if( FindTagAttribute( strTag, "template", strValue ) && !strValue.empty() )
-                            references.push_back( ExternalReference { true, strValue } );
-                    }
-
-                    nPos = nEnd + 1;
-                }
-            }
-
-            /**
-             * Read one external tileset/template through the FileSystem and give it to libtmx's
-             * Resource Manager under its raw attribute text. The things IT references are loaded first
-             * (a template's tileset must be known before the template is parsed), each resolved against
-             * the directory of the file that names it. A file the FileSystem doesn't have is skipped.
-             */
-            void PreloadExternalResource( tmx_resource_manager *pRcMgr,
-                                          const ExternalReference &reference,
-                                          const std :: string &strReferencingDir,
-                                          std :: map<std :: string, std :: string> &loadedKeys,
-                                          std :: set<std :: string> &visited )  {
-
-                std :: string  strPath = JoinVirtualPath( strReferencingDir, reference.strKey );
-
-                if( strPath.empty() )
-                    return;
-
-                // Each file once (also stops a reference cycle); and libtmx caches by the RAW key, so a
-                // second file under an already-provided key would only replace what maps already point at.
-                if( !visited.insert( ( reference.bTemplate ? "T:" : "S:" ) + strPath ).second )
-                    return;
-
-                if( loadedKeys.count( reference.strKey ) )
-                    return;
-
-                std :: vector<unsigned char>  data;
-
-                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( strPath, data ) )
-                    return;
-
-                std :: string                     strText( data.begin(), data.end() );
-                std :: string                     strDir = DirectoryOfVirtualPath( strPath );
-                std :: vector<ExternalReference>  nested;
-
-                ScanExternalReferences( strText, nested );
-
-                for( const ExternalReference &inner : nested )
-                    PreloadExternalResource( pRcMgr, inner, strDir, loadedKeys, visited );
-
-                // The images this file names are relative to ITS directory; libtmx hands them to the
-                // texture callback as written, so tell the callback where they live.
-                s_strExternalImageBase = strDir;
-
-                int  nLoaded = reference.bTemplate ?
-                               ::tmx_load_template_buffer( pRcMgr, ( const char * ) data.data(), ( int ) data.size(), reference.strKey.c_str() ) :
-                               ::tmx_load_tileset_buffer( pRcMgr, ( const char * ) data.data(), ( int ) data.size(), reference.strKey.c_str() );
-
-                s_strExternalImageBase.clear();
-
-                if( nLoaded )
-                    loadedKeys[reference.strKey] = strPath;
-            }
-        }
-
-        /**
-         * TxmLib texture loader callback implementation.
-         * @param szFileName Texture file name;
-         */
-        void* TileMapRenderer :: TextureLoaderCallback( const char *szFileName )  {
-
-            int  nWidth, nHeight;
-
-            // While an external tileset/template is being preloaded, this is the image path as written
-            // in that file - relative to the file's own directory. (Maps' own images arrive already
-            // resolved by libtmx against the map's path.)
-            if( !s_strExternalImageBase.empty() )  {
-                std :: string  strResolved = JoinVirtualPath( s_strExternalImageBase, szFileName );
-
-                if( !strResolved.empty() )
-                    return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strResolved.c_str(), nWidth, nHeight );
-            }
-
-            return SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( szFileName, nWidth, nHeight );
         }
 
 
         /**
-         * TxmLib texture deallocation callback implementation.
-         * @param pTexture Pointer to the texture that will be deallocated;
+         * @brief The active world's map (I19b of the master plan): the default world's, always, for
+         * now - LoadMap fills the default world, and every draw, lookup and update reads the active one.
+         * @return The map, or nullptr when none is loaded;
          */
-        void TileMapRenderer :: TextureFreeCallback( void *pTexture )  {
+        MapData* TileMapRenderer :: Map( void ) const  {
 
-            SunLight :: Engines :: EngineFactory :: GetEngine().UnloadTexture( pTexture );
+            return m_pActiveWorld -> Map();
         }
 
         /**
-         * Retrieve which tmx_tileset_list contains the @see tmx_tileset passed as parameter;
-         * @param pTilesetSearch The tmx_tileset to retrieve the tmx_tileset_list;
+         * @brief The active world's sprites (I19b): the ones registered per layer and the ones this
+         * renderer is the parent of (see SpriteRegistry).
+         * @return The registry;
          */
-        tmx_tileset_list* TileMapRenderer :: GetTilesetList( tmx_tileset *pTilesetSearch )  {
-            for( tmx_tileset_list *pItem = m_pTmxMap -> ts_head; pItem != NULL; pItem = pItem -> next )  {
-                if( pItem -> tileset == pTilesetSearch )  {
-                    return pItem;           
-                }
-            }
+        SpriteRegistry& TileMapRenderer :: Sprites( void )  {
 
-            return nullptr;
+            return m_pActiveWorld -> Sprites();
+        }
+
+        /**
+         * @brief The active world's collision rules and colliders (I19b).
+         * @return Its CollisionManager;
+         */
+        SunLight :: Collision :: CollisionManager& TileMapRenderer :: Collisions( void )  {
+
+            return m_pActiveWorld -> Collisions();
+        }
+
+        /**
+         * @brief The loaded map's libtmx map, or nullptr when no map is loaded (S1c1: it lives in
+         * MapData). The renderer's "is a map loaded" checks read this.
+         */
+        tmx_map* TileMapRenderer :: Tmx( void ) const  {
+
+            return Map() ? Map() -> Tmx() : nullptr;
+        }
+
+        /**
+         * @brief The loaded map's width in map pixels (its projection's MapPixelSize); 0 when no
+         * map is loaded.
+         */
+        uint16_t TileMapRenderer :: MapPixelWidth( void ) const  {
+
+            return Map() ? Map() -> PixelWidth() : 0;
+        }
+
+        /**
+         * @brief The loaded map's height in map pixels; 0 when no map is loaded.
+         */
+        uint16_t TileMapRenderer :: MapPixelHeight( void ) const  {
+
+            return Map() ? Map() -> PixelHeight() : 0;
         }
 
         /**
          * Get a pointer to a loaded layer based on it's Id.
          * @param nLayerId The Layer Id to retrieve the layer;
+         * @return The layer; nullptr when no map is loaded, or it has no such layer;
          */
         tmx_layer* TileMapRenderer :: GetLayer( int nLayerId )  {
 
-            return ::tmx_find_layer_by_id( m_pTmxMap, nLayerId );
+            // I19d: a WORLD layer id, found in the first of the active world's maps that has it (with
+            // one map, simply that map's layer of that id).
+            return m_pActiveWorld -> FindLayer( nLayerId );
         }
 
         /**
-         * Get a pointer to a loaded layer based on it's Id or name.
-         * @param szLayerName The Layer name used to retrieve the layer. If the layer
-         * name is NULL parameter nLayerId will be used for searching layer;
+         * Get a pointer to a loaded layer based on it's name.
+         * @param szLayerName The Layer name used to retrieve the layer;
+         * @return The layer; nullptr when no map is loaded, or it has no such layer;
          */
-        tmx_layer* TileMapRenderer :: GetLayer( const char *szLayerName )  {
+        tmx_layer* TileMapRenderer :: GetLayer( const char* szLayerName )  {
 
-            return ::tmx_find_layer_by_name( m_pTmxMap, szLayerName );
+            return m_pActiveWorld -> FindLayer( szLayerName );     // I19d: the first map that has it
         }
 
         /**
-         * Unload all sprites from map and release all allocated data.
+         * Unload all sprites from map and release all allocated data. Each sprite's collider comes
+         * out of the collision manager first, from every layer it was registered on - the
+         * counterpart of AddSprite's AddCollider, as RemoveSprite and ChildRemoved already do.
+         * Found by Scarab (its V9): UnloadMap and Stop used to leave the colliders in, so an
+         * unloaded sprite kept colliding, and the AddSprite that followed a new LoadMap (the
+         * registry having forgotten it) added the same collider a second time. Only the sprites'
+         * own colliders are taken out: one the game added to the manager itself stays, and so do
+         * the collision rules, which are the game's setup, not the map's.
          */
         void TileMapRenderer :: UnloadSprites( void )  {
-            for( std :: pair<int, SpriteList*> spriteListPair : m_SpriteMap )  {
-                for( SunLight :: Sprite :: Sprite* pSprite : *spriteListPair.second )  {
-                    pSprite -> Unload();
-                }
-                spriteListPair.second -> clear();
-                delete spriteListPair.second;
-            }
 
-            m_SpriteMap.clear();
+            for( const std :: pair<int, SunLight :: Sprite :: Sprite*>& registration : Sprites().Registrations() )
+                Collisions().RemoveCollider( registration.first, &registration.second -> GetCollider() );
+
+            Sprites().UnloadAll();
         }
 
         /**
-         * Convert integer color representation to @link Color object;
+         * Convert integer color representation to a SunLight::Base::stColor;
          */
-        SunLight :: Base :: stColor TileMapRenderer :: IntToColor( uint32_t color ) {
+        SunLight :: Base :: stColor TileMapRenderer :: IntToColor( uint32_t color )  {
 
-            tmx_col_bytes res = ::tmx_col_to_bytes( color );
-
-            return *( ( SunLight :: Base :: stColor * ) &res );
+            return Shape :: ColorOf( color );
         }
 
         /**
-         * Draw  pixel according the specified position.
-         * @param nCoordX The X coordinate to plot pixel;
-         * @param nCoordY The Y coordinate to plot pixel;
-         * @param color Color of pixel;
+         * @brief The DrawContext of what is being drawn right now (S1a of the master plan): the
+         * active view's rectangle and zoom (GetViewport, the view a pass activated) and a camera
+         * offset, read at the moment of the call.
+         *
+         * The camera (I16 of the master plan): while a layer is being drawn (DrawAllLayers, its
+         * objects and sprites) it is that layer's, its parallax applied (m_EffectiveLayerCameraPos);
+         * at any other time - a game's own IShapeSurface drawing from OnUpdate, between frames, before
+         * the first one, with no map - it is the active view's own camera, the camera a layer of
+         * parallax 1 is drawn with. It was always m_EffectiveLayerCameraPos, which nothing reset after
+         * the pass, so a shape drawn after the map took the LAST layer's parallax camera (a parallax
+         * sky drawn last shifted every debug shape), and with no map, zero (the camera was ignored).
+         * Found by Scarab. After the view passes the default view is active again (DrawViewPasses),
+         * so a shape drawn from OnUpdate uses the default view's camera.
+         * @return The view's rectangle and zoom, the camera, and the group opacity and tint;
          */
-        void TileMapRenderer :: SetPixel( int nCoordX, int nCoordY, SunLight :: Base :: stColor color )  {
+        DrawContext TileMapRenderer :: CurrentDrawContext( void )  {
 
-            SunLight :: TileMap :: stDimension2D& vp = GetViewport().GetDimension2D();
-
-            // The visible rectangle is [pos, pos + size): a pixel is drawn
-            // when it lies inside it (the top/left edge itself excluded, as
-            // it always was).
-            if( ( nCoordX > vp.pos.x ) && ( nCoordX < ( vp.pos.x + vp.size.nWidth ) ) &&
-                ( nCoordY > vp.pos.y ) && ( nCoordY < ( vp.pos.y + vp.size.nHeight ) ) ) {
-                SunLight :: Engines :: EngineFactory :: GetEngine().SetPixel( nCoordX, nCoordY, color );
-            }
+            return DrawContext { GetViewport().GetDimension2D(),
+                                 GetViewport().GetZoomProperties().fZoomFactor,
+                                 ( m_nLayerDrawDepth > 0 ) ? m_EffectiveLayerCameraPos : ActiveCamera().Position(),
+                                 m_fGroupOpacity,
+                                 m_GroupTint };
         }
 
         /**
-         * Midpoint ellipse drawing algorithm based on implementation found at
-         * https://www.geeksforgeeks.org/midpoint-ellipse-drawing-algorithm/
-         * @param fCoordX Ellipse X coordinate;
-         * @param fCoordY Ellipse Y coordinate;
-         * @param fRadiusX X radius;
-         * @param fRadiusX Y radius;
-         * @param color Ellipse color;
+         * @brief IShapeSurface::DrawRectangle (M1 of the master plan). Converts fThickness (map
+         * units) to a screen-pixel line width via the same Shape::ScreenLineWidth every TMX shape
+         * object already uses, then draws through ShapeRenderer (S1a) with the current
+         * DrawContext - the very path ObjectRenderer takes for a Tiled rectangle.
          */
-        void TileMapRenderer :: MidPointEllipse( double fCoordX,
-                                                 double fCoordY,
-                                                 double fRadiusX,
-                                                 double fRadiusY,
-                                                 SunLight :: Base :: stColor color ) {
+        void TileMapRenderer :: DrawRectangle( double fX, double fY, double fWidth, double fHeight,
+                                               SunLight :: Base :: stColor color,
+                                               double fThickness, double fRotation )  {
 
-            double          dx, dy;
-            double          d1, d2;
-            double          x = 0;
-            double          y = fRadiusY;
+            DrawContext  context      = CurrentDrawContext();
+            int          nScreenWidth = Shape :: ScreenLineWidth( fThickness, context.fZoom );
 
-            // Initial decision parameter of region 1
-            d1 = ( fRadiusY * fRadiusY ) -
-                 ( fRadiusX * fRadiusX * fRadiusY ) +
-                 ( 0.25 * fRadiusX * fRadiusX );
-            dx = ( 2 * fRadiusX * fRadiusY * x );
-            dy = ( 2 * fRadiusX * fRadiusX * y );
+            m_ShapeRenderer.DrawRectangle( context, fX, fY, fWidth, fHeight, fRotation, nScreenWidth, color );
+        }
 
-            // For region 1
-            while( dx < dy )  {
-                int nXPos = ( int ) ( x + fCoordX );
-                int nYPos = ( int ) ( y + fCoordY );
-                int nXNeg = ( int ) ( -x + fCoordX );
-                int nYNeg = ( int ) ( -y + fCoordY );
+        /**
+         * @brief IShapeSurface::DrawEllipse (M1). Same conversion-then-delegate shape as
+         * DrawRectangle above.
+         */
+        void TileMapRenderer :: DrawEllipse( double fX, double fY, double fWidth, double fHeight,
+                                             SunLight :: Base :: stColor color,
+                                             double fThickness, double fRotation )  {
 
-                // Print points based on 4-way symmetry
-                SetPixel( nXPos, nYPos, color );
-                SetPixel( nXNeg, nYPos, color );
-                SetPixel( nXPos, nYNeg, color );
-                SetPixel( nXNeg, nYNeg, color );
+            DrawContext  context      = CurrentDrawContext();
+            int          nScreenWidth = Shape :: ScreenLineWidth( fThickness, context.fZoom );
 
-                /* 
-                * Checking and updating value of decision parameter 
-                * based on algorithm.
-                */
-                if( d1 < 0 )  {
-                    x++;
-                    dx = ( dx + (2 * fRadiusY * fRadiusY ) );
-                    d1 = ( d1 + dx + ( fRadiusY * fRadiusY ) );
-                }
-                else  {
-                    x++;
-                    y--;
-                    dx = ( dx + ( 2 * fRadiusY * fRadiusY ) );
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d1 = ( d1 + dx - dy + ( fRadiusY * fRadiusY ) );
-                }
-            }
+            m_ShapeRenderer.DrawEllipse( context, fX, fY, fWidth, fHeight, fRotation, nScreenWidth, color );
+        }
 
-            // Decision parameter of region 2
-            d2 = ( ( fRadiusY * fRadiusY ) * ( ( x + 0.5 ) * ( x + 0.5 ) ) ) +
-                 ( ( fRadiusX * fRadiusX ) * ( ( y - 1 ) * ( y - 1 ) ) ) -
-                 ( fRadiusX * fRadiusX * fRadiusY * fRadiusY );
+        /**
+         * @brief ShapeRenderer's path methods take a point array as libtmx itself stores one
+         * (tmx_shape::points), double**, each entry a heap-owned {x, y} pair - not something a
+         * mapless public caller should ever have to build by hand. This converts a flat,
+         * caller-owned stVector2D array into that same double** shape, in local storage only
+         * (nothing escapes this call), for IShapeSurface::DrawPolyline/DrawPolygon (M1) below to
+         * then call straight through with.
+         * @param pPoints The caller's own points;
+         * @param nPointsCount How many;
+         * @param storage Backing storage for the converted coordinates - kept alive by the
+         * caller for exactly as long as ppRows, which points into it;
+         * @param ppRows Receives nPointsCount pointers, each into one pair inside storage;
+         */
+        void TileMapRenderer :: ToTmxPointArray( const SunLight :: Base :: stVector2D* pPoints,
+                                                 int nPointsCount,
+                                                 std :: vector<double>& storage,
+                                                 std :: vector<double*>& ppRows )  {
 
-            // Plotting points of region 2
-            while( y >= 0 ) {
+            storage.resize( ( size_t ) nPointsCount * 2 );
+            ppRows.resize( ( size_t ) nPointsCount );
 
-                int nXPos = ( int ) ( x + fCoordX );
-                int nYPos = ( int ) ( y + fCoordY );
-                int nXNeg = ( int ) ( -x + fCoordX );
-                int nYNeg = ( int ) ( -y + fCoordY );
-
-                // Print points based on 4-way symmetry
-                SetPixel( nXPos, nYPos, color );
-                SetPixel( nXNeg, nYPos, color );
-                SetPixel( nXPos, nYNeg, color );
-                SetPixel( nXNeg, nYNeg, color );
-
-                /*
-                * Checking and updating parameter value based
-                * on algorithm.
-                */
-                if( d2 > 0 ) {
-                    y--;
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d2 = ( d2 + ( fRadiusX * fRadiusX ) - dy );
-                }
-                else  {
-                    y--;
-                    x++;
-                    dx = ( dx + ( 2 * fRadiusY * fRadiusY ) );
-                    dy = ( dy - ( 2 * fRadiusX * fRadiusX ) );
-                    d2 = ( d2 + dx - dy + ( fRadiusX * fRadiusX ) );
-                }
+            for( int nIdx = 0; nIdx < nPointsCount; nIdx++ )  {
+                storage[( nIdx * 2 )]     = ( double ) pPoints[nIdx].x;
+                storage[( nIdx * 2 ) + 1] = ( double ) pPoints[nIdx].y;
+                ppRows[nIdx]              = &storage[nIdx * 2];
             }
         }
 
-        /**
-         * Bresenham line generation algorithm based on implementation found at
-         * https://gist.github.com/bert/1085538.
-         * @param nX0 Initial X line coordinate;
-         * @param nY0 Initial Y line coordinate;
-         * @param nX1 Final X line coordinate;
-         * @param nY1 Final Y line coordinate;
-         * @param color line color;
-         */
-        void TileMapRenderer :: LineBresenham( int nX0,
-                                               int nY0,
-                                               int nX1,
-                                               int nY1,
-                                               SunLight :: Base :: stColor color )  {
+        void TileMapRenderer :: DrawPolyline( double fX, double fY,
+                                              const SunLight :: Base :: stVector2D* pPoints, int nPointsCount,
+                                              SunLight :: Base :: stColor color,
+                                              double fThickness, double fRotation )  {
 
-            int             nE2; /* error value e_xy */
-            int             nDx  = std :: abs( nX1 - nX0 );
-            int             nSx  = ( nX0 < nX1 ? 1 : -1 );
-            int             nDy  = -std :: abs( nY1 - nY0 );
-            int             nSy  = ( nY0 < nY1 ? 1 : -1 );
-            int             nErr = nDx + nDy;
+            std :: vector<double>   storage;
+            std :: vector<double*>  ppRows;
 
-            while( true )  {
-                // Print points based on 4-way symmetry
-                SetPixel( nX0, nY0, color );
+            ToTmxPointArray( pPoints, nPointsCount, storage, ppRows );
 
-                if( ( nX0 == nX1 ) && ( nY0 == nY1 ) )
-                    break;
+            DrawContext  context      = CurrentDrawContext();
+            int          nScreenWidth = Shape :: ScreenLineWidth( fThickness, context.fZoom );
 
-                nE2 = ( 2 * nErr );
+            m_ShapeRenderer.DrawPolyline( context, fX, fY, ppRows.data(), nPointsCount, fRotation, nScreenWidth, color );
+        }
 
-                if( nE2 >= nDy ) {
-                    nErr+=nDy;
-                    nX0+=nSx;
-                } /* e_xy+e_x > 0 */
+        void TileMapRenderer :: DrawPolygon( double fX, double fY,
+                                             const SunLight :: Base :: stVector2D* pPoints, int nPointsCount,
+                                             SunLight :: Base :: stColor color,
+                                             double fThickness, double fRotation )  {
 
-                if( nE2 <= nDx ) {
-                    nErr+=nDx;
-                    nY0+=nSy;
-                } /* e_xy+e_y < 0 */
-            }
+            std :: vector<double>   storage;
+            std :: vector<double*>  ppRows;
+
+            ToTmxPointArray( pPoints, nPointsCount, storage, ppRows );
+
+            DrawContext  context      = CurrentDrawContext();
+            int          nScreenWidth = Shape :: ScreenLineWidth( fThickness, context.fZoom );
+
+            m_ShapeRenderer.DrawPolygon( context, fX, fY, ppRows.data(), nPointsCount, fRotation, nScreenWidth, color );
         }
 
         /**
-         * Draw a polygon line (without close the polygon).
-         * @param fOffset_x X polygon coordinate;
-         * @param fOffset_y Y polygon coordinate;
-         * @param points array of points for this polygon;
-         * @param points_count Number of items of points array;
+         * @brief IShapeSurface::DrawPoint (M1). ShapeRenderer::DrawPoint already takes its size in
+         * map units and converts it internally - this only reorders fX/fY/color/fSize into its
+         * order and adds the current DrawContext.
          */
-        void TileMapRenderer :: DrawPolyline( double fOffset_x,
-                                              double fOffset_y,
-                                              double **fPoints,
-                                              int nPointsCount,
-                                              SunLight :: Base :: stColor color ) {
+        void TileMapRenderer :: DrawPoint( double fX, double fY, SunLight :: Base :: stColor color, double fSize )  {
 
-            SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
-            SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
-
-            fOffset_x = ( ( fOffset_x + m_CameraPos.x ) * zp.fZoomFactor ) + vp.pos.x;
-            fOffset_y = ( ( fOffset_y + m_CameraPos.y ) * zp.fZoomFactor ) + vp.pos.y;
-
-            for( int i=1; i < nPointsCount; i++ ) {
-                LineBresenham( ( int ) ( fOffset_x + ( fPoints[i-1][0] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_y + ( fPoints[i-1][1] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_x + ( fPoints[i][0] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_y + ( fPoints[i][1] * zp.fZoomFactor ) ),
-                               color );
-            }
+            m_ShapeRenderer.DrawPoint( CurrentDrawContext(), fX, fY, fSize, color );
         }
 
         /**
-         * Draw a polygon line (without close the polygon).
-         * @param fOffset_x X polygon coordinate;
-         * @param fOffset_y Y polygon coordinate;
-         * @param points array of points for this polygon;
-         * @param points_count Number of items of points array;
+         * @brief Let go of every font RegisterFont was given, and forget the
+         * warnings already given. Called by Stop() while the window and its
+         * render context still exist, and by the destructor.
          */
-        void TileMapRenderer :: DrawPolygon( double fOffset_x,
-                                         double fOffset_y,
-                                         double **fPoints,
-                                         int nPointsCount,
-                                         SunLight :: Base :: stColor color ) {
+        void TileMapRenderer :: ReleaseRegisteredFonts( void )  {
 
-            SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
-
-            DrawPolyline( fOffset_x,
-                        fOffset_y,
-                        fPoints,
-                        nPointsCount,
-                        color );
-
-            if( nPointsCount > 2 ) {
-                SunLight :: Base :: stZoomProperties& zp = GetViewport().GetZoomProperties();
-
-                fOffset_x = ( ( fOffset_x + m_CameraPos.x ) *
-                            zp.fZoomFactor ) + vp.pos.x;
-                fOffset_y = ( ( fOffset_y + m_CameraPos.y ) *
-                            zp.fZoomFactor ) + vp.pos.y;
-
-                LineBresenham( ( int ) ( fOffset_x + ( fPoints[0][0] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_y + ( fPoints[0][1] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_x + ( fPoints[nPointsCount-1][0] * zp.fZoomFactor ) ),
-                               ( int ) ( fOffset_y + ( fPoints[nPointsCount-1][1] * zp.fZoomFactor ) ),
-                               color );
-            }
+            // A font no one else holds is released here, while the window is open.
+            m_Fonts.Clear();
+            m_ObjectRenderer.ResetWarnings();   // the renderer's one existing "forget warnings" point
         }
 
         /**
-         * Draw a square primitive to specified position on texture.
-         * @param fOffset_x X square coordinate;
-         * @param fOffset_y Y square coordinate;
-         * @param fWidth The square width;
-         * @param fHeight The square height;
-         * @param color Rectangle color;
+         * The effective camera for a layer whose own accumulated parallax factor (its own
+         * parallaxx/y, already multiplied by every group ancestor's own factor - see
+         * DrawAllLayers) is fFactorX/fFactorY (L1 of the master plan), for the ACTIVE view: the
+         * layer placed as Tiled places it, about that view's own centre (see Camera::ForParallax
+         * for the formula and where it comes from). Each view has its own size and zoom, so each
+         * view's pass gets its own centre. A factor of exactly 1 returns the camera itself, per
+         * axis, bit for bit (floating point does not guarantee the general formula reduces to it).
          */
-        void TileMapRenderer :: DrawRectangle( double fOffset_x,
-                                               double fOffset_y,
-                                               double fWidth,
-                                               double fHeight,
-                                               SunLight :: Base :: stColor color )  {
+        stVector TileMapRenderer :: GetEffectiveCameraForFactor( double fFactorX, double fFactorY )  {
 
-            SunLight :: TileMap :: stDimension2D&  vp          = GetViewport().GetDimension2D();
-            SunLight :: Base :: stZoomProperties&  zp          = GetViewport().GetZoomProperties();
-            double                                 fViewStartX = ( ( fOffset_x + m_CameraPos.x ) *
-                                                                   zp.fZoomFactor ) + vp.pos.x;
-            double                                 fViewStartY = ( ( fOffset_y + m_CameraPos.y ) *
-                                                                   zp.fZoomFactor ) + vp.pos.y;
-            double                                 fViewEndX   = ( ( fOffset_x + fWidth + m_CameraPos.x ) *
-                                                                   zp.fZoomFactor ) + vp.pos.x;
-            double                                 fViewEndY   = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
-                                                                   zp.fZoomFactor ) + vp.pos.y;
+            tmx_map                              *pTmxMap  = Tmx();
+            double                               fOriginX = pTmxMap ? pTmxMap -> parallaxoriginx : 0.0;
+            double                               fOriginY = pTmxMap ? pTmxMap -> parallaxoriginy : 0.0;
+            SunLight :: Base :: Viewport&        vp       = GetViewport();
+            double                               fZoom    = vp.GetZoomProperties().fZoomFactor;
+            double                               fHalfW   = ( ( double ) vp.GetDimension2D().size.nWidth / fZoom ) / __HALF_DIVISOR;
+            double                               fHalfH   = ( ( double ) vp.GetDimension2D().size.nHeight / fZoom ) / __HALF_DIVISOR;
 
-            // Top line
-            LineBresenham( ( int ) fViewStartX,
-                           ( int ) fViewStartY,
-                           ( int ) fViewEndX,
-                           ( int ) fViewStartY,
-                           color );
-            // Bottom line
-            LineBresenham( ( int ) fViewStartX,
-                           ( int ) fViewEndY,
-                           ( int ) fViewEndX,
-                           ( int ) fViewEndY,
-                           color );
-
-            // Left line
-            LineBresenham( ( int ) fViewStartX,
-                           ( int ) fViewStartY,
-                           ( int ) fViewStartX,
-                           ( int ) fViewEndY,
-                           color );
-
-            // Right line
-            LineBresenham( ( int ) fViewEndX,
-                           ( int ) fViewStartY,
-                           ( int ) fViewEndX,
-                           ( int ) fViewEndY,
-                           color );
-        }
-
-        /**
-         * Draw an ellipse primitive to specified position on texture.
-         * @param fOffset_x X ellipse coordinate;
-         * @param fOffset_y Y ellipse coordinate;
-         * @param fWidth The ellipse width;
-         * @param fHeight The ellipse height;
-         * @param color ellipse color;
-         */
-        void TileMapRenderer :: DrawEllipse( double fOffset_x,
-                                             double fOffset_y,
-                                             double fWidth,
-                                             double fHeight,
-                                             SunLight :: Base :: stColor color )  {
-
-            SunLight :: TileMap :: stDimension2D&  vp = GetViewport().GetDimension2D();
-            SunLight :: Base :: stZoomProperties&  zp = GetViewport().GetZoomProperties();
-
-            fWidth-=( fWidth / 2.0 );
-            fHeight-=( fHeight / 2.0 );
-            fOffset_x = ( ( fOffset_x + fWidth + m_CameraPos.x ) *
-                          zp.fZoomFactor ) + vp.pos.x;
-            fOffset_y = ( ( fOffset_y + fHeight + m_CameraPos.y ) *
-                          zp.fZoomFactor ) + vp.pos.y;
-
-            MidPointEllipse( fOffset_x,
-                             fOffset_y,
-                             ( fWidth * zp.fZoomFactor ),
-                             ( fHeight * zp.fZoomFactor ),
-                             color );
-        }
-
-        /**
-         * Draw a tile to specified position on texture.
-         * @param pImage Pointer to a @link Texture2D object used as renderer.
-         * @param uSourceX Source tile X coordinate;
-         * @param uSourceY Source tile Y coordinate;
-         * @param uSourceW Source tile width;
-         * @param uSourceH Source tile height;
-         * @param uDestX destination X coordinate on texture;
-         * @param uDestY destination Y coordinate on texture;
-         * @param opacity opacity level to be applied on texture;
-         */
-        void TileMapRenderer :: DrawTile( SunLight :: Base :: TextureHandle pImage,
-                                          int32_t nSourceX,
-                                          int32_t nSourceY,
-                                          int32_t nSourceW,
-                                          int32_t nSourceH,
-                                          int32_t nDestX,
-                                          int32_t nDestY,
-                                          float fOpacity ) {
-
-            SunLight :: TileMap :: stDimension2D  clip;
-            SunLight :: Base :: Viewport&         vp        = GetViewport();
-            unsigned char                         op        = ( uint8_t ) ( 0xFF * fOpacity );
-            SunLight :: TileMap :: stDimension2D  dm        =  { { ( int ) ( nDestX + m_CameraPos.x ),
-                                                                 ( int ) ( nDestY + m_CameraPos.y ) },
-                                                                 { nSourceW, nSourceH } };
-
-            if( vp.GetClippedRect( dm, clip ) )  {
-
-                float                                 fZoomFactor = vp.GetZoomProperties().fZoomFactor;
-                SunLight :: TileMap :: stDimension2D& vpDm        = vp.GetDimension2D();
-                int32_t                               nClipX      = ( int32_t ) ( clip.pos.x == vpDm.pos.x ? nSourceX +
-                                                                                  std :: abs( ( clip.size.nWidth /
-                                                                                                fZoomFactor ) -
-                                                                                  dm.size.nWidth ) : nSourceX );
-                int32_t                               nClipY      = ( int32_t ) ( clip.pos.y == vpDm.pos.y ? nSourceY +
-                                                                                  std :: abs( ( clip.size.nHeight /
-                                                                                                fZoomFactor ) -
-                                                                                  dm.size.nHeight ) : nSourceY );
-
-                SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled( pImage,
-                                                      SunLight :: Base :: stRectangle  { ( float ) nClipX,
-                                                                   ( float ) nClipY,
-                                                                   ( float ) nSourceW,
-                                                                   ( float ) nSourceH },
-                                                      SunLight :: Base :: stRectangle  { ( float ) clip.pos.x,
-                                                                   ( float ) clip.pos.y,
-                                                                   ( float ) clip.size.nWidth,
-                                                                   ( float ) clip.size.nHeight },
-                                                      SunLight :: Base :: stVector2D  { 0, 0 },
-                                                      0.0f,
-                                                      fZoomFactor,
-                                                      SunLight :: Base :: stColor  { 0xFF, 0xFF, 0xFF, op } );
-            }
-        }
-
-        /**
-         * Draw objects on canvas;
-         * @param pLayer Pointer to layer containing object group to draw;
-         */
-        void TileMapRenderer :: DrawObjects( tmx_layer *pLayer ) {
-
-            tmx_object *head = pLayer ->  content.objgr -> head;
-            SunLight :: Base :: stColor  color = IntToColor( pLayer ->  content.objgr -> color );
-
-            while( head ) {
-                if( head -> visible ) {
-                    switch( head -> obj_type )  {
-                        case OT_SQUARE :
-                            DrawRectangle( ( head -> x + pLayer -> offsetx ),
-                                           ( head -> y + pLayer -> offsety ),
-                                           head -> width,
-                                           head -> height,
-                                           color );
-                            break;
-
-                        case OT_POLYGON :
-                            DrawPolygon( ( head -> x + pLayer -> offsetx ),
-                                         ( head -> y + pLayer -> offsety ),
-                                         head -> content.shape -> points,
-                                         head -> content.shape -> points_len,
-                                         color );
-                            break;
-
-                        case OT_POLYLINE :
-                            DrawPolyline( ( head -> x + pLayer -> offsetx ),
-                                          ( head -> y + pLayer -> offsety ),
-                                          head -> content.shape -> points,
-                                          head -> content.shape -> points_len,
-                                          color );
-                            break;
-
-                        case OT_ELLIPSE :
-                            DrawEllipse( ( head -> x + pLayer -> offsetx ),
-                                         ( head -> y + pLayer -> offsety ),
-                                         head -> width,
-                                         head -> height,
-                                         color );
-                            break;
-                        
-                        case OT_NONE :
-                            // TODO: FINISH HIM !!!
-                            break;
-                        
-                        case OT_TILE :
-                            // TODO: FINISH HIM !!!
-                            break;
-
-                        case OT_TEXT :
-                            // TODO: FINISH HIM !!!
-                            break;
-
-                        case OT_POINT :
-                        // TODO: FINISH HIM !!!
-                        break;
-                    }
-                }
-
-                head = head -> next;
-            }
-        }
-
-        /**
-         * Draw image layer on canvas;
-         * @param pImage Pointer to layer containing image to draw;
-         */
-        void TileMapRenderer :: DrawImageLayer( tmx_layer *pLayer ) {
-
-            void *pImage = pLayer -> content.image -> resource_image;
-
-            SunLight :: Engines :: EngineFactory :: GetEngine().DrawTexture( pImage,
-                                                                              0,
-                                                                              0,
-                                                                              SunLight :: Base :: stColor { 0xFF, 0xFF, 0xFF, 0xFF } );
-        }
-
-        /**
-         * Draw layer on screen canvas;
-         * @param pLayer Pointer to layer with objects to draw;
-         */
-        void TileMapRenderer :: DrawLayer( tmx_layer *pLayer ) {
-
-            float      fOpacity = ( float ) pLayer -> opacity;
-
-            for( unsigned long i = 0; i < m_pTmxMap -> height; i++ ) {
-                for( unsigned long j = 0; j < m_pTmxMap -> width; j++ ) {
-                    SunLight :: TileMap :: stTile            tile;
-                    SunLight :: TileMap :: stMatrixPosition  pos   = { ( int ) i, ( int ) j };
-                    SunLight :: TileMap :: stLayer           layer = { false, 0, {0, 0}, pLayer };
-
-                    if( GetTile( pos, layer, tile ) )  {
-                        tmx_tile       *pTile = tile.pTile;
-                        tmx_image      *pIm   = pTile -> image;
-                        tmx_tileset    *pTs;
-                        void           *pImage;
-
-                        /*
-                        * Perform tile animation
-                        */
-                        if( pTile -> animation_len )  {
-                            int64_t                    nMillis = SunLight :: General :: Clock :: NowMilliseconds();
-                            __stTileAnimInfo           *pAnimInfo = ( __stTileAnimInfo * ) pTile -> user_data.pointer;
-                            tmx_tileset_list           *pTilesetList;
-
-                            if( !pAnimInfo )  {
-                                std :: unique_ptr<__stTileAnimInfo>  pOwnedAnimInfo = std :: make_unique<__stTileAnimInfo>();
-
-                                memset( pOwnedAnimInfo.get(), 0, sizeof( __stTileAnimInfo ) );
-                                pOwnedAnimInfo -> nMillis   = nMillis;
-                                pOwnedAnimInfo -> pNextTile = pTile;
-                                pAnimInfo = pOwnedAnimInfo.get();
-                                pTile -> user_data.pointer = pAnimInfo;
-                                m_AnimInfoList.push_back( std :: move( pOwnedAnimInfo ) );
-                            }
-
-                            if( pAnimInfo -> nMillis <= nMillis )  {
-                                unsigned int     nNextFrmGID;
-                                _tmx_frame       *pTmxAnimFrm;
-
-                                if( pAnimInfo -> nCounter < pTile -> animation_len )  {
-                                    pTmxAnimFrm = &pTile -> animation[pAnimInfo -> nCounter];
-                                    pAnimInfo -> nCounter++;
-                                }
-                                else  {
-                                    pAnimInfo -> nCounter = 0;
-                                    pTmxAnimFrm = &pTile -> animation[0];
-                                }
-                              
-                                pTilesetList = GetTilesetList( pTile -> tileset );
-                                pTile = nullptr;
-
-                                if( pTilesetList )  {
-                                    nNextFrmGID = ( pTilesetList -> firstgid + pTmxAnimFrm -> tile_id );
-                                    pAnimInfo -> pNextTile = m_pTmxMap -> tiles[nNextFrmGID];
-                                    pAnimInfo -> nMillis   = ( pTmxAnimFrm -> duration + nMillis );
-                                    pTile = pAnimInfo -> pNextTile;
-                                }
-
-                                if( !pTile )
-                                    pTile = m_pTmxMap -> tiles[tile.nGID];
-                            }
-                            else  {
-                                pTile = ( ( __stTileAnimInfo * ) pTile -> user_data.pointer ) -> pNextTile;
-                            }
-                        }
-
-                        pTs = pTile -> tileset;
-
-                        if( pIm ) {
-                            pImage = pIm -> resource_image;
-                        }
-                        else {
-                            pImage = pTs -> image -> resource_image;
-                        }
-
-                        DrawTile( pImage,
-                                pTile -> ul_x,
-                                pTile -> ul_y,
-                                pTs -> tile_width,
-                                pTs -> tile_height,
-                                ( ( j * pTs -> tile_width ) + pLayer -> offsetx ),
-                                ( ( i * pTs -> tile_height ) + pLayer -> offsety ),
-                                fOpacity );
-                    }
-                }
-            }
+            return ActiveCamera().ForParallax( fFactorX, fFactorY, fOriginX, fOriginY, fHalfW, fHalfH );
         }
 
         /**
          * Draw all layers on screen canvas;
          * @param pLayer Array of layer objects to draw;
+         * @param fParentParallaxX The accumulated parallax factor of every group ancestor of
+         * pLayer, multiplied together (L1 of the master plan - Tiled's own documented nesting
+         * rule: a layer's effective factor is its own, times every parent group's own);
+         * @param fParentParallaxY Same as fParentParallaxX, for the vertical axis;
+         * @param fParentOpacity The opacity of every group ancestor of pLayer, multiplied together
+         * (I8 of the master plan: Tiled draws a group's content with the group's opacity and tint
+         * applied on top of each layer's own); 1 outside any group;
+         * @param parentTint Their tints, multiplied channel by channel (SunLight::Base::MultiplyTint); opaque
+         * white outside any group;
+         * @param bSiblings Whether the layers after pLayer in its list are drawn too (I19d: false draws
+         * pLayer alone - a world of several maps draws one layer of each map at a time);
          */
-        void TileMapRenderer :: DrawAllLayers( tmx_layer *pLayer ) {
+        void TileMapRenderer :: DrawAllLayers( tmx_layer* pLayer, double fParentParallaxX, double fParentParallaxY,
+                                               float fParentOpacity, SunLight :: Base :: stColor parentTint, bool bSiblings )  {
 
-            while( pLayer ) {
+            m_nLayerDrawDepth++;            // I16: CurrentDrawContext uses the layer's camera from here on
+
+            while( pLayer )  {
 
                 /*
                  * The active view's layer mask (IView::ShowLayer): a layer it
@@ -933,35 +393,78 @@ namespace SunLight {
                  * view of the pass being drawn (RenderMap makes it so); an
                  * unmasked view shows every layer.
                  */
-                if( pLayer -> visible && m_pActiveView -> IsLayerShown( ( int ) pLayer -> id ) ) {
+                // I19d: masks and sprites key on the WORLD layer id (the map's own, with one map).
+                int  nWorldLayerId = m_pActiveWorld -> WorldLayerIdOf( m_pActiveWorld -> CurrentMapIndex(), ( int ) pLayer -> id );
+
+                if( pLayer -> visible && m_pActiveView -> IsLayerShown( nWorldLayerId ) )  {
+
+                    // L1 of the master plan: this layer's own effective camera, set once here
+                    // regardless of layer type - LayerRenderer/ObjectRenderer (through the DrawContext) and the
+                    // HandleSpriteUpdate call below (for this exact layer, still in scope) all
+                    // read m_EffectiveLayerCameraPos instead of the active camera directly, so a
+                    // world-space sprite's own GetCameraOffset sees the right value with no
+                    // separate per-sprite layer tracking at all.
+                    double  fEffectiveParallaxX = pLayer -> parallaxx * fParentParallaxX;
+                    double  fEffectiveParallaxY = pLayer -> parallaxy * fParentParallaxY;
+
+                    m_EffectiveLayerCameraPos    = GetEffectiveCameraForFactor( fEffectiveParallaxX, fEffectiveParallaxY );
+
+                    // I19d: a map placed at an offset draws as if the camera were moved by it - a map
+                    // position p is drawn at (p + offset + camera) x zoom + viewport.pos. 0 with one map.
+                    m_EffectiveLayerCameraPos.x += m_MapDrawOffset.x;
+                    m_EffectiveLayerCameraPos.y += m_MapDrawOffset.y;
+
+                    // I8: what this layer's groups pass down (the drawing classes multiply in its own).
+                    m_fGroupOpacity = fParentOpacity;
+                    m_GroupTint     = parentTint;
+
                     switch( pLayer -> type )  {
                         case L_GROUP :
-                            DrawAllLayers( pLayer -> content.group_head ); // recursive call
+                            // A group passes its own opacity and tint on, multiplied into what it was given.
+                            DrawAllLayers( pLayer -> content.group_head, fEffectiveParallaxX, fEffectiveParallaxY,
+                                           fParentOpacity * ( float ) pLayer -> opacity,
+                                           SunLight :: Base :: MultiplyTint( parentTint, Shape :: ColorOf( pLayer -> tintcolor ) ) );   // recursive call
                             break;
                         case L_OBJGR :
-                            DrawObjects( pLayer );
+                            // S1b: shapes and text through the ObjectRenderer; tile objects come back here.
+                            m_ObjectRenderer.Draw( CurrentDrawContext(), pLayer, m_Fonts,
+                                                   [this]( tmx_object* pObject, tmx_layer* pObjectLayer, float fOpacity )  {
+                                                       m_LayerRenderer.DrawTileObject( CurrentDrawContext(), *Map(), pObject, pObjectLayer, fOpacity );
+                                                   } );
                             break;
                         case L_IMAGE :
-                            /*
-                             * An image layer is drawn straight at the screen origin, with no
-                             * camera and no viewport clipping - fine for the default view, but
-                             * in another view it would land on top of whatever is at the screen's
-                             * top-left corner, outside the view's own rectangle. So only the
-                             * default view draws them.
-                             */
-                            if( m_pActiveView == m_pDefaultView.get() )
-                                DrawImageLayer( pLayer );
+                            // L1 of the master plan: now camera/parallax/zoom/viewport-aware
+                            // (see LayerRenderer::DrawImageLayer's own comment) - still default-view-only,
+                            // a separate, pre-existing restriction this item does not lift.
+                            if( m_pActiveView == m_pDefaultView.get() )  {
+                                if( LayerRenderer :: IsScreenSpaceImageLayer( pLayer ) )  {
+                                    // I23: drawn in window pixels and NOT cut to the viewport, as before L1 -
+                                    // so the pass's own clip (the active view's rectangle, the only clip
+                                    // open while a layer is drawn) ends around it and begins again after.
+                                    SunLight :: Engines :: IEngine          &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+                                    const SunLight :: Base :: stDimension2D  &vp     = GetViewport().GetDimension2D();
+
+                                    engine.EndClip();
+                                    m_LayerRenderer.DrawScreenSpaceImageLayer( CurrentDrawContext(), pLayer );
+                                    engine.BeginClip( SunLight :: Base :: stRectangle { ( float ) vp.pos.x, ( float ) vp.pos.y,
+                                                                                        ( float ) vp.size.nWidth, ( float ) vp.size.nHeight } );
+                                }
+                                else
+                                    m_LayerRenderer.DrawImageLayer( CurrentDrawContext(), pLayer );
+                            }
                             break;
                         case L_LAYER :
-                            DrawLayer( pLayer );
+                            m_LayerRenderer.DrawTileLayer( CurrentDrawContext(), *Map(), pLayer );
                             break;
                         case L_NONE :
-                            // TODO: FINISH HIM !!!
+                            // libtmx never gives a layer this kind: it skips any element that is not
+                            // a tile layer, object group, image layer or group. The case stays so the
+                            // switch covers every enumerator.
                             break;
                     }
 
                     /*
-                     * Runtime-added sprites (AddSprite/m_SpriteMap, keyed by
+                     * Runtime-added sprites (AddSprite/Sprites(), keyed by
                      * this layer's own id) follow a parent-child visibility
                      * hierarchy with their container TMX layer, by design: if
                      * the layer itself is invisible, every sprite registered
@@ -970,7 +473,7 @@ namespace SunLight {
                      * it's container layer is already visible, same as any
                      * scene-graph-style parent/child visibility. Previously
                      * this only ran for the L_LAYER case (from inside
-                     * DrawLayer itself), so a sprite registered against an
+                     * the old DrawLayer itself), so a sprite registered against an
                      * L_OBJGR layer id was silently never drawn at all, even
                      * when that layer WAS visible - moved here so every layer
                      * type honors the same hierarchy consistently, not just
@@ -982,10 +485,66 @@ namespace SunLight {
                      * `visible="0"` now means exactly what it says, hiding
                      * that layer's sprites along with it's tiles/objects.
                      */
-                    HandleSpriteUpdate( pLayer -> id );
+                    // I19d: in a world of several maps the pass draws the sprites itself, once, after
+                    // this layer of every map (DrawWorldMaps).
+                    if( !m_bDeferSprites )
+                        HandleSpriteUpdate( nWorldLayerId );
                 }
 
+                if( !bSiblings )
+                    break;
+
                 pLayer = pLayer -> next;
+            }
+
+            // Back to what this call was given: once the whole map is drawn, 1 and white again, so no
+            // DrawContext built after it (a game's own IShapeSurface drawing) carries a group's values.
+            m_fGroupOpacity = fParentOpacity;
+            m_GroupTint     = parentTint;
+
+            m_nLayerDrawDepth--;            // I16: back to the active view's own camera once the whole map is drawn
+        }
+
+        /**
+         * @brief Draw a world of several maps (I19d of the master plan): its layers in the world's
+         * order (World::Layers - one per name), each drawn from every map that has it as a top-level
+         * layer, that map made the world's current one and its offset added to the camera
+         * (m_MapDrawOffset); then the sprites of that layer and of the layers nested under it, ONCE,
+         * so a sprite crosses a map edge on the same layer. A sprite's layer must be visible, and shown
+         * by the view, in the first map that has it. The first map is current again afterwards.
+         */
+        void TileMapRenderer :: DrawWorldMaps( void )  {
+
+            World  &world = *m_pActiveWorld;
+
+            for( const World :: stWorldLayer& entry : world.Layers() )  {
+                for( size_t nIndex = 0; nIndex < world.MapCount(); nIndex++ )  {
+                    const World :: stPlacedMap  &placed = world.PlacedMap( nIndex );
+                    tmx_layer                   *pLayer = world.LayerInMap( nIndex, entry.nId );
+
+                    if( !pLayer || ( placed.topLevel.find( ( int ) pLayer -> id ) == placed.topLevel.end() ) )
+                        continue;
+
+                    world.SetCurrentMap( nIndex );
+                    m_MapDrawOffset = stVector { ( float ) placed.nX, ( float ) placed.nY };
+                    m_bDeferSprites = true;
+                    DrawAllLayers( pLayer, 1.0, 1.0, 1.0f, WHITE_COLOR, false );
+                }
+
+                world.SetCurrentMap( 0 );
+                m_MapDrawOffset = stVector { 0.0f, 0.0f };
+                m_bDeferSprites = false;
+
+                if( entry.nTopId != entry.nId )
+                    continue;                       // drawn with its top-level layer, below
+
+                for( const World :: stWorldLayer& nested : world.Layers() )  {
+                    tmx_layer  *pFirst = ( nested.nTopId == entry.nId ) ? world.FindLayer( nested.nId ) : nullptr;
+
+                    if( pFirst && pFirst -> visible && m_pActiveView -> IsLayerShown( nested.nId ) &&
+                        m_pActiveView -> IsLayerShown( entry.nId ) )
+                        HandleSpriteUpdate( nested.nId );
+                }
             }
         }
 
@@ -993,12 +552,15 @@ namespace SunLight {
          * The background color a view's clear uses: its explicit one, or the
          * loaded map's own, or the window background color when there is no map.
          */
-        SunLight :: Base :: stColor TileMapRenderer :: BackgroundColorOf( View &view )  {
+        SunLight :: Base :: stColor TileMapRenderer :: BackgroundColorOf( View& view )  {
 
             if( view.m_bExplicitBackground )
                 return view.m_Background;
 
-            return IntToColor( m_pTmxMap ? m_pTmxMap -> backgroundcolor : m_nWindowBackgroundColor );
+            if( Tmx() )
+                return IntToColor( Tmx() -> backgroundcolor );
+
+            return m_WindowBackgroundColor;
         }
 
         /**
@@ -1021,26 +583,44 @@ namespace SunLight {
 
             View  *pDefault = m_pDefaultView.get();
 
-            m_FrameAdvancedSprites.clear();
-            m_FramePendingSprites.clear();
+            // I19c: every world's sprites start the frame (each pass draws its own view's world).
+            m_pDefaultWorld -> Sprites().BeginFrame();
+
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )
+                pWorld -> Sprites().BeginFrame();
+
             m_PassViews.clear();
 
             if( pDefault -> m_bVisible )
                 m_PassViews.push_back( pDefault );
 
-            for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
                 if( pView -> m_bVisible )
                     m_PassViews.push_back( pView.get() );
             }
 
             std :: stable_sort( m_PassViews.begin(), m_PassViews.end(),
-                                []( View *pLeft, View *pRight ) { return pLeft -> m_nDrawOrder < pRight -> m_nDrawOrder; } );
+                                []( View* pLeft, View* pRight ) { return pLeft -> m_nDrawOrder < pRight -> m_nDrawOrder; } );
 
-            for( View *pView : m_PassViews )  {
+            for( View* pView : m_PassViews )  {
                 ActivateView( pView );
 
+                // I19a: a view below full opacity draws into a target of its own, laid over the frame
+                // at its opacity once the pass is done (outside its clip, which ends first).
+                bool  bOwnTarget = BeginViewTarget( *pView );
+
+                m_DrawnWorlds.insert( m_pActiveWorld );    // I19c: this pass draws its view's world
+
+                // The whole pass is cut to its view's rectangle (the engine's clip stack keeps any
+                // clip a draw starts inside it), so nothing the pass draws lands outside its view.
+                SunLight :: Base :: stDimension2D  &passRect = pView -> m_pViewport -> GetDimension2D();
+
+                SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
+                    ( float ) passRect.pos.x, ( float ) passRect.pos.y,
+                    ( float ) passRect.size.nWidth, ( float ) passRect.size.nHeight } );
+
                 if( ( pView != pDefault ) && pView -> m_bClear )  {
-                    SunLight :: TileMap :: stDimension2D  &rect = pView -> m_pViewport -> GetDimension2D();
+                    SunLight :: Base :: stDimension2D  &rect = pView -> m_pViewport -> GetDimension2D();
 
                     SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle( rect.pos.x,
                                                                                               rect.pos.y,
@@ -1049,325 +629,237 @@ namespace SunLight {
                                                                                               BackgroundColorOf( *pView ) );
                 }
 
-                DrawAllLayers( m_pTmxMap -> ly_head );
+                DrawPassContent();
+
+                SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
+
+                if( bOwnTarget )
+                    EndViewTarget( *pView );
             }
 
             ActivateView( pDefault );
 
             // Sprites some pass reached but no pass had on screen: advanced once, exactly as a
-            // single view would (see HandleSpriteUpdate). They draw nothing.
-            for( SunLight :: Sprite :: Sprite *pSprite : m_FramePendingSprites )
-                pSprite -> Advance();
+            // single view would (see SpriteRegistry::UpdateLayer). They draw nothing. In every world.
+            m_pDefaultWorld -> Sprites().EndFrame();
 
-            m_FramePendingSprites.clear();
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )
+                pWorld -> Sprites().EndFrame();
+        }
+
+        /**
+         * @brief What one pass draws (M2 of the master plan): the map's own layers - each with its
+         * sprites, in the map's layer order - when a map is loaded; otherwise every layer id
+         * sprites were registered under, in ascending id order (SpriteRegistry::LayerIds), as
+         * the only layer order a mapless renderer has. The active view's layer mask applies the
+         * same way in both cases (IView::ShowLayer keys on the same layer id), so a view can hide
+         * a mapless sprite group exactly as it hides a map layer.
+         */
+        void TileMapRenderer :: DrawPassContent( void )  {
+
+            if( Tmx() )  {
+                if( m_pActiveWorld -> MapCount() > 1 )
+                    DrawWorldMaps();
+                else
+                    DrawAllLayers( Tmx() -> ly_head );
+
+                return;
+            }
+
+            for( int nLayerId : Sprites().LayerIds() )  {
+                if( m_pActiveView -> IsLayerShown( nLayerId ) )
+                    HandleSpriteUpdate( nLayerId );
+            }
+        }
+
+        /**
+         * @brief Start drawing a view below full opacity into a render target of its own (I19a of
+         * the master plan), or tell the caller to draw it as always. The target has the frame's
+         * size (the frame's own render target, m_pRenderTexture), so the pass draws at exactly the
+         * coordinates it uses in the frame - its clip, the view's rectangle, keeps everything
+         * outside that rectangle transparent - and the composite (EndViewTarget) lays the whole
+         * target over the frame. It is made on first use and kept (the frame's size is fixed when
+         * the renderer is built, RendererConfig), and cleared to transparent for every pass. Begun
+         * inside the frame's target: the engine's targets nest (IEngine::BeginRenderTarget).
+         * @param view The view whose pass is about to be drawn;
+         * @return true when the pass now draws into the view's target (EndViewTarget must follow);
+         * false at full opacity, where nothing changed;
+         */
+        bool TileMapRenderer :: BeginViewTarget( View& view )  {
+
+            if( view.m_fOpacity >= __OPACITY_MAX )
+                return false;
+
+            SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+
+            if( !view.m_hTarget )
+                view.m_hTarget = engine.LoadRenderTarget( ( int ) m_fWindowWidth, ( int ) m_fWindowHeight );
+
+            engine.BeginRenderTarget( view.m_hTarget );
+            engine.ClearBackground( TRANSPARENT_COLOR );
+
+            return true;
+        }
+
+        /**
+         * @brief End a pass BeginViewTarget redirected, and lay the view's target over the frame at
+         * the view's opacity (IEngine::CompositeRenderTarget: premultiplied, which is what normal
+         * blending into a transparent target leaves). At opacity 0 the composite is skipped: the
+         * pass was still drawn, so its sprites advanced as at any opacity, but nothing shows.
+         * @param view The view whose pass was drawn into its target;
+         */
+        void TileMapRenderer :: EndViewTarget( View& view )  {
+
+            SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+
+            engine.EndRenderTarget();
+
+            if( view.m_fOpacity > __OPACITY_MIN )
+                engine.CompositeRenderTarget( view.m_hTarget,
+                                              SunLight :: Base :: stRectangle { 0.0f, 0.0f, m_fWindowWidth, m_fWindowHeight },
+                                              view.m_fOpacity );
+        }
+
+        /**
+         * @brief Release a view's render target (I19a), if it has one: on RemoveView, on Stop and
+         * when a started renderer is destroyed - while the window, and so the engine's render
+         * context, is still open.
+         * @param view The view whose target goes;
+         */
+        void TileMapRenderer :: ReleaseViewTarget( View& view )  {
+
+            if( view.m_hTarget )  {
+                SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( view.m_hTarget );
+                view.m_hTarget = nullptr;
+            }
+        }
+
+        /**
+         * @brief ReleaseViewTarget for every view, the default one included (I19a).
+         */
+        void TileMapRenderer :: ReleaseViewTargets( void )  {
+
+            ReleaseViewTarget( *m_pDefaultView );
+
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )
+                ReleaseViewTarget( *pView );
         }
 
         /**
          * Render all map objects.
          */
-        void TileMapRenderer :: RenderMap( void ) {
+        void TileMapRenderer :: RenderMap( void )  {
 
-            if( m_bClearBackground )
-                SunLight :: Engines :: EngineFactory :: GetEngine().ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
+            if( m_bClearBackground )  {
+                SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
 
-            if( m_pTmxMap )  {
+                if( m_bWindowBackgroundSet && Tmx() && !m_pDefaultView -> m_bExplicitBackground )  {
+                    // The window area takes the window colour; the viewport is then filled with the map's own.
+                    SunLight :: Base :: stDimension2D  &vp = m_pDefaultView -> GetViewport().GetDimension2D();
+
+                    engine.ClearBackground( m_WindowBackgroundColor );
+                    engine.DrawFilledRectangle( ( int ) vp.pos.x, ( int ) vp.pos.y,
+                                                vp.size.nWidth, vp.size.nHeight,
+                                                BackgroundColorOf( *m_pDefaultView ) );
+                }
+                else
+                    engine.ClearBackground( BackgroundColorOf( *m_pDefaultView ) );
+            }
+
+            // M2 of the master plan: a frame with no map loaded still draws the sprites registered
+            // with AddSprite (which has always accepted a mapless caller) - before M2 this whole
+            // block was skipped without a map, so such a sprite's collider was updated every frame
+            // but the sprite itself was never drawn.
+            m_DrawnWorlds.clear();
+
+            if( AnyWorldHasContent() )  {
                 if( m_ExtraViews.empty() )  {
                     /*
                      * The single-view frame - every renderer that never calls CreateView -
                      * is this one call, as it always was (the default view's mask and
                      * visibility are the only new inputs, and default to "show all").
                      */
-                    if( m_pDefaultView -> m_bVisible )
-                        DrawAllLayers( m_pTmxMap -> ly_head );
+                    if( m_pDefaultView -> m_bVisible )  {
+                        bool  bOwnTarget = BeginViewTarget( *m_pDefaultView );   // I19a: below full opacity
+
+                        m_DrawnWorlds.insert( m_pDefaultWorld.get() );
+
+                        // Study: nothing cuts the single view's draws in software any more, so the viewport
+                        // is the clip for the whole frame (the view passes set their own).
+                        SunLight :: Engines :: EngineFactory :: GetEngine().BeginClip( SunLight :: Base :: stRectangle {
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.x,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().pos.y,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nWidth,
+                            ( float ) m_pDefaultView -> GetViewport().GetDimension2D().size.nHeight } );
+                        DrawPassContent();
+                        SunLight :: Engines :: EngineFactory :: GetEngine().EndClip();
+
+                        if( bOwnTarget )
+                            EndViewTarget( *m_pDefaultView );
+                    }
                 }
                 else  {
                     DrawViewPasses();
                 }
             }
 
+            AdvanceUndrawnWorlds();          // I19c: a world no pass drew still advances its sprites
+
             if( m_bDrawFPS )
                 SunLight :: Engines :: EngineFactory :: GetEngine().DrawFPS( 0, 0 );
         }
 
         /**
-         * Initialize default input event handlers.
+         * Fire OnUpdate on every registered ITileMapListener.
          */
-        void TileMapRenderer :: InitalizeDefaultUserInputHandlers( void )  {
+        void TileMapRenderer :: HandleTileMapUpdate( void )  {
 
-            // Default Keyboard handlers 
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_UP, std :: bind( &TileMapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_DOWN, std :: bind( &TileMapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_LEFT, std :: bind( &TileMapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_RIGHT, std :: bind( &TileMapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &TileMapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &TileMapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &TileMapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserKeyEventHandler( SunLight :: Input :: KEY_END, std :: bind( &TileMapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-
-            // Default GamePad handlers
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_UP, std :: bind( &TileMapRenderer :: InputKeyUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_DOWN, std :: bind( &TileMapRenderer :: InputKeyDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_LEFT, std :: bind( &TileMapRenderer :: InputKeyLeft, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT, std :: bind( &TileMapRenderer :: InputKeyRight, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_UP, std :: bind( &TileMapRenderer :: InputKeyPageUp, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN, std :: bind( &TileMapRenderer :: InputKeyPageDown, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT, std :: bind( &TileMapRenderer :: InputKeyHome, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-            SetUserGamePadEventHandler( SunLight :: Input :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT, std :: bind( &TileMapRenderer :: InputKeyEnd, this, std ::placeholders::_1, std ::placeholders::_2 ) );
-        }
-
-        /**
-         * @brief Handle default key Up event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyUp( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraUp();
-        }
-
-        /**
-         * @brief Handle default key Down event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyDown( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraDown();
-        }
-
-        /**
-         * @brief Handle default key Left event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyLeft( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraLeft();
-        }
-
-        /**
-         * @brief Handle default key Right event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyRight( SunLight :: Input :: ControllerType type, int nId )  {
-
-            MoveCameraRight();
-        }
-
-        /**
-         * @brief Handle default key Page Up event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyPageUp( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ZoomIn();
-        }
-
-        /**
-         * @brief Handle default key Page Down event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyPageDown( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ZoomOut();
-        }
-
-        /**
-         * @brief Handle default key Home event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyHome( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ResetZoom();
-        }
-
-        /**
-         * @brief Handle default key End event;
-         * 
-         * @param type The controller that is triggering this event;
-         * @param Id Rhe Id of of this controller type (eg. Game Pad Id); 
-         */
-        void TileMapRenderer :: InputKeyEnd( SunLight :: Input :: ControllerType type, int nId )  {
-
-            ResetCamera();
-        }
-
-        /**
-         * @brief Handle user keyboard events.
-         * @param evt The event to be handled;
-         */
-        void TileMapRenderer :: HandleKeyEvent( SunLight :: Input :: KeyboardKey evt )  {
-
-            for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
-                if( ( *itItem ) -> nEvent == evt )
-                    ( *itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_KEYBOARD, KEYBOARD_ID );
-            }
-        }
-       
-        /**
-         * Check user input selected previously by user (mouse,
-         * joystick, keyboard, etc...)
-         */
-        void TileMapRenderer :: HandleUserInput( void )  {
-            /*
-             *  Controller Axis dead zones
-             */
-            const float ctfLeftStickDeadzoneX  = 0.1f;
-            const float ctfLeftStickDeadzoneY  = 0.1f;
-            const float ctfRightStickDeadzoneX = 0.1f;
-            const float ctfRightStickDeadzoneY = 0.1f;
-            const float ctLeftTriggerDeadzone  = -0.9f;
-            const float ctRightTriggerDeadzone = -0.9f;
-
-            bool    bEventHandled = false;
-
-            for( int nGamePadId : m_GamePadList )  {
-                SunLight :: Input :: GamepadButton button[]    = { SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
-                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
-                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN,
-                                                                   SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_UNKNOWN };
-                float    fPosX = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
-                                                                            SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_X );
-                float    fPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
-                                                                            SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_LEFT_Y );
-                float    fRightPosX = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
-                                                                                 SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_RIGHT_X );
-                float    fRightPosY = m_pInputHandler -> GetGamepadAxisMovement( nGamePadId,
-                                                                                 SunLight :: Input :: GamepadAxis :: GAMEPAD_AXIS_RIGHT_Y );
-
-                // Calculate deadzones
-                if( ( fPosX > -ctfLeftStickDeadzoneX ) && ( fPosX < ctfLeftStickDeadzoneX ) )
-                    fPosX = 0.0f;
-                if( ( fPosY > -ctfRightStickDeadzoneY ) && ( fPosY < ctfRightStickDeadzoneY ) )
-                    fPosY = 0.0f;
-                if( ( fRightPosX > -ctfRightStickDeadzoneX ) && ( fRightPosX < ctfRightStickDeadzoneX ) )
-                    fRightPosX = 0.0f;
-                if( ( fRightPosY > -ctfRightStickDeadzoneY ) && ( fRightPosY < ctfRightStickDeadzoneY ) )
-                    fRightPosY = 0.0f;
-
-                // TODO: Code sample for future use when add support to trigger handling
-                // if (leftTrigger < leftTriggerDeadzone) leftTrigger = -1.0f;
-                // if (rightTrigger < rightTriggerDeadzone) rightTrigger = -1.0f;
-
-                // Handle Analog GamePad control stick (left)
-                if( fPosX > 0.0 )  {
-                    button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_RIGHT;
-                    bEventHandled = true;
-                }
-                else  {
-                    if( fPosX < 0.0 )  {
-                        button[0] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_LEFT;
-                        bEventHandled = true;
-                    }
-                }
-
-                if( fPosY > 0.0 )  {
-                    button[1] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_DOWN;
-                    bEventHandled = true;
-                }
-                else  {
-                    if( fPosY < 0.0 )  {
-                        button[1] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_LEFT_FACE_UP;
-                        bEventHandled = true;
-                    }
-                }
-
-                // Handle Analog GamePad control stick (right)
-                if( fRightPosX > 0.0 )  {
-                    button[2] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_RIGHT;
-                    bEventHandled = true;
-                }
-                else  {
-                    if( fRightPosX < 0.0 )  {
-                        button[2] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_LEFT;
-                        bEventHandled = true;
-                    }
-                }
-
-                if( fRightPosY > 0.0 )  {
-                    button[3] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_DOWN;
-                    bEventHandled = true;
-                }
-                else  {
-                    if( fRightPosY < 0.0 )  {
-                        button[3] = SunLight :: Input :: GamepadButton :: GAMEPAD_BUTTON_RIGHT_FACE_UP;
-                        bEventHandled = true;
-                    }
-                }
-
-                // Handle DPad and analog stick controls (left + right)
-                for( InputEventHandlerList :: iterator itItem = m_GPadInputEventHandlerList.begin(); itItem != m_GPadInputEventHandlerList.end(); itItem++ )  {
-                    SunLight :: Input :: GamepadButton   evt = ( SunLight :: Input :: GamepadButton ) ( * itItem ) -> nEvent;
-
-                    /*
-                     * DPad and Analog MUST be processed in the same handler list iteration.
-                     * The order of events can affect main renderer processing behavior
-                     * (depending on final developer game logic);
-                     */
-                    if( m_pInputHandler -> IsGamepadButtonDown( nGamePadId, evt ) )  {
-                        ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
-                        bEventHandled = true;
-                    }
-                    else  {
-                        if( ( evt == button[0] ) || ( evt == button[1] ) || ( evt == button[2] ) || ( evt == button[3] ) )  {
-                            ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_GAMEPAD, nGamePadId );
-                            bEventHandled = true;
-                        }
-                    }
-                }
-            }
-
-            // Handle keyboard if there's no response from game pad
-            if( !bEventHandled )  {
-                switch( m_ViewControlMode )  {
-                    case VIEW_CONTROL_MODE_REACTIVE :
-                        HandleKeyEvent( m_pInputHandler -> GetKeyPressed() );
-                        bEventHandled = true;
-                    break;
-
-                    case VIEW_CONTROL_MODE_ACTIVE :  {
-                        for( InputEventHandlerList :: iterator itItem = m_KeyInputEventHandlerList.begin(); itItem != m_KeyInputEventHandlerList.end(); itItem++ )  {
-                            if( m_pInputHandler -> IsKeyDown( ( SunLight :: Input :: KeyboardKey ) ( * itItem ) -> nEvent ) )  {
-                                ( * itItem ) -> pHandler( SunLight :: Input :: ControllerType :: CONTROLLER_KEYBOARD, KEYBOARD_ID );
-                                bEventHandled = true;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if( !bEventHandled && ( m_pNullInputEventHandler != nullptr ) )  {
-                m_pNullInputEventHandler( SunLight :: Input  :: CONTROLLER_NULL, -1 );
+            for( SunLight :: TileMap :: ITileMapListener* pListener : ListenersSnapshot() )  {
+                if( IsListenerRegistered( pListener ) )
+                    pListener -> OnUpdate( *this );
             }
         }
 
         /**
-         * Handle user updates from user listeners;
+         * The listeners registered right now, copied: what HandleTileMapUpdate and Stop walk. A
+         * listener may call AddTileMapListener/RemoveTileMapListener from OnUpdate/OnStop (eg. a
+         * stage handing over to the next one), and both mutate m_TileMapListenerList, a std::deque:
+         * push_back invalidates every iterator into it and erase can too, so the range-for loops
+         * this replaced were undefined behaviour then. The same snapshot CollisionManager::Update
+         * already takes of it's collider lists.
          */
-        void TileMapRenderer :: HandleUserUpdate( void )  {
+        TileMapRenderer :: TileMapListenerList TileMapRenderer :: ListenersSnapshot( void ) const  {
 
-            for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
-                pListener -> OnUpdate( *this );
-            }
+            return m_TileMapListenerList;
         }
 
         /**
-         * Handle user collisions;
+         * Whether pListener is still registered - checked right before each call over a snapshot,
+         * so a listener removed earlier in the same walk (and maybe deleted by whoever removed it)
+         * is never called. One added during the walk is not in the snapshot: it starts next frame.
+         * @param pListener The listener to look for;
+         */
+        bool TileMapRenderer :: IsListenerRegistered( SunLight :: TileMap :: ITileMapListener* pListener ) const  {
+
+            return std :: find( m_TileMapListenerList.begin(), m_TileMapListenerList.end(), pListener ) != m_TileMapListenerList.end();
+        }
+
+        /**
+         * Handle user collisions: every world's rules, the default world's first, then the others in
+         * creation order (I19c of the master plan - every live world updates, shown or not). Each
+         * world's manager reads its own map (World is its ITileSource). Over a copy of the world
+         * list: a listener may create or remove worlds.
          */
         void TileMapRenderer :: HandleUserCollisions( void )  {
 
-            m_CollisionManager.Update();
+            m_pDefaultWorld -> Collisions().Update();
+
+            std :: vector<std :: shared_ptr<World>>  worlds = m_ExtraWorlds;
+
+            for( std :: shared_ptr<World>& pWorld : worlds )  {
+                if( !pWorld -> IsRemoved() )
+                    pWorld -> Collisions().Update();
+            }
         }
 
         /**
@@ -1376,42 +868,21 @@ namespace SunLight {
          */
         void TileMapRenderer :: HandleSpriteUpdate( int nLayerId )  {
 
-            SpriteMap :: iterator  itSpriteMap = m_SpriteMap.find( nLayerId ); 
+            Sprites().UpdateLayer( nLayerId, !m_ExtraViews.empty() );
+        }
 
-            // Handle sprite animation
-            if( itSpriteMap != m_SpriteMap.end() )  {
-                for( SunLight :: Sprite :: Sprite* pSprite : *itSpriteMap -> second )  {
-                    if( m_ExtraViews.empty() )  {
-                        pSprite -> Update();
-                    }
-                    else  {
-                        /*
-                         * Several passes may draw this sprite in one frame (one per view
-                         * showing its layer): its animation state must still advance only
-                         * once per frame, in the FIRST pass in which it is on screen (a canvas
-                         * only steps while it is inside the viewport of the view being drawn, so
-                         * advancing in a pass that does not show it would waste the step while
-                         * a later view does), and every pass just draws the frame that settled
-                         * (Update() is exactly Advance() then Draw() - see Sprite::Advance/Draw).
-                         * A sprite reached by passes but on screen in none of them is advanced
-                         * once at the end of the frame (DrawViewPasses), as a single view
-                         * would have done: its frame choice still steps, its canvas stands still.
-                         */
-                        if( m_FrameAdvancedSprites.find( pSprite ) == m_FrameAdvancedSprites.end() )  {
-                            if( pSprite -> IsOnScreen() )  {
-                                pSprite -> Advance();
-                                m_FrameAdvancedSprites.insert( pSprite );
-                                m_FramePendingSprites.erase( pSprite );
-                            }
-                            else  {
-                                m_FramePendingSprites.insert( pSprite );
-                            }
-                        }
+        /**
+         * @brief Store a stLayer float into the libtmx double it was read from (CopyTmxToLayer),
+         * but only when it changed (I9 of the master plan). A float cannot hold every double
+         * Tiled writes (0.69 reads back as 0.68999999), so writing an unchanged value back would
+         * move the map's own value; comparing with what GetLayer reads from it keeps it exact.
+         * @param fStored The libtmx value;
+         * @param fValue The stLayer value;
+         */
+        static void StoreIfChanged( double& fStored, float fValue )  {
 
-                        pSprite -> Draw();
-                    }
-                }   
-            }
+            if( fValue != ( float ) fStored )
+                fStored = fValue;
         }
 
         /**
@@ -1419,13 +890,21 @@ namespace SunLight {
          * @param pTmxLayer Pointer to Tmx that data will be copied to;
          * @param layer User struct whose layer data will be copied from;
          */
-        void TileMapRenderer :: CopyLayerToTmx( tmx_layer *pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
+        void TileMapRenderer :: CopyLayerToTmx( tmx_layer* pTmxLayer, SunLight :: TileMap :: stLayer& layer )  {
 
-            pTmxLayer -> opacity = ( __MAX_OPACITY_LEVEL - layer.nOpacity );
-            pTmxLayer -> offsetx = layer.offset.x;
-            pTmxLayer -> offsety = layer.offset.y;
-            pTmxLayer -> visible = layer.bVisible;
-            layer.pLayer         = pTmxLayer;
+            // I9 of the master plan: fOpacity is libtmx's own 0..1 (1 = opaque), clamped; it was an
+            // int 0..255, which could not hold most authored opacities (0.5 came back as 0.502). A NaN
+            // is no opacity at all, so it leaves the layer's own.
+            if( !std :: isnan( layer.fOpacity ) )
+                StoreIfChanged( pTmxLayer -> opacity, std :: clamp( layer.fOpacity, __OPACITY_MIN, __OPACITY_MAX ) );
+
+            pTmxLayer -> offsetx   = layer.offset.x;
+            pTmxLayer -> offsety   = layer.offset.y;
+            pTmxLayer -> visible   = layer.bVisible;
+            StoreIfChanged( pTmxLayer -> parallaxx, layer.fParallaxX );
+            StoreIfChanged( pTmxLayer -> parallaxy, layer.fParallaxY );
+            pTmxLayer -> tintcolor = Shape :: ArgbOf( layer.tint );   // I8: alpha kept as given, ignored for drawing
+            layer.pLayer           = pTmxLayer;
         }
 
         /**
@@ -1433,41 +912,42 @@ namespace SunLight {
          * @param pTmxLayer Reference to user layer that data will be copied to;
          * @param layer Pointer whose tmx layer data will be copied from;
          */
-        void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer *pTmxLayer )  {
+        void TileMapRenderer :: CopyTmxToLayer( SunLight :: TileMap :: stLayer& layer, tmx_layer* pTmxLayer )  {
 
-            layer.nOpacity = ( int ) ( pTmxLayer -> opacity + __MAX_OPACITY_LEVEL );
-            layer.offset.x = pTmxLayer -> offsetx;
-            layer.offset.y = pTmxLayer -> offsety;
-            layer.bVisible = pTmxLayer -> visible;
-            layer.pLayer         = pTmxLayer;
+            layer.fOpacity   = ( float ) pTmxLayer -> opacity;
+            layer.offset.x   = pTmxLayer -> offsetx;
+            layer.offset.y   = pTmxLayer -> offsety;
+            layer.bVisible   = pTmxLayer -> visible;
+            layer.fParallaxX = ( float ) pTmxLayer -> parallaxx;
+            layer.fParallaxY = ( float ) pTmxLayer -> parallaxy;
+            layer.tint       = Shape :: ColorOf( pTmxLayer -> tintcolor );   // I8: as authored, opaque white by default
+            layer.pLayer     = pTmxLayer;
         }
 
         /**
          * Constructor. Initialize all class data.
          * Kept for source compatibility: builds the equivalent
          * RendererConfig and delegates to the RendererConfig constructor,
-         * so both paths produce identical renderers.
+         * so both paths produce identical renderers. No default key/camera
+         * handler is installed any more (F0b of the master plan) - a game
+         * that wants those bindings calls
+         * SunLight::Input::DefaultControllerBindings::Install() itself.
          * @param fWidth Screen renderer width;
          * @param fHeight Screen renderer height;
          * @param szTitle Screen renderer title;
          * @param nTargetFps Renderer desired FPS;
-         * @param bUseDefaultKeyHandler Inform if the default keyboard and
-         * camera handler will be used (at the end this parameter will be remove
-         * when user interaction be a little bit more clear.
          */
         TileMapRenderer :: TileMapRenderer( float fWidth,
                                             float fHeight,
-                                            const char *szTitle,
-                                            int nTargetFps,
-                                            bool bUseDefaultKeyHandler) :
-                                            TileMapRenderer( [&]( void ) {
+                                            const char* szTitle,
+                                            int nTargetFps ) :
+                                            TileMapRenderer( [&]( void )  {
                                                 SunLight :: Renderer :: RendererConfig  config;
 
                                                 config.fWidth                = fWidth;
                                                 config.fHeight               = fHeight;
                                                 config.strTitle              = szTitle;
                                                 config.nTargetFps            = nTargetFps;
-                                                config.bUseDefaultKeyHandler = bUseDefaultKeyHandler;
 
                                                 return config;
                                             }() )  {
@@ -1482,8 +962,10 @@ namespace SunLight {
          * what can be selected).
          * @param config The renderer configuration;
          */
-        TileMapRenderer :: TileMapRenderer( const SunLight :: Renderer :: RendererConfig &config ) :
-                                            m_CollisionManager( this )  {
+        TileMapRenderer :: TileMapRenderer( const SunLight :: Renderer :: RendererConfig& config ) :
+                                            m_pDefaultWorld( std :: make_shared<World>( this, 0 ) ),
+                                            m_pActiveWorld( m_pDefaultWorld.get() ),
+                                            m_nNextWorldId( 1 )  {
 
             // Select the backend FIRST: everything below (the input
             // handler, anything that touches the engine) must already see
@@ -1497,19 +979,16 @@ namespace SunLight {
 
             GetDimension2D().size.nWidth  = ( int ) config.fWidth;
             GetDimension2D().size.nHeight = ( int ) config.fHeight;
-            m_nMapWidth                   = 0;
-            m_nMapHeight                  = 0;
             m_fWindowWidth                = config.fWidth;
             m_fWindowHeight               = config.fHeight;
             m_nTargetFps                  = config.nTargetFps;
             m_strTitle                    = config.strTitle;
             m_fScreenFadeAlpha            = 0.0f;
-            m_pTmxMap                     = NULL;
-            m_pTmxRcMgr                   = nullptr;
 
             // The default view (id 0) uses this renderer's own root viewport in place and
             // starts out active - see ActivateView.
             m_pDefaultView                = std :: make_shared<View>( this, 0, &GetViewport() );
+            m_pDefaultView -> m_pWorld    = m_pDefaultWorld;      // I19c: and always will
             m_pActiveView                 = m_pDefaultView.get();
             m_nNextViewId                 = 1;
             m_pRenderTexture              = nullptr;
@@ -1524,19 +1003,13 @@ namespace SunLight {
             m_bStretchToFill              = config.bStretchToFill;
             m_nMaxFrames                  = config.nMaxFrames;
             m_nFramesRun                  = 0;
-            m_nScrollStepWidth            = config.nScrollStepWidth;
-            m_nScrollStepHeight           = config.nScrollStepHeight;
-            m_ViewControlMode             = config.viewControlMode;
-            m_nWindowBackgroundColor      = __DEFAULT_WINDOW_BK_COLOR;
-            m_pInputHandler               = SunLight :: Input :: InputHandlerFactory :: CreateInputHandler();
-            m_pNullInputEventHandler      = nullptr;
+            m_pDefaultView -> m_Camera.SetScrollStep( config.nScrollStepWidth, config.nScrollStepHeight );
+            m_WindowBackgroundColor       = BLACK_COLOR;
+            m_bWindowBackgroundSet        = false;
+            m_pControllerManager          = std :: make_unique<SunLight :: Input :: ControllerManager>();
+            m_pControllerManager -> SetInputDispatchMode( ToInputDispatchMode( config.viewControlMode ) );
             m_TileMapListenerList.clear();
-            m_KeyInputEventHandlerList.clear();
-            m_GPadInputEventHandlerList.clear();
-            m_SpriteMap.clear();
-            m_GamePadList.clear();
-
-            memset( &m_CameraPos, 0, sizeof( m_CameraPos ) );
+            memset( &m_EffectiveLayerCameraPos, 0, sizeof( m_EffectiveLayerCameraPos ) );
             ResetZoom();
             SetVisible( __DEFAULT_VISIBLE_STATUS );
 
@@ -1553,26 +1026,12 @@ namespace SunLight {
                 // viewport is what LoadMap's alignment math divides by (and
                 // what clips drawing), so leaving it zero-sized crashed
                 // LoadMap with a divide-by-zero and would have drawn nothing.
-                SunLight :: TileMap :: stDimension2D  fullArea {};
+                SunLight :: Base :: stDimension2D  fullArea {};
 
                 fullArea.size.nWidth  = ( int ) config.fWidth;
                 fullArea.size.nHeight = ( int ) config.fHeight;
 
                 GetViewport().SetDimension2D( fullArea );
-            }
-
-            if( config.bUseDefaultKeyHandler )  {
-                InitalizeDefaultUserInputHandlers();
-            }
-         
-            /*
-            * Set the raylib callback texture handlers (this call is protected
-            * to be called just only one time in whole program execution).
-            */
-            if( !m_bInitialized )  {
-                tmx_img_load_func = TextureLoaderCallback;
-                tmx_img_free_func = TextureFreeCallback;
-                m_bInitialized    = true;
             }
         }
 
@@ -1583,8 +1042,8 @@ namespace SunLight {
          * @return The new renderer, or nullptr if the config is invalid
          * (e.g. a backend that isn't compiled into this build);
          */
-        std :: unique_ptr<TileMapRenderer> TileMapRenderer :: Create( const SunLight :: Renderer :: RendererConfig &config,
-                                                                      std :: string *pError )  {
+        std :: unique_ptr<TileMapRenderer> TileMapRenderer :: Create( const SunLight :: Renderer :: RendererConfig& config,
+                                                                      std :: string* pError )  {
 
             if( !config.Validate( pError ) )
                 return nullptr;
@@ -1624,46 +1083,80 @@ namespace SunLight {
              * that a held handle is inert afterwards instead of pointing
              * into freed memory.
              */
-            for( std :: shared_ptr<View> &pView : m_ExtraViews )
+            // I19a: the views' own render targets go while the engine can still release them - a
+            // started renderer's window is still open (Stop releases them otherwise).
+            if( m_bIsStarted )
+                ReleaseViewTargets();
+
+            // I19c: the default world is the one the calls below act on, whatever was active.
+            ActivateView( m_pDefaultView.get() );
+            m_pActiveWorld = m_pDefaultWorld.get();
+
+            // I19c: every world made by CreateWorld lets go of its sprites (they are the game's: no longer
+            // registered, no longer parented to a dead renderer) and of its map, then becomes inert.
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                DetachSprites( *pWorld, true );
+                pWorld -> FreeMap();
+                pWorld -> Detach();
+            }
+
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )
                 pView -> Detach();
 
             m_pDefaultView -> Detach();
 
+            ReleaseRegisteredFonts();
             UnloadMap();
+            UnloadSprites();   // see Stop(): a mapless renderer's sprite lists are not reached by UnloadMap
 
             /*
              * Every sprite that still has this renderer as its parent (registered or removed with
-             * RemoveSprite - see m_ParentedSprites) is let go: after this destructor its parent pointer
+             * RemoveSprite - see Sprites()) is let go: after this destructor its parent pointer
              * would point at a dead renderer, and so would that of its collider and of the canvases that
              * followed it (Sprite::SetParent moves them). A sprite that was destroyed earlier already
              * told us (ChildRemoved) and is not in the set. Iterated over a copy: SetParent calls back
              * into ChildRemoved, which erases from the set.
              */
-            std :: set<SunLight :: Sprite :: Sprite*>  parentedSprites = m_ParentedSprites;
-
-            for( SunLight :: Sprite :: Sprite *pSprite : parentedSprites )  {
+            for( SunLight :: Sprite :: Sprite* pSprite : Sprites().ParentedSprites() )  {
                 if( pSprite -> GetParent() == this )
                     pSprite -> SetParent( nullptr );
             }
 
-            m_ParentedSprites.clear();
+            Sprites().ClearParented();
+            m_pDefaultWorld -> Detach();
 
             if( !m_pNullBackend )
                 s_nLiveDefaultBackendRenderers--;
             m_TileMapListenerList.clear();
-            m_KeyInputEventHandlerList.clear();
-            m_GPadInputEventHandlerList.clear();
         }
 
         /**
          * The camera of the view being drawn: what a world-space canvas adds to a map
          * position to get a position relative to that view - the same offset every map
-         * tile gets (see DrawTile). m_CameraPos is the ACTIVE view's working camera.
+         * tile gets (see LayerRenderer::DrawTile). nLayerId == -1 (BaseCanvas's own sentinel - a loose
+         * canvas, or one never added via AddSprite) gets the true, unscaled Camera::Position(),
+         * exactly as before L1 of the master plan. A real layer id gets that layer's own
+         * parallax factor applied (GetEffectiveCameraForFactor) - computed fresh here, every
+         * call, from the live tmx_layer, NOT from m_EffectiveLayerCameraPos: that member is
+         * only ever valid synchronously during DrawAllLayers's own loop (the tile/object/image
+         * draw path, which never outlives one call), but GetCameraOffset must answer correctly
+         * at any time, including with no render pass having run yet (pinned by
+         * tests/test_viewpasses.cpp's own "GetCameraOffset... with one [renderer]" case) - a
+         * world-space sprite can ask for its camera offset from application code whenever it
+         * likes. A screen-space sprite never calls this at all (TextureCanvas::GetScreenRect
+         * only does for a world-space one), so it is entirely unaffected by any layer's
+         * parallax factor, by construction. Like GetTile's own parallax handling, this uses
+         * the layer's own factor only, not accumulated with any parent group's own - a sprite
+         * registered against a layer nested inside a parallax GROUP is the same narrow,
+         * documented exception.
          */
-        void TileMapRenderer :: GetCameraOffset( float &fX, float &fY )  {
+        void TileMapRenderer :: GetCameraOffset( float& fX, float& fY, int nLayerId )  {
 
-            fX = m_CameraPos.x;
-            fY = m_CameraPos.y;
+            tmx_layer  *pTmxLayer = ( nLayerId >= 0 ) ? GetLayer( nLayerId ) : nullptr;
+            stVector    offset    = pTmxLayer ? GetEffectiveCameraForFactor( pTmxLayer -> parallaxx, pTmxLayer -> parallaxy ) : ActiveCamera().Position();
+
+            fX = offset.x;
+            fY = offset.y;
         }
 
         /**
@@ -1679,24 +1172,21 @@ namespace SunLight {
          * stale entry would resolve to nothing, but it is not left behind).
          * @param pChild The child leaving, as its BaseCanvas;
          */
-        void TileMapRenderer :: ChildRemoved( SunLight :: Canvas :: BaseCanvas *pChild )  {
+        void TileMapRenderer :: ChildRemoved( SunLight :: Canvas :: BaseCanvas* pChild )  {
 
-            for( std :: set<SunLight :: Sprite :: Sprite*> :: iterator itSprite = m_ParentedSprites.begin(); itSprite != m_ParentedSprites.end(); itSprite++ )  {
-                SunLight :: Sprite :: Sprite  *pSprite = *itSprite;
+            // I19c: whichever world it is in - every world is searched (a sprite is in one at a time).
+            std :: vector<World*>  worlds { m_pDefaultWorld.get() };
 
-                if( static_cast<SunLight :: Canvas :: BaseCanvas*>( pSprite ) == pChild )  {
-                    for( std :: pair<const int, SpriteList*> &layer : m_SpriteMap )  {
-                        SpriteList :: iterator itItem = std :: find( layer.second -> begin(), layer.second -> end(), pSprite );
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )
+                worlds.push_back( pWorld.get() );
 
-                        if( itItem != layer.second -> end() )  {
-                            m_CollisionManager.RemoveCollider( layer.first, &pSprite -> GetCollider() );
-                            layer.second -> erase( itItem );
-                        }
-                    }
+            for( World* pWorld : worlds )  {
+                std :: vector<int>              layerIds;
+                SunLight :: Sprite :: Sprite  *pSprite = pWorld -> Sprites().Forget( pChild, layerIds );
 
-                    m_ParentedSprites.erase( itSprite );
-
-                    return;
+                if( pSprite )  {
+                    for( int nLayerId : layerIds )
+                        pWorld -> Collisions().RemoveCollider( nLayerId, &pSprite -> GetCollider() );
                 }
             }
         }
@@ -1704,9 +1194,9 @@ namespace SunLight {
         /**
          * Add a TileMap listener to internal listener list renderer.
          * All listeners will be called for each update step;
-         * @param pListener Pointer to the @ITileMapListener object to add;
+         * @param pListener Pointer to the @ref SunLight::TileMap::ITileMapListener object to add;
          */
-        void TileMapRenderer :: AddTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
+        void TileMapRenderer :: AddTileMapListener( SunLight :: TileMap :: ITileMapListener* pListener )  {
 
             TileMapListenerList :: iterator itItem = std :: find( m_TileMapListenerList.begin(),
                                                                   m_TileMapListenerList.end(),
@@ -1718,9 +1208,9 @@ namespace SunLight {
 
         /**
          * Remove a TileMap listener from internal listener list renderer.
-         * @param pListener Pointer to the @ITileMapListener object to remove;
+         * @param pListener Pointer to the @ref SunLight::TileMap::ITileMapListener object to remove;
          */
-        void TileMapRenderer :: RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener *pListener )  {
+        void TileMapRenderer :: RemoveTileMapListener( SunLight :: TileMap :: ITileMapListener* pListener )  {
 
             TileMapListenerList :: iterator itItem = std :: find( m_TileMapListenerList.begin(),
                                                                   m_TileMapListenerList.end(),
@@ -1835,11 +1325,16 @@ namespace SunLight {
         /**
          * Set the window background color. This color is used when there's no color on any layer or
          * when there's no map loaded.
-         * @param nWindowBackgroundColor The background color to set;
+         * @param color The background color to set;
          */
-        void TileMapRenderer :: SetWindowBackgroundColor( uint32_t nWindowBackgroundColor )  {
+        void TileMapRenderer :: SetWindowBackgroundColor( SunLight :: Base :: stColor color )  {
 
-            m_nWindowBackgroundColor = nWindowBackgroundColor;
+            m_WindowBackgroundColor = color;
+
+            // Once set, the area outside the default viewport takes this colour and the
+            // viewport takes the map's own (see RenderMap). Until then both use the map's
+            // colour, as they always have, so games that never call this are unchanged.
+            m_bWindowBackgroundSet   = true;
         }
 
         /**
@@ -1953,25 +1448,32 @@ namespace SunLight {
          * back; activating the already-active view changes nothing.
          * @param pView The view to activate;
          */
-        View* TileMapRenderer :: ActivateView( View *pView )  {
+        View* TileMapRenderer :: ActivateView( View* pView )  {
 
             View  *pPrevious = m_pActiveView;
 
+            // I19c: the world comes with the view - the one every map, sprite and collision call then
+            // reads (the default view's is always the default world).
+            if( pView != nullptr )
+                m_pActiveWorld = pView -> m_pWorld.get();
+
             if( ( pView == nullptr ) || ( pView == pPrevious ) )
                 return pPrevious;
-
-            pPrevious -> m_State.camera            = m_CameraPos;
-            pPrevious -> m_State.nScrollStepWidth  = m_nScrollStepWidth;
-            pPrevious -> m_State.nScrollStepHeight = m_nScrollStepHeight;
-
-            m_CameraPos         = pView -> m_State.camera;
-            m_nScrollStepWidth  = pView -> m_State.nScrollStepWidth;
-            m_nScrollStepHeight = pView -> m_State.nScrollStepHeight;
 
             SetViewport( pView -> m_pViewport );
             m_pActiveView = pView;
 
             return pPrevious;
+        }
+
+        /**
+         * @brief The active view's camera (S1e of the master plan): the one every camera method of
+         * the renderer reads and moves - the default view's, outside a draw pass and outside a
+         * View's own operation (see ActivateView).
+         */
+        Camera& TileMapRenderer :: ActiveCamera( void ) const  {
+
+            return m_pActiveView -> m_Camera;
         }
 
         /**
@@ -1991,15 +1493,18 @@ namespace SunLight {
          * "the tile size of whatever map is loaded next" if none is yet).
          * @param rect The rectangle of the render target it is shown in - [pos, pos + size);
          */
-        std :: shared_ptr<SunLight :: TileMap :: IView> TileMapRenderer :: CreateView( const SunLight :: TileMap :: stDimension2D& rect )  {
+        std :: shared_ptr<SunLight :: TileMap :: IView> TileMapRenderer :: CreateView( const SunLight :: Base :: stDimension2D& rect )  {
 
             std :: shared_ptr<View>  pView = std :: make_shared<View>( this, m_nNextViewId, nullptr );
 
+            pView -> m_pWorld = m_pDefaultWorld;      // I19c: until SetWorld says otherwise
+
             pView -> m_pViewport -> SetDimension2D( rect );
 
-            if( m_pTmxMap )  {
-                pView -> m_State.nScrollStepWidth  = m_pTmxMap -> tile_width;
-                pView -> m_State.nScrollStepHeight = m_pTmxMap -> tile_height;
+            if( Map() )  {
+                SunLight :: Base :: stSize2D  step = Map() -> DefaultScrollStep();
+
+                pView -> m_Camera.SetScrollStep( step.nWidth, step.nHeight );
             }
 
             m_ExtraViews.push_back( pView );
@@ -2016,7 +1521,7 @@ namespace SunLight {
             if( nViewId == 0 )
                 return m_pDefaultView;
 
-            for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
                 if( pView -> GetId() == nViewId )
                     return pView;
             }
@@ -2045,6 +1550,7 @@ namespace SunLight {
                     std :: shared_ptr<View>  pRemoved = * itView;
 
                     m_ExtraViews.erase( itView );
+                    ReleaseViewTarget( *pRemoved );     // I19a: its own render target, if it had one
                     pRemoved -> Detach();
 
                     return true;
@@ -2058,7 +1564,7 @@ namespace SunLight {
          * Same, by handle. Compared by object, not just by id: ids are per
          * renderer, so another renderer's view 1 is not this renderer's view 1.
          */
-        bool TileMapRenderer :: RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView> &pView )  {
+        bool TileMapRenderer :: RemoveView( const std :: shared_ptr<SunLight :: TileMap :: IView>& pView )  {
 
             if( !pView )
                 return false;
@@ -2080,6 +1586,463 @@ namespace SunLight {
         }
 
         /**
+         * @brief Make a world the ACTIVE one (I19c of the master plan): the one Map, Sprites and
+         * Collisions read. World's own operations use it (World::Run), and ActivateView does it with
+         * every view. Activating nullptr changes nothing.
+         * @param pWorld The world;
+         * @return The world that was active, so the caller can put it back;
+         */
+        World* TileMapRenderer :: ActivateWorld( World* pWorld )  {
+
+            World  *pPrevious = m_pActiveWorld;
+
+            if( pWorld != nullptr )
+                m_pActiveWorld = pWorld;
+
+            return pPrevious;
+        }
+
+        /**
+         * @brief This renderer's world behind a handle: the default world or one made by CreateWorld,
+         * compared by object (another renderer's world, or a removed one, is not found).
+         * @param pWorld The handle;
+         * @return The world, or nullptr;
+         */
+        World* TileMapRenderer :: FindWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld ) const  {
+
+            if( !pWorld )
+                return nullptr;
+
+            if( pWorld.get() == static_cast<SunLight :: TileMap :: IWorld*>( m_pDefaultWorld.get() ) )
+                return m_pDefaultWorld.get();
+
+            for( const std :: shared_ptr<World>& pOwn : m_ExtraWorlds )  {
+                if( pWorld.get() == static_cast<SunLight :: TileMap :: IWorld*>( pOwn.get() ) )
+                    return pOwn.get();
+            }
+
+            return nullptr;
+        }
+
+        /**
+         * @brief The renderer's own shared reference to one of its worlds.
+         * @param pWorld The world (FindWorld's);
+         * @return The reference; empty when it is not this renderer's;
+         */
+        std :: shared_ptr<World> TileMapRenderer :: OwningHandle( World* pWorld ) const  {
+
+            if( pWorld == m_pDefaultWorld.get() )
+                return m_pDefaultWorld;
+
+            for( const std :: shared_ptr<World>& pOwn : m_ExtraWorlds )  {
+                if( pOwn.get() == pWorld )
+                    return pOwn;
+            }
+
+            return nullptr;
+        }
+
+        /**
+         * @brief Whether a sprite is registered in a world other than the active one (I19c: a sprite
+         * belongs to one world at a time, so AddSprite refuses it there).
+         * @param sprite The sprite;
+         * @return true when another world holds it;
+         */
+        bool TileMapRenderer :: InAnotherWorld( SunLight :: Sprite :: Sprite& sprite )  {
+
+            if( ( m_pDefaultWorld.get() != m_pActiveWorld ) && m_pDefaultWorld -> Sprites().ContainsAnywhere( &sprite ) )
+                return true;
+
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                if( ( pWorld.get() != m_pActiveWorld ) && pWorld -> Sprites().ContainsAnywhere( &sprite ) )
+                    return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * @brief IWorld::LoadMap (I19c): load a map into a world, replacing its map only once the new
+         * one loaded. No camera moves (unlike LoadMap's alignment): the views showing it keep theirs;
+         * their "-1" scroll steps are resolved for the new map. Its sprites stay registered.
+         * @param world The world;
+         * @param szTmxMapFile The map, a FileSystem path;
+         * @return false when not started or the map cannot be loaded;
+         */
+        bool TileMapRenderer :: LoadWorldMap( World& world, const char* szTmxMapFile )  {
+
+            if( !m_bIsStarted )
+                return false;
+
+            std :: unique_ptr<MapData>  pNewMap = MapData :: Load( szTmxMapFile );
+
+            if( !pNewMap )
+                return false;
+
+            world.SetMap( std :: move( pNewMap ) );
+            ResolveScrollSteps( world );
+
+            return true;
+        }
+
+        /**
+         * @brief IWorld::AddMap (I19d): load a map and place it in a world at an offset. No camera
+         * moves; the "-1" scroll steps of the views showing the world are resolved for its first map.
+         * @param world The world;
+         * @param szTmxMapFile The map, a FileSystem path;
+         * @param nX Its left edge, in the world's pixels;
+         * @param nY Its top edge;
+         * @return Its id in the world; -1 when not started or the map cannot be loaded;
+         */
+        int TileMapRenderer :: AddWorldMap( World& world, const char* szTmxMapFile, int nX, int nY )  {
+
+            if( !m_bIsStarted )
+                return -1;
+
+            std :: unique_ptr<MapData>  pNewMap = MapData :: Load( szTmxMapFile );
+
+            if( !pNewMap )
+                return -1;
+
+            int  nMapId = world.AddMapData( std :: move( pNewMap ), nX, nY );
+
+            ResolveScrollSteps( world );
+
+            return nMapId;
+        }
+
+        /**
+         * @brief IWorld::LoadWorld (I19f of the master plan): read a Tiled .world file (WorldFile) and
+         * make the world exactly its maps, at their offsets - all or nothing: every map is loaded
+         * first (MapData::Load), and only when all loaded are the world's maps replaced (FreeMap, then
+         * AddMapData in the file's order, so the first one's layer ids are the world's). On any failure
+         * the reason goes to standard error and the world keeps what it had. Its sprites stay
+         * registered; no camera moves; the views' "-1" scroll steps are resolved for its first map.
+         * @param world The world;
+         * @param szWorldFile The .world file, a FileSystem path;
+         * @return false when not started, the file cannot be read or used, or a map cannot be loaded;
+         */
+        bool TileMapRenderer :: LoadWorldFile( World& world, const char* szWorldFile )  {
+
+            if( !m_bIsStarted || !szWorldFile )
+                return false;
+
+            std :: vector<stWorldFileMap>  entries;
+            std :: string                  strError;
+
+            if( !WorldFile :: Read( szWorldFile, entries, strError ) )  {
+                fprintf( stderr, "Cannot load world: [%s] %s\n", szWorldFile, strError.c_str() );
+                return false;
+            }
+
+            std :: vector<std :: unique_ptr<MapData>>  maps;
+
+            for( const stWorldFileMap& entry : entries )  {
+                std :: unique_ptr<MapData>  pMap = MapData :: Load( entry.strPath.c_str() );
+
+                if( !pMap )  {
+                    fprintf( stderr, "Cannot load world: [%s] its map [%s] could not be loaded\n", szWorldFile, entry.strPath.c_str() );
+                    return false;           // the maps loaded so far are freed here; the world is untouched
+                }
+
+                maps.push_back( std :: move( pMap ) );
+            }
+
+            world.FreeMap();
+
+            for( size_t nIndex = 0; nIndex < maps.size(); nIndex++ )
+                world.AddMapData( std :: move( maps[nIndex] ), entries[nIndex].nX, entries[nIndex].nY );
+
+            ResolveScrollSteps( world );
+
+            return true;
+        }
+
+        /**
+         * @brief IWorld::GetTile with a map id (I19d): this renderer's own GetTile on that map (made the
+         * world's current one, the world active), its layer of that world id, and the rectangle moved by
+         * the map's offset into the world's pixels.
+         * @param world The world;
+         * @param nMapIndex The map's index in the world;
+         * @param pos The cell;
+         * @param nLayerId The world layer id;
+         * @param tile Receives the tile;
+         * @return false with no such layer in that map, or no tile there;
+         */
+        bool TileMapRenderer :: WorldTile( World& world, size_t nMapIndex, const SunLight :: TileMap :: stMatrixPosition& pos,
+                                           int nLayerId, SunLight :: TileMap :: stTile& tile )  {
+
+            SunLight :: TileMap :: stLayer  layer {};
+
+            layer.pLayer = world.LayerInMap( nMapIndex, nLayerId );
+
+            if( !layer.pLayer )
+                return false;
+
+            World   *pPreviousWorld = ActivateWorld( &world );
+            size_t  nSavedMap       = world.CurrentMapIndex();
+
+            world.SetCurrentMap( nMapIndex );
+
+            bool  bResult = GetTile( pos, layer, tile );
+
+            world.SetCurrentMap( nSavedMap );
+            ActivateWorld( pPreviousWorld );
+
+            if( bResult )  {
+                tile.dimension.pos.x += world.PlacedMap( nMapIndex ).nX;
+                tile.dimension.pos.y += world.PlacedMap( nMapIndex ).nY;
+            }
+
+            return bResult;
+        }
+
+        /**
+         * @brief IWorld::UnloadMap (I19c): free a world's map and DETACH its sprites - their
+         * registrations and colliders go, the sprites are neither destroyed nor emptied and stay
+         * parented, as after RemoveSprite. (The older UnloadMap also unloads the default world's
+         * sprites - Sprite::Unload - and keeps doing so.)
+         * @param world The world;
+         * @return false when it had no map;
+         */
+        bool TileMapRenderer :: UnloadWorldMap( World& world )  {
+
+            if( !world.Map() )
+                return false;
+
+            DetachSprites( world, false );
+            world.FreeMap();
+
+            return true;
+        }
+
+        /**
+         * @brief Take every sprite out of a world without touching the sprite (I19c): each
+         * registration and its collider go. With bReleaseParents the sprites this renderer is the
+         * parent of are let go too (RemoveWorld, the destructor): Sprite::SetParent( nullptr ), so no
+         * sprite keeps a parent pointer into a renderer it no longer belongs to.
+         * @param world The world;
+         * @param bReleaseParents Whether the sprites stop being this renderer's children;
+         */
+        void TileMapRenderer :: DetachSprites( World& world, bool bReleaseParents )  {
+
+            for( const std :: pair<int, SunLight :: Sprite :: Sprite*>& registration : world.Sprites().Registrations() )  {
+                world.Collisions().RemoveCollider( registration.first, &registration.second -> GetCollider() );
+                world.Sprites().Remove( registration.first, registration.second );
+            }
+
+            if( bReleaseParents )  {
+                // Over a copy (ParentedSprites): SetParent calls back into ChildRemoved, which erases.
+                for( SunLight :: Sprite :: Sprite* pSprite : world.Sprites().ParentedSprites() )  {
+                    if( pSprite -> GetParent() == this )
+                        pSprite -> SetParent( nullptr );
+                }
+
+                world.Sprites().ClearParented();
+            }
+        }
+
+        /**
+         * @brief Resolve a "-1" scroll step (the map's tile size) for every view showing a world, now
+         * that the world has a map (I19c): the default view and the extra views showing it.
+         * @param world The world;
+         */
+        void TileMapRenderer :: ResolveScrollSteps( World& world )  {
+
+            if( !world.Map() )
+                return;
+
+            SunLight :: Base :: stSize2D  step = world.Map() -> DefaultScrollStep();
+
+            if( m_pDefaultView -> m_pWorld.get() == &world )
+                m_pDefaultView -> m_Camera.ResolveScrollStep( step );
+
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
+                if( pView -> m_pWorld.get() == &world )
+                    pView -> m_Camera.ResolveScrollStep( step );
+            }
+        }
+
+        /**
+         * @brief The view whose camera a world's view-relative colliders are tested with (I19c): the
+         * default view for the default world; for another, the first visible view showing it, by id;
+         * the default view when none does (a world no view shows has no camera of its own - a
+         * world-space sprite does not need one).
+         * @param world The world;
+         * @return The view;
+         */
+        View* TileMapRenderer :: ViewShowing( World& world )  {
+
+            if( &world != m_pDefaultWorld.get() )  {
+                for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
+                    if( pView -> m_bVisible && ( pView -> m_pWorld.get() == &world ) )
+                        return pView.get();
+                }
+            }
+
+            return m_pDefaultView.get();
+        }
+
+        /**
+         * @brief IView::SetWorld (I19c): show another world in a view made by CreateView. The camera
+         * stays; a "-1" scroll step is resolved for the world's map. The default view always shows the
+         * default world.
+         * @param view The view;
+         * @param pWorld The world;
+         * @return false for an empty, removed or foreign world, or the default view given any world but
+         * the default one (true for that one: nothing changes);
+         */
+        bool TileMapRenderer :: SetViewWorld( View& view, const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld )  {
+
+            World  *pOwn = FindWorld( pWorld );
+
+            // The default view always shows the default world: asked for it, nothing changes and that
+            // is a yes (I21 - a game may set every view's world in one loop); any other world, a no.
+            if( &view == m_pDefaultView.get() )
+                return ( pOwn == m_pDefaultWorld.get() );
+
+            if( pOwn == nullptr )
+                return false;
+
+            view.m_pWorld = OwningHandle( pOwn );
+
+            if( pOwn -> Map() )
+                view.m_Camera.ResolveScrollStep( pOwn -> Map() -> DefaultScrollStep() );
+
+            if( m_pActiveView == &view )
+                m_pActiveWorld = pOwn;
+
+            return true;
+        }
+
+        /**
+         * @brief A world's GetCollidingTiles (its ITileSource, I19c): this renderer's own, with the
+         * world active together with the view whose camera its view-relative colliders are drawn with
+         * (ViewShowing), both put back afterwards.
+         * @param world The world;
+         * @param rect The collider's rectangle;
+         * @param bWorldSpace Whether rect is already a map position;
+         * @param layer The tile layer;
+         * @param tiles Receives the tiles touched;
+         * @return Whether the layer could be tested;
+         */
+        bool TileMapRenderer :: CollidingTilesIn( World& world,
+                                                  const SunLight :: Base :: stRectangle& rect,
+                                                  bool bWorldSpace,
+                                                  const SunLight :: TileMap :: stLayer& layer,
+                                                  std :: vector<SunLight :: TileMap :: stTile>& tiles )  {
+
+            World  *pOriginalWorld = m_pActiveWorld;
+            View   *pPreviousView  = ActivateView( ViewShowing( world ) );
+
+            m_pActiveWorld = &world;
+
+            bool  bResult = GetCollidingTiles( rect, bWorldSpace, layer, tiles );
+
+            ActivateView( pPreviousView );
+            m_pActiveWorld = pOriginalWorld;
+
+            return bResult;
+        }
+
+        /**
+         * @brief Whether any world has something to draw - a map, or sprites (I19c): the frame draws
+         * the views only then, as it drew them only with a map or sprites before.
+         * @return true when some world has a map or a sprite;
+         */
+        bool TileMapRenderer :: AnyWorldHasContent( void ) const  {
+
+            if( m_pDefaultWorld -> Map() || !m_pDefaultWorld -> Sprites().Empty() )
+                return true;
+
+            for( const std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                if( pWorld -> Map() || !pWorld -> Sprites().Empty() )
+                    return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * @brief The frame step of every world no pass drew (I19c): its sprites advance once, drawing
+         * nothing - every live world updates, shown or not. The default world keeps its older rule (a
+         * sprite on a layer no view shows stands still), so it is not advanced here.
+         */
+        void TileMapRenderer :: AdvanceUndrawnWorlds( void )  {
+
+            for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                if( m_DrawnWorlds.find( pWorld.get() ) == m_DrawnWorlds.end() )
+                    pWorld -> Sprites().AdvanceAll();
+            }
+        }
+
+        /**
+         * @brief The default world (I19c): the one the single-map calls act on and the default view
+         * shows.
+         * @return Its handle (never empty);
+         */
+        std :: shared_ptr<SunLight :: TileMap :: IWorld> TileMapRenderer :: GetDefaultWorld( void )  {
+
+            return m_pDefaultWorld;
+        }
+
+        /**
+         * @brief A new, empty world (I19c), kept by this renderer until RemoveWorld.
+         * @return Its handle;
+         */
+        std :: shared_ptr<SunLight :: TileMap :: IWorld> TileMapRenderer :: CreateWorld( void )  {
+
+            std :: shared_ptr<World>  pWorld = std :: make_shared<World>( this, m_nNextWorldId );
+
+            m_nNextWorldId++;
+            m_ExtraWorlds.push_back( pWorld );
+
+            return pWorld;
+        }
+
+        /**
+         * @brief Remove a world made by CreateWorld (I19c): every view showing it goes back to the
+         * default world, its sprites are detached and let go (DetachSprites), its map is freed, and it
+         * becomes inert (World::Detach) - a handle still held is safe.
+         * @param pWorld The world;
+         * @return false for the default world, an empty, removed or foreign one;
+         */
+        bool TileMapRenderer :: RemoveWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld )  {
+
+            World  *pOwn = FindWorld( pWorld );
+
+            if( ( pOwn == nullptr ) || ( pOwn == m_pDefaultWorld.get() ) )
+                return false;
+
+            for( std :: shared_ptr<View>& pView : m_ExtraViews )  {
+                if( pView -> m_pWorld.get() == pOwn )
+                    pView -> m_pWorld = m_pDefaultWorld;
+            }
+
+            if( m_pActiveWorld == pOwn )
+                m_pActiveWorld = m_pDefaultWorld.get();
+
+            // Kept alive across the erase: the detach and the map's release run on it.
+            std :: shared_ptr<World>  pRemoved = OwningHandle( pOwn );
+
+            m_ExtraWorlds.erase( std :: find( m_ExtraWorlds.begin(), m_ExtraWorlds.end(), pRemoved ) );
+            DetachSprites( *pRemoved, true );
+            pRemoved -> FreeMap();
+            pRemoved -> Detach();
+
+            return true;
+        }
+
+        /**
+         * @brief The number of worlds, the default one included (I19c).
+         * @return At least 1;
+         */
+        int TileMapRenderer :: GetWorldCount( void )  {
+
+            return ( int ) m_ExtraWorlds.size() + 1;
+        }
+
+        /**
          * Set the view port control mode;
          * Viewport control mode (active and reactive)
          * Active, the view port reacts to a single key pressing continuously;
@@ -2088,7 +2051,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetViewControlMode( SunLight :: Renderer :: ViewControlMode mode )  {
 
-            m_ViewControlMode = mode;
+            m_pControllerManager -> SetInputDispatchMode( ToInputDispatchMode( mode ) );
         }
 
         /**
@@ -2100,8 +2063,7 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetScrollStepSize( int nStepWidth, int nStepHeight )  {
 
-            m_nScrollStepWidth  = nStepWidth;
-            m_nScrollStepHeight = nStepHeight;
+            ActiveCamera().SetScrollStep( nStepWidth, nStepHeight );
         }
 
         /**
@@ -2113,74 +2075,69 @@ namespace SunLight {
          * still unresolved;
          * @param nStepHeight Receives the vertical step, same rule;
          */
-        void TileMapRenderer :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
+        void TileMapRenderer :: GetScrollStepSize( int& nStepWidth, int& nStepHeight )  {
 
-            nStepWidth  = m_nScrollStepWidth;
-            nStepHeight = m_nScrollStepHeight;
+            ActiveCamera().GetScrollStep( nStepWidth, nStepHeight );
         }
 
         /**
          * @brief Set the Game Pad Id that will be handled by this renderer;
-         * 
-         * @param nIndex The GamePad device index to set GamePadId;  
-         * @param nGamePadId The gme pad id to set;
+         *
+         * @param nGamePadId The game pad id to set;
          */
         void TileMapRenderer :: AddGamePad( int nGamePadId )  {
 
-            m_GamePadList.push_back( nGamePadId );
+            m_pControllerManager -> AddGamePad( nGamePadId );
         }
 
         /**
          * @brief Set the User Key Event Handler callback routine.
-         * 
+         *
          * @param evt The event code to call related routine;
          * @param handler The callback routine that will be called for key event;
          */
-        void TileMapRenderer :: SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt, 
+        void TileMapRenderer :: SetUserKeyEventHandler( SunLight :: Input :: KeyboardKey evt,
                                                         SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
-            if( evt != SunLight :: Input :: KeyboardKey :: KEY_NULL )  {
-                std :: unique_ptr<__stInputEventData>  pEvtData = std :: make_unique<__stInputEventData>();
-
-                pEvtData -> nEvent   = evt;
-                pEvtData -> pHandler = handler;
-                m_KeyInputEventHandlerList.push_back( std :: move( pEvtData ) );
-            }
-            else  {
-                m_pNullInputEventHandler = handler;
-            }
+            m_pControllerManager -> SetUserKeyEventHandler( evt, handler );
         }
 
         /**
           * @brief Set the User Game Pad button event Handler callback routine.
-          * 
+          *
           * @param evt The event code to call related routine;
           * @param handler The callback routine that will be called for key event;
           */
-        void TileMapRenderer :: SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt, 
+        void TileMapRenderer :: SetUserGamePadEventHandler( SunLight :: Input :: GamepadButton evt,
                                                             SunLight :: Input :: INPUT_EVENT_HANDLER handler )  {
 
-            std :: unique_ptr<__stInputEventData>  pEvtData = std :: make_unique<__stInputEventData>();
-
-            pEvtData -> nEvent   = evt;
-            pEvtData -> pHandler = handler;
-            m_GPadInputEventHandlerList.push_back( std :: move( pEvtData ) );
+            m_pControllerManager -> SetUserGamePadEventHandler( evt, handler );
         }
 
         /**
          * @brief Get the Input Handler object
-         * 
-         * @return S\The reference to IInputHandler object;
+         *
+         * @return The reference to IInputHandler object;
          */
         SunLight :: Input :: IInputHandler& TileMapRenderer :: GetInputHandler( void )  {
 
-            return *m_pInputHandler;
+            return m_pControllerManager -> GetInputHandler();
+        }
+
+        /**
+         * @brief Get the controller manager these input methods delegate to (F0a of the master
+         * plan), for direct access - the same shape as GetCollisionManager().
+         * @return A reference to the IControllerManager object;
+         */
+        SunLight :: Input :: IControllerManager& TileMapRenderer :: GetControllerManager( void )  {
+
+            return *m_pControllerManager;
         }
 
         /**
          * Reset zoom to it's default state.
          */
-        void TileMapRenderer :: ResetZoom( void ) {
+        void TileMapRenderer :: ResetZoom( void )  {
 
             GetViewport().ResetZoom();
         }
@@ -2188,7 +2145,7 @@ namespace SunLight {
         /**
          * Performs Zoom In effect.
          */
-        void TileMapRenderer :: ZoomIn( void ) {
+        void TileMapRenderer :: ZoomIn( void )  {
 
             GetViewport().ZoomIn();
         }
@@ -2196,7 +2153,7 @@ namespace SunLight {
         /**
          * Performs Zoom Out effect.
          */
-        void TileMapRenderer :: ZoomOut( void ) {
+        void TileMapRenderer :: ZoomOut( void )  {
 
             GetViewport().ZoomOut();
         }
@@ -2206,89 +2163,74 @@ namespace SunLight {
          */
         void TileMapRenderer :: ResetCamera( void )  {
 
-            m_CameraPos.x = 0;
-            m_CameraPos.y = 0;
+            // I19d: the world's top-left - the origin, unless a map sits at a negative offset.
+            SunLight :: Base :: stDimension2D  bounds = m_pActiveWorld -> Bounds();
+
+            ActiveCamera().Reset();
+
+            if( ( bounds.pos.x != 0 ) || ( bounds.pos.y != 0 ) )
+                ActiveCamera().SetPosition( bounds.pos.x, bounds.pos.y );
         }
 
         /**
-         * Move view camera up. Does nothing while no map is loaded: the
-         * scroll limit is worked out from the map's tile size and extent.
+         * Move view camera up: one scroll step, or less when less is left - the last step stops
+         * with the map's bottom edge on the viewport's bottom edge (Camera::MoveUp). Does nothing
+         * while no map is loaded: the limit is worked out from the map's extent.
          */
         void TileMapRenderer :: MoveCameraUp( void )  {
 
-            if( !m_pTmxMap )
+            if( !Tmx() )
                 return;
 
-            SunLight :: Base :: Viewport&  vp = GetViewport();
-            int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.y - 
-                                                                        m_nScrollStepHeight + 
-                                                                        m_nMapHeight +
-                                                                        m_pTmxMap -> tile_height ) * 
-                                                                        vp.GetZoomProperties().fZoomFactor );
+            SunLight :: Base :: Viewport  &vp = GetViewport();
 
-            // The vertical boundary is compared against the viewport's
-            // bottom edge (pos.y + height - it used to compare its WIDTH,
-            // a copy-paste of MoveCameraLeft's horizontal check, which only
-            // happened to work for a square viewport). The edge, not the
-            // bare height, because nMapBoundary is measured from the
-            // render target's origin: this keeps the scroll limit exactly
-            // where it always was for the same visible area.
-            if( ( vp.GetDimension2D().pos.y + vp.GetDimension2D().size.nHeight ) < nMapBoundary )
-                m_CameraPos.y-=m_nScrollStepHeight;
+            SunLight :: Base :: stDimension2D  bounds = m_pActiveWorld -> Bounds();     // I19d: every map of the world
+
+            ActiveCamera().MoveUp( vp.GetDimension2D().size.nHeight, vp.GetZoomProperties().fZoomFactor, bounds.pos.y + bounds.size.nHeight );
         }
 
         /**
-         * Move view camera down.
+         * Move view camera down: one scroll step, or less when less is left - the last step stops
+         * at the origin (Camera::MoveDown).
          */
         void TileMapRenderer :: MoveCameraDown( void )  {
 
-            int    nMapBoundary = ( int ) ( m_CameraPos.y + m_nScrollStepHeight );
-
-            if( nMapBoundary < 0 )
-                m_CameraPos.y+=m_nScrollStepHeight;
+            // I19d: the world's top edge, which a map at a negative offset moves above 0.
+            ActiveCamera().MoveDown( ( float ) -m_pActiveWorld -> Bounds().pos.y );
         }
 
         /**
-         * Move view camera left. Does nothing while no map is loaded (see
-         * @see MoveCameraUp).
+         * Move view camera left: one scroll step, or less when less is left - the last step stops
+         * with the map's right edge on the viewport's right edge (Camera::MoveLeft). Does nothing
+         * while no map is loaded.
          */
         void TileMapRenderer :: MoveCameraLeft( void )  {
 
-            if( !m_pTmxMap )
+            if( !Tmx() )
                 return;
 
-            SunLight :: Base :: Viewport&  vp = GetViewport();
-            int                  nErrorFix    = ( m_pTmxMap -> tile_width / std :: round( vp.GetZoomProperties().fZoomFactor ) );
-            int                  nMapBoundary = ( int ) std :: round( ( m_CameraPos.x - 
-                                                                        m_nScrollStepWidth + 
-                                                                        m_nMapWidth
-                                                                        + nErrorFix ) * 
-                                                                        vp.GetZoomProperties().fZoomFactor );
+            SunLight :: Base :: Viewport  &vp = GetViewport();
 
-            // Compared against the viewport's right edge (pos.x + width):
-            // nMapBoundary is measured from the render target's origin - see
-            // MoveCameraUp.
-            if( ( vp.GetDimension2D().pos.x + vp.GetDimension2D().size.nWidth ) < nMapBoundary )
-                m_CameraPos.x-=m_nScrollStepWidth;
+            SunLight :: Base :: stDimension2D  bounds = m_pActiveWorld -> Bounds();     // I19d: every map of the world
+
+            ActiveCamera().MoveLeft( vp.GetDimension2D().size.nWidth, vp.GetZoomProperties().fZoomFactor, bounds.pos.x + bounds.size.nWidth );
         }
 
         /**
-         * Move view camera right.
+         * Move view camera right: one scroll step, or less when less is left - the last step
+         * stops at the origin (Camera::MoveRight).
          */
         void TileMapRenderer :: MoveCameraRight( void )  {
 
-            int nMapBoundary = ( int ) ( m_CameraPos.x + m_nScrollStepWidth );
-
-            if( nMapBoundary < 0 )
-                m_CameraPos.x+=m_nScrollStepWidth;
+            ActiveCamera().MoveRight( ( float ) -m_pActiveWorld -> Bounds().pos.x );     // I19d: the world's left edge
         }
 
         /**
          * @brief Jump the camera so the given world-space coordinate is
-         * shown at the top-left of the viewport. m_CameraPos itself is the
+         * shown at the top-left of the viewport. Camera::Position() itself is the
          * negated world coordinate currently shown at the viewport's
-         * top-left (confirmed via every MoveCamera call and the alignment-
-         * init code above, all of which treat it that way) - callers pass plain,
+         * top-left (confirmed via every Move call and the alignment code,
+         * Camera::Align, all of which treat it that way) - callers pass plain,
          * positive world-space coordinates (the same space stObject's
          * x/y and TileMapToTileMatrix's input already use), not this
          * internal negated convention.
@@ -2310,14 +2252,13 @@ namespace SunLight {
          */
         void TileMapRenderer :: SetCameraPosition( int nX, int nY )  {
 
-            m_CameraPos.x = ( float ) -nX;
-            m_CameraPos.y = ( float ) -nY;
+            ActiveCamera().SetPosition( nX, nY );
         }
 
         /**
          * @brief Read the world-space coordinate currently shown at the
          * top-left of the viewport - the exact inverse of
-         * SetCameraPosition (m_CameraPos itself stores the negated
+         * SetCameraPosition (Camera::Position() itself stores the negated
          * coordinate, same convention that method's own comment covers).
          *
          * @param nX Receives the world-space x coordinate (pixels)
@@ -2325,10 +2266,9 @@ namespace SunLight {
          * @param nY Receives the world-space y coordinate (pixels)
          * currently shown at the viewport's top edge.
          */
-        void TileMapRenderer :: GetCameraPosition( int &nX, int &nY )  {
+        void TileMapRenderer :: GetCameraPosition( int& nX, int& nY )  {
 
-            nX = ( int ) -m_CameraPos.x;
-            nY = ( int ) -m_CameraPos.y;
+            ActiveCamera().GetPosition( nX, nY );
         }
 
         /**
@@ -2342,7 +2282,7 @@ namespace SunLight {
          *
          * @param strTitle The new window title;
          */
-        void TileMapRenderer :: SetWindowTitle( const std :: string &strTitle )  {
+        void TileMapRenderer :: SetWindowTitle( const std :: string& strTitle )  {
 
             m_strTitle = strTitle;
 
@@ -2353,23 +2293,120 @@ namespace SunLight {
         /**
          * @brief Set a whole-screen fade overlay. Stored here and drawn by
          * @see Run() as the very last thing each frame, on top of whatever
-         * else was rendered - see Run()'s own comment for why.
+         * else was rendered - see Run()'s own comment for why. Clamped to 0..1 (I9 of the master
+         * plan), like a layer's opacity: Run() turns it into an alpha byte, and a float outside
+         * that byte's range converts with undefined behaviour (1.5 drew a light fade, not black).
+         * A NaN is no fade.
          */
         void TileMapRenderer :: SetScreenFade( float fAlpha )  {
 
-            m_fScreenFadeAlpha = fAlpha;
+            m_fScreenFadeAlpha = std :: isnan( fAlpha ) ? __OPACITY_MIN : std :: clamp( fAlpha, __OPACITY_MIN, __OPACITY_MAX );
         }
 
         /**
-         * @brief Load (or replace) the font used by @see DrawText (see
-         * @see IDrawSurface::SetFont). A thin pass-through to IEngine - unlike
-         * @see SetWindowResizeable, there's no pre-Start() path to support
-         * here (loading a font needs the render context IEngine's backend
-         * already requires), so this is always forwarded directly.
+         * @brief Draw by the given mode until EndBlendMode (see IDrawSurface::BeginBlendMode).
+         * A pass-through to IEngine; Run() takes the frame back to BLEND_MODE_NORMAL before the
+         * screen fade.
+         * @param mode The mode to draw in;
          */
-        bool TileMapRenderer :: SetFont( const char *szFilePath )  {
+        void TileMapRenderer :: BeginBlendMode( SunLight :: Base :: BlendMode mode )  {
 
-            return SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( szFilePath );
+            SunLight :: Engines :: EngineFactory :: GetEngine().SetBlendMode( mode );
+        }
+
+        /**
+         * @brief Draw by BLEND_MODE_NORMAL again (see IDrawSurface::EndBlendMode).
+         */
+        void TileMapRenderer :: EndBlendMode( void )  {
+
+            SunLight :: Engines :: EngineFactory :: GetEngine().SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
+        }
+
+        /**
+         * @brief Load a font, without selecting it (see @see IDrawSurface::LoadFont, I3 of the
+         * master plan). Needs a started renderer: loading a font needs the window's render
+         * context, which Start() creates.
+         * @param szFilePath The font file;
+         * @return The font, shared; nullptr before Start() or if it could not be loaded;
+         */
+        std :: shared_ptr<SunLight :: Font :: IFont> TileMapRenderer :: LoadFont( const char* szFilePath )  {
+
+            if( !m_bIsStarted )
+                return nullptr;
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().LoadFont( szFilePath );
+        }
+
+        /**
+         * @brief Select the font @see DrawText and @see MeasureText use (see
+         * @see IDrawSurface::SetFont). A thin pass-through to IEngine, which
+         * shares the font while it is active. Stop() selects the built-in font
+         * again, before the window closes.
+         * @param pFont A font from LoadFont, or nullptr for the built-in font;
+         * @return Whether pFont is now the active font;
+         */
+        bool TileMapRenderer :: SetFont( std :: shared_ptr<SunLight :: Font :: IFont> pFont )  {
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( std :: move( pFont ) );
+        }
+
+        /**
+         * @brief The font SetFont selected (see @see IDrawSurface::GetFont).
+         * @return The active font; nullptr while the built-in font is used;
+         */
+        std :: shared_ptr<SunLight :: Font :: IFont> TileMapRenderer :: GetFont( void )  {
+
+            return SunLight :: Engines :: EngineFactory :: GetEngine().GetFont();
+        }
+
+        /**
+         * @brief Register a loaded font for text objects (see TextObjectRenderer):
+         * a text object draws with the font whose family and bold/italic flags
+         * match its own. The font is shared, not copied (I3): the same font can
+         * also be the active font (SetFont) or serve other families, and loading
+         * it is LoadFont's job.
+         *
+         * The registry lets go of its fonts in Stop(), before the window closes.
+         * Registering the same family and style again replaces the earlier font,
+         * so a game can swap a font without stopping the renderer.
+         *
+         * @param szFamily Family name, as Tiled's fontfamily spells it;
+         * @param pFont The font (from LoadFont);
+         * @param bBold Whether this is the bold face of the family;
+         * @param bItalic Whether this is the italic face of the family;
+         * @return true if the font is registered; false for no family, no font
+         * or a font no longer valid (nothing is registered, and an earlier font
+         * for the same family and style is kept);
+         */
+        bool TileMapRenderer :: RegisterFont( const char* szFamily, std :: shared_ptr<SunLight :: Font :: IFont> pFont, bool bBold, bool bItalic )  {
+
+            return m_Fonts.Register( szFamily, std :: move( pFont ), bBold, bItalic );
+        }
+
+        /**
+         * @brief Let go of a font in every family and style it was registered for (see
+         * FontRegistry::Unregister, I3 of the master plan): the handle is all that is needed.
+         * Text objects of those families draw ?????? again. The font is released if no one
+         * else holds it.
+         * @param pFont The font, as LoadFont gave it;
+         * @return true if it was registered for at least one family and style;
+         */
+        bool TileMapRenderer :: UnregisterFont( const std :: shared_ptr<SunLight :: Font :: IFont>& pFont )  {
+
+            return m_Fonts.Unregister( pFont.get() );
+        }
+
+        /**
+         * @brief Let go of the font registered for one family and style, leaving its other
+         * families and styles registered.
+         * @param szFamily Family name, as Tiled's fontfamily spells it;
+         * @param bBold Whether this is the bold face of the family;
+         * @param bItalic Whether this is the italic face of the family;
+         * @return true if a font was registered for exactly that family and style;
+         */
+        bool TileMapRenderer :: UnregisterFont( const char* szFamily, bool bBold, bool bItalic )  {
+
+            return m_Fonts.Unregister( szFamily, bBold, bItalic );
         }
 
         /**
@@ -2377,7 +2414,7 @@ namespace SunLight {
          * @see IDrawSurface::DrawText). A thin pass-through to IEngine, same
          * shape as @see SetFont.
          */
-        void TileMapRenderer :: DrawText( const char *szText,
+        void TileMapRenderer :: DrawText( const char* szText,
                                           int nPosX,
                                           int nPosY,
                                           int nFontSize,
@@ -2413,7 +2450,7 @@ namespace SunLight {
          * @see IDrawSurface::MeasureText). A thin pass-through to IEngine,
          * same shape as @see DrawText.
          */
-        int TileMapRenderer :: MeasureText( const char *szText, int nFontSize )  {
+        int TileMapRenderer :: MeasureText( const char* szText, int nFontSize )  {
 
             return SunLight :: Engines :: EngineFactory :: GetEngine().MeasureText( szText, nFontSize );
         }
@@ -2440,37 +2477,62 @@ namespace SunLight {
         }
 
         /**
-         * Set layer parameters.
+         * Set layer parameters - of the active world's layer of that (world) layer id, in every map
+         * that has it (I21, SetWorldLayer); with one map, that map's layer.
          * @param nLayerId The layer id to set layer parameters;
          * @param layer reference to layer parameters structure to set;
+         * @return false when no map has that layer;
          */
-        bool TileMapRenderer :: SetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: SetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer *pTmxLayer = GetLayer( nLayerId );
-
-            if( pTmxLayer )  {
-                CopyLayerToTmx( pTmxLayer, layer );
-                return true;
-            }
-
-            return false;
+            return SetWorldLayer( *m_pActiveWorld, nLayerId, layer );     // I21: every map of the world
         }
 
         /**
-         * Set layer parameters.
+         * Set layer parameters, by name: the world layer id of that name (World::FindLayerId), then as
+         * by id (I21).
          * @param szLayerName The layer name to set layer parameters;
          * @param layer reference to layer parameters structure to set;
+         * @return false when no map has a layer of that name;
          */
-        bool TileMapRenderer :: SetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: SetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer *pTmxLayer = GetLayer( szLayerName );
+            return SetWorldLayer( *m_pActiveWorld, m_pActiveWorld -> FindLayerId( szLayerName ), layer );   // I21
+        }
 
-            if( pTmxLayer )  {
+        /**
+         * @brief SetLayer for a world (I21 of the master plan): the values go to the layer of that world
+         * layer id in EVERY map that has it (CopyLayerToTmx each), since a world's maps draw their layers
+         * matched by name - one layer must look the same on both sides of a map edge. With one map, that
+         * map's layer of that id, exactly as SetLayer always did. layer.pLayer ends on the first map's
+         * layer, the one GetLayer reads.
+         * @param world The world;
+         * @param nWorldLayerId The world layer id (-1 matches nothing);
+         * @param layer The values to set;
+         * @return false when no map of the world has that layer;
+         */
+        bool TileMapRenderer :: SetWorldLayer( World& world, int nWorldLayerId, SunLight :: TileMap :: stLayer& layer )  {
+
+            tmx_layer  *pFirst = nullptr;
+
+            for( size_t nIndex = 0; nIndex < world.MapCount(); nIndex++ )  {
+                tmx_layer  *pTmxLayer = world.LayerInMap( nIndex, nWorldLayerId );
+
+                if( !pTmxLayer )
+                    continue;
+
                 CopyLayerToTmx( pTmxLayer, layer );
-                return true;
+
+                if( !pFirst )
+                    pFirst = pTmxLayer;
             }
 
-            return false;
+            if( !pFirst )
+                return false;
+
+            layer.pLayer = pFirst;
+
+            return true;
         }
 
         /**
@@ -2478,9 +2540,9 @@ namespace SunLight {
          * @param nLayerId The layer id to get layer parameters;
          * @param layer reference to layer parameters structure to get;
          */
-        bool TileMapRenderer :: GetLayer( int nLayerId, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: GetLayer( int nLayerId, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer *pTmxLayer = GetLayer( nLayerId );
+            tmx_layer* pTmxLayer = GetLayer( nLayerId );
 
             if( pTmxLayer )  {
                 CopyTmxToLayer( layer, pTmxLayer );
@@ -2495,9 +2557,9 @@ namespace SunLight {
          * @param szLayerName The layer name to get layer parameters;
          * @param layer reference to layer parameters structure to get;
          */
-        bool TileMapRenderer :: GetLayer( const char *szLayerName, SunLight :: TileMap :: stLayer &layer )  {
+        bool TileMapRenderer :: GetLayer( const char* szLayerName, SunLight :: TileMap :: stLayer& layer )  {
 
-            tmx_layer *pTmxLayer = GetLayer( szLayerName );
+            tmx_layer* pTmxLayer = GetLayer( szLayerName );
 
             if( pTmxLayer )  {
                 CopyTmxToLayer( layer, pTmxLayer );
@@ -2508,242 +2570,308 @@ namespace SunLight {
         }
 
         /**
-         * Get a tile based row and column on specified map layer;
-         * @param pos The tile position on layer map.
-         * @param layer Reference to the layer whose tile will be
-         * retrieved;
-         * @param tile reference to @link stTile object to receive
-         * tile information;
+         * Set a layer's own parallax factor in code (L1 of the master plan), overriding
+         * whatever the TMX file itself declared for it.
+         * @param nLayerId The layer id to set the parallax factor for;
+         * @param fFactorX The horizontal parallax factor (1.0 = no parallax);
+         * @param fFactorY The vertical parallax factor (1.0 = no parallax);
          */
-        bool TileMapRenderer :: GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
-                                         const SunLight :: TileMap :: stLayer& layer,
-                                         SunLight :: TileMap :: stTile& tile ) {
+        bool TileMapRenderer :: SetLayerParallax( int nLayerId, float fFactorX, float fFactorY )  {
 
-            tile.nGID = layer.pLayer -> content.gids[( pos.nTileRow *
-                                                     m_pTmxMap -> width ) +
-                                                     pos.nTileCol] &
-                                                    TMX_FLIP_BITS_REMOVAL;
-            tile.pTile = ( m_pTmxMap -> tiles ? m_pTmxMap -> tiles[tile.nGID] : NULL );
+            tmx_layer* pTmxLayer = GetLayer( nLayerId );
 
-            if( !tile.pTile )  {
-                tile.nGID  = 0;
-                tile.pTile = NULL;
-
-                return false;
-            }
-
-            SunLight :: TileMap :: stDimension2D&  vp = GetDimension2D();
-
-            tile.dimension.pos.x        = ( ( pos.nTileCol * m_pTmxMap -> tile_width ) +
-                                            vp.pos.x ) + ( int ) m_CameraPos.x;
-            tile.dimension.pos.y        = ( ( pos.nTileRow * m_pTmxMap -> tile_height ) +
-                                            vp.pos.y ) + ( int ) m_CameraPos.y;
-            tile.dimension.size.nWidth  = ( m_pTmxMap -> tile_width );
-            tile.dimension.size.nHeight = ( m_pTmxMap -> tile_height );
-
-            return true;
-        }
-
-        /**
-         * Convert world coordinate to tile matrix coordinate.
-         * @param coord The World coordinate to translate to tile matrix coordinate;
-         * @param pos Reference to struct @link stMatrixPosition to receive the
-         * tile matrix position based on world coordinate passed as parameter;
-         */
-        bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
-                                                     SunLight :: TileMap :: stMatrixPosition& pos )  {
-
-            if( m_pTmxMap )  {
-                SunLight :: TileMap :: stDimension2D&  vp      = GetViewport().GetDimension2D();
-                SunLight :: Base :: stZoomProperties&  zp      = GetViewport().GetZoomProperties();
-                int                                    nCoordX = ( int ) ( coord.x / zp.fZoomFactor );
-                int                                    nCoordY = ( int ) ( coord.y / zp.fZoomFactor );
-
-
-                if( ( ( nCoordX >= 0 ) && ( nCoordX < m_nMapWidth ) ) &&
-                    ( ( nCoordY >= 0 ) && ( nCoordY < m_nMapHeight ) ) ) {
-                    pos.nTileCol = ( int ) ( ( ( coord.x + vp.pos.x ) -
-                                             m_CameraPos.x ) / m_pTmxMap -> tile_width );
-                    pos.nTileRow = ( int ) ( ( ( coord.y + vp.pos.y ) -
-                                             m_CameraPos.y ) / m_pTmxMap -> tile_height );
-
-                    return ( ( pos.nTileCol >= 0 ) && ( pos.nTileRow >=0 ) );
-                }
+            if( pTmxLayer )  {
+                pTmxLayer -> parallaxx = fFactorX;
+                pTmxLayer -> parallaxy = fFactorY;
+                return true;
             }
 
             return false;
         }
 
         /**
+         * Set a layer's own parallax factor in code (L1 of the master plan), overriding
+         * whatever the TMX file itself declared for it.
+         * @param szLayerName The layer name to set the parallax factor for;
+         * @param fFactorX The horizontal parallax factor (1.0 = no parallax);
+         * @param fFactorY The vertical parallax factor (1.0 = no parallax);
+         */
+        bool TileMapRenderer :: SetLayerParallax( const char* szLayerName, float fFactorX, float fFactorY )  {
+
+            tmx_layer* pTmxLayer = GetLayer( szLayerName );
+
+            if( pTmxLayer )  {
+                pTmxLayer -> parallaxx = fFactorX;
+                pTmxLayer -> parallaxy = fFactorY;
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * @brief A tile's rectangle in map space (I7 of the master plan): where it is drawn on the map,
+         * before any camera, zoom or viewport origin - the cell's TileDrawPosition for the tile's own
+         * tileset size (a tile larger than the grid is drawn from its cell's bottom, as LayerRenderer
+         * draws it), plus the layer's own Tiled offset. A layer's parallax factor is a view effect, so
+         * it is not part of it.
+         * @param pos The cell;
+         * @param pLayer The tile layer;
+         * @param pTile The tile in that cell;
+         * @return The tile's rectangle, in map pixels;
+         */
+        SunLight :: Base :: stDimension2D TileMapRenderer :: TileMapRect( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                                                          tmx_layer* pLayer,
+                                                                          tmx_tile* pTile )  {
+
+            tmx_tileset                         *pTs = pTile -> tileset;
+            SunLight :: Base :: stCoordinate2D  corner = Map() -> MapProjection().TileDrawPosition( pos, Tmx(), pTs -> tile_width,
+                                                                                                         pTs -> tile_height,
+                                                                                                         pLayer -> offsetx,
+                                                                                                         pLayer -> offsety );
+
+            return SunLight :: Base :: stDimension2D { corner, { ( int ) pTs -> tile_width, ( int ) pTs -> tile_height } };
+        }
+
+        /**
+         * Get a tile based row and column on specified map layer. The tile's dimension is its
+         * rectangle in MAP space (TileMapRect, I7 of the master plan): where it is on the map, the
+         * same space as a world-space sprite's position and as Tiled's. It used to be in the view's
+         * space (map position + viewport origin + camera).
+         * @param pos The tile position on layer map.
+         * @param layer Reference to the layer whose tile will be
+         * retrieved;
+         * @param tile reference to @ref SunLight::TileMap::stTile object to receive
+         * tile information;
+         * @return Whether there is a tile there; false with no map loaded;
+         */
+        bool TileMapRenderer :: GetTile( const SunLight :: TileMap :: stMatrixPosition& pos,
+                                         const SunLight :: TileMap :: stLayer& layer,
+                                         SunLight :: TileMap :: stTile& tile )  {
+
+            // The gid and tile (S1c1: MapData::TileAt, which also refuses a position off the map - A6 - and
+            // a gid past libtmx's tiles[] table). With no map there is no tile: it used to dereference null.
+            if( !Map() || ( layer.pLayer == nullptr ) )
+                return false;
+
+            // I19d: a layer of another of the world's maps would be read with this map's size and tile
+            // table - past the end of its cells when that map is smaller.
+            if( ( m_pActiveWorld -> MapCount() > 1 ) && ( Map() -> FindLayer( ( int ) layer.pLayer -> id ) != layer.pLayer ) )
+                return false;
+
+            if( !Map() -> TileAt( pos, layer.pLayer, tile ) )
+                return false;
+
+            tile.dimension = TileMapRect( pos, layer.pLayer, tile.pTile );
+
+            return true;
+        }
+
+        /**
+         * @brief Whether two rectangles overlap, half-open: [x, x + width) on each axis, so two that
+         * only share an edge do not (a sprite resting flush against a wall does not touch it).
+         */
+        static bool RectanglesOverlap( const SunLight :: Base :: stRectangle& a, const SunLight :: Base :: stRectangle& b )  {
+
+            return ( a.x < b.x + b.width ) && ( b.x < a.x + a.width ) &&
+                   ( a.y < b.y + b.height ) && ( b.y < a.y + a.height );
+        }
+
+        /**
+         * @brief The tiles of a tile layer that a collider touches (see ITileMap::GetCollidingTiles,
+         * I7 of the master plan), worked out in MAP space for every projection.
+         *
+         * Found by Scarab: collisions used to look up the single tile under the collider's top-left
+         * corner, through TileMapToTileMatrix, which added the viewport origin (screen pixels) and the
+         * camera to the sprite's position - and the camera again for a world-space sprite, whose
+         * position is already a map position. A sprite reaching a collision tile from the left or from
+         * above never collided, the rest of the window was shifted by the viewport origin, and a
+         * world-space sprite was tested against a tile one camera offset away.
+         *
+         * Now the collider's rectangle is a map rectangle: a world-space one as given, a view-relative
+         * one minus the camera the layer is drawn with (its parallax camera - what is seen is what
+         * collides; a view-relative position p is drawn where map point p - camera is). Zoom never
+         * enters: positions and tiles are both in map pixels. Each map the rectangle overlaps is then
+         * scanned (CollidingTilesInCurrentMap; I19e: every map of a world of several).
+         * @param rect The collider's rectangle (see ITileMap::GetCollidingTiles);
+         * @param bWorldSpace Whether rect is already a map position;
+         * @param layer The tile layer;
+         * @param tiles Receives the tiles touched;
+         * @return Whether the layer could be tested;
+         */
+        bool TileMapRenderer :: GetCollidingTiles( const SunLight :: Base :: stRectangle& rect,
+                                                   bool bWorldSpace,
+                                                   const SunLight :: TileMap :: stLayer& layer,
+                                                   std :: vector<SunLight :: TileMap :: stTile>& tiles )  {
+
+            tiles.clear();
+
+            if( !Map() || ( layer.pLayer == nullptr ) || ( layer.pLayer -> type != L_LAYER ) )
+                return false;
+
+            tmx_layer                       *pLayer  = layer.pLayer;
+            SunLight :: Base :: stRectangle  mapRect = rect;
+
+            if( !bWorldSpace )  {
+                stVector  camera = GetEffectiveCameraForFactor( pLayer -> parallaxx, pLayer -> parallaxy );
+
+                mapRect.x -= camera.x;
+                mapRect.y -= camera.y;
+            }
+
+            // I19e of the master plan: in a world of several maps, EVERY map the collider overlaps (its
+            // pixel box padded by the same margin the scan uses, so a tile drawn taller than the grid and
+            // hanging out of its map counts), each through its own layer of that world id, in its own
+            // pixels; the tiles come back in the world's pixels, map by map in the order they were added.
+            // It used to test only the map under the collider's top-left corner (I19d), so a sprite
+            // straddling a map edge missed the walls on the other side.
+            World  &world = *m_pActiveWorld;
+
+            if( world.MapCount() <= 1 )  {
+                CollidingTilesInCurrentMap( pLayer, mapRect, 0.0f, 0.0f, tiles );
+                return true;
+            }
+
+            size_t  nSavedMap  = world.CurrentMapIndex();
+            int     nWorldId   = world.WorldLayerIdOf( layer.pLayer );
+
+            for( size_t nIndex = 0; nIndex < world.MapCount(); nIndex++ )  {
+                const World :: stPlacedMap  &placed   = world.PlacedMap( nIndex );
+                tmx_layer                   *pMapLayer = world.LayerInMap( nIndex, nWorldId );
+                tmx_map                     *pTmx     = placed.pMap -> Tmx();
+                float                       fPadX    = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmx -> tile_width );
+                float                       fPadY    = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmx -> tile_height );
+                SunLight :: Base :: stRectangle  box { ( float ) placed.nX - fPadX, ( float ) placed.nY - fPadY,
+                                                       ( float ) placed.pMap -> PixelWidth() + ( 2 * fPadX ),
+                                                       ( float ) placed.pMap -> PixelHeight() + ( 2 * fPadY ) };
+
+                if( !pMapLayer || ( pMapLayer -> type != L_LAYER ) || !RectanglesOverlap( mapRect, box ) )
+                    continue;                       // no such tile layer in that map, or not touched
+
+                SunLight :: Base :: stRectangle  localRect { mapRect.x - placed.nX, mapRect.y - placed.nY,
+                                                             mapRect.width, mapRect.height };
+
+                world.SetCurrentMap( nIndex );
+                CollidingTilesInCurrentMap( pMapLayer, localRect, ( float ) placed.nX, ( float ) placed.nY, tiles );
+            }
+
+            world.SetCurrentMap( nSavedMap );
+
+            return true;
+        }
+
+        /**
+         * @brief The scan of GetCollidingTiles for the active world's current map (I19e of the master
+         * plan: once per map the collider overlaps): every cell the rectangle can reach - the
+         * projection's own culling range, padded a tile around for a tile larger than the grid, or every
+         * cell on a grid of mixed tile sizes, as LayerRenderer draws them - and each tile one of whose
+         * collision rectangles overlaps (RectanglesOverlap), its rectangle moved into the world's pixels.
+         * @param pLayer The tile layer, of the current map;
+         * @param mapRect The collider's rectangle, in the current map's pixels;
+         * @param fOffsetX The current map's offset in the world (0 with one map);
+         * @param fOffsetY Likewise, vertically;
+         * @param tiles Receives the tiles touched, appended in row then column order;
+         */
+        void TileMapRenderer :: CollidingTilesInCurrentMap( tmx_layer* pLayer,
+                                                            const SunLight :: Base :: stRectangle& mapRect,
+                                                            float fOffsetX,
+                                                            float fOffsetY,
+                                                            std :: vector<SunLight :: TileMap :: stTile>& tiles )  {
+
+            tmx_map                    *pTmxMap = Tmx();
+            Projection :: stTileRange  range;
+
+            if( Map() -> IsUniformTileGrid() )  {
+                float  fPadX = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_width );
+                float  fPadY = ( float ) ( __COLLISION_PADDING_TILES * ( int ) pTmxMap -> tile_height );
+
+                range = Map() -> MapProjection().VisibleTileRange( pTmxMap, SunLight :: Base :: stRectangle {
+                            mapRect.x - pLayer -> offsetx - fPadX, mapRect.y - pLayer -> offsety - fPadY,
+                            mapRect.width + ( 2 * fPadX ), mapRect.height + ( 2 * fPadY ) } );
+            }
+            else  {
+                range = Projection :: stTileRange { 0, ( int ) pTmxMap -> height, 0, ( int ) pTmxMap -> width };
+            }
+
+            for( int nRow = range.nRowStart; nRow < range.nRowEnd; nRow++ )  {
+                for( int nCol = range.nColStart; nCol < range.nColEnd; nCol++ )  {
+                    SunLight :: TileMap :: stMatrixPosition  pos = { nRow, nCol };
+                    SunLight :: TileMap :: stTile            tile;
+
+                    if( !Map() -> TileAt( pos, pLayer, tile ) || ( tile.pTile -> collision == nullptr ) )
+                        continue;
+
+                    tile.dimension = TileMapRect( pos, pLayer, tile.pTile );
+
+                    for( tmx_object* pShape = tile.pTile -> collision; pShape; pShape = pShape -> next )  {
+                        SunLight :: Base :: stRectangle  shape { ( float ) ( tile.dimension.pos.x + pShape -> x ),
+                                                                 ( float ) ( tile.dimension.pos.y + pShape -> y ),
+                                                                 ( float ) pShape -> width,
+                                                                 ( float ) pShape -> height };
+
+                        if( ( pShape -> obj_type == OT_SQUARE ) && RectanglesOverlap( mapRect, shape ) )  {
+                            tile.dimension.pos.x += ( int ) fOffsetX;     // I19d: in the world's pixels
+                            tile.dimension.pos.y += ( int ) fOffsetY;
+                            tiles.push_back( tile );
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Convert a MAP position to the tile matrix cell under it (I7 of the master plan): map pixels,
+         * the same space as GetTile's tile rectangles and a world-space sprite's position - no camera,
+         * zoom or viewport origin. A view-relative sprite's position is its map position minus the
+         * camera (GetCameraPosition). It used to add the viewport origin (screen pixels) and the
+         * camera to the coordinate, which shifted every lookup.
+         * @param coord The map position, in map pixels;
+         * @param pos Reference to struct @ref SunLight::TileMap::stMatrixPosition to receive the
+         * tile matrix position;
+         * @return Whether the position is on the map; false with no map loaded;
+         */
+        bool TileMapRenderer :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
+                                                     SunLight :: TileMap :: stMatrixPosition& pos )  {
+
+            // I19d: World::PickCell - each map of the world, less its offset, through its own
+            // projection's hit-test, and inside its grid (A6: GetTile indexes gids[] with these). With
+            // one map at (0, 0), exactly that map's MapToTileMatrix, as before.
+            int  nMapId = -1;
+
+            return m_pActiveWorld -> PickCell( coord, nMapId, pos );
+        }
+
+        /**
          * Load the specified map to renderer.
          * @param szTmxMapFile Renderer map file;
-         * @param alignment Map alignment according @link MapAlignment enumerator;
+         * @param alignment Map alignment according @ref SunLight::TileMap::ITileMap::MapAlignment enumerator;
          */
-        bool TileMapRenderer :: LoadMap( const char *szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
+        bool TileMapRenderer :: LoadMap( const char* szTmxMapFile, SunLight :: TileMap :: ITileMap :: MapAlignment alignment )  {
 
             if( m_bIsStarted )  {
-                /*
-                 * Reads the .tmx XML itself through SunLight::FileSystem
-                 * rather than libtmx's own path-based ::tmx_load(), which
-                 * fopen()s directly - one whole-file ReadFile() up front
-                 * (same "load it all up front" pattern already used for
-                 * textures/sound), then tmx_rcmgr_load_buffer_vpath()
-                 * (NOT the plain tmx_load_buffer()) to actually parse it.
-                 *
-                 * A real, segfault-causing bug found live going straight
-                 * to tmx_load_buffer() first: it's own public signature
-                 * takes no vpath at all, unlike tmx_load()'s own path
-                 * argument - internally, every relative reference inside
-                 * the map (a <tileset source="..."> or <imagelayer>'s own
-                 * <image source="...">) gets resolved against this vpath
-                 * via mk_absolute_path() (tmx_utils.c) - passing none
-                 * means every such reference resolves to just it's own
-                 * bare relative path, with no base directory at all,
-                 * which then reached TextureLoaderCallback's own
-                 * IEngine::LoadTexture call already missing the context
-                 * needed to find it. tmx_rcmgr_load_buffer_vpath() is
-                 * libtmx's own sanctioned way to load from memory while
-                 * still supplying that vpath explicitly - confirmed safe
-                 * to call with rc_mgr=NULL (no tileset/template caching)
-                 * by reading it's own source: tmx_load() itself passes
-                 * rc_mgr=NULL internally the exact same way.
-                 */
-                std :: vector<unsigned char>  data;
+                // S1c1: the map is read, parsed and given its projection by MapData::Load (which says
+                // why on standard error when it cannot); a failed load leaves the loaded map as it is.
+                std :: unique_ptr<MapData>  pNewMap = MapData :: Load( szTmxMapFile );
 
-                if( !SunLight :: FileSystem :: FileSystemFactory :: GetFileSystem().ReadFile( szTmxMapFile, data ) )  {
-                    fprintf( stderr, "Cannot load map: [%s] could not be read\n", szTmxMapFile );
+                if( !pNewMap )
                     return false;
-                }
 
-                /*
-                 * External tilesets/templates the map names (see the
-                 * "External tilesets" note above): read through the
-                 * FileSystem and handed over in a Resource Manager. A map
-                 * that names none keeps the plain, manager-less path.
-                 */
-                std :: vector<ExternalReference>  externalReferences;
+                // The new map loaded: only now does the previous one (if any) go - destroying its
+                // MapData frees it, its textures and its Resource Manager; the sprites registered with
+                // AddSprite stay registered, as they always did across a LoadMap.
+                m_pDefaultWorld -> SetMap( std :: move( pNewMap ) );
 
-                ScanExternalReferences( std :: string( data.begin(), data.end() ), externalReferences );
+                uint16_t  nMapWidth  = MapPixelWidth();
+                uint16_t  nMapHeight = MapPixelHeight();
 
-                tmx_resource_manager  *pRcMgr = nullptr;
+                // Setup alignment (Camera::Align): the active view's camera, for its viewport and zoom.
+                ActiveCamera().Align( alignment, nMapWidth, nMapHeight, GetViewport().GetDimension2D(),
+                                      GetViewport().GetZoomProperties().fZoomFactor );
 
-                if( !externalReferences.empty() )  {
-                    std :: map<std :: string, std :: string>  loadedKeys;
-                    std :: set<std :: string>                 visited;
-                    std :: string                             strMapDir = DirectoryOfVirtualPath( szTmxMapFile );
-
-                    // libtmx's allocator hooks default to NULL and are only set up by its own tmx_load*/
-                    // tmx_rcmgr_load* entry points - NOT by tmx_make_resource_manager(), which allocates
-                    // straight away: the first map loaded in a process would crash here. Set the same
-                    // defaults libtmx would (its set_alloc_functions()).
-                    if( !tmx_alloc_func )
-                        tmx_alloc_func = realloc;
-
-                    if( !tmx_free_func )
-                        tmx_free_func = free;
-
-                    pRcMgr = ::tmx_make_resource_manager();
-
-                    for( const ExternalReference &reference : externalReferences )
-                        PreloadExternalResource( pRcMgr, reference, strMapDir, loadedKeys, visited );
-                }
-
-                m_pTmxMap = ::tmx_rcmgr_load_buffer_vpath( pRcMgr, reinterpret_cast<const char *>( data.data() ), ( int ) data.size(), szTmxMapFile );
-
-                if( !m_pTmxMap ) {
-                    ::tmx_perror( "Cannot load map" );
-
-                    if( pRcMgr )
-                        ::tmx_free_resource_manager( pRcMgr );
-
-                    return false;
-                }
-
-                // The map points into the manager's tilesets/templates: keep it alive as long as the map.
-                m_pTmxRcMgr = pRcMgr;
-
-                m_nMapWidth  = ( m_pTmxMap -> width * m_pTmxMap -> tile_width );
-                m_nMapHeight = ( m_pTmxMap -> height * m_pTmxMap -> tile_height );
-
-                SunLight :: TileMap :: stDimension2D vp          = GetViewport().GetDimension2D();
-                float                                fZoomFactor = GetViewport().GetZoomProperties().fZoomFactor;
-
-                // The viewport's right/bottom EDGES (pos + size). The
-                // alignment maths below aligns to the visible rectangle
-                // [pos, pos + size) using them - every "- nVpRight + vp.pos.x"
-                // is "minus the visible width" - so a viewport keeps the
-                // exact alignment it always produced for the same visible area.
-                int                                  nVpRight    = vp.pos.x + vp.size.nWidth;
-                int                                  nVpBottom   = vp.pos.y + vp.size.nHeight;
-                int                                  nVpHeight   = ( nVpBottom > 0 ?
-                                                                     std :: abs( ( ( m_nMapHeight / nVpBottom ) * nVpBottom ) - m_nMapHeight ) : 0 );
-
-
-                // Setup alignment
-                switch( alignment & 0xFF )  {
-                    case MAP_ALIGNMENT_TOP_RIGHT :
-                        m_CameraPos.x = ( float ) -( m_nMapWidth - nVpRight + vp.pos.x );
-                        break;
-
-                    case MAP_ALIGNMENT_TOP_LEFT : // Nothing to do
-                        break;
-
-                    case MAP_ALIGNMENT_BOTTOM_RIGHT :
-                        m_CameraPos.x = ( float ) -( m_nMapWidth - nVpRight + vp.pos.x );
-                        m_CameraPos.y = ( float ) -( m_nMapHeight - nVpHeight + vp.pos.y );
-                        break;
-
-                    case MAP_ALIGNMENT_BOTTOM_LEFT :
-                        m_CameraPos.y = ( float ) -( m_nMapHeight - nVpBottom + vp.pos.y );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER_WIDTH_BOTTOM :
-                        m_CameraPos.x = -round( ( ( ( ( m_nMapWidth * fZoomFactor ) -
-                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
-                        m_CameraPos.y = ( float ) -( m_nMapHeight - nVpHeight + vp.pos.y );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER_WIDTH_TOP :
-                        m_CameraPos.x = -round( ( ( ( ( m_nMapWidth * fZoomFactor ) -
-                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER_HEIGHT_LEFT :
-                        m_CameraPos.y = -round( ( ( ( ( m_nMapHeight * fZoomFactor ) -
-                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER_HEIGHT_RIGHT :
-                        m_CameraPos.x = ( float ) -( m_nMapWidth - nVpRight + vp.pos.x );
-                        m_CameraPos.y = -round( ( ( ( ( m_nMapHeight * fZoomFactor ) -
-                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
-                        break;
-
-                    case MAP_ALIGNMENT_CENTER :
-                        m_CameraPos.x = -round( ( ( ( ( m_nMapWidth * fZoomFactor ) -
-                                                    nVpRight + vp.pos.x ) / 2 ) / fZoomFactor ) );
-                        m_CameraPos.y = -round( ( ( ( ( m_nMapHeight * fZoomFactor ) -
-                                                    nVpBottom + vp.pos.y ) / 2 ) / fZoomFactor ) );
-                        break;
-                }
-
-                /*
-                * Set scrolling properties.
-                */
-                SetScrollStepSize( ( m_nScrollStepWidth < 0 ? m_pTmxMap -> tile_width :
-                                                            m_nScrollStepWidth ),
-                                   ( m_nScrollStepHeight < 0 ? m_pTmxMap -> tile_height :
-                                                            m_nScrollStepHeight ) );
-
-                // The same for every other view (their state is parked in the View while the
-                // default one is active): "-1" means the tile size of the map they now show.
-                for( std :: shared_ptr<View> &pView : m_ExtraViews )  {
-                    if( pView -> m_State.nScrollStepWidth < 0 )
-                        pView -> m_State.nScrollStepWidth = m_pTmxMap -> tile_width;
-
-                    if( pView -> m_State.nScrollStepHeight < 0 )
-                        pView -> m_State.nScrollStepHeight = m_pTmxMap -> tile_height;
-                }
+                // Scrolling: for every view showing the default world (I19c), "-1" means the tile size
+                // of the map they now show.
+                ResolveScrollSteps( *m_pDefaultWorld );
 
                 return true;
             }
@@ -2756,24 +2884,9 @@ namespace SunLight {
          */
         bool TileMapRenderer :: UnloadMap( void )  {
 
-            if( m_pTmxMap )  {
+            if( Map() )  {
                 UnloadSprites();
-                ::tmx_map_free( m_pTmxMap );
-
-                // Only now: the map held pointers into the manager's external tilesets/templates.
-                if( m_pTmxRcMgr )  {
-                    ::tmx_free_resource_manager( m_pTmxRcMgr );
-                    m_pTmxRcMgr = nullptr;
-                }
-
-                /*
-                * Release all allocated animations data structure.
-                */
-                m_AnimInfoList.clear();
-
-                m_pTmxMap    = NULL;
-                m_nMapWidth  = 0;
-                m_nMapHeight = 0;
+                m_pDefaultWorld -> UnloadMap();   // frees the map, its textures, its Resource Manager and its tile animations
 
                 return true;
             }
@@ -2783,17 +2896,19 @@ namespace SunLight {
 
         /**
          * Get the current map information data.
-         * @param mapInfo Reference to the struct @link stMapInfo that will
+         * @param mapInfo Reference to the struct @ref SunLight::TileMap::stMapInfo that will
          * receive the map information.
          */
         bool TileMapRenderer :: GetMapInfo( SunLight :: TileMap :: stMapInfo& mapInfo )  {
 
-            if( m_pTmxMap )  {
-                mapInfo.mapSize.nWidth   = m_pTmxMap -> width;
-                mapInfo.mapSize.nHeight  = m_pTmxMap -> height;
-                mapInfo.tileSize.nWidth  = m_pTmxMap -> tile_width;
-                mapInfo.tileSize.nHeight = m_pTmxMap -> tile_height;
-                mapInfo.pMap = m_pTmxMap;
+            tmx_map  *pTmxMap = Tmx();
+
+            if( pTmxMap )  {
+                mapInfo.mapSize.nWidth   = pTmxMap -> width;
+                mapInfo.mapSize.nHeight  = pTmxMap -> height;
+                mapInfo.tileSize.nWidth  = pTmxMap -> tile_width;
+                mapInfo.tileSize.nHeight = pTmxMap -> tile_height;
+                mapInfo.pMap = pTmxMap;
 
                 return true;
             }
@@ -2802,55 +2917,10 @@ namespace SunLight {
         }
 
         /**
-         * @brief Recursive helper for GetObjectByName() - walks pLayer's
-         * linked list looking for a named object inside any L_OBJGR layer,
-         * recursing into L_GROUP the same way DrawAllLayers() does, so a
-         * map that nests an object group inside a <group> layer is still
-         * searched correctly instead of silently skipped.
-         *
-         * @param pLayer Head of the tmx_layer linked list to search;
-         * @param szObjectName The object's name, as set in the map editor;
-         * @param object Reference to receive the object's data if found;
-         * @return true if an object with this name was found, false
-         * otherwise;
-         */
-        bool TileMapRenderer :: FindObjectByName( tmx_layer *pLayer, const char *szObjectName, SunLight :: TileMap :: stObject& object )  {
-
-            for( ; pLayer != nullptr; pLayer = pLayer -> next )  {
-
-                if( pLayer -> type == L_GROUP )  {
-                    if( FindObjectByName( pLayer -> content.group_head, szObjectName, object ) )
-                        return true;
-
-                    continue;
-                }
-
-                if( pLayer -> type != L_OBJGR )
-                    continue;
-
-                for( tmx_object *pObject = pLayer -> content.objgr -> head; pObject != nullptr; pObject = pObject -> next )  {
-
-                    if( ( pObject -> name != nullptr ) && ( ::strcmp( pObject -> name, szObjectName ) == 0 ) )  {
-
-                        object.strName            = pObject -> name;
-                        object.dimension.pos.x    = ( int ) pObject -> x;
-                        object.dimension.pos.y    = ( int ) pObject -> y;
-                        object.dimension.size.nWidth  = ( int ) pObject -> width;
-                        object.dimension.size.nHeight = ( int ) pObject -> height;
-
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        /**
-         * @brief Look up a level-design-authored object (a Tiled <object>
-         * placed inside any <objectgroup> layer) by name - searches every
+         * @brief Look up a level-design-authored object (a Tiled `<object>`
+         * placed inside any `<objectgroup>` layer) by name - searches every
          * object-group layer in the loaded map, including ones nested
-         * inside <group> layers (see FindObjectByName()), since libtmx has
+         * inside `<group>` layers (see MapData::FindObjectByName), since libtmx has
          * no tmx_find_object_by_name of it's own (only
          * tmx_find_object_by_id, no use here - objects are authored/named
          * by hand in the map editor, not looked up by their internal id).
@@ -2860,12 +2930,57 @@ namespace SunLight {
          * @return true if an object with this name was found, false
          * otherwise (including if no map is loaded).
          */
-        bool TileMapRenderer :: GetObjectByName( const char *szObjectName, SunLight :: TileMap :: stObject& object )  {
+        bool TileMapRenderer :: GetObjectByName( const char* szObjectName, SunLight :: TileMap :: stObject& object )  {
 
-            if( m_pTmxMap == nullptr )
+            if( !Map() )
                 return false;
 
-            return FindObjectByName( m_pTmxMap -> ly_head, szObjectName, object );
+            return Map() -> FindObjectByName( szObjectName, object );
+        }
+
+        /**
+         * @brief I11 of the master plan: the gid a tile layer's cell draws now (see ITileMap).
+         */
+        bool TileMapRenderer :: GetTileFrame( int nLayerId, const SunLight :: TileMap :: stMatrixPosition& pos, unsigned int& nGID )  {
+
+            if( !Map() )
+                return false;
+
+            tmx_layer                      *pLayer = m_pActiveWorld -> LayerInMap( m_pActiveWorld -> CurrentMapIndex(), nLayerId );
+            SunLight :: TileMap :: stTile   tile;
+
+            if( ( pLayer == nullptr ) || ( pLayer -> type != L_LAYER ) || !Map() -> TileAt( pos, pLayer, tile ) )
+                return false;
+
+            nGID = Map() -> FrameGidOf( tile.pTile, tile.nGID );
+
+            return true;
+        }
+
+        /**
+         * @brief I11 of the master plan: the gid a tile object draws now (see ITileMap).
+         */
+        bool TileMapRenderer :: GetObjectTileFrame( const char* szObjectName, unsigned int& nGID )  {
+
+            if( !Map() )
+                return false;
+
+            tmx_object  *pObject = Map() -> FindTmxObjectByName( szObjectName );
+            tmx_map     *pTmxMap = Map() -> Tmx();
+
+            if( ( pObject == nullptr ) || ( pObject -> obj_type != OT_TILE ) )
+                return false;
+
+            // The tile as DrawTileObject finds it: the gid without its flip bits, inside the tile table.
+            unsigned int  nObjectGID = pObject -> content.gid & TMX_FLIP_BITS_REMOVAL;
+
+            if( ( nObjectGID == 0 ) || ( pTmxMap -> tiles == nullptr ) || ( nObjectGID >= pTmxMap -> tilecount ) ||
+                ( pTmxMap -> tiles[nObjectGID] == nullptr ) )
+                return false;
+
+            nGID = Map() -> FrameGidOf( pTmxMap -> tiles[nObjectGID], nObjectGID );
+
+            return true;
         }
 
         /**
@@ -2873,7 +2988,7 @@ namespace SunLight {
          */
         SunLight :: Collision :: ICollisionManager& TileMapRenderer :: GetCollisionManager( void )  {
 
-            return m_CollisionManager;
+            return m_pDefaultWorld -> Collisions();
         }
 
         /**
@@ -2882,7 +2997,7 @@ namespace SunLight {
          * mapless-rendering support, added so a sprite can exist with no
          * tile map ever loaded at all). GetLayer(nLayerId) validates
          * nLayerId against the currently loaded map's own real layers
-         * when one is loaded (m_pTmxMap != nullptr) - unchanged from
+         * when one is loaded (Tmx() != nullptr) - unchanged from
          * before. When no map is loaded, there's nothing real to validate
          * nLayerId against, so it's skipped entirely and nLayerId is
          * accepted as a plain caller-chosen grouping key - the same role
@@ -2906,27 +3021,22 @@ namespace SunLight {
          */
         bool TileMapRenderer :: AddSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
-            if( m_bIsStarted && ( ( m_pTmxMap == nullptr ) || GetLayer( nLayerId ) ) )  {
-                SpriteMap :: iterator itItemLayer = m_SpriteMap.find( nLayerId );
+            if( m_bIsStarted && ( ( Tmx() == nullptr ) || GetLayer( nLayerId ) ) )  {
+                // Opened before the checks below, as it always was (see SpriteRegistry::OpenLayer).
+                Sprites().OpenLayer( nLayerId );
 
-                if( itItemLayer == m_SpriteMap.end() )  {
-                    itItemLayer = m_SpriteMap.insert( m_SpriteMap.end(), std :: make_pair( nLayerId, new SpriteList ) );
+                if( !Sprites().Contains( nLayerId, &sprite ) && !InAnotherWorld( sprite ) &&
+                    Collisions().AddCollider( nLayerId, &sprite.GetCollider() ) )  {
+
+                    sprite.SetParent( this );
+                    // L1 of the master plan: so a world-space sprite's own GetCameraOffset
+                    // can later ask for THIS layer's parallax factor, at any time, with no
+                    // dependency on whether a render pass has ever run.
+                    sprite.SetParallaxLayerId( nLayerId );
+                    Sprites().MarkParented( &sprite );
+                    Sprites().Add( nLayerId, &sprite );
+                    return true;
                 }
-
-                if( itItemLayer != m_SpriteMap.end() )  {
-                    SpriteList :: iterator itItem = std :: find( itItemLayer -> second -> begin(),
-                                                                 itItemLayer -> second -> end(),
-                                                                 &sprite );
-
-                    if( ( itItem == itItemLayer -> second -> end() ) &&
-                        m_CollisionManager.AddCollider( nLayerId, &sprite.GetCollider() ) )  {
-
-                        sprite.SetParent( this );
-                        m_ParentedSprites.insert( &sprite );
-                        itItemLayer -> second -> push_back( &sprite );
-                        return true;
-                    }
-                }  
             }
 
             return false;
@@ -2940,21 +3050,11 @@ namespace SunLight {
          */
         bool TileMapRenderer :: RemoveSprite( int nLayerId, SunLight :: Sprite :: Sprite& sprite )  {
 
-            if( m_bIsStarted )  {
-                SpriteMap :: iterator itItemLayer = m_SpriteMap.find( nLayerId );
+            if( m_bIsStarted && Sprites().Contains( nLayerId, &sprite ) )  {
+                Collisions().RemoveCollider( nLayerId, &sprite.GetCollider() );
+                Sprites().Remove( nLayerId, &sprite );
 
-                if( itItemLayer != m_SpriteMap.end() )  {
-                    SpriteList :: iterator itItem = std :: find( itItemLayer -> second -> begin(),
-                                                                 itItemLayer -> second -> end(),
-                                                                 &sprite );
-
-                    if( itItem != itItemLayer -> second -> end() )  {
-                        m_CollisionManager.RemoveCollider( nLayerId, &sprite.GetCollider() );
-                        itItemLayer -> second -> erase( itItem );
-
-                        return true;
-                    }
-                }
+                return true;
             }
 
             return false;
@@ -3031,17 +3131,38 @@ namespace SunLight {
          */
         void TileMapRenderer :: Stop( void )  {
 
-            for( SunLight :: TileMap :: ITileMapListener* pListener : m_TileMapListenerList )  {
-                pListener -> OnStop();
+            for( SunLight :: TileMap :: ITileMapListener* pListener : ListenersSnapshot() )  {
+                if( IsListenerRegistered( pListener ) )
+                    pListener -> OnStop();
             }
 
             if( m_bIsStarted )  {
                 UnloadMap();
+                // UnloadMap only reaches UnloadSprites when a map is loaded; sprites registered
+                // with no map ever loaded (M2) must be released here too, or their per-layer
+                // lists leak and they stay registered across a restart.
+                UnloadSprites();
+
+                // I19c: every other world lets go of its sprites (detached: the game's) and of its map,
+                // whose textures must go while the window is open. The worlds stay, empty.
+                for( std :: shared_ptr<World>& pWorld : m_ExtraWorlds )  {
+                    DetachSprites( *pWorld, false );
+                    pWorld -> FreeMap();
+                }
+
+                // Fonts go before the window closes: the engine's close handler
+                // would release them too, but that is its own state, not ours.
+                // The active font is let go as well (I3), so a font no one else
+                // holds is released while the window is open.
+                ReleaseRegisteredFonts();
+                SunLight :: Engines :: EngineFactory :: GetEngine().SetFont( nullptr );
 
                 if( m_pRenderTexture != nullptr )  {
                     SunLight :: Engines :: EngineFactory :: GetEngine().UnloadRenderTarget( m_pRenderTexture );
                     m_pRenderTexture = nullptr;
                 }
+
+                ReleaseViewTargets();               // I19a: the views' own render targets, while the window is open
 
                 // Closing the window fires its close handlers first (see
                 // IWindow::AddCloseHandler), which is where a backend engine
@@ -3060,7 +3181,7 @@ namespace SunLight {
          * (RendererConfig::nMaxFrames, counted since Start()) is spent, or a
          * caller/listener called @see RequestExit - checked once per iteration, not
          * immediately, so a RequestExit() call from inside this frame's
-         * own HandleUserUpdate/etc. still lets the frame finish drawing
+         * own HandleTileMapUpdate/etc. still lets the frame finish drawing
          * before the loop actually exits. Either way, this function only
          * returns - it never closes the window itself; that's still
          * @see Stop's job alone, unconditionally, regardless of which
@@ -3071,14 +3192,23 @@ namespace SunLight {
             if( m_bIsStarted )  {
                 SunLight :: Window :: IWindow  &window = SunLight :: Window :: WindowFactory :: GetWindow();
 
-                while ( !window.ShouldClose() && !m_bExitRequested &&
-                        ( ( m_nMaxFrames == 0 ) || ( m_nFramesRun < m_nMaxFrames ) ) ) {
+                while( !window.ShouldClose() && !m_bExitRequested &&
+                        ( ( m_nMaxFrames == 0 ) || ( m_nFramesRun < m_nMaxFrames ) ) )  {
                     SunLight :: Engines :: EngineFactory :: GetEngine().BeginRenderTarget( m_pRenderTexture );
                     if( GetVisible() )  {
                         RenderMap();
-                        HandleUserInput();
-                        HandleUserUpdate();
+                        m_pControllerManager -> Update();
+                        HandleTileMapUpdate();
                         HandleUserCollisions();
+
+                        // A game's BeginBlendMode without its EndBlendMode ends here (I2): the
+                        // fade below, a black drawn over everything, must darken the frame, not be
+                        // added to or subtracted from it. Asked only when needed, so a frame with no mode
+                        // makes no SetBlendMode call.
+                        SunLight :: Engines :: IEngine  &engine = SunLight :: Engines :: EngineFactory :: GetEngine();
+
+                        if( engine.GetBlendMode() != SunLight :: Base :: BLEND_MODE_NORMAL )
+                            engine.SetBlendMode( SunLight :: Base :: BLEND_MODE_NORMAL );
 
                         /*
                          * Screen fade overlay - drawn last, after
@@ -3097,7 +3227,7 @@ namespace SunLight {
                         if( m_fScreenFadeAlpha > 0.0f )  {
                             SunLight :: Base :: stColor  fadeColor = BLACK_COLOR;
 
-                            fadeColor.nAlpha = ( unsigned char ) ( 255.0f * m_fScreenFadeAlpha );
+                            fadeColor.nAlpha = ( unsigned char ) ( __FADE_CHANNEL_MAX * m_fScreenFadeAlpha );
 
                             SunLight :: Engines :: EngineFactory :: GetEngine().DrawFilledRectangle(
                                                                   0, 0,
@@ -3166,6 +3296,11 @@ namespace SunLight {
                                           SunLight :: Engines :: EngineFactory :: GetEngine().GetRenderTargetTexture( m_pRenderTexture ),
                                           source, dest, WHITE_COLOR );
                     window.EndFrame();
+
+                    // The input devices are read for the next frame here, where raylib reads the
+                    // keyboard and mouse (EndDrawing, inside EndFrame) - so gamepads read through
+                    // SDL2 change state at the same moment (I25, see IInputHandler::Update).
+                    m_pControllerManager -> GetInputHandler().Update();
                     m_nFramesRun++;
                 }
 

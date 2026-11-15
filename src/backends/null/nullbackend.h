@@ -83,4 +83,4 @@ namespace SunLight  {
         }
     }
 }
-#endif  /* __NULLBACKEND_H__ */
+#endif /* __NULLBACKEND_H__ */

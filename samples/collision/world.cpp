@@ -19,6 +19,7 @@
  */
 
 #include "world.h"
+#include "../shared/zoomkeys.h"
 #include <cstdio>
 
 #define __DISPLAY_W                 1260
@@ -40,6 +41,7 @@
 #define __SUNNY_LAYER_ID            4
 #define __OBSTACLE_IMAGE            "resources/map/images/monke_variants.png"
 #define __OBSTACLE_LAYER_ID         7
+#define __WALL_LAYER_ID             9       // the map's "walls" tile layer: tiles with a Tiled collision rectangle
 #define __PLAYER_MOVE_STEP          2
 #define __GAME_NAME                 "Collision test"
 
@@ -51,8 +53,7 @@
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler.
  */
 void World :: MovePlayerUp( SunLight :: Input :: ControllerType type, int nId )  {
-    m_LastStep = { 0, -__PLAYER_MOVE_STEP };
-    m_pSpriteSunny -> Move( m_LastStep );
+    Step( 0, -__PLAYER_MOVE_STEP );
 }
 
 /**
@@ -61,8 +62,7 @@ void World :: MovePlayerUp( SunLight :: Input :: ControllerType type, int nId ) 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler.
  */
 void World :: MovePlayerDown( SunLight :: Input :: ControllerType type, int nId )  {
-    m_LastStep = { 0, __PLAYER_MOVE_STEP };
-    m_pSpriteSunny -> Move( m_LastStep );
+    Step( 0, __PLAYER_MOVE_STEP );
 }
 
 /**
@@ -71,8 +71,7 @@ void World :: MovePlayerDown( SunLight :: Input :: ControllerType type, int nId 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler.
  */
 void World :: MovePlayerLeft( SunLight :: Input :: ControllerType type, int nId )  {
-    m_LastStep = { -__PLAYER_MOVE_STEP, 0 };
-    m_pSpriteSunny -> Move( m_LastStep );
+    Step( -__PLAYER_MOVE_STEP, 0 );
 }
 
 /**
@@ -81,8 +80,44 @@ void World :: MovePlayerLeft( SunLight :: Input :: ControllerType type, int nId 
  * @param nId Controller id defined at SunLight :: Renderer :: TileMapRenderer :: SetUserKeyEventHandler.
  */
 void World :: MovePlayerRight( SunLight :: Input :: ControllerType type, int nId )  {
-    m_LastStep = { __PLAYER_MOVE_STEP, 0 };
-    m_pSpriteSunny -> Move( m_LastStep );
+    Step( __PLAYER_MOVE_STEP, 0 );
+}
+
+/**
+ * @brief Move Sunny one step, and add it to this frame's steps (m_LastStep). The first step of a
+ * new frame starts the sum again; a collision undoes the whole sum (UndoLastStep), so a diagonal -
+ * two keys, two steps in one frame - is undone on both axes.
+ * @param nDx Horizontal step;
+ * @param nDy Vertical step;
+ */
+void World :: Step( int nDx, int nDy )  {
+
+    SunLight :: Base :: stCoordinate2D  step = { nDx, nDy };
+
+    if( m_nStepFrame != m_nFrame )  {
+        m_LastStep   = { 0, 0 };
+        m_nStepFrame = m_nFrame;
+    }
+
+    m_LastStep.x += nDx;
+    m_LastStep.y += nDy;
+    m_pSpriteSunny -> Move( step );
+}
+
+/**
+ * @brief Called once a frame, after the keys and before the collisions: the steps already taken
+ * belong to this frame, and the next key starts a new sum.
+ * @param tileMap The renderer;
+ */
+void World :: OnUpdate( SunLight :: TileMap :: ITileMap& tileMap )  {
+
+    m_nFrame++;
+}
+
+/**
+ * @brief Nothing to release.
+ */
+void World :: OnStop( void )  {
 }
 
 /**
@@ -121,32 +156,48 @@ void World :: ResetZoom( SunLight :: Input :: ControllerType type, int nId )  {
  * simply blocks movement by undoing the step that caused the overlap,
  * giving the obstacle solid, wall-like collision.
  */
-void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: Collision :: Collider *pSecond )  {
+void World :: OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: Collision :: Collider* pSecond )  {
 
-    SunLight :: TileMap :: stCoordinate2D  revert = { -m_LastStep.x, -m_LastStep.y };
-
-    m_pSpriteSunny -> Move( revert );
+    UndoLastStep();
 }
 
 /**
- * @brief Unused in this sample - only a collider-to-collider rule is
- * registered (see LoadSprites()), no collider-to-tile-layer rule.
+ * @brief Called for every wall tile Sunny touches - a collider-to-tile rule between Sunny's
+ * layer and the map's "walls" tile layer (see LoadSprites()). Each tile of tileset_wall.tsx
+ * carries a Tiled collision rectangle over the whole tile. Like the obstacle, a wall blocks the
+ * step that reached it. The tile is reported with its rectangle in map space (pSecond ->
+ * dimension), the same space as Tiled's.
  */
-void World :: OnCollision( SunLight :: Collision :: Collider *pFirst, SunLight :: TileMap :: stTile *pSecond )  {
+void World :: OnCollision( SunLight :: Collision :: Collider* pFirst, SunLight :: TileMap :: stTile* pSecond )  {
+
+    UndoLastStep();
 }
 
-bool World :: LoadSprites( void ) {
+/**
+ * @brief Undo this frame's steps, once: a step into a corner can touch two walls (one callback
+ * per tile), and undoing it twice would push Sunny back further than she moved. Both axes are
+ * undone, so a diagonal into a wall stops her rather than sliding her along it.
+ */
+void World :: UndoLastStep( void )  {
+
+    SunLight :: Base :: stCoordinate2D  revert = { -m_LastStep.x, -m_LastStep.y };
+
+    m_pSpriteSunny -> Move( revert );
+    m_LastStep = { 0, 0 };
+}
+
+bool World :: LoadSprites( void )  {
 
     if( m_pCanvasSunny -> Load( __SUNNY_SPRITE_IDLE ) &&
-        m_pCanvasObstacle -> Load( __OBSTACLE_IMAGE ) ) {
-        SunLight :: TileMap :: stDimension2D    dimSunny;
-        SunLight :: TileMap :: stDimension2D    dimObstacle;
+        m_pCanvasObstacle -> Load( __OBSTACLE_IMAGE ) )  {
+        SunLight :: Base :: stDimension2D    dimSunny;
+        SunLight :: Base :: stDimension2D    dimObstacle;
 
         // Sprites don't scroll with the camera in this library -
         // TextureCanvas::Update() -> Viewport::GetClippedRect() computes
-        // screen = world * zoomFactor + viewport.pos with no m_CameraPos
+        // screen = world * zoomFactor + viewport.pos with no Camera::Position()
         // term at all (unlike tile layers, which DrawTile offsets by
-        // m_CameraPos explicitly). At this sample's zoom (3.8125x) and
+        // Camera::Position() explicitly). At this sample's zoom (3.8125x) and
         // 900x800 viewport at (10,10), that means only world coordinates
         // roughly within x:[0,236] y:[0,210] land on screen at all -
         // Sunny is placed near the middle of that range so she's clearly
@@ -197,7 +248,13 @@ bool World :: LoadSprites( void ) {
         // (see TileMapRenderer::AddSprite()) - pairing the two layers here
         // is all that's needed to start checking Sunny against the obstacle.
         m_pRenderer -> GetCollisionManager().AddColliderToColliderRule( __SUNNY_LAYER_ID, __OBSTACLE_LAYER_ID );
+
+        // And Sunny against the walls: every tile of the "walls" layer whose tile has a Tiled
+        // collision rectangle. Sunny is a view-relative sprite; the collision is worked out in map
+        // space, so the camera (the map is centre-aligned) and the zoom keys do not move where she stops.
+        m_pRenderer -> GetCollisionManager().AddColliderToTileRule( __SUNNY_LAYER_ID, __WALL_LAYER_ID );
         m_pRenderer -> GetCollisionManager().AddCollisionListener( this );
+        m_pRenderer -> AddTileMapListener( this );
 
         return true;
     }
@@ -212,11 +269,12 @@ bool World :: LoadSprites( void ) {
 World :: World( std :: string strBasePath )  {
 
     m_LastStep     = { 0, 0 };
+    m_nFrame       = 0;
+    m_nStepFrame   = -1;
     m_pRenderer = std :: make_unique<SunLight :: Renderer :: TileMapRenderer>( __DISPLAY_W,
                                                                                __DISPLAY_H,
                                                                                __GAME_NAME,
-                                                                               __FRAMES_PER_SECOND,
-                                                                               false );
+                                                                               __FRAMES_PER_SECOND );
     m_pSpriteSunny = std :: make_unique<SunLight :: Sprite :: Sprite>();
     m_pCanvasSunny = std :: make_unique<SunLight :: Canvas :: TextureCanvas>();
     m_pSpriteObstacle = std :: make_unique<SunLight :: Sprite :: Sprite>();
@@ -229,7 +287,7 @@ World :: World( std :: string strBasePath )  {
 bool World :: Run( void )  {
 
     std :: string                            strMapFile;
-    SunLight :: TileMap :: stDimension2D     viewport;
+    SunLight :: Base :: stDimension2D     viewport;
 
     m_pRenderer -> SetViewControlMode( SunLight :: Renderer :: ViewControlMode :: VIEW_CONTROL_MODE_ACTIVE );
 
@@ -247,6 +305,13 @@ bool World :: Run( void )  {
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_UP, std :: bind( &World :: ZoomOut, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_PAGE_DOWN, std :: bind( &World :: ZoomIn, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
     m_pRenderer -> SetUserKeyEventHandler( SunLight :: Input :: KEY_HOME, std :: bind( &World :: ResetZoom, this, std :: placeholders::_1, std :: placeholders :: _2 ) );
+
+    // + zooms in, - zooms out and = resets the zoom, on the keyboard and on the keypad - the same in
+    // every sample that zooms (samples/shared/zoomkeys.h), next to this sample's own keys above.
+    Samples :: InstallZoomKeys( *m_pRenderer,
+                                [this]() { ZoomIn( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ZoomOut( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); },
+                                [this]() { ResetZoom( SunLight :: Input :: CONTROLLER_KEYBOARD, KEYBOARD_ID ); } );
 
     viewport.pos.x = __VIEWPORT_POS_X;
     viewport.pos.y = __VIEWPORT_POS_Y;

@@ -38,6 +38,7 @@ point it at this sample's own directory:
 | `Page Up` | Zoom out |
 | `Page Down` | Zoom in |
 | `Home` | Reset zoom to the default level |
+| `+` / `-` / `=` (keyboard or keypad) | Zoom in / out / reset the zoom |
 
 Keyboard controls work with no gamepad connected at all, so the sample can be exercised without
 hardware — the gamepad bindings are additive, not a replacement.

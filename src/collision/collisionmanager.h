@@ -26,12 +26,12 @@
 #include <memory>
 #include "collision/icollisionmanager.h"
 #include "collision/colliderhandle.h"
-#include "tilemap/itilemap.h"
+#include "tilemap/itilesource.h"
 
 #define MAX_COLLIDER_LAYERS   255
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Collision  {
 
         /**
@@ -53,23 +53,26 @@ namespace SunLight {
             typedef std :: pair<ColliderList*, int> ColliderTileLayerPair;
             typedef std :: deque<std :: unique_ptr<ColliderTileLayerPair>> ColliderToTileLayerRuleList;
 
-            SunLight :: TileMap :: ITileMap   *m_pParent;
+            SunLight :: TileMap :: ITileSource  *m_pParent;
             ColliderLayerList                 m_ColliderLayerList;
             ColliderToColliderRuleList        m_ColliderToColliderRuleList;
             ColliderToTileLayerRuleList       m_ColliderToTileLayerRuleList;
             CollisionListenerList             m_Listeners;
 
 
-            void FireOnCollision( SunLight :: Collision :: Collider *pFirst,
-                                  SunLight :: Collision :: Collider *pSecond );
-            void FireOnCollision( SunLight :: Collision :: Collider *pFirst,
+            void FireOnCollision( SunLight :: Collision :: Collider* pFirst,
+                                  SunLight :: Collision :: Collider* pSecond );
+            void FireOnCollision( SunLight :: Collision :: Collider* pFirst,
                                   SunLight :: TileMap :: stTile* pSecond );
-            bool IsColliderRegistered( ColliderList *pColliderList,
+            bool IsColliderRegistered( ColliderList* pColliderList,
                                        const ColliderHandle& handle );
+
+            // Whether a collider layer id indexes m_ColliderLayerList: 0 <= id < MAX_COLLIDER_LAYERS.
+            static bool IsValidLayerId( int nColliderLayerId );
 
             public:
 
-            CollisionManager( SunLight :: TileMap :: ITileMap  *pParent );
+            CollisionManager( SunLight :: TileMap :: ITileSource  *pParent );
             virtual ~CollisionManager( void );
 
             bool AddCollider( int nColliderLayerId,
@@ -83,7 +86,7 @@ namespace SunLight {
                                             int nSecondColliderLayerId );
             bool AddColliderToTileRule( int nColliderLayerId,
                                         int nTileLayerId );
-            void AddCollisionListener( SunLight :: Collision :: ICollisionListener *pListener );
+            void AddCollisionListener( SunLight :: Collision :: ICollisionListener* pListener );
 
             void Update( void );
         };

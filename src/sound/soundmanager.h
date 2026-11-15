@@ -27,7 +27,7 @@
 #include "isound.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sound  {
 
         /**

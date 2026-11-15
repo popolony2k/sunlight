@@ -35,13 +35,13 @@
 #define MAX_GAMEPAD_COUNT       10
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Input  {
 
          /**
          * @brief Keyboard enumeration
          */
-        enum KeyboardKey {
+        enum KeyboardKey  {
             KEY_NULL            = 0,            // Key: NULL, used for no key pressed
             // Alphanumeric keys
             KEY_APOSTROPHE      = 39,           // Key: '
@@ -153,7 +153,7 @@ namespace SunLight {
             KEY_KP_EQUAL        = 336,          // Key: Keypad =
             // Android key buttons
             KEY_BACK            = 4,            // Key: Android back button
-            KEY_MENU            = 82,           // Key: Android menu button
+            KEY_MENU            = 5,            // Key: Android menu button
             KEY_VOLUME_UP       = 24,           // Key: Android volume up button
             KEY_VOLUME_DOWN     = 25            // Key: Android volume down button
         };
@@ -162,16 +162,16 @@ namespace SunLight {
          * @brief Gamepad buttons enumeration
          * 
          */
-        enum GamepadButton {
+        enum GamepadButton  {
             GAMEPAD_BUTTON_UNKNOWN = 0,         // Unknown button, just for error checking
             GAMEPAD_BUTTON_LEFT_FACE_UP,        // Gamepad left DPAD up button
             GAMEPAD_BUTTON_LEFT_FACE_RIGHT,     // Gamepad left DPAD right button
             GAMEPAD_BUTTON_LEFT_FACE_DOWN,      // Gamepad left DPAD down button
             GAMEPAD_BUTTON_LEFT_FACE_LEFT,      // Gamepad left DPAD left button
             GAMEPAD_BUTTON_RIGHT_FACE_UP,       // Gamepad right button up (i.e. PS3: Triangle, Xbox: Y)
-            GAMEPAD_BUTTON_RIGHT_FACE_RIGHT,    // Gamepad right button right (i.e. PS3: Square, Xbox: X)
+            GAMEPAD_BUTTON_RIGHT_FACE_RIGHT,    // Gamepad right button right (i.e. PS3: Circle, Xbox: B)
             GAMEPAD_BUTTON_RIGHT_FACE_DOWN,     // Gamepad right button down (i.e. PS3: Cross, Xbox: A)
-            GAMEPAD_BUTTON_RIGHT_FACE_LEFT,     // Gamepad right button left (i.e. PS3: Circle, Xbox: B)
+            GAMEPAD_BUTTON_RIGHT_FACE_LEFT,     // Gamepad right button left (i.e. PS3: Square, Xbox: X)
             GAMEPAD_BUTTON_LEFT_TRIGGER_1,      // Gamepad top/back trigger left (first), it could be a trailing button
             GAMEPAD_BUTTON_LEFT_TRIGGER_2,      // Gamepad top/back trigger left (second), it could be a trailing button
             GAMEPAD_BUTTON_RIGHT_TRIGGER_1,     // Gamepad top/back trigger right (one), it could be a trailing button
@@ -187,7 +187,7 @@ namespace SunLight {
          * @brief Gamepad axis enumeration
          * 
          */
-        enum GamepadAxis {
+        enum GamepadAxis  {
             GAMEPAD_AXIS_LEFT_X        = 0,     // Gamepad left stick X axis
             GAMEPAD_AXIS_LEFT_Y        = 1,     // Gamepad left stick Y axis
             GAMEPAD_AXIS_RIGHT_X       = 2,     // Gamepad right stick X axis
@@ -225,6 +225,17 @@ namespace SunLight {
             public:
 
             virtual ~IInputHandler( void )  {}
+
+            /**
+             * @brief Reads the input devices' state for the coming frame (I25 of the master plan).
+             * TileMapRenderer::Run calls it once per frame, right after the window's EndFrame -
+             * where raylib reads the keyboard and mouse itself - so every device's state changes
+             * at the same moment. Code that drives an input handler without TileMapRenderer::Run
+             * calls it once per frame itself; until then, gamepads read through SDL2 keep the
+             * state of the last call (their own thread keeps reading them, I25b, but a frame only
+             * sees what Update copied).
+             */
+            virtual void Update( void ) = 0;
 
             // Keyboard handling
 
@@ -327,4 +338,4 @@ namespace SunLight {
         };
     }
 }
-#endif  /* __IINPUTHANDLER_H__ */
+#endif /* __IINPUTHANDLER_H__ */

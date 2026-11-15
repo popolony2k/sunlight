@@ -20,9 +20,14 @@
 
 #include "renderer/view.h"
 #include "renderer/tilemaprenderer.h"
+#include <algorithm>
+#include <cmath>
+
+#define __VIEW_OPACITY_MIN    0.0f    // a view's opacity: nothing shown
+#define __VIEW_OPACITY_MAX    1.0f    // a view's opacity: drawn as always
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Renderer  {
 
         /**
@@ -34,7 +39,7 @@ namespace SunLight {
          * GetViewport() and the default view's are one object); nullptr for
          * any other view, which then owns a fresh Viewport;
          */
-        View :: View( TileMapRenderer *pRenderer, int nId, SunLight :: Base :: Viewport *pExistingViewport ) :
+        View :: View( TileMapRenderer* pRenderer, int nId, SunLight :: Base :: Viewport* pExistingViewport ) :
                       m_pRenderer( pRenderer ),
                       m_nId( nId )  {
 
@@ -46,11 +51,6 @@ namespace SunLight {
                 m_pViewport      = m_pOwnedViewport.get();
             }
 
-            m_State.camera.x         = 0.0f;
-            m_State.camera.y         = 0.0f;
-            m_State.nScrollStepWidth  = -1;
-            m_State.nScrollStepHeight = -1;
-
             // The default view (the one wrapping the renderer's own viewport) is drawn first and
             // is not cleared per-view (the frame clear is its clear); the others start on top of it.
             m_bVisible            = true;
@@ -59,8 +59,15 @@ namespace SunLight {
             m_bExplicitBackground = false;
             m_Background          = SunLight :: Base :: stColor { 0, 0, 0, 0xFF };
             m_bMaskIsWhitelist    = false;
+            m_fOpacity            = __VIEW_OPACITY_MAX;
+            m_hTarget             = nullptr;
         }
 
+        /**
+         * @brief Nothing to release here: the view's render target (I19a) is the renderer's to
+         * release (TileMapRenderer::ReleaseViewTarget, on RemoveView, Stop and its destructor), as
+         * only it knows the engine is still drawing.
+         */
         View :: ~View( void )  {
         }
 
@@ -86,13 +93,8 @@ namespace SunLight {
          * Cut this view loose from its renderer (see @see IView::IsRemoved for what an
          * inert view does). Idempotent.
          *
-         * A view's own state is parked in m_State whenever it is not the active one; the
-         * only view that can still be active here is the default one (a removed view is made
-         * inactive first, and the renderer's own destructor runs with the default view
-         * active), so its live camera/scroll step - which sit in the renderer's working
-         * members - are parked now.
-         *
-         * The default view also uses the renderer's OWN root Viewport, a member of the
+         * The view's camera is its own (m_Camera), so it keeps its last position and scroll
+         * step as it is. The default view also uses the renderer's OWN root Viewport, a member of the
          * renderer's base class that dies with it: so it is replaced by a private copy,
          * built through Viewport's public interface (rectangle, zoom position, preferred
          * zoom, zoom limits, user-zoom flag), which then belongs to the view. Viewport
@@ -103,12 +105,6 @@ namespace SunLight {
 
             if( !m_pRenderer )
                 return;
-
-            if( m_pRenderer -> m_pActiveView == this )  {
-                m_State.camera            = m_pRenderer -> m_CameraPos;
-                m_State.nScrollStepWidth  = m_pRenderer -> m_nScrollStepWidth;
-                m_State.nScrollStepHeight = m_pRenderer -> m_nScrollStepHeight;
-            }
 
             if( this == m_pRenderer -> m_pDefaultView.get() )  {
                 std :: unique_ptr<SunLight :: Base :: Viewport>  pCopy = std :: make_unique<SunLight :: Base :: Viewport>();
@@ -132,72 +128,122 @@ namespace SunLight {
             m_pRenderer = nullptr;
         }
 
+        /**
+         * @brief Whether the view was cut loose from its renderer (see Detach).
+         * @return true once RemoveView removed it or its renderer was destroyed;
+         */
         bool View :: IsRemoved( void )  {
 
             return ( m_pRenderer == nullptr );
         }
 
+        /**
+         * @brief The id the renderer gave the view.
+         * @return 0 for the default view, otherwise the id CreateView returned;
+         */
         int View :: GetId( void )  {
 
             return m_nId;
         }
 
+        /**
+         * @brief The view's Viewport: the renderer's own root one for the default view, the view's
+         * own (m_pOwnedViewport) for any other or once detached.
+         * @return The viewport, valid for as long as the view is;
+         */
         SunLight :: Base :: Viewport& View :: GetViewport( void )  {
 
             return *m_pViewport;
         }
 
+        /**
+         * @brief The renderer's own ResetZoom, run with this view active (see Run); nothing once
+         * detached.
+         */
         void View :: ResetZoom( void )  {
 
             Run( [this]() { m_pRenderer -> ResetZoom(); } );
         }
 
+        /**
+         * @brief The renderer's own ZoomIn, run with this view active; nothing once detached.
+         */
         void View :: ZoomIn( void )  {
 
             Run( [this]() { m_pRenderer -> ZoomIn(); } );
         }
 
+        /**
+         * @brief The renderer's own ZoomOut, run with this view active; nothing once detached.
+         */
         void View :: ZoomOut( void )  {
 
             Run( [this]() { m_pRenderer -> ZoomOut(); } );
         }
 
+        /**
+         * @brief The renderer's own ResetCamera, run with this view active; nothing once detached.
+         */
         void View :: ResetCamera( void )  {
 
             Run( [this]() { m_pRenderer -> ResetCamera(); } );
         }
 
+        /**
+         * @brief The renderer's own MoveCameraUp (one scroll step, clamped), run with this view
+         * active; nothing once detached.
+         */
         void View :: MoveCameraUp( void )  {
 
             Run( [this]() { m_pRenderer -> MoveCameraUp(); } );
         }
 
+        /**
+         * @brief The renderer's own MoveCameraDown, run with this view active; nothing once detached.
+         */
         void View :: MoveCameraDown( void )  {
 
             Run( [this]() { m_pRenderer -> MoveCameraDown(); } );
         }
 
+        /**
+         * @brief The renderer's own MoveCameraLeft, run with this view active; nothing once detached.
+         */
         void View :: MoveCameraLeft( void )  {
 
             Run( [this]() { m_pRenderer -> MoveCameraLeft(); } );
         }
 
+        /**
+         * @brief The renderer's own MoveCameraRight, run with this view active; nothing once detached.
+         */
         void View :: MoveCameraRight( void )  {
 
             Run( [this]() { m_pRenderer -> MoveCameraRight(); } );
         }
 
+        /**
+         * @brief The renderer's own SetCameraPosition, run with this view active; nothing once
+         * detached.
+         * @param nX The map x shown at the viewport's left edge;
+         * @param nY The map y shown at its top edge;
+         */
         void View :: SetCameraPosition( int nX, int nY )  {
 
             Run( [this, nX, nY]() { m_pRenderer -> SetCameraPosition( nX, nY ); } );
         }
 
-        void View :: GetCameraPosition( int &nX, int &nY )  {
+        /**
+         * @brief The renderer's own GetCameraPosition, run with this view active; once detached,
+         * the last position its camera had.
+         * @param nX Receives the x;
+         * @param nY Receives the y;
+         */
+        void View :: GetCameraPosition( int& nX, int& nY )  {
 
-            // Detached: the last position it had (same negation the renderer's own getter applies).
+            // Detached: the last position it had.
             if( !m_pRenderer )  {
-                nX = ( int ) -m_State.camera.x;
-                nY = ( int ) -m_State.camera.y;
+                m_Camera.GetPosition( nX, nY );
 
                 return;
             }
@@ -205,16 +251,27 @@ namespace SunLight {
             Run( [this, &nX, &nY]() { m_pRenderer -> GetCameraPosition( nX, nY ); } );
         }
 
+        /**
+         * @brief The renderer's own SetScrollStepSize, run with this view active; nothing once
+         * detached.
+         * @param nStepWidth The horizontal step, or -1 for the map's tile width;
+         * @param nStepHeight The vertical step, or -1 for the map's tile height;
+         */
         void View :: SetScrollStepSize( int nStepWidth, int nStepHeight )  {
 
             Run( [this, nStepWidth, nStepHeight]() { m_pRenderer -> SetScrollStepSize( nStepWidth, nStepHeight ); } );
         }
 
-        void View :: GetScrollStepSize( int &nStepWidth, int &nStepHeight )  {
+        /**
+         * @brief The renderer's own GetScrollStepSize, run with this view active; once detached,
+         * the step its camera kept.
+         * @param nStepWidth Receives the horizontal step;
+         * @param nStepHeight Receives the vertical step;
+         */
+        void View :: GetScrollStepSize( int& nStepWidth, int& nStepHeight )  {
 
             if( !m_pRenderer )  {
-                nStepWidth  = m_State.nScrollStepWidth;
-                nStepHeight = m_State.nScrollStepHeight;
+                m_Camera.GetScrollStep( nStepWidth, nStepHeight );
 
                 return;
             }
@@ -222,30 +279,88 @@ namespace SunLight {
             Run( [this, &nStepWidth, &nStepHeight]() { m_pRenderer -> GetScrollStepSize( nStepWidth, nStepHeight ); } );
         }
 
+        /**
+         * @brief Whether the frame draws the view; only stored (the view's own data).
+         * @param bVisible false skips the view's pass;
+         */
         void View :: SetVisible( bool bVisible )  {
 
             m_bVisible = bVisible;
         }
 
+        /**
+         * @brief Whether the frame draws the view.
+         * @return true by default;
+         */
         bool View :: GetVisible( void )  {
 
             return m_bVisible;
         }
 
+        /**
+         * @brief The view's place among the passes (ascending, then by id); only stored.
+         * @param nOrder The order;
+         */
         void View :: SetDrawOrder( int nOrder )  {
 
             m_nDrawOrder = nOrder;
         }
 
+        /**
+         * @brief The view's place among the passes.
+         * @return 0 for the default view, its id for another, until set;
+         */
         int View :: GetDrawOrder( void )  {
 
             return m_nDrawOrder;
         }
 
         /**
+         * @brief I19c of the master plan: show another world (TileMapRenderer::SetViewWorld, which
+         * refuses it for the default view, an empty, removed or foreign world).
+         * @param pWorld The world;
+         * @return false when refused, or once the view is removed;
+         */
+        bool View :: SetWorld( const std :: shared_ptr<SunLight :: TileMap :: IWorld>& pWorld )  {
+
+            return m_pRenderer ? m_pRenderer -> SetViewWorld( *this, pWorld ) : false;
+        }
+
+        /**
+         * @brief The world the view shows - the last one, once the view is removed.
+         * @return The world;
+         */
+        std :: shared_ptr<SunLight :: TileMap :: IWorld> View :: GetWorld( void )  {
+
+            return m_pWorld;
+        }
+
+        /**
+         * @brief I19a of the master plan: the view's opacity, which the renderer's frame reads (see
+         * TileMapRenderer::BeginViewTarget). Only stored here - the view's own data, so a removed
+         * view keeps it too.
+         * @param fOpacity 0 (nothing shown) to 1 (drawn as always), clamped; a NaN leaves the opacity as it was;
+         */
+        void View :: SetOpacity( float fOpacity )  {
+
+            if( !std :: isnan( fOpacity ) )
+                m_fOpacity = std :: clamp( fOpacity, __VIEW_OPACITY_MIN, __VIEW_OPACITY_MAX );
+        }
+
+        /**
+         * @brief The view's opacity.
+         * @return 0..1; 1 by default;
+         */
+        float View :: GetOpacity( void )  {
+
+            return m_fOpacity;
+        }
+
+        /**
          * The default view's clear is the frame's own (TileMapRenderer's
          * m_bClearBackground, the very flag SetClearBackground sets), so it
          * is read/written there rather than kept twice.
+         * @param bClear true clears the view's rectangle before its pass;
          */
         void View :: SetClearBackground( bool bClear )  {
 
@@ -255,6 +370,11 @@ namespace SunLight {
                 m_bClear = bClear;
         }
 
+        /**
+         * @brief Whether the view's rectangle is cleared before its pass: the renderer's own
+         * m_bClearBackground for the default view (see SetClearBackground), the view's flag otherwise.
+         * @return true by default;
+         */
         bool View :: GetClearBackground( void )  {
 
             if( m_pRenderer && ( this == m_pRenderer -> m_pDefaultView.get() ) )
@@ -263,17 +383,30 @@ namespace SunLight {
             return m_bClear;
         }
 
-        void View :: SetBackgroundColor( const SunLight :: Base :: stColor &color )  {
+        /**
+         * @brief The color the view's clear uses from now on, instead of the map's or the window's.
+         * @param color The color, alpha included;
+         */
+        void View :: SetBackgroundColor( const SunLight :: Base :: stColor& color )  {
 
             m_Background          = color;
             m_bExplicitBackground = true;
         }
 
+        /**
+         * @brief The view's clear goes back to the map's background color (the window's with no map).
+         */
         void View :: UseMapBackgroundColor( void )  {
 
             m_bExplicitBackground = false;
         }
 
+        /**
+         * @brief Show or hide one layer in this view, by id. m_MaskIds holds the hidden ids, or -
+         * after ShowOnlyLayers - the shown ones, so the id is added or taken out accordingly.
+         * @param nLayerId The layer's id; one that names no layer is kept and never matched;
+         * @param bShow true shows it;
+         */
         void View :: ShowLayer( int nLayerId, bool bShow )  {
 
             // The set holds the hidden ids, or - after ShowOnlyLayers - the shown ones.
@@ -283,30 +416,51 @@ namespace SunLight {
                 m_MaskIds.erase( nLayerId );
         }
 
-        bool View :: ShowLayer( const char *szLayerName, bool bShow )  {
+        /**
+         * @brief Same, by name: the name is looked up in the map of the world the view shows (I19c)
+         * and its id masked.
+         * @param szLayerName The layer's name;
+         * @param bShow true shows it;
+         * @return false (nothing changed) with no name, no renderer, no map in the view's world or no such layer;
+         */
+        bool View :: ShowLayer( const char* szLayerName, bool bShow )  {
 
-            tmx_layer  *pLayer = ( szLayerName && m_pRenderer && m_pRenderer -> m_pTmxMap ) ? m_pRenderer -> GetLayer( szLayerName ) : nullptr;
+            // I19d: the WORLD layer id of that name (the map's own, with one map).
+            int  nLayerId = ( m_pRenderer && m_pWorld && szLayerName ) ? m_pWorld -> GetLayerId( szLayerName ) : -1;
 
-            if( !pLayer )
+            if( nLayerId < 0 )
                 return false;
 
-            ShowLayer( ( int ) pLayer -> id, bShow );
+            ShowLayer( nLayerId, bShow );
 
             return true;
         }
 
-        void View :: ShowOnlyLayers( const std :: vector<int> &layerIds )  {
+        /**
+         * @brief Show only these layers: the mask becomes a list of the shown ids.
+         * @param layerIds The ids shown; every other layer, later ones included, is hidden;
+         */
+        void View :: ShowOnlyLayers( const std :: vector<int>& layerIds )  {
 
             m_bMaskIsWhitelist = true;
             m_MaskIds          = std :: set<int>( layerIds.begin(), layerIds.end() );
         }
 
+        /**
+         * @brief Clear the mask: back to a (now empty) list of hidden ids, so every layer shows.
+         */
         void View :: ShowAllLayers( void )  {
 
             m_bMaskIsWhitelist = false;
             m_MaskIds.clear();
         }
 
+        /**
+         * @brief What the mask says about a layer: in the set means shown for a list of shown ids,
+         * hidden for a list of hidden ones.
+         * @param nLayerId The layer's id;
+         * @return true when this view shows it;
+         */
         bool View :: IsLayerShown( int nLayerId )  {
 
             bool  bInSet = ( m_MaskIds.find( nLayerId ) != m_MaskIds.end() );
@@ -322,22 +476,28 @@ namespace SunLight {
          * division (viewport x steps-per-unit / map size) rather than in
          * floating point, so a view that is exactly half/quarter/... of the
          * map fits at exactly that zoom instead of one step short.
+         * @return false (nothing changed) with no map in the view's world (I19c), or once detached;
          */
         bool View :: FitToMap( void )  {
 
-            tmx_map  *pMap = ( m_pRenderer ? m_pRenderer -> m_pTmxMap : nullptr );
+            tmx_map  *pMap = ( m_pRenderer && m_pWorld && m_pWorld -> Map() ) ? m_pWorld -> Map() -> Tmx() : nullptr;
 
             if( !pMap )
                 return false;
 
-            const long  nStepsPerUnit = ( long ) ( 1.0f / SunLight :: Base :: ZOOM_STEP );
-            long        nMapW         = ( long ) pMap -> width  * ( long ) pMap -> tile_width;
-            long        nMapH         = ( long ) pMap -> height * ( long ) pMap -> tile_height;
+            // One map: its grid's size, as always. Several (I19d): the box every map of the world fits in.
+            SunLight :: Base :: stDimension2D  bounds        = m_pWorld -> Bounds();
+            bool                               bSeveral      = ( m_pWorld -> MapCount() > 1 );
+            const long                         nStepsPerUnit = ( long ) ( 1.0f / SunLight :: Base :: ZOOM_STEP );
+            long                               nMapW         = bSeveral ? ( long ) bounds.size.nWidth :
+                                                                          ( long ) pMap -> width  * ( long ) pMap -> tile_width;
+            long                               nMapH         = bSeveral ? ( long ) bounds.size.nHeight :
+                                                                          ( long ) pMap -> height * ( long ) pMap -> tile_height;
 
             if( ( nMapW <= 0 ) || ( nMapH <= 0 ) )
                 return false;
 
-            SunLight :: TileMap :: stDimension2D  &dim = m_pViewport -> GetDimension2D();
+            SunLight :: Base :: stDimension2D  &dim = m_pViewport -> GetDimension2D();
             long  nStepsW = ( ( long ) dim.size.nWidth  * nStepsPerUnit ) / nMapW;
             long  nStepsH = ( ( long ) dim.size.nHeight * nStepsPerUnit ) / nMapH;
             long  nSteps  = ( nStepsW < nStepsH ? nStepsW : nStepsH );
@@ -354,7 +514,14 @@ namespace SunLight {
             return true;
         }
 
-        bool View :: TileMapToTileMatrix( const SunLight :: TileMap :: stCoordinate2D& coord,
+        /**
+         * @brief The renderer's own TileMapToTileMatrix (a map position has no view, so every view
+         * answers the same), run with this view active.
+         * @param coord The position, in map pixels;
+         * @param pos Receives the cell's row and column;
+         * @return Whether the position is in one of the map's cells; false once detached;
+         */
+        bool View :: TileMapToTileMatrix( const SunLight :: Base :: stCoordinate2D& coord,
                                           SunLight :: TileMap :: stMatrixPosition& pos )  {
 
             bool  bResult = false;

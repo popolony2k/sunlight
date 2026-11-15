@@ -18,13 +18,15 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "texturecanvas.h"
+#include "canvas/texturecanvas.h"
+#include <cmath>
 #include <cstring>
 #include "engines/enginefactory.h"
 #include "base/primitives.h"
+#include "general/helper.h"
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Canvas  {
         /**
          * Constructor. Initialize all class data.
@@ -56,7 +58,7 @@ namespace SunLight {
          */
         bool TextureCanvas :: Load( std :: string strTextureFile )  {
 
-            SunLight :: TileMap :: stDimension2D& dimension = GetDimension2D();
+            SunLight :: Base :: stDimension2D& dimension = GetDimension2D();
 
             m_hTexture = SunLight :: Engines :: EngineFactory :: GetEngine().LoadTexture( strTextureFile.c_str(),
                                                                                           m_nTextureWidth,
@@ -64,7 +66,7 @@ namespace SunLight {
 
             if( m_hTexture != nullptr )  {
                 if( ( dimension.size.nWidth == 0 ) &&
-                    ( dimension.size.nHeight == 0 )  ) {
+                    ( dimension.size.nHeight == 0 )  )  {
                     dimension.size.nHeight = m_nTextureHeight;
                     dimension.size.nWidth  = m_nTextureWidth;
                 }
@@ -76,7 +78,7 @@ namespace SunLight {
         }
 
         /**
-         * Unload a previously loaded texture  by @link Load method.
+         * Unload a previously loaded texture  by @ref Load method.
          */
         bool TextureCanvas :: Unload( void )  {
 
@@ -114,7 +116,7 @@ namespace SunLight {
         /**
          * Get texture frame split size.
          */
-        unsigned int TextureCanvas :: GetTileSize( void ) {
+        unsigned int TextureCanvas :: GetTileSize( void )  {
 
             return m_nTileSize;
         }
@@ -185,7 +187,7 @@ namespace SunLight {
          * Where this canvas is on screen right now, in the view being drawn:
          * dm receives its rectangle relative to that view - its own dimension,
          * moved by the view's camera when the canvas is in WORLD space (the
-         * same arithmetic a map tile gets in TileMapRenderer::DrawTile, so a
+         * same arithmetic a map tile gets in LayerRenderer::DrawTile, so a
          * canvas placed at a tile's map position lands exactly on that tile) -
          * and clip the part of it inside the view's viewport, zoomed and
          * offset to the render target (see Viewport::GetClippedRect).
@@ -193,8 +195,8 @@ namespace SunLight {
          * @param clip Receives the visible, scaled part;
          * @return false if none of it is inside the viewport;
          */
-        bool TextureCanvas :: GetScreenRect( SunLight :: TileMap :: stDimension2D &dm,
-                                             SunLight :: TileMap :: stDimension2D &clip )  {
+        bool TextureCanvas :: GetScreenRect( SunLight :: Base :: stDimension2D& dm,
+                                             SunLight :: Base :: stDimension2D& clip )  {
 
             dm = GetDimension2D();
 
@@ -220,8 +222,8 @@ namespace SunLight {
          */
         bool TextureCanvas :: IsOnScreen( void )  {
 
-            SunLight :: TileMap :: stDimension2D  dm;
-            SunLight :: TileMap :: stDimension2D  clip;
+            SunLight :: Base :: stDimension2D  dm;
+            SunLight :: Base :: stDimension2D  clip;
 
             return ( GetVisible() && GetScreenRect( dm, clip ) );
         }
@@ -239,10 +241,10 @@ namespace SunLight {
         void TextureCanvas :: Advance( void )  {
 
             if( GetVisible() )  {
-                SunLight :: TileMap :: stDimension2D  dm;
-                SunLight :: TileMap :: stDimension2D  clip;
+                SunLight :: Base :: stDimension2D  dm;
+                SunLight :: Base :: stDimension2D  clip;
 
-                if( GetScreenRect( dm, clip ) ) {
+                if( GetScreenRect( dm, clip ) )  {
 
                     switch( m_AnimationMode )  {
                         case TEXTURE_ANIMATION_MODE_AUTOMATIC_CIRCULAR :
@@ -355,11 +357,11 @@ namespace SunLight {
 
             if( GetVisible() )  {
                 SunLight :: Base :: Viewport&       vp   = GetViewport();
-                SunLight :: TileMap :: stDimension2D& vpDm = vp.GetDimension2D();
-                SunLight :: TileMap :: stDimension2D  dm;
-                SunLight :: TileMap :: stDimension2D  clip;
+                SunLight :: Base :: stDimension2D& vpDm = vp.GetDimension2D();
+                SunLight :: Base :: stDimension2D  dm;
+                SunLight :: Base :: stDimension2D  clip;
 
-                if( GetScreenRect( dm, clip ) ) {
+                if( GetScreenRect( dm, clip ) )  {
 
                     /*
                     * All cut operations are calculated considering the
@@ -379,20 +381,31 @@ namespace SunLight {
                                                                  ( int ) std :: abs( ( clip.size.nHeight / fZoomFactor ) -
                                                                  dm.size.nHeight ) : 0 );
 
+                    // Study: the whole canvas is drawn at its zoomed size; the view pass's clip cuts it.
                     SunLight :: Engines :: EngineFactory :: GetEngine().DrawTextureTiled(
                                                           m_hTexture,
-                                                          SunLight :: Base :: stRectangle { ( float ) m_nCurrentTile + nClipX,
-                                                                      ( float ) nClipY,
+                                                          SunLight :: Base :: stRectangle { ( float ) m_nCurrentTile,
+                                                                      0.0f,
                                                                       ( float ) ( m_nTileSize > 0 ?
                                                                                   m_nTileSize :
                                                                                   m_nTextureWidth ),
                                                                       ( float ) m_nTextureHeight },
-                                                          SunLight :: Base :: stRectangle { ( float ) clip.pos.x,
-                                                                      ( float ) clip.pos.y,
-                                                                      ( float ) clip.size.nWidth,
-                                                                      ( float ) clip.size.nHeight },
+                                                          // Rounded to the nearest whole screen pixel, half-up
+                                                          // (SunLight::General::Helper::RoundHalfUp, never std::round -
+                                                          // see its own doc comment): at a non-integer zoom, the exact
+                                                          // value can land on a fractional pixel that mathematically
+                                                          // abuts its neighbor but that the rasterizer draws with a
+                                                          // visible 1px seam between them, and std::round's
+                                                          // away-from-zero ties can open a real gap of their own (see
+                                                          // LayerRenderer::DrawTile's own identical rounding and its doc comment for
+                                                          // the full story - this canvas is drawn through the very
+                                                          // same path a world-space sprite's neighbor tile is).
+                                                          SunLight :: Base :: stRectangle { SunLight :: General :: Helper :: RoundHalfUp( dm.pos.x * fZoomFactor + vpDm.pos.x ),
+                                                                      SunLight :: General :: Helper :: RoundHalfUp( dm.pos.y * fZoomFactor + vpDm.pos.y ),
+                                                                      SunLight :: General :: Helper :: RoundHalfUp( dm.size.nWidth * fZoomFactor ),
+                                                                      SunLight :: General :: Helper :: RoundHalfUp( dm.size.nHeight * fZoomFactor ) },
                                                           SunLight :: Base :: stVector2D { 0.0, 0.0 },
-                                                          0.0, // TODO: Rotation
+                                                          0.0,
                                                           fZoomFactor,
                                                           color );
                 }

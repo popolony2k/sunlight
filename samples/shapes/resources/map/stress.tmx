@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="60" height="40" tilewidth="32" tileheight="32" nextlayerid="3" nextobjectid="1000">
+ <!-- Stress map for benchmarks: 72 shapes of four kinds in a grid, larger than the viewport. -->
+ <objectgroup id="2" name="shapes" color="#ffff8040">
+  <object id="100" x="40" y="40" width="120" height="90"/>
+  <object id="101" x="190" y="40" width="120" height="90"><ellipse/></object>
+  <object id="102" x="340" y="40" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="103" x="490" y="40" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="104" x="640" y="40" width="120" height="90"/>
+  <object id="105" x="790" y="40" width="120" height="90"><ellipse/></object>
+  <object id="106" x="940" y="40" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="107" x="1090" y="40" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="108" x="1240" y="40" width="120" height="90"/>
+  <object id="109" x="1390" y="40" width="120" height="90"><ellipse/></object>
+  <object id="110" x="1540" y="40" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="111" x="1690" y="40" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="112" x="40" y="160" width="120" height="90"/>
+  <object id="113" x="190" y="160" width="120" height="90"><ellipse/></object>
+  <object id="114" x="340" y="160" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="115" x="490" y="160" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="116" x="640" y="160" width="120" height="90"/>
+  <object id="117" x="790" y="160" width="120" height="90"><ellipse/></object>
+  <object id="118" x="940" y="160" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="119" x="1090" y="160" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="120" x="1240" y="160" width="120" height="90"/>
+  <object id="121" x="1390" y="160" width="120" height="90"><ellipse/></object>
+  <object id="122" x="1540" y="160" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="123" x="1690" y="160" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="124" x="40" y="280" width="120" height="90"/>
+  <object id="125" x="190" y="280" width="120" height="90"><ellipse/></object>
+  <object id="126" x="340" y="280" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="127" x="490" y="280" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="128" x="640" y="280" width="120" height="90"/>
+  <object id="129" x="790" y="280" width="120" height="90"><ellipse/></object>
+  <object id="130" x="940" y="280" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="131" x="1090" y="280" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="132" x="1240" y="280" width="120" height="90"/>
+  <object id="133" x="1390" y="280" width="120" height="90"><ellipse/></object>
+  <object id="134" x="1540" y="280" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="135" x="1690" y="280" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="136" x="40" y="400" width="120" height="90"/>
+  <object id="137" x="190" y="400" width="120" height="90"><ellipse/></object>
+  <object id="138" x="340" y="400" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="139" x="490" y="400" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="140" x="640" y="400" width="120" height="90"/>
+  <object id="141" x="790" y="400" width="120" height="90"><ellipse/></object>
+  <object id="142" x="940" y="400" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="143" x="1090" y="400" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="144" x="1240" y="400" width="120" height="90"/>
+  <object id="145" x="1390" y="400" width="120" height="90"><ellipse/></object>
+  <object id="146" x="1540" y="400" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="147" x="1690" y="400" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="148" x="40" y="520" width="120" height="90"/>
+  <object id="149" x="190" y="520" width="120" height="90"><ellipse/></object>
+  <object id="150" x="340" y="520" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="151" x="490" y="520" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="152" x="640" y="520" width="120" height="90"/>
+  <object id="153" x="790" y="520" width="120" height="90"><ellipse/></object>
+  <object id="154" x="940" y="520" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="155" x="1090" y="520" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="156" x="1240" y="520" width="120" height="90"/>
+  <object id="157" x="1390" y="520" width="120" height="90"><ellipse/></object>
+  <object id="158" x="1540" y="520" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="159" x="1690" y="520" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="160" x="40" y="640" width="120" height="90"/>
+  <object id="161" x="190" y="640" width="120" height="90"><ellipse/></object>
+  <object id="162" x="340" y="640" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="163" x="490" y="640" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="164" x="640" y="640" width="120" height="90"/>
+  <object id="165" x="790" y="640" width="120" height="90"><ellipse/></object>
+  <object id="166" x="940" y="640" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="167" x="1090" y="640" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+  <object id="168" x="1240" y="640" width="120" height="90"/>
+  <object id="169" x="1390" y="640" width="120" height="90"><ellipse/></object>
+  <object id="170" x="1540" y="640" width="0" height="0"><polyline points="0,0 60,40 120,0 120,90"/></object>
+  <object id="171" x="1690" y="640" width="0" height="0"><polygon points="0,0 120,0 120,90 60,40 0,90"/></object>
+ </objectgroup>
+</map>

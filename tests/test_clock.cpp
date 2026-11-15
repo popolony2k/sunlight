@@ -80,7 +80,7 @@ namespace  {
     };
 
     // Run() up to nTimes times, stopping early once the queue is drained.
-    void RunSome( SunLight :: Scripting :: ScriptProcessor &sp, int nTimes )  {
+    void RunSome( SunLight :: Scripting :: ScriptProcessor& sp, int nTimes )  {
 
         for( int nCount = 0; ( nCount < nTimes ) && sp.Run(); nCount++ )  {}
     }

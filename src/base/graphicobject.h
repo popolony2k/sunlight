@@ -29,8 +29,8 @@ namespace SunLight  {
     namespace Base  {
         class GraphicObject : public SunLight :: Base :: Object  {
 
-            SunLight :: TileMap :: stDimension2D    *m_pDimension;
-            SunLight :: TileMap :: stDimension2D    m_Dimension;
+            SunLight :: Base :: stDimension2D    *m_pDimension;
+            SunLight :: Base :: stDimension2D    m_Dimension;
             bool                                    m_bVisible;
 
 
@@ -42,9 +42,9 @@ namespace SunLight  {
             virtual void SetVisible( bool bVisible );
             virtual bool GetVisible( void );
 
-            virtual void SetDimension2DPtr( SunLight :: TileMap :: stDimension2D* pDimension );
-            void SetDimension2D( SunLight :: TileMap :: stDimension2D dimension );
-            SunLight :: TileMap :: stDimension2D& GetDimension2D( void );
+            virtual void SetDimension2DPtr( SunLight :: Base :: stDimension2D* pDimension );
+            void SetDimension2D( SunLight :: Base :: stDimension2D dimension );
+            SunLight :: Base :: stDimension2D& GetDimension2D( void );
         };
     }
 }

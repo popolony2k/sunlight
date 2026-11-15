@@ -26,7 +26,7 @@
 #include <functional>
 
 
-namespace SunLight {
+namespace SunLight  {
     namespace Sound  {
 
         /**
@@ -62,4 +62,4 @@ namespace SunLight {
     }
 }
 
-#endif  /* __SOUNDFACTORY_H__ */
+#endif /* __SOUNDFACTORY_H__ */
