@@ -103,7 +103,8 @@ Both were caught by reading the actual vendored source (`build/_deps/raylib-src/
 ## Known issues and planned work
 
 The plan of record is `doc/MASTER_PLAN.md`: known bugs (the scroll-boundary FIXME is item A6),
-planned features, and open gaps are tracked there, with a status for each item.
+planned features, and open gaps are tracked there, with a status for each item. Work that is known
+but not yet planned waits in `doc/BACKLOG.md`, one numbered item each, until the owner schedules it.
 
 ## Git workflow
 

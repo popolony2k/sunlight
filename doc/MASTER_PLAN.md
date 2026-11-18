@@ -2249,6 +2249,7 @@ recorded in `doc/SCARAB_HANDOFF.md`.
 | I24 | Image layers drawn at their picture's real size, not the size the map declares (found by Caravellius, through Scarab) | DONE |
 | I25 | Gamepads read through SDL2, rumble on the same SDL devices, with a raylib/GLFW fallback (Caravellius' five macOS gamepad findings) | DONE |
 | I25b | Every SDL gamepad call on a thread of its own, so a pad's set-up (2 to 4 s on Bluetooth, measured by Caravellius) never freezes the game | DONE |
+| I26 | Linux release archives built with a recent GLIBC (`ubuntu-latest`) do not start on older distributions such as Debian 13 (found by Caravellius, reported by Scarab); details and ideas in [`BACKLOG.md`](BACKLOG.md) item 1 | BACKLOG |
 
 **I1: render-target alpha (DONE).** Scarab's window showed `test.tmx`'s two semi-transparent
 layers greyer than Tiled does. Cause, read in raylib's source and measured on the GPU: raylib's
